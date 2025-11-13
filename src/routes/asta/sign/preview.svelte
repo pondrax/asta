@@ -9,7 +9,7 @@
 
   const GAP = 10;
   const BUFFER = 3;
-  const PADDING = 16; // 1rem = 16px (p-4)
+  const PADDING = 1; // 1rem = 16px (p-4)
 
   let pageCount = $state(0);
   let pageSizes: { width: number; height: number; ratio: number }[] = $state(
@@ -79,7 +79,10 @@
     if (containerEl) containerEl.scrollTop = 0;
     rendered.forEach((el) => el.remove());
     rendered.clear();
-    pdfDoc = null;
+    if (pdfDoc) {
+      pdfDoc.destroy();
+      pdfDoc = null;
+    }
     pageCount = 0;
     pageSizes = [];
     pageHeights = [];
@@ -116,9 +119,6 @@
   }
 
   // --- Scroll + Virtualization ---
-  function onScroll() {
-    scheduleUpdate();
-  }
 
   function scheduleUpdate() {
     if (typeof requestAnimationFrame === "undefined") return;
@@ -188,7 +188,7 @@
     // Wrapper div for page and overlay
     const wrap = document.createElement("div");
     wrap.className =
-      "absolute left-1/2 -translate-x-1/2 inline-block rounded-2xl bg-white border border-base-300 shadow overflow-hidden";
+      "absolute left-1/2 -translate-x-1/2 inline-block rounded-lg bg-white border border-base-300 shadow overflow-hidden";
     wrap.style.top = `${top}px`;
 
     // Canvas for PDF page
@@ -196,14 +196,22 @@
     const ctx = canvas.getContext("2d")!;
     canvas.width = vp.width;
     canvas.height = vp.height;
-    canvas.className = "block";
+    // canvas.className = "block";
+
+    // DRAFT watermark
+    const watermark = document.createElement("div");
+    watermark.textContent = "DRAFT";
+    watermark.className =
+      "absolute inset-0 flex items-center justify-center pointer-events-none -rotate-45 text-error/20 tracking-widest select-none";
+    watermark.style.fontSize = `${vp.width * 0.15}px`;
 
     // Page number overlay
     const overlay = document.createElement("div");
-    overlay.textContent = `${num} / ${pageCount}`;
+    overlay.textContent = `Page ${num} / ${pageCount}`;
     overlay.className = "absolute top-2 right-3 badge badge-sm badge-primary";
 
     wrap.appendChild(canvas);
+    wrap.appendChild(watermark);
     wrap.appendChild(overlay);
 
     containerEl.querySelector(".pdf-layer")?.appendChild(wrap);
@@ -216,20 +224,10 @@
 
 <div
   bind:this={containerEl}
-  class="relative w-full h-full overflow-y-auto p-4"
-  onscroll={onScroll}
+  class="relative w-full h-full max-w-7xl mx-auto overflow-y-auto p-4"
+  onscroll={scheduleUpdate}
 >
   <div class="relative w-full" style="height: {totalHeight}px">
-    <div class="pdf-layer"></div>
+    <div class="pdf-layer absolute top-0 left-0 right-0 bottom-0"></div>
   </div>
 </div>
-
-<style>
-  .pdf-layer {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-  }
-</style>

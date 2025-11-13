@@ -9,6 +9,7 @@
 
   const GAP = 10;
   const BUFFER = 3;
+  const PADDING = 1; // 1rem = 16px (p-4)
 
   let pageCount = $state(0);
   let pageSizes: { width: number; height: number; ratio: number }[] = $state(
@@ -78,7 +79,10 @@
     if (containerEl) containerEl.scrollTop = 0;
     rendered.forEach((el) => el.remove());
     rendered.clear();
-    pdfDoc = null;
+    if (pdfDoc) {
+      pdfDoc.destroy();
+      pdfDoc = null;
+    }
     pageCount = 0;
     pageSizes = [];
     pageHeights = [];
@@ -89,8 +93,17 @@
   // --- Layout calculation ---
   function recomputeLayout() {
     if (!containerEl || pageSizes.length === 0) return;
-    const w = containerEl.clientWidth;
-    pageHeights = pageSizes.map((s) => Math.round(w * s.ratio));
+    const containerWidth = containerEl.clientWidth - PADDING * 2;
+    const containerHeight = containerEl.clientHeight - PADDING * 2;
+
+    pageHeights = pageSizes.map((s) => {
+      // Calculate scale to fit both width and height
+      const scaleW = containerWidth / s.width;
+      const scaleH = containerHeight / s.height;
+      const scale = Math.min(scaleW, scaleH);
+      return Math.round(s.height * scale);
+    });
+
     offsets = new Array(pageCount);
     let top = 0;
     for (let i = 0; i < pageCount; i++) {
@@ -98,6 +111,11 @@
       top += pageHeights[i] + GAP;
     }
     totalHeight = Math.max(0, top - GAP);
+
+    // Re-render all visible pages with new dimensions
+    rendered.forEach((wrap) => wrap.remove());
+    rendered.clear();
+    scheduleUpdate();
   }
 
   // --- Scroll + Virtualization ---
@@ -115,6 +133,7 @@
   }
 
   function findIndexByOffset(off: number) {
+    if (offsets.length === 0) return 0;
     let lo = 0,
       hi = offsets.length - 1;
     if (off <= 0) return 0;
@@ -127,7 +146,7 @@
       if (off < top) hi = mid - 1;
       else lo = mid + 1;
     }
-    return lo;
+    return Math.min(lo, offsets.length - 1);
   }
 
   async function updateVisible() {
@@ -159,22 +178,20 @@
     if (!pdfDoc || !containerEl) return;
     const page = await pdfDoc.getPage(num);
 
-    const containerWidth = containerEl.clientWidth;
-    const containerHeight = containerEl.clientHeight;
-
+    const containerWidth = containerEl.clientWidth - PADDING * 2;
+    const containerHeight = containerEl.clientHeight - PADDING * 2;
     const vp1 = page.getViewport({ scale: 1 });
 
-    // Auto-fit: if page height exceeds viewport, scale down to fit height
-    const scale = Math.min(
-      containerWidth / vp1.width,
-      // containerHeight / vp1.height,
-    );
-
+    // Scale to fit both width and height (auto-fit)
+    const scaleW = containerWidth / vp1.width;
+    const scaleH = containerHeight / vp1.height;
+    const scale = Math.min(scaleW, scaleH);
     const vp = page.getViewport({ scale });
+
     // Wrapper div for page and overlay
     const wrap = document.createElement("div");
     wrap.className =
-      "absolute left-1/2 -translate-x-1/2 inline-block rounded-lg bg-white ring-1 shadow-xl overflow-hidden";
+      "absolute left-1/2 -translate-x-1/2 inline-block rounded-lg bg-white border border-base-300 shadow overflow-hidden";
     wrap.style.top = `${top}px`;
 
     // Canvas for PDF page
@@ -184,12 +201,24 @@
     canvas.height = vp.height;
     canvas.className = "block";
 
+    // DRAFT watermark
+    const watermark = document.createElement("div");
+    watermark.textContent = "DRAFT";
+    watermark.className =
+      "absolute inset-0 flex items-center justify-center pointer-events-none";
+    watermark.style.transform = "rotate(-45deg)";
+    watermark.style.fontSize = `${vp.width * 0.15}px`;
+    watermark.style.color = "rgba(239, 68, 68, 0.2)";
+    watermark.style.letterSpacing = "0.2em";
+    watermark.style.userSelect = "none";
+
     // Page number overlay
     const overlay = document.createElement("div");
     overlay.textContent = `${num} / ${pageCount}`;
     overlay.className = "absolute top-2 right-3 badge badge-sm badge-primary";
 
     wrap.appendChild(canvas);
+    wrap.appendChild(watermark);
     wrap.appendChild(overlay);
 
     containerEl.querySelector(".pdf-layer")?.appendChild(wrap);
@@ -202,30 +231,20 @@
 
 <div
   bind:this={containerEl}
-  class="relative w-full h-full overflow-y-auto"
+  class="relative w-full h-full max-w-7xl mx-auto overflow-y-auto p-4"
   onscroll={onScroll}
 >
-  <div class="w-full h-full" style="height: {totalHeight}px"></div>
-  <div class="pdf-layer"></div>
+  <div class="relative w-full" style="height: {totalHeight}px">
+    <div class="pdf-layer"></div>
+  </div>
 </div>
 
 <style>
-  .viewer {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    overflow-y: auto;
-  }
-
-  .spacer {
-    width: 100%;
-    height: 100%;
-  }
-
   .pdf-layer {
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
+    bottom: 0;
   }
 </style>

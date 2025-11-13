@@ -24,8 +24,8 @@
 
 <div class="p-5">
   <div class="h-[calc(100vh-110px)] flex gap-5 flex-col md:flex-row">
-    <div class="rounded-2xl grow min-h-100 sm:order-1">
-      <div class:hidden={!documents[activeIndex]} class="h-full px-5">
+    <div class="rounded-2xl grow min-h-150 sm:order-1">
+      <div class:hidden={!documents[activeIndex]} class="h-full">
         <Preview file={documents[activeIndex]} />
       </div>
 
@@ -39,7 +39,7 @@
           <label class="tab">
             <input type="radio" name="sign-nav" checked />
             <iconify-icon icon="bx:file"></iconify-icon>
-            <span class="mx-2">File Dokumen ({documents.length})</span>
+            <span class="mx-2"> Dokumen ({documents.length})</span>
             {#if documents.length > 0}
               <iconify-icon icon="bx:check" class="text-success"></iconify-icon>
             {:else}
@@ -106,7 +106,7 @@
     class="btn btn-lg btn-secondary tooltip rounded-full font-normal"
     aria-label="Sign Document"
     data-tip="Sign Document"
-    disabled={status !== "ISSUE"}
+    disabled={status == "ISSUE"}
     onclick={() => (sign = true)}
   >
     <iconify-icon icon="bx:pen" class="text-xl"></iconify-icon>

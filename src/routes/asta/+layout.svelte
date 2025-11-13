@@ -50,6 +50,7 @@
           </ul>
         </details>
       </li> -->
+      <li><a href="/asta/verify"> Verifikasi </a></li>
       <li><a href="/asta/auth"> Panduan </a></li>
     </ul>
   </div>

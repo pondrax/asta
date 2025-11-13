@@ -27,11 +27,11 @@
     e.preventDefault();
     dragging = e.type === "dragover";
   }
-
   function onChange(e: Event) {
     const input = e.target as HTMLInputElement;
     if (input.files) {
       files = [...input.files].filter((f) => f.type === "application/pdf");
+      input.value = ""; // ✅ reset input so the same file can be reselected
     }
   }
 </script>

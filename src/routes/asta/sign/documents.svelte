@@ -14,9 +14,9 @@
 
 <ul class="menu h-full overflow-auto flex-nowrap bg-base-100 rounded-xl w-full">
   <li class="menu-title sticky -top-2 bg-inherit z-1">
-    <div class="flex gap-5 justify-between bg-transparent">
+    <div class="flex gap-5 justify-between bg-transparent items-center">
       <div>File Dokumen ({documents.length})</div>
-      <button class="btn btn-xs btn-primary" onclick={() => fileInput?.click()}>
+      <button class="btn btn-sm btn-primary" onclick={() => fileInput?.click()}>
         <iconify-icon icon="bx:plus"></iconify-icon>
         Tambah
       </button>
@@ -37,7 +37,8 @@
           class="btn btn-error btn-xs tooltip"
           aria-label="Hapus"
           data-tip="Hapus"
-          onclick={() => {
+          onclick={(event) => {
+            event.stopPropagation();
             documents.splice(i, 1);
             activeIndex = Math.max(0, activeIndex - 1);
           }}

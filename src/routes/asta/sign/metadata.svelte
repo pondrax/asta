@@ -57,11 +57,11 @@
 
 <ul class="menu h-full overflow-auto flex-nowrap bg-base-100 rounded-xl w-full">
   <li class="menu-title bg-inherit sticky -top-2 z-1">
-    <div class="flex gap-5 justify-between bg-transparent">
+    <div class="flex gap-5 justify-between bg-transparent items-center">
       <div>Meta Data</div>
       <div class="join">
         <input
-          class="join-item btn btn-xs btn-outline"
+          class="join-item btn btn-sm btn-outline"
           type="radio"
           name="options"
           bind:group={bsre}
@@ -69,7 +69,7 @@
           aria-label="Tanda Tangan Elektronik"
         />
         <input
-          class="join-item btn btn-xs btn-outline"
+          class="join-item btn btn-sm btn-outline"
           type="radio"
           name="options"
           bind:group={bsre}
