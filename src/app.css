@@ -1,0 +1,36 @@
+@import 'tailwindcss';
+
+@plugin "daisyui" {
+  themes: light --default, dark --prefersdark;
+}
+
+.input,.select{
+  @apply w-full;
+}
+/* Hide both by default */
+  .light-logo,
+  .dark-logo {
+    display: none;
+  }
+
+  [data-theme=light] .light-logo{
+    display:inline
+  }
+  [data-theme=dark] .dark-logo{
+    display:inline
+  }
+  iconify-icon {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+}
+
+.floating-label 
+> span {
+  opacity: 100%;
+  top: 0;
+  translate: -12.5% calc(-50% - 0.125em);
+  scale: 0.75;
+  pointer-events: auto;
+  z-index: 2;
+}

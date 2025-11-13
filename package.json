@@ -1,0 +1,48 @@
+{
+	"name": "asta",
+	"private": true,
+	"version": "0.0.1",
+	"type": "module",
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build",
+		"preview": "vite preview",
+		"prepare": "svelte-kit sync || echo ''",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"test:unit": "vitest",
+		"test": "npm run test:unit -- --run",
+		"db:push": "drizzle-kit push",
+		"db:generate": "drizzle-kit generate",
+		"db:migrate": "drizzle-kit migrate",
+		"db:studio": "drizzle-kit studio"
+	},
+	"devDependencies": {
+		"@inlang/paraglide-js": "^2.4.0",
+		"@paralleldrive/cuid2": "^3.0.4",
+		"@sveltejs/adapter-auto": "^7.0.0",
+		"@sveltejs/kit": "^2.47.1",
+		"@sveltejs/vite-plugin-svelte": "^6.2.1",
+		"@tailwindcss/vite": "^4.1.14",
+		"@types/node": "^22",
+		"daisyui": "^5.5.0",
+		"drizzle-kit": "^0.31.5",
+		"drizzle-orm": "^0.44.6",
+		"iconify-icon": "^3.0.2",
+		"svelte": "^5.41.0",
+		"svelte-check": "^4.3.3",
+		"tailwindcss": "^4.1.14",
+		"typescript": "^5.9.3",
+		"vite": "^7.1.10",
+		"vite-plugin-devtools-json": "^1.0.0",
+		"vitest": "^4.0.5"
+	},
+	"dependencies": {
+		"@node-rs/argon2": "^2.0.2",
+		"arktype": "^2.1.26",
+		"pdf-lib": "^1.17.1",
+		"pdfjs-dist": "^5.4.394",
+		"postgres": "^3.4.7",
+		"qr-code-styling": "^1.9.2"
+	}
+}
