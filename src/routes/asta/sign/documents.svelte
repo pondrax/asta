@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { formatFileSize } from "$lib/utils";
+
   let {
     documents = $bindable([]),
     activeIndex = $bindable(0),
@@ -21,15 +23,16 @@
     </div>
   </li>
   {#each documents as doc, i}
-    <li class:menu-active={activeIndex === i}>
+    <li class={activeIndex === i ? "bg-primary/60" : ""}>
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <!-- svelte-ignore a11y_click_events_have_key_events -->
       <div onclick={() => (activeIndex = i)}>
         <span class="truncate">
           {i + 1}. {doc.name}
         </span>
-        <span class="text-base-content/60">{Math.round(doc.size / 1024)}KB</span
-        >
+        <span class="text-base-content/60">
+          {formatFileSize(doc.size)}
+        </span>
         <button
           class="btn btn-error btn-xs tooltip"
           aria-label="Hapus"

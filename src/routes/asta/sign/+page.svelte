@@ -15,9 +15,9 @@
   let files: File[] = $state([]);
 
   $effect(() => {
-    if (files) {
-      console.log(files);
-      documents = files;
+    if (files.length > 0) {
+      documents = [...documents, ...files];
+      files = [];
     }
   });
 </script>
@@ -25,7 +25,7 @@
 <div class="p-5">
   <div class="h-[calc(100vh-110px)] flex gap-5 flex-col md:flex-row">
     <div class="rounded-2xl grow min-h-100 sm:order-1">
-      <div class:hidden={!documents[activeIndex]} class="h-full">
+      <div class:hidden={!documents[activeIndex]} class="h-full px-5">
         <Preview file={documents[activeIndex]} />
       </div>
 
@@ -101,7 +101,6 @@
     <iconify-icon icon="bx:book" class="text-2xl"></iconify-icon>
   </button>
 </div>
-
 <div class="fab right-18">
   <button
     class="btn btn-lg btn-secondary tooltip rounded-full font-normal"
