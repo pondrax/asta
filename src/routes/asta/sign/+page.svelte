@@ -4,16 +4,31 @@
   import Preview from "./preview.svelte";
   import SignModal from "./signModal.svelte";
   import Upload from "./upload.svelte";
+  import type { SignatureType } from "./types";
 
   let activeIndex = $state(0);
   let documents: File[] = $state([]);
   let status = $state("NOT_REGISTERED");
   let bsre = $state(true);
-  let forms = $state({});
+  let form: Record<string, any> = $state({
+    instansi: "-",
+    rank: "-",
+  });
   let sign = $state(false);
   let fileInput: HTMLInputElement | null = $state(null);
   let files: File[] = $state([]);
 
+  let signatures: SignatureType[] = $state([]);
+  const setSignature = (sign: SignatureType) => {
+    const id = signatures.findIndex((signature) => signature.id === sign.id);
+    if (id > -1) {
+      signatures[id] = sign;
+    } else {
+      sign.reason = form.deskripsi;
+      sign.location = form.lokasi;
+      signatures = [...signatures, sign];
+    }
+  };
   $effect(() => {
     if (files.length > 0) {
       documents = [...documents, ...files];
@@ -60,7 +75,7 @@
             {/if}
           </label>
           <div class="tab-content border-base-300">
-            <Metadata bind:status bind:bsre bind:forms />
+            <Metadata bind:status bind:bsre bind:form setSignature />
           </div>
         </div>
       </div>
@@ -106,7 +121,7 @@
     class="btn btn-lg btn-secondary tooltip rounded-full font-normal"
     aria-label="Sign Document"
     data-tip="Sign Document"
-    disabled={status == "ISSUE"}
+    disabled={status !== "ISSUE"}
     onclick={() => (sign = true)}
   >
     <iconify-icon icon="bx:pen" class="text-xl"></iconify-icon>

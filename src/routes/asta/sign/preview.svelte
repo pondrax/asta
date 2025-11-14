@@ -10,6 +10,7 @@
   const GAP = 10;
   const BUFFER = 3;
   const PADDING = 1; // 1rem = 16px (p-4)
+  const DPI_SCALE = 1.5; // Increase for higher resolution (2x = ~150 DPI, 3x = ~225 DPI)
 
   let pageCount = $state(0);
   let pageSizes: { width: number; height: number; ratio: number }[] = $state(
@@ -171,7 +172,7 @@
     }
   }
 
-  async function renderPage(num: number, top: number, height: number) {
+  async function renderPage(num: number, top: number, displayHeight: number) {
     if (!pdfDoc || !containerEl) return;
     const page = await pdfDoc.getPage(num);
 
@@ -182,28 +183,44 @@
     // Scale to fit both width and height (auto-fit)
     const scaleW = containerWidth / vp1.width;
     const scaleH = containerHeight / vp1.height;
-    const scale = Math.min(scaleW, scaleH);
-    const vp = page.getViewport({ scale });
+    const displayScale = Math.min(scaleW, scaleH);
+
+    // High-resolution scale for canvas
+    const renderScale = displayScale * DPI_SCALE;
+
+    const displayVp = page.getViewport({ scale: displayScale });
+    const renderVp = page.getViewport({ scale: renderScale });
 
     // Wrapper div for page and overlay
     const wrap = document.createElement("div");
     wrap.className =
       "absolute left-1/2 -translate-x-1/2 inline-block rounded-lg bg-white border border-base-300 shadow overflow-hidden";
     wrap.style.top = `${top}px`;
+    wrap.style.width = `${displayVp.width}px`;
+    wrap.style.height = `${displayVp.height}px`;
 
-    // Canvas for PDF page
+    // Canvas for PDF page with high resolution
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d")!;
-    canvas.width = vp.width;
-    canvas.height = vp.height;
-    // canvas.className = "block";
+
+    // Set canvas internal size to high resolution
+    canvas.width = renderVp.width;
+    canvas.height = renderVp.height;
+
+    // Set canvas display size to match container
+    canvas.style.width = `${displayVp.width}px`;
+    canvas.style.height = `${displayVp.height}px`;
+
+    // Improve canvas rendering quality
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
 
     // DRAFT watermark
     const watermark = document.createElement("div");
     watermark.textContent = "DRAFT";
     watermark.className =
       "absolute inset-0 flex items-center justify-center pointer-events-none -rotate-45 text-error/20 tracking-widest select-none";
-    watermark.style.fontSize = `${vp.width * 0.15}px`;
+    watermark.style.fontSize = `${displayVp.width * 0.15}px`;
 
     // Page number overlay
     const overlay = document.createElement("div");
@@ -217,7 +234,12 @@
     containerEl.querySelector(".pdf-layer")?.appendChild(wrap);
     rendered.set(num, wrap);
 
-    await page.render({ canvasContext: ctx, viewport: vp }).promise;
+    // Render at high resolution
+    await page.render({
+      canvasContext: ctx,
+      viewport: renderVp,
+    }).promise;
+
     page.cleanup();
   }
 </script>
