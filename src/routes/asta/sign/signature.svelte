@@ -197,7 +197,7 @@
   class="hidden"
 />
 
-<div class="tabs tabs-box grow mt-1 gap-0">
+<div class="tabs tabs-box bg-base-300 grow mt-1 gap-0">
   <label class="tab" class:invisible={!availableVisual.includes("image")}>
     <input type="radio" bind:group={visual} value="image" />
     <iconify-icon icon="bx:file"></iconify-icon>
@@ -209,6 +209,7 @@
       class="file-input file-input-sm mb-1 w-full"
       accept="image/*"
       bind:files={imageSignature}
+      onchange={loadImageSignature}
     />
     <canvas
       bind:this={canvasImage}
@@ -264,7 +265,11 @@
       ontouchmove={draw}
       ontouchend={stopDrawing}
     ></canvas>
-    <button class="btn btn-sm absolute top-3 right-3" onclick={initCanvas}>
+    <button
+      type="button"
+      class="btn btn-sm absolute top-3 right-3"
+      onclick={initCanvas}
+    >
       Clear
     </button>
   </div>
@@ -273,6 +278,7 @@
     data-tip="Tambahkan visualisasi ke dokumen"
   >
     <button
+      type="button"
       class="btn btn-secondary btn-square animate-bounce"
       aria-label="Tambahkan visualisasi ke dokumen"
       onclick={addSignature}

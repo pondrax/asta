@@ -10,7 +10,7 @@
 <div class="bg-transparent flex flex-col">
   <details class="collapse collapse-arrow">
     <summary class="collapse-title px-0 py-1">
-      Visualisasi ({signatures.length})
+      Visualisasi Tanda Tangan ({signatures.length})
     </summary>
     <div class="collapse-content px-0 py-1">
       <div

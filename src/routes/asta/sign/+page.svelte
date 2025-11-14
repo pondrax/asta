@@ -6,9 +6,12 @@
   import Upload from "./upload.svelte";
   import type { SignatureType } from "./types";
   import Visualizer from "./visualizer.svelte";
+  import * as pdfLib from "$lib/utils/pdf";
 
+  let signButton: HTMLButtonElement | null = $state(null);
   let activeIndex = $state(0);
   let documents: File[] = $state([]);
+  let editedDocuments: File[] = $state([]);
   let status = $state("NOT_REGISTERED");
   let bsre = $state(true);
   let form: Record<string, any> = $state({
@@ -43,10 +46,36 @@
   );
   const allowSigning = $derived(hasDocuments && hasMetadata);
 
+  const updateFormFields = () => {};
   $effect(() => {
     if (files.length > 0) {
       documents = [...documents, ...files];
       files = [];
+    }
+  });
+
+  $effect(() => {
+    const file = documents[activeIndex];
+    if (!file) return;
+
+    if (form) {
+      (async () => {
+        const buffer = await file.arrayBuffer();
+        const fields = await pdfLib.getAllFormFields(buffer);
+        const hasSignature = await pdfLib.hasSignature(buffer);
+
+        const editedBytes = await pdfLib.drawFooter(buffer, {
+          text: "Diterbitkan oleh ASTA",
+        });
+
+        editedDocuments[activeIndex] = new File(
+          [new Uint8Array(editedBytes)],
+          file.name,
+          { type: "application/pdf" },
+        );
+
+        console.log(fields, hasSignature);
+      })();
     }
   });
 </script>
@@ -89,7 +118,13 @@
             {/if}
           </label>
           <div class="tab-content border-base-300">
-            <Metadata bind:status bind:bsre bind:form {setSignature}>
+            <Metadata
+              bind:status
+              bind:bsre
+              bind:form
+              {setSignature}
+              {signButton}
+            >
               <Visualizer bind:signatures />
             </Metadata>
           </div>
@@ -138,6 +173,7 @@
 </div>
 <div class="fab right-18">
   <button
+    bind:this={signButton}
     class="btn btn-lg btn-secondary tooltip rounded-full font-normal
     {allowSigning ? 'animate-bounce' : 'bg-base-300'}"
     aria-label="Sign Document"
