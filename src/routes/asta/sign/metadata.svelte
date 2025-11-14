@@ -140,12 +140,19 @@
   <li class="p-2">
     <label class="floating-label p-0 bg-transparent">
       <span>Nama Lengkap Beserta Gelar</span>
-      <input
-        bind:value={form.nama}
-        type="text"
-        placeholder="Nama Lengkap Beserta Gelar"
-        class="input input-sm"
-      />
+
+      <div class="input input-sm">
+        <input
+          bind:value={form.nama}
+          type="text"
+          placeholder="Email Penandatangan"
+        />
+        {#if form.nama}
+          <iconify-icon icon="bx:check" class="text-success"></iconify-icon>
+        {:else}
+          <iconify-icon icon="bx:x" class="text-error"></iconify-icon>
+        {/if}
+      </div>
       <div class="text-[10px] text-gray-400">
         Contoh: Budi Pekerti Akhlak, S.H
       </div>

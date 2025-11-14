@@ -36,11 +36,12 @@
   };
 
   const hasDocuments = $derived(documents.length > 0);
-  const allowSigning = $derived(
-    hasDocuments && form.email && form.nama && bsre
+  const hasMetadata = $derived(
+    String(form.email).length > 0 && String(form.nama).length > 0 && bsre
       ? status === "ISSUE"
       : signatures.length > 0,
   );
+  const allowSigning = $derived(hasDocuments && hasMetadata);
 
   $effect(() => {
     if (files.length > 0) {
@@ -81,7 +82,7 @@
             <input type="radio" name="sign-nav" checked />
             <iconify-icon icon="bx:detail"></iconify-icon>
             <span class="mx-2"> Meta Data ({bsre ? "TTE" : "Manual"})</span>
-            {#if allowSigning}
+            {#if hasMetadata}
               <iconify-icon icon="bx:check" class="text-success"></iconify-icon>
             {:else}
               <iconify-icon icon="bx:x" class="text-error"></iconify-icon>
@@ -138,7 +139,7 @@
 <div class="fab right-18">
   <button
     class="btn btn-lg btn-secondary tooltip rounded-full font-normal
-    {allowSigning ? 'animate-pulse' : 'bg-base-300'}"
+    {allowSigning ? 'animate-bounce' : 'bg-base-300'}"
     aria-label="Sign Document"
     data-tip="Sign Document"
     disabled={!allowSigning}
