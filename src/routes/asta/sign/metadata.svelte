@@ -5,8 +5,10 @@
   import ranks from "./ranks";
   import organizations from "./organizations";
   import Signature from "./signature.svelte";
+  import { type } from "arktype";
 
   let {
+    children,
     loading = $bindable(false),
     status = $bindable("NOT_REGISTERED"),
     bsre = $bindable(true),
@@ -55,12 +57,15 @@
       },
     );
   }
+
   onMount(() => {
     getUserCity();
   });
 </script>
 
-<ul class="menu h-full overflow-auto flex-nowrap bg-base-100 rounded-xl w-full">
+<ul
+  class="menu h-full overflow-auto flex-nowrap bg-base-100 rounded-xl w-full relative"
+>
   <li class="menu-title bg-inherit sticky -top-2 z-5">
     <div class="flex gap-5 justify-between bg-transparent items-center">
       <div>Meta Data</div>
@@ -122,6 +127,11 @@
             type="text"
             placeholder="Email Penandatangan"
           />
+          {#if !(type("string.email")(form.email) instanceof type.errors)}
+            <iconify-icon icon="bx:check" class="text-success"></iconify-icon>
+          {:else}
+            <iconify-icon icon="bx:x" class="text-error"></iconify-icon>
+          {/if}
         </div>
         <div class="text-[10px] text-gray-400">Contoh: mail@example.com</div>
       </label>
@@ -226,12 +236,14 @@
     </label>
   </li> -->
   {#if signaturePanel}
-    <li class="sticky bottom-0 z-5">
+    <li class="absolute bottom-0 z-5">
       <Signature
         {form}
         {setSignature}
         availableVisual={bsre ? ["image", "qr", "box", "draw"] : ["draw"]}
       />
+
+      {@render children?.()}
     </li>
   {/if}
 </ul>

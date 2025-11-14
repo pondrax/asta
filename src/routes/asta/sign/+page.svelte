@@ -5,6 +5,7 @@
   import SignModal from "./signModal.svelte";
   import Upload from "./upload.svelte";
   import type { SignatureType } from "./types";
+  import Visualizer from "./visualizer.svelte";
 
   let activeIndex = $state(0);
   let documents: File[] = $state([]);
@@ -14,7 +15,11 @@
     instansi: "-",
     rank: "-",
   });
-  let sign = $state(false);
+
+  let forms: {
+    sign?: any;
+  } = $state({});
+
   let fileInput: HTMLInputElement | null = $state(null);
   let files: File[] = $state([]);
 
@@ -29,6 +34,14 @@
       signatures = [...signatures, sign];
     }
   };
+
+  const hasDocuments = $derived(documents.length > 0);
+  const allowSigning = $derived(
+    hasDocuments && form.email && form.nama && bsre
+      ? status === "ISSUE"
+      : signatures.length > 0,
+  );
+
   $effect(() => {
     if (files.length > 0) {
       documents = [...documents, ...files];
@@ -55,7 +68,7 @@
             <input type="radio" name="sign-nav" checked />
             <iconify-icon icon="bx:file"></iconify-icon>
             <span class="mx-2"> Dokumen ({documents.length})</span>
-            {#if documents.length > 0}
+            {#if hasDocuments}
               <iconify-icon icon="bx:check" class="text-success"></iconify-icon>
             {:else}
               <iconify-icon icon="bx:x" class="text-error"></iconify-icon>
@@ -65,17 +78,19 @@
             <Documents bind:documents bind:activeIndex {fileInput} />
           </div>
           <label class="tab">
-            <input type="radio" name="sign-nav" />
+            <input type="radio" name="sign-nav" checked />
             <iconify-icon icon="bx:detail"></iconify-icon>
             <span class="mx-2"> Meta Data ({bsre ? "TTE" : "Manual"})</span>
-            {#if (bsre && status === "ISSUE") || !bsre}
+            {#if allowSigning}
               <iconify-icon icon="bx:check" class="text-success"></iconify-icon>
             {:else}
               <iconify-icon icon="bx:x" class="text-error"></iconify-icon>
             {/if}
           </label>
           <div class="tab-content border-base-300">
-            <Metadata bind:status bind:bsre bind:form setSignature />
+            <Metadata bind:status bind:bsre bind:form {setSignature}>
+              <Visualizer bind:signatures />
+            </Metadata>
           </div>
         </div>
       </div>
@@ -107,7 +122,11 @@
     <span class="btn btn-circle btn-lg btn-error">✕</span>
   </div>
 
-  <button class="btn btn-lg rounded-xl" aria-label="Upload PDF">
+  <button
+    class="btn btn-lg rounded-xl"
+    aria-label="Upload PDF"
+    onclick={() => fileInput?.click()}
+  >
     Unggah PDF
     <iconify-icon icon="bx:upload" class="text-2xl"></iconify-icon>
   </button>
@@ -118,15 +137,16 @@
 </div>
 <div class="fab right-18">
   <button
-    class="btn btn-lg btn-secondary tooltip rounded-full font-normal"
+    class="btn btn-lg btn-secondary tooltip rounded-full font-normal
+    {allowSigning ? 'animate-pulse' : 'bg-base-300'}"
     aria-label="Sign Document"
     data-tip="Sign Document"
-    disabled={status !== "ISSUE"}
-    onclick={() => (sign = true)}
+    disabled={!allowSigning}
+    onclick={() => (forms.sign = true)}
   >
     <iconify-icon icon="bx:pen" class="text-xl"></iconify-icon>
     Tanda Tangan
   </button>
 </div>
 
-<SignModal bind:data={sign} />
+<SignModal bind:data={forms.sign} />

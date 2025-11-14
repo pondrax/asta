@@ -54,6 +54,7 @@
     ctxBox.font = "20px Arial";
     ctxBox.lineWidth = 5;
 
+    ctxPad.strokeStyle = "#1515bb"; // dark blue pen color
     ctxPad.font = "20px Arial";
     ctxPad.lineWidth = 3;
 
@@ -267,13 +268,18 @@
       Clear
     </button>
   </div>
-  <button
-    class="btn btn-accent tab tooltip tooltip-left ml-auto"
+  <div
+    class="tab tooltip tooltip-left ml-auto"
     data-tip="Tambahkan visualisasi ke dokumen"
-    aria-label="Tambahkan visualisasi ke dokumen"
   >
-    <iconify-icon icon="bx:plus"></iconify-icon>
-  </button>
+    <button
+      class="btn btn-secondary btn-square animate-bounce"
+      aria-label="Tambahkan visualisasi ke dokumen"
+      onclick={addSignature}
+    >
+      <iconify-icon icon="bx:plus" class="text-2xl"></iconify-icon>
+    </button>
+  </div>
 </div>
 
 <svelte:window
