@@ -11,13 +11,21 @@
   let signButton: HTMLButtonElement | null = $state(null);
   let activeIndex = $state(0);
   let documents: File[] = $state([]);
-  let editedDocuments: File[] = $state([]);
+  let editedDocuments: File[] | null[] = $state([]);
   let status = $state("NOT_REGISTERED");
   let bsre = $state(true);
   let form: Record<string, any> = $state({
+    email: "",
+    nama: "",
+    jabatan: "",
+    pangkat: "-",
     instansi: "-",
     rank: "-",
+    tanggal: "",
   });
+  let fields: Record<string, any> = $state({});
+  let hasSignature = $state(false);
+  let footer = $state(false);
 
   let forms: {
     sign?: any;
@@ -46,10 +54,32 @@
   );
   const allowSigning = $derived(hasDocuments && hasMetadata);
 
-  const updateFormFields = () => {};
+  async function getDocumentDetails(file: File) {
+    const buffer = await file.arrayBuffer();
+    fields = await pdfLib.getAllFormFields(buffer);
+    hasSignature = await pdfLib.hasSignature(buffer);
+    editedDocuments[activeIndex] = null;
+  }
+  async function addFooter(file: File) {
+    console.log("addFooter", file);
+    const buffer = await file.arrayBuffer();
+    const editedBytes = await pdfLib.drawFooter(buffer, {
+      text: "Dokumen ini ditandatangani menggunakan sertifikat elektronik yang diterbitkan BSrE - BSSN",
+    });
+    editedDocuments[activeIndex] = new File(
+      [new Uint8Array(editedBytes)],
+      file.name,
+      {
+        type: "application/pdf",
+      },
+    );
+  }
   $effect(() => {
     if (files.length > 0) {
       documents = [...documents, ...files];
+      editedDocuments = Array.from({ length: documents.length }).map(
+        () => null,
+      );
       files = [];
     }
   });
@@ -59,23 +89,18 @@
     if (!file) return;
 
     if (form) {
-      (async () => {
-        const buffer = await file.arrayBuffer();
-        const fields = await pdfLib.getAllFormFields(buffer);
-        const hasSignature = await pdfLib.hasSignature(buffer);
+      getDocumentDetails(file);
+    }
+    if (footer) {
+      addFooter(file);
+    } else {
+      editedDocuments[activeIndex] = null;
+    }
+  });
 
-        const editedBytes = await pdfLib.drawFooter(buffer, {
-          text: "Diterbitkan oleh ASTA",
-        });
-
-        editedDocuments[activeIndex] = new File(
-          [new Uint8Array(editedBytes)],
-          file.name,
-          { type: "application/pdf" },
-        );
-
-        console.log(fields, hasSignature);
-      })();
+  $effect(() => {
+    if (hasSignature) {
+      footer = false;
     }
   });
 </script>
@@ -83,8 +108,22 @@
 <div class="p-5">
   <div class="h-[calc(100vh-110px)] flex gap-5 flex-col md:flex-row">
     <div class="rounded-2xl grow min-h-150 sm:order-1">
-      <div class:hidden={!documents[activeIndex]} class="h-full">
-        <Preview file={documents[activeIndex]} />
+      <div class:hidden={!documents[activeIndex]} class="h-full relative">
+        {#if hasSignature}
+          <div
+            class="absolute -top-5 alert py-1 px-5 alert-warning left-0 right-0 z-5"
+          >
+            <iconify-icon icon="bx:error" class="text-xl"></iconify-icon>
+            <span>
+              <strong>Peringatan:</strong> Terdapat tanda tangan elektronik pada
+              dokumen ini.
+            </span>
+          </div>
+        {/if}
+        <Preview
+          file={editedDocuments[activeIndex] || documents[activeIndex]}
+          {hasSignature}
+        />
       </div>
 
       <div class:hidden={documents.length > 0} class="h-full">
@@ -122,6 +161,9 @@
               bind:status
               bind:bsre
               bind:form
+              bind:footer
+              {fields}
+              {hasSignature}
               {setSignature}
               {signButton}
             >

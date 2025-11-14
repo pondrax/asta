@@ -14,7 +14,9 @@
     bsre = $bindable(true),
     footer = $bindable(true),
     form = $bindable({}),
+    fields = $bindable({}),
     visual = $bindable({}),
+    hasSignature,
     setSignature,
     signButton,
   } = $props();
@@ -70,7 +72,7 @@
     signButton?.click();
     console.log(e);
   }}
-  class="h-full"
+  class="h-full relative"
 >
   <ul
     class="menu h-full overflow-auto flex-nowrap bg-base-100 rounded-xl w-full relative"
@@ -157,7 +159,7 @@
             bind:value={form.nama}
             required
             type="text"
-            placeholder="Email Penandatangan"
+            placeholder="Nama Lengkap Beserta Gelar"
           />
           {#if form.nama}
             <iconify-icon icon="bx:check" class="text-success"></iconify-icon>
@@ -196,7 +198,8 @@
         </div>
       </label>
     </li>
-    <li class="p-2">
+
+    <!-- <li class="p-2" class:hidden={form.instansi == "Eksternal"}>
       <label class="floating-label p-0 bg-transparent">
         <span>Pangkat / Golongan</span>
         <select bind:value={form.rank} class="select select-sm">
@@ -206,7 +209,7 @@
           {/each}
         </select>
       </label>
-    </li>
+    </li> -->
     <li class="p-2">
       <label class="floating-label p-0 bg-transparent">
         <span>Catatan Dokumen</span>
@@ -228,14 +231,38 @@
           class="input input-sm"
         />
       </label>
+      <!-- {JSON.stringify(Object.keys(fields))}
+      {JSON.stringify(Object.keys(form))} -->
     </li>
-    <li class="px-2 py-1">
+    {#each Object.keys(fields) as key}
+      {#if !Object.keys(form).includes(key)}
+        <li class="p-2">
+          <label class="floating-label p-0 bg-transparent">
+            <span>{key}</span>
+            <input
+              bind:value={form[key]}
+              type="text"
+              placeholder={key}
+              class="input input-sm"
+            />
+          </label>
+        </li>
+      {/if}
+    {/each}
+    <li class="px-2 py-1 pb-100">
       {#if bsre}
         <label
           class="label p-0 tooltip"
           data-tip="Hanya untuk dokumen draft / belum di ttd"
         >
-          <input type="checkbox" class="toggle" bind:checked={footer} />
+          <input
+            type="checkbox"
+            class="toggle"
+            bind:checked={
+              () => (hasSignature ? false : footer), (val) => (footer = val)
+            }
+            disabled={hasSignature}
+          />
           Visualisasi Footer BSrE - BSSN
         </label>
       {:else}
@@ -248,23 +275,17 @@
         </label>
       {/if}
     </li>
-    <!-- <li class="mb-100"></li> -->
-    <!-- <li class="px-2 py-1 pb-20">
-    <label class="label p-0 tooltip">
-      <input type="checkbox" class="toggle" bind:checked={signaturePanel} />
-      Visualisasi Tanda Tangan
-    </label>
-  </li> -->
-    {#if signaturePanel}
-      <li class="absolute bottom-0 z-5">
-        <Signature
-          {form}
-          {setSignature}
-          availableVisual={bsre ? ["image", "qr", "box", "draw"] : ["draw"]}
-        />
-
-        {@render children?.()}
-      </li>
-    {/if}
   </ul>
+
+  {#if signaturePanel}
+    <div class="absolute bottom-0 z-5 p-3">
+      <Signature
+        {form}
+        {setSignature}
+        availableVisual={bsre ? ["image", "qr", "box", "draw"] : ["draw"]}
+      />
+
+      {@render children?.()}
+    </div>
+  {/if}
 </form>

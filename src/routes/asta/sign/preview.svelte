@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
 
-  let { file } = $props();
+  let { file, hasSignature = false } = $props();
 
   let pdfjsLib: typeof import("pdfjs-dist") | null = null;
   let pdfDoc: any = null;
@@ -215,22 +215,23 @@
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
 
-    // DRAFT watermark
-    const watermark = document.createElement("div");
-    watermark.textContent = "DRAFT";
-    watermark.className =
-      "absolute inset-0 flex items-center justify-center pointer-events-none -rotate-45 text-error/20 tracking-widest select-none";
-    watermark.style.fontSize = `${displayVp.width * 0.15}px`;
-
     // Page number overlay
     const overlay = document.createElement("div");
     overlay.textContent = `Page ${num} / ${pageCount}`;
     overlay.className = "absolute top-2 right-3 badge badge-sm badge-primary";
 
     wrap.appendChild(canvas);
-    wrap.appendChild(watermark);
     wrap.appendChild(overlay);
+    if (!hasSignature) {
+      // DRAFT watermark
+      const watermark = document.createElement("div");
+      watermark.textContent = "DRAFT";
+      watermark.className =
+        "absolute inset-0 flex items-center justify-center pointer-events-none -rotate-45 text-error/20 tracking-widest select-none";
+      watermark.style.fontSize = `${displayVp.width * 0.15}px`;
 
+      wrap.appendChild(watermark);
+    }
     containerEl.querySelector(".pdf-layer")?.appendChild(wrap);
     rendered.set(num, wrap);
 
