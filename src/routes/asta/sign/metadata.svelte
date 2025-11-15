@@ -12,7 +12,7 @@
     loading = $bindable(false),
     status = $bindable("NOT_REGISTERED"),
     bsre = $bindable(true),
-    footer = $bindable(true),
+    // footer = $bindable(true),
     form = $bindable({}),
     fields = $bindable({}),
     visual = $bindable({}),
@@ -259,7 +259,8 @@
             type="checkbox"
             class="toggle"
             bind:checked={
-              () => (hasSignature ? false : footer), (val) => (footer = val)
+              () => (hasSignature ? false : form.footer),
+              (val) => (form.footer = val)
             }
             disabled={hasSignature}
           />
@@ -270,7 +271,12 @@
           class="label p-0 tooltip"
           data-tip="Dokumen manual wajib menggunakan footer"
         >
-          <input type="checkbox" class="toggle" checked={footer} disabled />
+          <input
+            type="checkbox"
+            class="toggle"
+            checked={form.footer}
+            disabled
+          />
           Visualisasi Footer Dokumen
         </label>
       {/if}

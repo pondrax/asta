@@ -5,6 +5,7 @@ import {
   PDFRadioGroup,
   PDFDropdown,
   PDFOptionList,
+  PDFSignature,
   rgb
 } from 'pdf-lib';
 
@@ -31,6 +32,7 @@ export async function getAllFormFields(bytes: Uint8Array | ArrayBuffer) {
 
     let value: any = null;
 
+    if (field instanceof PDFSignature) continue;
     if (field instanceof PDFTextField) value = field.getText();
     if (field instanceof PDFCheckBox) value = field.isChecked();
     if (field instanceof PDFRadioGroup) value = field.getSelected();
@@ -59,6 +61,7 @@ export async function fillFormFields(
 
     // text input
     if (field instanceof PDFTextField && typeof value === 'string') {
+      // console.log(field.constructor.name, name, value);
       field.setText(value);
     }
 

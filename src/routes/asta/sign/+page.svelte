@@ -7,6 +7,7 @@
   import type { SignatureType } from "./types";
   import Visualizer from "./visualizer.svelte";
   import * as pdfLib from "$lib/utils/pdf";
+  import { debounce } from "$lib/utils";
 
   let signButton: HTMLButtonElement | null = $state(null);
   let activeIndex = $state(0);
@@ -15,6 +16,7 @@
   let status = $state("NOT_REGISTERED");
   let bsre = $state(true);
   let form: Record<string, any> = $state({
+    footer: true,
     email: "",
     nama: "",
     jabatan: "",
@@ -59,21 +61,34 @@
     fields = await pdfLib.getAllFormFields(buffer);
     hasSignature = await pdfLib.hasSignature(buffer);
     editedDocuments[activeIndex] = null;
+    await pdfLib.fillFormFields(buffer, form);
   }
-  async function addFooter(file: File) {
-    console.log("addFooter", file);
-    const buffer = await file.arrayBuffer();
-    const editedBytes = await pdfLib.drawFooter(buffer, {
-      text: "Dokumen ini ditandatangani menggunakan sertifikat elektronik yang diterbitkan BSrE - BSSN",
-    });
+
+  async function fillFormFields() {
+    const file = documents[activeIndex];
+    let buffer: ArrayBuffer = await file.arrayBuffer();
+
+    if (form.footer) {
+      buffer = (
+        await pdfLib.drawFooter(buffer, {
+          text: "Dokumen ini ditandatangani menggunakan sertifikat elektronik yang diterbitkan BSrE - BSSN",
+        })
+      ).buffer as ArrayBuffer;
+    }
+
+    const filled = await pdfLib.fillFormFields(buffer, form);
+
     editedDocuments[activeIndex] = new File(
-      [new Uint8Array(editedBytes)],
+      [new Uint8Array(filled)],
       file.name,
       {
         type: "application/pdf",
       },
     );
   }
+
+  const debounceFillFormFields = debounce(fillFormFields, 500);
+
   $effect(() => {
     if (files.length > 0) {
       documents = [...documents, ...files];
@@ -85,22 +100,20 @@
   });
 
   $effect(() => {
-    const file = documents[activeIndex];
-    if (!file) return;
+    if (!documents[activeIndex]) return;
 
-    if (form) {
-      getDocumentDetails(file);
-    }
-    if (footer) {
-      addFooter(file);
-    } else {
-      editedDocuments[activeIndex] = null;
-    }
+    getDocumentDetails(documents[activeIndex]);
+  });
+
+  $effect(() => {
+    const serialized = JSON.stringify(form);
+    //@ts-expect-error
+    debounceFillFormFields();
   });
 
   $effect(() => {
     if (hasSignature) {
-      footer = false;
+      form.footer = false;
     }
   });
 </script>
@@ -157,11 +170,11 @@
             {/if}
           </label>
           <div class="tab-content border-base-300">
+            <!-- bind:footer -->
             <Metadata
               bind:status
               bind:bsre
               bind:form
-              bind:footer
               {fields}
               {hasSignature}
               {setSignature}
