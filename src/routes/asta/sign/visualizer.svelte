@@ -7,7 +7,7 @@
   let { signatures = $bindable([]) }: Props = $props();
 </script>
 
-<div class="bg-transparent flex flex-col">
+<div class="bg-base-100 flex flex-col">
   <details class="collapse collapse-arrow" open={signatures.length > 0}>
     <summary class="collapse-title px-0 py-1">
       Visualisasi Tanda Tangan ({signatures.length})

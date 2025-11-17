@@ -1,4 +1,4 @@
-import { pgTable, integer, text, timestamp } from 'drizzle-orm/pg-core';
+import { pgTable, integer, text, timestamp, json } from 'drizzle-orm/pg-core';
 import { init } from '@paralleldrive/cuid2';
 
 const createId = init({ length: 15 });
@@ -50,6 +50,14 @@ export const documents = pgTable('documents', {
 	updated,
 })
 
+export const templates = pgTable('templates', {
+	id,
+	name: text('name').unique(),
+	file: text('file'),
+	properties: json('properties'),
+	created,
+	updated,
+})
 export const organizations = pgTable('organizations', {
 	id,
 	name: text('name').unique(),

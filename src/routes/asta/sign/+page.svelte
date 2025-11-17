@@ -26,6 +26,7 @@
     instansi: "-",
     rank: "-",
     tanggal: "",
+    note: "Tanda Tangan Elektronik",
   });
   let fields: Record<string, any> = $state({});
   let hasSignature = $state(false);
