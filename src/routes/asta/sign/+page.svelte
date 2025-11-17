@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { SignatureType } from "./types";
   import * as pdfLib from "$lib/utils/pdf";
-  import { debounce, fileToBase64 } from "$lib/utils";
+  import { debounce, fileToBase64, createId } from "$lib/utils";
   import { Modal } from "$lib/components";
   import Documents from "./documents.svelte";
   import Metadata from "./metadata.svelte";
@@ -24,7 +24,6 @@
     jabatan: "",
     pangkat: "-",
     instansi: "-",
-    rank: "-",
     tanggal: "",
     note: "Tanda Tangan Elektronik",
   });
@@ -35,7 +34,12 @@
   let forms: {
     sign?: {
       email: "";
+      nama: "";
+      jabatan: "";
+      pangkat: "";
+      instansi: "";
       passphrase: "";
+      note: "";
       signatureProperties: SignatureType[];
       files: File[];
       completed: boolean[];
@@ -241,7 +245,7 @@
     disabled={!allowSigning}
     onclick={async () =>
       (forms.sign = {
-        email: form.email,
+        ...form,
         passphrase: "",
         signatureProperties: signatures,
         files: await Promise.all(
@@ -249,7 +253,7 @@
         ),
         completed: documents.map(() => false),
         // files: documents.map((_, i) => editedDocuments[i] || documents[i]),
-      })}
+      } as any)}
   >
     <iconify-icon icon="bx:pen" class="text-xl"></iconify-icon>
     Tanda Tangan
@@ -265,24 +269,36 @@
       onsubmit={async (e) => {
         e.preventDefault();
         loading = true;
-        await Promise.all(
-          item.files.map(async (file, i) => {
-            const base64 = (await fileToBase64(file)).replace(
-              "data:application/pdf;base64,",
-              "",
-            );
+        try {
+          const results = await Promise.all(
+            item.files.map(async (file, i) => {
+              const base64 = (await fileToBase64(file)).replace(
+                "data:application/pdf;base64,",
+                "",
+              );
 
-            const signing = await signDocument({
-              email: item.email,
-              passphrase: item.passphrase,
-              signatureProperties: item.signatureProperties,
-              file: [base64],
-            });
-            item.completed[i] = signing.file.length > 0;
-            console.log(signing);
-          }),
-        );
+              const signing = await signDocument({
+                id: createId(),
+                email: item.email,
+                nama: item.nama,
+                jabatan: item.jabatan,
+                pangkat: item.pangkat,
+                instansi: item.instansi,
+                passphrase: item.passphrase,
+                note: item.note,
+                signatureProperties: item.signatureProperties,
+                file: [base64],
+              });
+              item.completed[i] = signing.file.length > 0;
+              console.log(signing);
+            }),
+          );
+          console.log(results);
+        } catch (err) {
+          console.log(err);
+        }
         loading = false;
+        forms.sign = undefined;
       }}
     >
       <ul class="menu w-full h-30 overflow-y-auto p-0">
@@ -294,12 +310,13 @@
               </span>
               <div>
                 {#if item.completed[i]}
-                  <iconify-icon icon="bx:check" class="text-success"
+                  <iconify-icon icon="bx:badge-check" class="text-success"
                   ></iconify-icon>
                 {:else if loading}
                   <div class="loading"></div>
                 {:else}
-                  <iconify-icon icon="bx:x" class="text-error"></iconify-icon>
+                  <iconify-icon icon="bx:badge" class="text-warning"
+                  ></iconify-icon>
                 {/if}
               </div>
             </div>
@@ -334,7 +351,9 @@
         />
       </label>
 
-      <button type="submit" class="btn btn-primary">Tanda Tangan</button>
+      <button type="submit" class="btn btn-primary" disabled={loading}>
+        Tanda Tangan
+      </button>
     </form>
   {/snippet}
 </Modal>

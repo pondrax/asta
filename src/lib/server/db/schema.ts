@@ -42,7 +42,7 @@ export const signers = pgTable('signers', {
 
 export const documents = pgTable('documents', {
 	id,
-	signer: text('email').references(() => signers.email),
+	email: text('email'),
 	title: text('title'),
 	files: text('files').array(),
 	signatures: text('signatures').array(),

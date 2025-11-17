@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { env } from '$env/dynamic/private';
+import { createId } from '$lib/utils';
 
 // Type definitions
 export interface StorageConfig {
@@ -41,6 +42,8 @@ class LocalStorage {
   async save(filename: string, content: Buffer | string): Promise<StorageResult> {
     try {
       await fs.mkdir(this.baseDir, { recursive: true });
+      const suffix = createId();
+      filename = filename.replace(/(\.[^/.]+)$/, `.${suffix}$1`);
 
       const filepath = path.join(this.baseDir, filename);
       const buffer = typeof content === 'string' ? Buffer.from(content) : content;
@@ -108,7 +111,7 @@ class VercelBlobStorage {
     this.token = token;
   }
 
-  async save(filename: string, content: Buffer | ArrayBuffer | string): Promise<StorageResult> {
+  async save(filename: string, content: Buffer | string): Promise<StorageResult> {
     try {
       const buffer = typeof content === 'string' ? Buffer.from(content) : content;
 

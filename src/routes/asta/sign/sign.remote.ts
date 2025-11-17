@@ -50,9 +50,15 @@ export const checkUser = command(type('string.email'), async (email) => {
 //         ]
 // }
 export const signDocument = command(type({
+  id: 'string',
   email: 'string.email',
+  nama: 'string',
+  jabatan: 'string',
+  pangkat: 'string',
+  instansi: 'string',
   passphrase: 'string',
   signatureProperties: 'Array',
+  note: 'string',
   file: 'Array'
 }), async (props) => {
   if (props.signatureProperties.length === 0) {
@@ -71,9 +77,35 @@ export const signDocument = command(type({
   });
 
   const response = await req.json();
+  if (response.file && response.file.length > 0) {
 
-  const blob = base64ToBlob(response.file[0]);
-  const saved = await storage.save('test.pdf', await blob.arrayBuffer());
-  console.log(saved)
+    const blob = base64ToBlob(response.file[0]);
+    const saved = await storage.save('test.pdf', Buffer.from(await blob.arrayBuffer()));
+    if (saved.url) {
+
+      await db.query.signers.upsert({
+        data: {
+          email: props.email,
+          name: props.nama,
+          rank: props.pangkat,
+          organizations: props.instansi,
+          position: props.jabatan,
+        }
+      })
+      await db.query.documents.upsert({
+        data: {
+          id: props.id,
+          email: props.email,
+          title: props.note,
+          files: [saved.url],
+          // rank: props.pangkat,
+          // organizations: props.instansi,
+          // position: props.jabatan,
+          // file: [saved.url],
+        }
+      })
+      console.log(saved)
+    }
+  }
   return response;
 })

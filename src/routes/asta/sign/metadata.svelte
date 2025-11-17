@@ -29,8 +29,12 @@
       status = result.status;
       form = {
         ...form,
-        ...result.user,
+        nama: result.user?.name,
+        pangkat: result.user?.rank,
+        instansi: result.user?.organizations,
+        jabatan: result.user?.position,
       };
+      console.log(result);
     } catch {
       status = "NOT_REGISTERED";
     }
@@ -203,17 +207,17 @@
       </label>
     </li>
 
-    <!-- <li class="p-2" class:hidden={form.instansi == "Eksternal"}>
+    <li class="p-2" class:hidden={form.instansi == "Eksternal"}>
       <label class="floating-label p-0 bg-transparent">
         <span>Pangkat / Golongan</span>
-        <select bind:value={form.rank} class="select select-sm">
+        <select bind:value={form.pangkat} class="select select-sm">
           <option disabled selected>Pilih Opsi</option>
           {#each ranks as opt}
             <option>{opt.rank} {opt.grade}</option>
           {/each}
         </select>
       </label>
-    </li> -->
+    </li>
     <li class="p-2">
       <label class="floating-label p-0 bg-transparent">
         <span>Catatan Dokumen</span>
