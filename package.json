@@ -15,7 +15,8 @@
 		"db:push": "drizzle-kit push",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate",
-		"db:studio": "drizzle-kit studio"
+		"db:studio": "drizzle-kit studio",
+		"db:seed": "vite-node  --options.transformMode.ssr='/.*/' src/lib/server/db/seed.ts"
 	},
 	"devDependencies": {
 		"@inlang/paraglide-js": "^2.4.0",
@@ -26,8 +27,9 @@
 		"@tailwindcss/vite": "^4.1.14",
 		"@types/node": "^22",
 		"daisyui": "^5.5.0",
-		"drizzle-kit": "^0.31.5",
-		"drizzle-orm": "^0.44.6",
+		"drizzle-kit": "1.0.0-beta.1-03a5cdc",
+		"drizzle-orm": "1.0.0-beta.1-03a5cdc",
+		"drizzle-plus": "1.0.0-beta.34",
 		"iconify-icon": "^3.0.2",
 		"svelte": "^5.41.0",
 		"svelte-check": "^4.3.3",
@@ -43,6 +45,7 @@
 		"pdf-lib": "^1.17.1",
 		"pdfjs-dist": "^5.4.394",
 		"postgres": "^3.4.7",
-		"qr-code-styling": "^1.9.2"
+		"qr-code-styling": "^1.9.2",
+		"vite-node": "^5.1.0"
 	}
 }

@@ -27,6 +27,10 @@
     try {
       const result = await checkUser(form.email);
       status = result.status;
+      form = {
+        ...form,
+        ...result.user,
+      };
     } catch {
       status = "NOT_REGISTERED";
     }

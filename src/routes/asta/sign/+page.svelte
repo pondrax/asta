@@ -1,18 +1,20 @@
 <script lang="ts">
+  import type { SignatureType } from "./types";
+  import * as pdfLib from "$lib/utils/pdf";
+  import { debounce, fileToBase64 } from "$lib/utils";
+  import { Modal } from "$lib/components";
   import Documents from "./documents.svelte";
   import Metadata from "./metadata.svelte";
   import Preview from "./preview.svelte";
-  import SignModal from "./signModal.svelte";
   import Upload from "./upload.svelte";
-  import type { SignatureType } from "./types";
   import Visualizer from "./visualizer.svelte";
-  import * as pdfLib from "$lib/utils/pdf";
-  import { debounce } from "$lib/utils";
+  import { signDocument } from "./sign.remote";
 
+  let loading = $state(false);
   let signButton: HTMLButtonElement | null = $state(null);
   let activeIndex = $state(0);
   let documents: File[] = $state([]);
-  let editedDocuments: File[] | null[] = $state([]);
+  // let editedDocuments: File[] | null[] = $state([]);
   let status = $state("NOT_REGISTERED");
   let bsre = $state(true);
   let form: Record<string, any> = $state({
@@ -27,10 +29,16 @@
   });
   let fields: Record<string, any> = $state({});
   let hasSignature = $state(false);
-  let footer = $state(false);
+  let previewFile: File | null = $state(null);
 
   let forms: {
-    sign?: any;
+    sign?: {
+      email: "";
+      passphrase: "";
+      signatureProperties: SignatureType[];
+      files: File[];
+      completed: boolean[];
+    };
   } = $state({});
 
   let fileInput: HTMLInputElement | null = $state(null);
@@ -50,9 +58,10 @@
 
   const hasDocuments = $derived(documents.length > 0);
   const hasMetadata = $derived(
-    String(form.email).length > 0 && String(form.nama).length > 0 && bsre
-      ? status === "ISSUE"
-      : signatures.length > 0,
+    true ||
+      (String(form.email).length > 0 &&
+        String(form.nama).length > 0 &&
+        (bsre ? status === "ISSUE" : signatures.length > 0)),
   );
   const allowSigning = $derived(hasDocuments && hasMetadata);
 
@@ -60,14 +69,14 @@
     const buffer = await file.arrayBuffer();
     fields = await pdfLib.getAllFormFields(buffer);
     hasSignature = await pdfLib.hasSignature(buffer);
-    editedDocuments[activeIndex] = null;
+    // editedDocuments[activeIndex] = null;
     await pdfLib.fillFormFields(buffer, form);
   }
 
-  async function fillFormFields() {
-    const file = documents[activeIndex];
+  async function fillFormFields(file: File) {
     let buffer: ArrayBuffer = await file.arrayBuffer();
 
+    // console.log(form.footer, "footer");
     if (form.footer) {
       buffer = (
         await pdfLib.drawFooter(buffer, {
@@ -78,23 +87,24 @@
 
     const filled = await pdfLib.fillFormFields(buffer, form);
 
-    editedDocuments[activeIndex] = new File(
-      [new Uint8Array(filled)],
-      file.name,
-      {
-        type: "application/pdf",
-      },
-    );
+    const filledFile = new File([new Uint8Array(filled)], file.name, {
+      type: "application/pdf",
+    });
+    previewFile = filledFile;
+    return filledFile;
   }
 
-  const debounceFillFormFields = debounce(fillFormFields, 500);
+  //@ts-expect-error
+  const debounceFillFormFields = debounce(() => {
+    fillFormFields(documents[activeIndex]);
+  }, 500);
 
   $effect(() => {
     if (files.length > 0) {
       documents = [...documents, ...files];
-      editedDocuments = Array.from({ length: documents.length }).map(
-        () => null,
-      );
+      // editedDocuments = Array.from({ length: documents.length }).map(
+      //   () => null,
+      // );
       files = [];
     }
   });
@@ -103,9 +113,6 @@
     if (!documents[activeIndex]) return;
 
     getDocumentDetails(documents[activeIndex]);
-  });
-
-  $effect(() => {
     const serialized = JSON.stringify(form);
     //@ts-expect-error
     debounceFillFormFields();
@@ -133,10 +140,7 @@
             </span>
           </div>
         {/if}
-        <Preview
-          file={editedDocuments[activeIndex] || documents[activeIndex]}
-          {hasSignature}
-        />
+        <Preview file={previewFile} {hasSignature} />
       </div>
 
       <div class:hidden={documents.length > 0} class="h-full">
@@ -145,7 +149,7 @@
     </div>
     <div class="flex flex-col gap-3">
       <div class="grow flex min-h-0">
-        <div class="tabs tabs-lift md:w-sm h-100 md:h-auto">
+        <div class="tabs tabs-lift md:w-sm h-150 md:h-auto">
           <label class="tab">
             <input type="radio" name="sign-nav" checked />
             <iconify-icon icon="bx:file"></iconify-icon>
@@ -234,11 +238,104 @@
     aria-label="Sign Document"
     data-tip="Sign Document"
     disabled={!allowSigning}
-    onclick={() => (forms.sign = true)}
+    onclick={async () =>
+      (forms.sign = {
+        email: form.email,
+        passphrase: "",
+        signatureProperties: signatures,
+        files: await Promise.all(
+          documents.map(async (doc) => await fillFormFields(doc)),
+        ),
+        completed: documents.map(() => false),
+        // files: documents.map((_, i) => editedDocuments[i] || documents[i]),
+      })}
   >
     <iconify-icon icon="bx:pen" class="text-xl"></iconify-icon>
     Tanda Tangan
   </button>
 </div>
 
-<SignModal bind:data={forms.sign} />
+<Modal bind:data={forms.sign} title={`Tanda Tangan Dokumen`}>
+  <!-- <h1>Tanda Tangan</h1> -->
+  {#snippet children(item)}
+    <form
+      class="flex flex-col gap-4"
+      autocomplete="off"
+      onsubmit={async (e) => {
+        e.preventDefault();
+        loading = true;
+        await Promise.all(
+          item.files.map(async (file, i) => {
+            const base64 = (await fileToBase64(file)).replace(
+              "data:application/pdf;base64,",
+              "",
+            );
+
+            const signing = await signDocument({
+              email: item.email,
+              passphrase: item.passphrase,
+              signatureProperties: item.signatureProperties,
+              file: [base64],
+            });
+            item.completed[i] = signing.file.length > 0;
+            console.log(signing);
+          }),
+        );
+        loading = false;
+      }}
+    >
+      <ul class="menu w-full h-30 overflow-y-auto p-0">
+        {#each item.files as file, i}
+          <li>
+            <div class="flex justify-between">
+              <span class="text-sm text-base-content/80">
+                {file.name}
+              </span>
+              <div>
+                {#if item.completed[i]}
+                  <iconify-icon icon="bx:check" class="text-success"
+                  ></iconify-icon>
+                {:else if loading}
+                  <div class="loading"></div>
+                {:else}
+                  <iconify-icon icon="bx:x" class="text-error"></iconify-icon>
+                {/if}
+              </div>
+            </div>
+          </li>
+        {/each}
+      </ul>
+      <label class="floating-label">
+        <span>Email Penandatangan</span>
+        <input
+          type="text"
+          bind:value={item.email}
+          placeholder="mail@mojokertokota.go.id"
+          class="input"
+        />
+      </label>
+
+      <label class="floating-label">
+        <span>Passphrase</span>
+        <!-- <input
+          type="text"
+          bind:value={item.passphrase}
+          autocomplete="off"
+          class="input input-bordered"
+          style="-webkit-text-security: disc;"
+        /> -->
+        <input
+          bind:value={item.passphrase}
+          type="password"
+          placeholder="Passphrase"
+          autocomplete="new-password"
+          class="input"
+        />
+      </label>
+
+      <button type="submit" class="btn btn-primary">Tanda Tangan</button>
+    </form>
+  {/snippet}
+</Modal>
+
+<!-- <SignModal bind:data={forms.sign} /> -->

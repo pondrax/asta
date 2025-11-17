@@ -26,6 +26,9 @@ importers:
       qr-code-styling:
         specifier: ^1.9.2
         version: 1.9.2
+      vite-node:
+        specifier: ^5.1.0
+        version: 5.1.0(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)
     devDependencies:
       '@inlang/paraglide-js':
         specifier: ^2.4.0
@@ -52,11 +55,14 @@ importers:
         specifier: ^5.5.0
         version: 5.5.0
       drizzle-kit:
-        specifier: ^0.31.5
-        version: 0.31.6
+        specifier: 1.0.0-beta.1-03a5cdc
+        version: 1.0.0-beta.1-03a5cdc
       drizzle-orm:
-        specifier: ^0.44.6
-        version: 0.44.7(kysely@0.27.6)(postgres@3.4.7)
+        specifier: 1.0.0-beta.1-03a5cdc
+        version: 1.0.0-beta.1-03a5cdc(postgres@3.4.7)
+      drizzle-plus:
+        specifier: 1.0.0-beta.34
+        version: 1.0.0-beta.34(drizzle-orm@1.0.0-beta.1-03a5cdc(postgres@3.4.7))
       iconify-icon:
         specifier: ^3.0.2
         version: 3.0.2
@@ -936,6 +942,10 @@ packages:
   buffer-from@1.1.2:
     resolution: {integrity: sha512-E+XQCRwSbaaiChtv6k6Dwgc+bx+Bs6vuKJHHl5kox/BaKbhiXzqQOwK4cO22yElGp2OCmjwVhT3HmxgyPGnJfQ==}
 
+  cac@6.7.14:
+    resolution: {integrity: sha512-b6Ilus+c3RrdDk+JhLKUAQfzzgLEPy6wcXqS7f/xe1EETvsDP6GORG7SFuOs6cID5YkqchW/LXZbX5bc8j7ZcQ==}
+    engines: {node: '>=8'}
+
   chai@6.2.1:
     resolution: {integrity: sha512-p4Z49OGG5W/WBCPSS/dH3jQ73kD6tiMmUM+bckNK6Jr5JHMG3k9bg/BvKR8lKmtVBKmOiuVaV2ws8s9oSbwysg==}
     engines: {node: '>=18'}
@@ -998,12 +1008,12 @@ packages:
   devalue@5.4.2:
     resolution: {integrity: sha512-MwPZTKEPK2k8Qgfmqrd48ZKVvzSQjgW0lXLxiIBA8dQjtf/6mw6pggHNLcyDKyf+fI6eXxlQwPsfaCMTU5U+Bw==}
 
-  drizzle-kit@0.31.6:
-    resolution: {integrity: sha512-/B4e/4pwnx25QwD5xXgdpo1S+077a2VZdosXbItE/oNmUgQwZydGDz9qJYmnQl/b+5IX0rLfwRhrPnroGtrg8Q==}
+  drizzle-kit@1.0.0-beta.1-03a5cdc:
+    resolution: {integrity: sha512-Go+ecN3DNy3DAZWELd/OdV6AipFXVpKfaHv6WlVuGzuqZwEUeYN90tw2RRhMSN9riAnxP1VEl9LB6vIziYLySQ==}
     hasBin: true
 
-  drizzle-orm@0.44.7:
-    resolution: {integrity: sha512-quIpnYznjU9lHshEOAYLoZ9s3jweleHlZIAWR/jX9gAWNg/JhQ1wj0KGRf7/Zm+obRrYd9GjPVJg790QY9N5AQ==}
+  drizzle-orm@1.0.0-beta.1-03a5cdc:
+    resolution: {integrity: sha512-wYffszGOWZyb3B5MP1ZMZAktC0yRiZyjDgQrx7kLG+W1rY3e2jZqop3xFHQtexglyb5w9WhBJ3/HKbHPDa1Xww==}
     peerDependencies:
       '@aws-sdk/client-rds-data': '>=3'
       '@cloudflare/workers-types': '>=4'
@@ -1015,19 +1025,21 @@ packages:
       '@opentelemetry/api': ^1.4.1
       '@planetscale/database': '>=1.13'
       '@prisma/client': '*'
+      '@sqlitecloud/drivers': '>=1.0.653'
       '@tidbcloud/serverless': '*'
+      '@tursodatabase/database': '>=0.2.1'
+      '@tursodatabase/database-common': '>=0.2.1'
+      '@tursodatabase/database-wasm': '>=0.2.1'
       '@types/better-sqlite3': '*'
       '@types/pg': '*'
       '@types/sql.js': '*'
       '@upstash/redis': '>=1.34.7'
       '@vercel/postgres': '>=0.8.0'
       '@xata.io/client': '*'
-      better-sqlite3: '>=7'
+      better-sqlite3: '>=9.3.0'
       bun-types: '*'
       expo-sqlite: '>=14.0.0'
       gel: '>=2'
-      knex: '*'
-      kysely: '*'
       mysql2: '>=2'
       pg: '>=8'
       postgres: '>=3'
@@ -1055,7 +1067,15 @@ packages:
         optional: true
       '@prisma/client':
         optional: true
+      '@sqlitecloud/drivers':
+        optional: true
       '@tidbcloud/serverless':
+        optional: true
+      '@tursodatabase/database':
+        optional: true
+      '@tursodatabase/database-common':
+        optional: true
+      '@tursodatabase/database-wasm':
         optional: true
       '@types/better-sqlite3':
         optional: true
@@ -1077,10 +1097,6 @@ packages:
         optional: true
       gel:
         optional: true
-      knex:
-        optional: true
-      kysely:
-        optional: true
       mysql2:
         optional: true
       pg:
@@ -1093,6 +1109,11 @@ packages:
         optional: true
       sqlite3:
         optional: true
+
+  drizzle-plus@1.0.0-beta.34:
+    resolution: {integrity: sha512-bqp9IiEjF+DWx75jWUnixT4SCAWoyzvCYpqRYs1+K1Z9IWV/3g33oyTHweDwEK8gb2/a1ZYnvlmvfD9+jEeAAQ==}
+    peerDependencies:
+      drizzle-orm: '>=1.0.0-0'
 
   enhanced-resolve@5.18.3:
     resolution: {integrity: sha512-d4lC8xfavMeBjzGr2vECC3fsGXziXZQyJxD868h2M/mBI3PwAuODxAkLkq5HYuvrPYcUtiLzsTo8U3PgX3Ocww==}
@@ -1426,6 +1447,11 @@ packages:
 
   uuid@11.1.0:
     resolution: {integrity: sha512-0/A9rDy9P7cJ+8w1c9WD9V//9Wj15Ce2MPz8Ri6032usz+NfePxx5AcN3bN+r6ZL6jEo066/yNYB3tn4pQEx+A==}
+    hasBin: true
+
+  vite-node@5.1.0:
+    resolution: {integrity: sha512-ci+CXFFrQfRgdO0WDSKNQ28OOglURJUw2hVlfir4IA+Q2nHKmU/qIbmiYO7oB8CZvvSoyCmHycXz5MiX03BrsQ==}
+    engines: {node: ^18.0.0 || ^20.0.0 || >=22.0.0}
     hasBin: true
 
   vite-plugin-devtools-json@1.0.0:
@@ -2170,6 +2196,8 @@ snapshots:
 
   buffer-from@1.1.2: {}
 
+  cac@6.7.14: {}
+
   chai@6.2.1: {}
 
   chokidar@4.0.3:
@@ -2206,7 +2234,7 @@ snapshots:
 
   devalue@5.4.2: {}
 
-  drizzle-kit@0.31.6:
+  drizzle-kit@1.0.0-beta.1-03a5cdc:
     dependencies:
       '@drizzle-team/brocli': 0.10.2
       '@esbuild-kit/esm-loader': 2.6.5
@@ -2215,10 +2243,13 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  drizzle-orm@0.44.7(kysely@0.27.6)(postgres@3.4.7):
+  drizzle-orm@1.0.0-beta.1-03a5cdc(postgres@3.4.7):
     optionalDependencies:
-      kysely: 0.27.6
       postgres: 3.4.7
+
+  drizzle-plus@1.0.0-beta.34(drizzle-orm@1.0.0-beta.1-03a5cdc(postgres@3.4.7)):
+    dependencies:
+      drizzle-orm: 1.0.0-beta.1-03a5cdc(postgres@3.4.7)
 
   enhanced-resolve@5.18.3:
     dependencies:
@@ -2564,6 +2595,27 @@ snapshots:
   uuid@10.0.0: {}
 
   uuid@11.1.0: {}
+
+  vite-node@5.1.0(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2):
+    dependencies:
+      cac: 6.7.14
+      debug: 4.4.3
+      es-module-lexer: 1.7.0
+      pathe: 2.0.3
+      vite: 7.2.2(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)
+    transitivePeerDependencies:
+      - '@types/node'
+      - jiti
+      - less
+      - lightningcss
+      - sass
+      - sass-embedded
+      - stylus
+      - sugarss
+      - supports-color
+      - terser
+      - tsx
+      - yaml
 
   vite-plugin-devtools-json@1.0.0(vite@7.2.2(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)):
     dependencies:
