@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { debounce } from "$lib/utils";
-  import { checkUser } from "./sign.remote";
+  import { checkUser } from "$lib/remotes/sign.remote";
   import ranks from "./ranks";
   import organizations from "./organizations";
   import Signature from "./signature.svelte";
@@ -296,6 +296,7 @@
       <Signature
         {form}
         {setSignature}
+        {hasSignature}
         availableVisual={bsre ? ["image", "qr", "box", "draw"] : ["draw"]}
       />
 

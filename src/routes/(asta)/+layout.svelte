@@ -28,7 +28,7 @@
         <li><a>Item 3</a></li> -->
       </ul>
     </div>
-    <a class="btn btn-ghost text-xl px-0" href="/asta" aria-label="Logo">
+    <a class="btn btn-ghost text-xl px-0" href="/" aria-label="Logo">
       <img src="/logo-white.png" alt="logo" class="h-12 dark-logo" />
       <img src="/logo.png" alt="logo" class="h-12 light-logo" />
     </a>
@@ -36,10 +36,10 @@
   <div class="navbar-center hidden lg:flex">
     <ul class="menu menu-horizontal px-1">
       <li>
-        <a href="/asta" class=""> Beranda </a>
+        <a href="/" class=""> Beranda </a>
       </li>
       <li>
-        <a href="/asta/sign"> Tanda Tangan </a>
+        <a href="/sign"> Tanda Tangan </a>
       </li>
       <!-- <li>
         <details>
@@ -50,8 +50,8 @@
           </ul>
         </details>
       </li> -->
-      <li><a href="/asta/verify"> Verifikasi </a></li>
-      <li><a href="/asta/auth"> Panduan </a></li>
+      <li><a href="/verify"> Verifikasi </a></li>
+      <li><a href="/auth"> Panduan </a></li>
     </ul>
   </div>
   <div class="navbar-end gap-5">

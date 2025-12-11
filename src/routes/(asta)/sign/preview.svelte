@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
 
-  let { file, hasSignature = false } = $props();
+  let { file, hasSignature = true } = $props();
 
   let pdfjsLib: typeof import("pdfjs-dist") | null = null;
   let pdfDoc: any = null;
@@ -47,14 +47,19 @@
 
   // React when file changes
   $effect(() => {
-    if (file) openFile(file);
+    if (file) {
+      // console.log("file", file, pdfjsLib, hasSignature);
+
+      openFile(file);
+    }
   });
 
   // --- Load PDF ---
   async function openFile(f: File) {
-    if (!pdfjsLib) return;
+    if (!pdfjsLib) return setTimeout(() => openFile(f), 1000);
     cleanup();
 
+    console.log("hasSignature", hasSignature);
     const arrayBuffer = await f.arrayBuffer();
     const task = pdfjsLib.getDocument({ data: arrayBuffer });
     pdfDoc = await task.promise;
@@ -222,6 +227,7 @@
 
     wrap.appendChild(canvas);
     wrap.appendChild(overlay);
+    // console.log("hasSignature", hasSignature);
     if (!hasSignature) {
       // DRAFT watermark
       const watermark = document.createElement("div");

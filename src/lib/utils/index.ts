@@ -51,6 +51,18 @@ export function base64ToBlob(base64: string, mime = "") {
   return new Blob([byteArray], { type: mime });
 }
 
+export async function calculateFileChecksum(file: File) {
+  // file can be a File object from input or Blob
+  const arrayBuffer = await file.arrayBuffer();
+
+  // Calculate SHA-256
+  const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+  return hashHex;
+}
+
 export async function generateQRCode(options: Options, asBlob = false) {
   const QRCode = (await import('qr-code-styling')).default;
   const qrcode = new QRCode({

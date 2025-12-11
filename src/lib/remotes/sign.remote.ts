@@ -66,6 +66,7 @@ export const signDocument = command(type({
       "tampilan": "INVISIBLE",
     })
   }
+  // return {}
   // console.log(props)
   const req = await fetch(`${env.ESIGN_URL}/api/v2/sign/pdf`, {
     method: "POST",
@@ -79,6 +80,7 @@ export const signDocument = command(type({
   const response = await req.json();
   if (response.file && response.file.length > 0) {
 
+    console.log(response.file[0])
     const blob = base64ToBlob(response.file[0]);
     const saved = await storage.save('test.pdf', Buffer.from(await blob.arrayBuffer()));
     if (saved.url) {
@@ -107,5 +109,21 @@ export const signDocument = command(type({
       console.log(saved)
     }
   }
+  return response;
+})
+
+export const verifyDocument = command(type({
+  file: 'string',
+}), async (props) => {
+  const req = await fetch(`${env.ESIGN_URL}/api/v2/verify/pdf`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": env.ESIGN_API_KEY,
+    },
+    body: JSON.stringify(props),
+  });
+
+  const response = await req.json();
   return response;
 })

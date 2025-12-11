@@ -6,9 +6,11 @@
   let {
     form,
     setSignature,
+    hasSignature,
     availableVisual = ["image", "qr", "box", "draw"],
   }: {
     form: Record<string, string>;
+    hasSignature?: boolean;
     setSignature: (props: SignatureType) => void;
     availableVisual?: Visual[];
   } = $props();
@@ -279,9 +281,10 @@
   >
     <button
       type="button"
-      class="btn btn-secondary btn-square animate-bounce"
+      class="btn btn-secondary btn-square"
       aria-label="Tambahkan visualisasi ke dokumen"
       onclick={addSignature}
+      disabled={hasSignature}
     >
       <iconify-icon icon="bx:plus" class="text-2xl"></iconify-icon>
     </button>

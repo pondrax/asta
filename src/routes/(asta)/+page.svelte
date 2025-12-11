@@ -17,7 +17,7 @@
       dengan fokus pada tata pelayanan keamanan yang terpercaya dan mudah diakses
       oleh pengguna.
     </p>
-    <a href="/asta/sign" class="btn btn-primary animate-bounce">
+    <a href="./sign" class="btn btn-primary animate-bounce">
       Tanda Tangan Dokumen Sekarang!
       <iconify-icon icon="bx:pen"></iconify-icon>
     </a>

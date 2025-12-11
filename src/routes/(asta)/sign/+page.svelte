@@ -8,7 +8,8 @@
   import Preview from "./preview.svelte";
   import Upload from "./upload.svelte";
   import Visualizer from "./visualizer.svelte";
-  import { signDocument } from "./sign.remote";
+  import { signDocument } from "$lib/remotes/sign.remote";
+  import { goto } from "$app/navigation";
 
   let loading = $state(false);
   let signButton: HTMLButtonElement | null = $state(null);
@@ -81,6 +82,10 @@
   async function fillFormFields(file: File) {
     let buffer: ArrayBuffer = await file.arrayBuffer();
 
+    if (hasSignature) {
+      previewFile = file;
+      return file;
+    }
     // console.log(form.footer, "footer");
     if (form.footer) {
       buffer = (
@@ -143,6 +148,20 @@
               <strong>Peringatan:</strong> Terdapat tanda tangan elektronik pada
               dokumen ini.
             </span>
+            <button
+              type="button"
+              class="btn btn-xs btn-primary"
+              onclick={() => {
+                const file = documents[activeIndex];
+                const blobURL = URL.createObjectURL(file);
+                const blobId = blobURL.split("/").pop();
+                console.log(blobURL);
+                goto(`/verify?blob=${blobId}&fileName=${file.name}`);
+                // goto(`/d/${encodeURIComponent(blobURL)}`);
+              }}
+            >
+              Verifikasi
+            </button>
           </div>
         {/if}
         <Preview file={previewFile} {hasSignature} />
@@ -248,6 +267,7 @@
         ...form,
         passphrase: "",
         signatureProperties: signatures,
+        fileNames: documents.map((doc) => doc.name),
         files: await Promise.all(
           documents.map(async (doc) => await fillFormFields(doc)),
         ),
@@ -289,8 +309,10 @@
                 signatureProperties: item.signatureProperties,
                 file: [base64],
               });
-              item.completed[i] = signing.file.length > 0;
-              console.log(signing);
+              if (signing.file) {
+                item.completed[i] = signing.file.length > 0;
+                console.log(signing);
+              }
             }),
           );
           console.log(results);
