@@ -178,20 +178,10 @@ export function toDownload(
   URL.revokeObjectURL(url);
 }
 
-export async function hasSignature(bytes: Uint8Array | ArrayBuffer) {
+export async function hasSignature(bytes: Uint8Array | ArrayBuffer): Promise<boolean> {
   const pdfDoc = await PDFDocument.load(bytes);
   const form = pdfDoc.getForm();
-
   const fields = form.getFields();
 
-  for (const field of fields) {
-    const type = field.constructor.name;
-
-    // PDFSignature2 = signature field in RootCA.id, Privy, eMeterai, BCS, etc.
-    if (type === "PDFSignature" || type === "PDFSignature2") {
-      return true;
-    }
-  }
-
-  return false;
+  return fields.some(field => field instanceof PDFSignature);
 }

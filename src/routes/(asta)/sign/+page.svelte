@@ -29,7 +29,7 @@
     note: "Tanda Tangan Elektronik",
   });
   let fields: Record<string, any> = $state({});
-  let hasSignature = $state(false);
+  let hasSignature = $state(true);
   let previewFile: File | null = $state(null);
 
   let forms: {
@@ -75,6 +75,7 @@
     const buffer = await file.arrayBuffer();
     fields = await pdfLib.getAllFormFields(buffer);
     hasSignature = await pdfLib.hasSignature(buffer);
+    // console.log(file, pdfLib, hasSignature, "hasSignature get detail");
     // editedDocuments[activeIndex] = null;
     await pdfLib.fillFormFields(buffer, form);
   }
