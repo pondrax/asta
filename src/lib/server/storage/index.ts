@@ -41,6 +41,7 @@ class LocalStorage {
 
   async save(filename: string, content: Buffer | string): Promise<StorageResult> {
     try {
+      console.log(this.baseDir)
       await fs.mkdir(this.baseDir, { recursive: true });
       const suffix = createId();
       filename = filename.replace(/(\.[^/.]+)$/, `.${suffix}$1`);

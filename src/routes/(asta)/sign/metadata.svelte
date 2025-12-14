@@ -71,6 +71,8 @@
 
   onMount(() => {
     getUserCity();
+    // @ts-expect-error
+    debounceCheckEmail();
   });
 </script>
 

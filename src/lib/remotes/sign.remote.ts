@@ -1,11 +1,15 @@
 import { command, form } from "$app/server";
 import { env } from "$env/dynamic/private";
 import { db } from "$lib/server/db";
+import { Logger } from "$lib/server/log";
 import { FileStorage } from "$lib/server/storage";
-import { base64ToBlob } from "$lib/utils";
+import { base64ToBlob, calculateFileChecksum } from "$lib/utils";
 import { type } from "arktype";
+import { desc, sql } from "drizzle-orm";
 
 const storage = new FileStorage;
+const logger = new Logger;
+
 export const checkUser = command(type('string.email'), async (email) => {
   const req = await fetch(`${env.ESIGN_URL}/api/v2/user/check/status`, {
     method: "POST",
@@ -59,7 +63,8 @@ export const signDocument = command(type({
   passphrase: 'string',
   signatureProperties: 'Array',
   note: 'string',
-  file: 'Array'
+  fileBase64: 'string',
+  fileName: 'string'
 }), async (props) => {
   if (props.signatureProperties.length === 0) {
     props.signatureProperties.push({
@@ -68,23 +73,37 @@ export const signDocument = command(type({
   }
   // return {}
   // console.log(props)
+  // return {}
   const req = await fetch(`${env.ESIGN_URL}/api/v2/sign/pdf`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "Authorization": env.ESIGN_API_KEY,
     },
-    body: JSON.stringify(props),
+    body: JSON.stringify({
+      ...props,
+      file: [props.fileBase64],
+    }),
   });
 
+
   const response = await req.json();
+  if (response.error) {
+    await logger.log('error', response.error, {
+      email: props.email,
+      note: props.note,
+      fileName: props.fileName,
+    })
+    return response;
+  }
+
   if (response.file && response.file.length > 0) {
-
-    console.log(response.file[0])
     const blob = base64ToBlob(response.file[0]);
-    const saved = await storage.save('test.pdf', Buffer.from(await blob.arrayBuffer()));
+    const buffer = Buffer.from(await blob.arrayBuffer());
+    const checksum = await calculateFileChecksum(buffer);
+    const saved = await storage.save('documents/' + props.fileName, buffer);
     if (saved.url) {
-
+      const { fileBase64, fileName, ...metadata } = props
       await db.query.signers.upsert({
         data: {
           email: props.email,
@@ -97,33 +116,57 @@ export const signDocument = command(type({
       await db.query.documents.upsert({
         data: {
           id: props.id,
-          email: props.email,
+          owner: props.email,
+          signer: props.email,
           title: props.note,
           files: [saved.url],
-          // rank: props.pangkat,
-          // organizations: props.instansi,
-          // position: props.jabatan,
-          // file: [saved.url],
-        }
+          checksums: [checksum],
+          metadata: null
+          // metadata: JSON.stringify(metadata),
+        },
+        update: doc => ({
+          files: sql`array_append(${doc.files}, ${saved.url})`,
+          checksums: sql`array_append(${doc.checksums}, ${checksum})`,
+        })
       })
       console.log(saved)
     }
   }
+
   return response;
 })
 
 export const verifyDocument = command(type({
   file: 'string',
 }), async (props) => {
-  const req = await fetch(`${env.ESIGN_URL}/api/v2/verify/pdf`, {
+  const req = await fetch(`${env.ESIGN_VERIFY_URL}/api/v2/verify/pdf`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": env.ESIGN_API_KEY,
+      "Authorization": env.ESIGN_VERIFY_KEY,
     },
     body: JSON.stringify(props),
   });
 
-  const response = await req.json();
-  return response;
+  // console.log(req.status)
+  if (req.status == 200) {
+    return await req.json();
+  }
+  return {
+    conclusion: 'Error',
+    description: 'Server Error, Failed to verify document',
+  }
+
+})
+
+
+export const getDocument = command(type({
+  id: 'string',
+}), async (props) => {
+  const document = await db.query.documents.findFirst({
+    where: {
+      id: props.id,
+    }
+  })
+  return document;
 })

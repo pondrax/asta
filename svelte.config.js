@@ -13,7 +13,10 @@ const config = {
 			remoteFunctions: true
 		},
 		adapter: adapter()
-	}
+	},
+	vitePlugin: {
+		inspector: true, // enables the inspector
+	},
 };
 
 export default config;

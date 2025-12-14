@@ -1,14 +1,5 @@
-import { pgTable, integer, text, timestamp, json } from 'drizzle-orm/pg-core';
-import { init } from '@paralleldrive/cuid2';
-
-const createId = init({ length: 15 });
-
-const id = text('id').primaryKey().$default(() => createId());
-const created = timestamp('created', { mode: 'string', withTimezone: true })
-	.defaultNow()
-const updated = timestamp('updated', { mode: 'string', withTimezone: true })
-	.defaultNow()
-	.$onUpdate(() => new Date().toISOString())
+import { pgTable, integer, text, timestamp, json, customType } from 'drizzle-orm/pg-core';
+import { id, created, updated, encryptedJson } from './utils';
 
 export const users = pgTable('users', {
 	id,
@@ -42,14 +33,17 @@ export const signers = pgTable('signers', {
 
 export const documents = pgTable('documents', {
 	id,
-	email: text('email'),
+	owner: text('owner'),
+	signer: text('signer'),
 	title: text('title'),
 	files: text('files').array(),
 	signatures: text('signatures').array(),
+	checksums: text('checksums').array(),
+	metadata: encryptedJson('metadata'),
+	status: text('status').default('draft').$type<'draft' | 'queue' | 'failed' | 'signed'>(),
 	created,
 	updated,
 })
-
 export const templates = pgTable('templates', {
 	id,
 	name: text('name').unique(),
@@ -70,6 +64,17 @@ export const ranks = pgTable('ranks', {
 	id,
 	rank: text('rank').unique(),
 	grade: text('grade').unique(),
+	created,
+	updated,
+})
+
+export const __logs = pgTable('__logs', {
+	id,
+	level: text('level').default('info').$type<'info' | 'error' | 'warn'>(),
+	url: text('url'),
+	method: text('method'),
+	message: text('message'),
+	metadata: json('metadata'),
 	created,
 	updated,
 })

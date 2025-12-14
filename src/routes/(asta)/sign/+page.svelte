@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { SignatureType } from "./types";
   import * as pdfLib from "$lib/utils/pdf";
-  import { debounce, fileToBase64, createId } from "$lib/utils";
+  import { debounce, fileToBase64, createId, promisePool } from "$lib/utils";
   import { Modal } from "$lib/components";
   import Documents from "./documents.svelte";
   import Metadata from "./metadata.svelte";
@@ -13,14 +13,15 @@
 
   let loading = $state(false);
   let signButton: HTMLButtonElement | null = $state(null);
-  let activeIndex = $state(0);
-  let documents: File[] = $state([]);
+  let activeIndex = $state("");
+  let documents: Record<string, File> = $state({});
+  // let documents: File[] = $state([]);
   // let editedDocuments: File[] | null[] = $state([]);
   let status = $state("NOT_REGISTERED");
   let bsre = $state(true);
   let form: Record<string, any> = $state({
     footer: true,
-    email: "",
+    email: "pondra@mojokertokota.go.id",
     nama: "",
     jabatan: "",
     pangkat: "-",
@@ -42,9 +43,11 @@
       passphrase: "";
       note: "";
       signatureProperties: SignatureType[];
-      files: File[];
-      completed: boolean[];
+      documents: Record<string, File>;
+      // files: File[];
+      completed: string[];
     };
+    signSuccess?: boolean;
   } = $state({});
 
   let fileInput: HTMLInputElement | null = $state(null);
@@ -61,13 +64,12 @@
       signatures = [...signatures, sign];
     }
   };
-
-  const hasDocuments = $derived(documents.length > 0);
+  const hasDocuments = $derived(Object.keys(documents).length > 0);
   const hasMetadata = $derived(
-    true ||
-      (String(form.email).length > 0 &&
-        String(form.nama).length > 0 &&
-        (bsre ? status === "ISSUE" : signatures.length > 0)),
+    // true ||
+    String(form.email).length > 0 &&
+      String(form.nama).length > 0 &&
+      (bsre ? status === "ISSUE" : signatures.length > 0),
   );
   const allowSigning = $derived(hasDocuments && hasMetadata);
 
@@ -75,8 +77,7 @@
     const buffer = await file.arrayBuffer();
     fields = await pdfLib.getAllFormFields(buffer);
     hasSignature = await pdfLib.hasSignature(buffer);
-    // console.log(file, pdfLib, hasSignature, "hasSignature get detail");
-    // editedDocuments[activeIndex] = null;
+
     await pdfLib.fillFormFields(buffer, form);
   }
 
@@ -112,10 +113,8 @@
 
   $effect(() => {
     if (files.length > 0) {
-      documents = [...documents, ...files];
-      // editedDocuments = Array.from({ length: documents.length }).map(
-      //   () => null,
-      // );
+      documents = Object.fromEntries(files.map((file) => [createId(10), file]));
+      activeIndex = Object.keys(documents)[0];
       files = [];
     }
   });
@@ -156,9 +155,7 @@
                 const file = documents[activeIndex];
                 const blobURL = URL.createObjectURL(file);
                 const blobId = blobURL.split("/").pop();
-                console.log(blobURL);
                 goto(`/verify?blob=${blobId}&fileName=${file.name}`);
-                // goto(`/d/${encodeURIComponent(blobURL)}`);
               }}
             >
               Verifikasi
@@ -168,7 +165,7 @@
         <Preview file={previewFile} {hasSignature} />
       </div>
 
-      <div class:hidden={documents.length > 0} class="h-full">
+      <div class:hidden={hasDocuments} class="h-full">
         <Upload bind:fileInput bind:files />
       </div>
     </div>
@@ -178,7 +175,7 @@
           <label class="tab">
             <input type="radio" name="sign-nav" checked />
             <iconify-icon icon="bx:file"></iconify-icon>
-            <span class="mx-2"> Dokumen ({documents.length})</span>
+            <span class="mx-2"> Dokumen ({Object.keys(documents).length})</span>
             {#if hasDocuments}
               <iconify-icon icon="bx:check" class="text-success"></iconify-icon>
             {:else}
@@ -268,11 +265,13 @@
         ...form,
         passphrase: "",
         signatureProperties: signatures,
-        fileNames: documents.map((doc) => doc.name),
-        files: await Promise.all(
-          documents.map(async (doc) => await fillFormFields(doc)),
-        ),
-        completed: documents.map(() => false),
+        documents,
+        completed: [],
+        // fileNames: documents.map((doc) => doc.name),
+        // files: await Promise.all(
+        //   documents.map(async (doc) => await fillFormFields(doc)),
+        // ),
+        // completed: documents.map(() => false),
         // files: documents.map((_, i) => editedDocuments[i] || documents[i]),
       } as any)}
   >
@@ -291,92 +290,118 @@
         e.preventDefault();
         loading = true;
         try {
-          const results = await Promise.all(
-            item.files.map(async (file, i) => {
-              const base64 = (await fileToBase64(file)).replace(
-                "data:application/pdf;base64,",
-                "",
-              );
+          const docs = [];
+          for (const [id, file] of Object.entries(item.documents)) {
+            const processedFile = await fillFormFields(file);
+            docs.push({
+              id,
+              email: item.email,
+              nama: item.nama,
+              jabatan: item.jabatan,
+              pangkat: item.pangkat,
+              instansi: item.instansi,
+              passphrase: item.passphrase,
+              note: item.note,
+              signatureProperties: item.signatureProperties,
+              fileName: file.name,
+              fileBase64: await fileToBase64(processedFile),
+            });
+          }
 
-              const signing = await signDocument({
-                id: createId(),
-                email: item.email,
-                nama: item.nama,
-                jabatan: item.jabatan,
-                pangkat: item.pangkat,
-                instansi: item.instansi,
-                passphrase: item.passphrase,
-                note: item.note,
-                signatureProperties: item.signatureProperties,
-                file: [base64],
-              });
-              if (signing.file) {
-                item.completed[i] = signing.file.length > 0;
-                console.log(signing);
-              }
-            }),
-          );
+          const results = await promisePool(docs, 2, async (doc) => {
+            const signing = await signDocument(doc);
+
+            if (signing.file) {
+              item.completed.push(doc.id);
+            }
+
+            return signing;
+          });
+
           console.log(results);
         } catch (err) {
           console.log(err);
         }
         loading = false;
-        forms.sign = undefined;
+        // forms.sign = undefined;
       }}
     >
-      <ul class="menu w-full h-30 overflow-y-auto p-0">
-        {#each item.files as file, i}
+      <ul
+        class="menu w-full min-h-30 max-h-100 overflow-y-auto p-0 flex-nowrap mb-5"
+      >
+        {#each Object.entries(item.documents) as [id, file]}
           <li>
-            <div class="flex justify-between">
+            <a
+              href={item.completed.includes(id) ? `/verify?id=${id}` : "#"}
+              target="_blank"
+              class="flex justify-between"
+            >
               <span class="text-sm text-base-content/80">
                 {file.name}
               </span>
               <div>
-                {#if item.completed[i]}
-                  <iconify-icon icon="bx:badge-check" class="text-success"
+                {#if item.completed.includes(id)}
+                  <iconify-icon icon="bx:check" class="text-success"
                   ></iconify-icon>
                 {:else if loading}
                   <div class="loading"></div>
                 {:else}
-                  <iconify-icon icon="bx:badge" class="text-warning"
+                  <iconify-icon icon="bx:circle" class="text-warning text-2xl"
                   ></iconify-icon>
                 {/if}
               </div>
-            </div>
+            </a>
           </li>
         {/each}
       </ul>
-      <label class="floating-label">
-        <span>Email Penandatangan</span>
-        <input
-          type="text"
-          bind:value={item.email}
-          placeholder="mail@mojokertokota.go.id"
-          class="input"
-        />
-      </label>
+      {#if loading}
+        <div>
+          Proses Penandatangan... ({item.completed.length}/{Object.keys(
+            item.documents,
+          ).length})
+        </div>
+      {/if}
+      {#if item.completed.length == Object.keys(item.documents).length}
+        <div>
+          <iconify-icon icon="bx:badge-check" class="text-success text-5xl"
+          ></iconify-icon>
+        </div>
+        <div class="text-xl">
+          {item.completed.length} dokumen berhasil ditandatangani
+        </div>
+      {:else}
+        <label class="floating-label">
+          <span>Email Penandatangan</span>
+          <input
+            type="text"
+            bind:value={item.email}
+            placeholder="mail@mojokertokota.go.id"
+            class="input"
+          />
+        </label>
 
-      <label class="floating-label">
-        <span>Passphrase</span>
-        <!-- <input
+        <label class="floating-label">
+          <span>Passphrase</span>
+          <!-- <input
           type="text"
           bind:value={item.passphrase}
           autocomplete="off"
           class="input input-bordered"
           style="-webkit-text-security: disc;"
         /> -->
-        <input
-          bind:value={item.passphrase}
-          type="password"
-          placeholder="Passphrase"
-          autocomplete="new-password"
-          class="input"
-        />
-      </label>
+          <input
+            bind:value={item.passphrase}
+            type="password"
+            placeholder="Passphrase"
+            autocomplete="new-password"
+            class="input"
+          />
+        </label>
 
-      <button type="submit" class="btn btn-primary" disabled={loading}>
-        Tanda Tangan
-      </button>
+        <button type="submit" class="btn btn-primary" disabled={loading}>
+          Tanda Tangan
+        </button>
+      {/if}
     </form>
   {/snippet}
 </Modal>

@@ -35,7 +35,7 @@ export function blobToBase64(blob: Blob) {
 export function fileToBase64(blob: Blob) {
   return new Promise<string>((resolve, _) => {
     const reader = new FileReader();
-    reader.onloadend = () => resolve(String(reader.result));
+    reader.onloadend = () => resolve(String(reader.result).split(';base64,')[1]);
     reader.readAsDataURL(blob);
   });
 }
@@ -51,10 +51,17 @@ export function base64ToBlob(base64: string, mime = "") {
   return new Blob([byteArray], { type: mime });
 }
 
-export async function calculateFileChecksum(file: File) {
-  // file can be a File object from input or Blob
-  const arrayBuffer = await file.arrayBuffer();
+export async function calculateFileChecksum(file: File | Buffer) {
+  let arrayBuffer: ArrayBuffer | undefined;
+  if (file instanceof File) {
+    arrayBuffer = await file.arrayBuffer();
+  } else {
+    arrayBuffer = new Uint8Array(file).buffer;
+  }
 
+  if (!arrayBuffer) {
+    throw new Error('Invalid file type');
+  }
   // Calculate SHA-256
   const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
@@ -94,4 +101,33 @@ export async function generateQRCode(options: Options, asBlob = false) {
   }
   return blobToBase64(blob);
   // return (await qrcode.getRawData('png'))?.arrayBuffer() || '';
+}
+
+export async function promisePool<T, R>(
+  items: readonly T[],
+  limit: number,
+  worker: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: Promise<R>[] = [];
+  const executing: Promise<void>[] = [];
+
+  for (const item of items) {
+    const p = Promise.resolve().then(() => worker(item));
+    results.push(p);
+
+    if (limit <= items.length) {
+      const e: Promise<void> = p.then(() => {
+        const i = executing.indexOf(e);
+        if (i !== -1) executing.splice(i, 1);
+      });
+
+      executing.push(e);
+
+      if (executing.length >= limit) {
+        await Promise.race(executing);
+      }
+    }
+  }
+
+  return Promise.all(results);
 }

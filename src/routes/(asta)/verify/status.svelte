@@ -3,7 +3,9 @@
 
   let {
     verifyStatus,
+    verify,
   }: {
+    verify: () => Promise<void>;
     verifyStatus: SignatureVerificationResponse;
   } = $props();
 
@@ -16,15 +18,16 @@
 
 <div class="space-y-2">
   <div class="-mb-1">
-    <div
-      class="btn btn-sm w-full pointer-events-none {verifyStatus.conclusion ===
-      'VALID'
-        ? 'btn-success'
+    <button
+      class="btn btn-sm w-full tooltip {verifyStatus.conclusion === 'VALID'
+        ? 'btn-info'
         : 'btn-error'}"
+      data-tip="Verifikasi dokumen ulang"
+      onclick={verify}
     >
       {verifyStatus.conclusion}
-    </div>
-    <div class="inline-flex">
+    </button>
+    <div class="inline-flex gap-2">
       <iconify-icon
         icon={verifyStatus.conclusion === "VALID" ? "bx:check" : "bx:error"}
       ></iconify-icon>
@@ -45,12 +48,17 @@
             {#if signature.integrityValid}
               <div class="badge badge-xs badge-info">Valid</div>
             {:else}
-              <div class="badge badge-xs badge-warning">Invalid</div>
+              <div class="badge badge-xs badge-error">Invalid</div>
             {/if}
             {#if signature.certificateTrusted}
               <div class="badge badge-xs badge-success">Trusted</div>
             {:else}
               <div class="badge badge-xs badge-error">Not Trusted</div>
+            {/if}
+            {#if signature.ltv}
+              <div class="badge badge-xs badge-accent">LTV</div>
+            {:else}
+              <div class="badge badge-xs badge-error">Not LTV</div>
             {/if}
             <div>{signature.fieldName}</div>
           </div>

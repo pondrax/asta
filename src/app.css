@@ -34,3 +34,17 @@
   pointer-events: auto;
   z-index: 2;
 }
+
+
+/* play state */
+@utility animate-run {
+    animation-play-state: running;
+}
+
+@utility animate-play {
+    animation-play-state: running;
+}
+
+@utility animate-pause {
+    animation-play-state: paused;
+}

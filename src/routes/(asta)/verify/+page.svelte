@@ -2,7 +2,7 @@
   import { page } from "$app/state";
   import { onDestroy, onMount } from "svelte";
   import Preview from "../sign/preview.svelte";
-  import { verifyDocument } from "$lib/remotes/sign.remote";
+  import { getDocument, verifyDocument } from "$lib/remotes/sign.remote";
   import { calculateFileChecksum, fileToBase64 } from "$lib/utils";
   import Status from "./status.svelte";
   import type { SignatureVerificationResponse } from "./types";
@@ -16,11 +16,20 @@
   let checksum = $state("");
 
   onMount(async () => {
-    if (!page.url.searchParams.get("blob")) {
-      return;
+    let fileName = "";
+    if (page.url.searchParams.get("blob")) {
+      fileName = page.url.searchParams.get("fileName") || "default.pdf";
+      fileURL = `blob:${location.origin}/${page.url.searchParams.get("blob")}`;
     }
-    const fileName = page.url.searchParams.get("fileName") || "default.pdf";
-    fileURL = `blob:${location.origin}/${page.url.searchParams.get("blob")}`;
+    if (page.url.searchParams.get("id")) {
+      const document = await getDocument({
+        id: page.url.searchParams.get("id") || "",
+      });
+      if (document) {
+        fileName = document.title || "default.pdf";
+        fileURL = document.files?.[0] || "";
+      }
+    }
 
     if (fileURL) {
       try {
@@ -83,7 +92,7 @@
     {/if}
   </div>
   <div class="md:w-sm flex flex-col gap-3 h-full overflow-auto p-1 shrink-0">
-    <div class="font-bold text-base-content/60">
+    <div class="text-xl font-bold text-base-content/60">
       Verifikasi Dokumen PDF Anda!
     </div>
     <div class="join w-full">
@@ -156,7 +165,7 @@
           Melakukan verifikasi ...
         </div>
       {:else if verifyStatus}
-        <Status {verifyStatus} />
+        <Status {verifyStatus} {verify} />
       {:else}
         <div class="text-sm text-base-content/60 -mt-2">
           Belum ada dokumen untuk diperiksa
