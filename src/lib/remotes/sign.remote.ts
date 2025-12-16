@@ -111,6 +111,16 @@ export const signDocument = command(type({
           checksums: sql`array_append(${doc.checksums}, ${checksum})`,
         })
       })
+
+      await db.query.documentStatistics.upsert({
+        data: {
+          date: dayjs().format('YYYY-MM-DD'),
+          signed: 1,
+        },
+        update: stat => ({
+          signed: sql`${stat.signed} + 1`,
+        })
+      })
       // console.log(saved)
     }
   }
