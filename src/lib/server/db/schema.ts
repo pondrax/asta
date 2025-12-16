@@ -1,4 +1,4 @@
-import { pgTable, integer, text, timestamp, json, customType } from 'drizzle-orm/pg-core';
+import { pgTable, integer, text, timestamp, json, customType, date } from 'drizzle-orm/pg-core';
 import { id, created, updated, encryptedJson } from './utils';
 
 export const users = pgTable('users', {
@@ -41,6 +41,14 @@ export const documents = pgTable('documents', {
 	checksums: text('checksums').array(),
 	metadata: encryptedJson('metadata'),
 	status: text('status').default('draft').$type<'draft' | 'queue' | 'failed' | 'signed'>(),
+	created,
+	updated,
+})
+export const documentStatistics = pgTable('document_statistics', {
+	id,
+	date: date('date').defaultNow().unique(),
+	verified: integer('verified').default(0),
+	signed: integer('signed').default(0),
 	created,
 	updated,
 })

@@ -18,10 +18,26 @@
   <li class="menu-title sticky -top-2 bg-inherit z-1">
     <div class="flex gap-5 justify-between bg-transparent items-center">
       <div>File Dokumen ({listDocuments.length})</div>
-      <button class="btn btn-sm btn-primary" onclick={() => fileInput?.click()}>
-        <iconify-icon icon="bx:plus"></iconify-icon>
-        Tambah
-      </button>
+      <div class="join">
+        <button
+          class="btn btn-sm btn-primary join-item"
+          onclick={() => fileInput?.click()}
+        >
+          <iconify-icon icon="bx:plus"></iconify-icon>
+          Tambah
+        </button>
+        {#if listDocuments.length > 0}
+          <button
+            class="btn btn-sm btn-error join-item"
+            onclick={() => {
+              activeIndex = "";
+              documents = {};
+            }}
+          >
+            Hapus Semua
+          </button>
+        {/if}
+      </div>
     </div>
   </li>
   {#each listDocuments as [key, doc], i}

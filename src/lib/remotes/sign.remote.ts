@@ -1,10 +1,11 @@
-import { command, form } from "$app/server";
+import { command, form, query } from "$app/server";
 import { env } from "$env/dynamic/private";
 import { db } from "$lib/server/db";
 import { Logger } from "$lib/server/log";
 import { FileStorage } from "$lib/server/storage";
 import { base64ToBlob, calculateFileChecksum } from "$lib/utils";
 import { type } from "arktype";
+import dayjs from "dayjs";
 import { desc, sql } from "drizzle-orm";
 
 const storage = new FileStorage;
@@ -31,28 +32,6 @@ export const checkUser = command(type('string.email'), async (email) => {
   return response
 })
 
-
-// {
-//   "email": "{{email}}",
-//     "passphrase": "{{passphrase}}",
-//       "signatureProperties": [
-//         {
-//           "imageBase64": "{{image_ttd_base64}}",
-//           "tampilan": "VISIBLE",
-//           "page": 1,
-//           "originX": 512.0,
-//           "originY": 0.0,
-//           "width": 100.0,
-//           "height": 75.0,
-//           "location": "null",
-//           "reason": "null",
-//           "contactInfo": "null"
-//         }
-//       ],
-//         "file": [
-//           "{{pdf_2_kb}}"
-//         ]
-// }
 export const signDocument = command(type({
   id: 'string',
   email: 'string.email',
@@ -71,9 +50,7 @@ export const signDocument = command(type({
       "tampilan": "INVISIBLE",
     })
   }
-  // return {}
-  // console.log(props)
-  // return {}
+
   const req = await fetch(`${env.ESIGN_URL}/api/v2/sign/pdf`, {
     method: "POST",
     headers: {
@@ -101,7 +78,7 @@ export const signDocument = command(type({
     const blob = base64ToBlob(response.file[0]);
     const buffer = Buffer.from(await blob.arrayBuffer());
     const checksum = await calculateFileChecksum(buffer);
-    const saved = await storage.save('documents/' + props.fileName, buffer);
+    const saved = await storage.save('documents/signed_' + props.fileName, buffer);
     if (saved.url) {
       const { fileBase64, fileName, ...metadata } = props
       await db.query.signers.upsert({
@@ -118,7 +95,7 @@ export const signDocument = command(type({
           id: props.id,
           owner: props.email,
           signer: props.email,
-          title: props.note,
+          title: fileName,
           files: [saved.url],
           checksums: [checksum],
           metadata: null
@@ -139,33 +116,51 @@ export const signDocument = command(type({
 export const verifyDocument = command(type({
   file: 'string',
 }), async (props) => {
-  const req = await fetch(`${env.ESIGN_VERIFY_URL}/api/v2/verify/pdf`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": env.ESIGN_VERIFY_KEY,
-    },
-    body: JSON.stringify(props),
-  });
 
-  // console.log(req.status)
-  if (req.status == 200) {
-    return await req.json();
-  }
-  return {
-    conclusion: 'Error',
-    description: 'Server Error, Failed to verify document',
-  }
+  try {
+    const req = await fetch(`${env.ESIGN_VERIFY_URL}/api/v2/verify/pdf`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": env.ESIGN_VERIFY_KEY,
+      },
+      body: JSON.stringify(props),
+    });
 
+    if (req.status == 200) {
+      await db.query.documentStatistics.upsert({
+        data: {
+          date: dayjs().format('YYYY-MM-DD'),
+          verified: 1,
+        },
+        update: stat => ({
+          verified: sql`${stat.verified} + 1`,
+        })
+      })
+      return await req.json();
+    }
+
+    return {
+      conclusion: 'Error',
+      description: 'Server Error, Failed to verify document',
+    }
+  } catch (err) {
+    return {
+      conclusion: 'Error',
+      description: 'Server Error, Failed to verify document',
+    }
+  }
 })
 
 
-export const getDocument = command(type({
+export const getDocument = query(type({
   id: 'string',
 }), async (props) => {
-  const document = await db.query.documents.findFirst({
+  const document = await db.query.documents.findMany({
     where: {
-      id: props.id,
+      id: {
+        in: props.id.split(','),
+      }
     }
   })
   return document;

@@ -14,6 +14,11 @@ const config = {
 		},
 		adapter: adapter()
 	},
+	compilerOptions: {
+		experimental: {
+			async: true,
+		}
+	},
 	vitePlugin: {
 		inspector: true, // enables the inspector
 	},

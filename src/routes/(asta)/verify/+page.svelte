@@ -15,49 +15,67 @@
   let loading = $state(false);
   let checksum = $state("");
 
+  const documents = $derived(
+    getDocument({
+      id: page.url.searchParams.get("id") || "",
+    }),
+  );
+
   onMount(async () => {
     let fileName = "";
     if (page.url.searchParams.get("blob")) {
       fileName = page.url.searchParams.get("fileName") || "default.pdf";
       fileURL = `blob:${location.origin}/${page.url.searchParams.get("blob")}`;
     }
-    if (page.url.searchParams.get("id")) {
-      const document = await getDocument({
-        id: page.url.searchParams.get("id") || "",
-      });
-      if (document) {
-        fileName = document.title || "default.pdf";
-        fileURL = document.files?.[0] || "";
-      }
+
+    const doc = (await documents)[0];
+    if (doc) {
+      fileName = doc.title || "default.pdf";
+      fileURL = doc.files?.[0] || "";
     }
 
     if (fileURL) {
-      try {
-        const response = await fetch(fileURL);
-        const blob = await response.blob();
-        previewFile = new File([blob], fileName, {
-          type: blob.type,
-        });
-        verify();
-      } catch (error) {
-        console.error("Error fetching blob:", error);
-        clearSearchParams();
-      }
+      await previewURL(fileURL, fileName);
+      // try {
+      //   const response = await fetch(fileURL);
+      //   const blob = await response.blob();
+      //   previewFile = new File([blob], fileName, {
+      //     type: blob.type,
+      //   });
+      //   verify();
+      // } catch (error) {
+      //   console.error("Error fetching blob:", error);
+      //   clearSearchParams();
+      // }
     }
   });
 
   onDestroy(() => {
     if (fileURL) {
       URL.revokeObjectURL(fileURL);
-      clearSearchParams();
+
+      if (page.url.searchParams.get("blob")) {
+        clearSearchParams();
+      }
     }
   });
+
+  async function previewURL(fileURL: string, fileName: string) {
+    try {
+      const response = await fetch(fileURL);
+      const blob = await response.blob();
+      previewFile = new File([blob], fileName, {
+        type: blob.type,
+      });
+      verify();
+    } catch (error) {
+      console.error("Error fetching blob:", error);
+    }
+  }
   function clearSearchParams() {
-    // Create URL without search params
     const url = new URL(window.location.href);
     url.search = "";
 
-    // Update URL without reloading (using history API)
     window.history.replaceState({}, "", url.toString());
   }
 
@@ -91,7 +109,7 @@
       </div>
     {/if}
   </div>
-  <div class="md:w-sm flex flex-col gap-3 h-full overflow-auto p-1 shrink-0">
+  <div class="md:w-sm flex flex-col gap-3 h-full overflow-auto shrink-0">
     <div class="text-xl font-bold text-base-content/60">
       Verifikasi Dokumen PDF Anda!
     </div>
@@ -157,7 +175,32 @@
       <!-- <button class="btn btn-sm btn-secondary my-5">Verifikasi Dokumen!</button> -->
     </div>
 
-    <div class="font-bold text-base-content/60 mt-10">Informasi Dokumen</div>
+    <div class="font-bold text-base-content/60 mt-10 -mb-3">
+      Informasi Dokumen
+    </div>
+    <div>
+      <ul class="menu w-full p-0">
+        {#each documents.current as doc}
+          <li class="">
+            <div class="">{doc.title}</div>
+            <ul class="menu w-fit p-0">
+              {#each doc.files as file}
+                <li class="flex">
+                  <button
+                    class="text-base-content w-fit"
+                    onclick={() => previewURL(file, doc.title || "default.pdf")}
+                  >
+                    <span class="truncate">{file.split("/").pop()}</span>
+                  </button>
+                </li>
+              {/each}
+            </ul>
+          </li>
+        {/each}
+      </ul>
+    </div>
+
+    <div class="font-bold text-base-content/60 mt-10">Status Dokumen</div>
     <div>
       {#if loading}
         <div class="text-sm">

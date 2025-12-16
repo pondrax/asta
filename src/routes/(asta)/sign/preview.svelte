@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy } from "svelte";
+  import { onMount, onDestroy, tick } from "svelte";
 
   let { file, hasSignature = true } = $props();
 
@@ -26,10 +26,13 @@
 
   // Initialize pdf.js
   onMount(async () => {
-    const pdfjs = await import("pdfjs-dist");
-    const worker = await import("pdfjs-dist/build/pdf.worker.min.mjs?url");
-    pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
-    pdfjsLib = pdfjs;
+    if (!window.pdfjsLib) {
+      const pdfjs = await import("pdfjs-dist");
+      const worker = await import("pdfjs-dist/build/pdf.worker.min.mjs?url");
+      pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
+      window.pdfjsLib = pdfjs;
+    }
+    pdfjsLib = window.pdfjsLib;
 
     resizeObserver = new ResizeObserver(() => {
       recomputeLayout();
@@ -56,7 +59,7 @@
 
   // --- Load PDF ---
   async function openFile(f: File) {
-    if (!pdfjsLib) return setTimeout(() => openFile(f), 1000);
+    if (!pdfjsLib) return setTimeout(() => openFile(f), 100);
     cleanup();
 
     console.log("hasSignature", hasSignature);

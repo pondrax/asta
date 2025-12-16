@@ -35,13 +35,14 @@
 		"svelte-check": "^4.3.4",
 		"tailwindcss": "^4.1.18",
 		"typescript": "^5.9.3",
-		"vite": "^7.2.7",
+		"vite": "^7.3.0",
 		"vite-plugin-devtools-json": "^1.0.0",
 		"vitest": "^4.0.15"
 	},
 	"dependencies": {
 		"@node-rs/argon2": "^2.0.2",
 		"arktype": "^2.1.29",
+		"dayjs": "^1.11.19",
 		"pdf-lib": "^1.17.1",
 		"pdfjs-dist": "^5.4.449",
 		"postgres": "^3.4.7",

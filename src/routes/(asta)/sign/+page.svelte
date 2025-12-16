@@ -32,6 +32,8 @@
   let fields: Record<string, any> = $state({});
   let hasSignature = $state(true);
   let previewFile: File | null = $state(null);
+  let timer = $state(0);
+  let elapsedTime = $state(0);
 
   let forms: {
     sign?: {
@@ -47,7 +49,7 @@
       // files: File[];
       completed: string[];
     };
-    signSuccess?: boolean;
+    signError?: string;
   } = $state({});
 
   let fileInput: HTMLInputElement | null = $state(null);
@@ -81,11 +83,14 @@
     await pdfLib.fillFormFields(buffer, form);
   }
 
-  async function fillFormFields(file: File) {
+  async function fillFormFields(file: File, signing = false) {
     let buffer: ArrayBuffer = await file.arrayBuffer();
 
-    if (hasSignature) {
-      previewFile = file;
+    const checkSignature = await pdfLib.hasSignature(buffer);
+    if (checkSignature) {
+      if (!signing) {
+        previewFile = file;
+      }
       return file;
     }
     // console.log(form.footer, "footer");
@@ -102,7 +107,9 @@
     const filledFile = new File([new Uint8Array(filled)], file.name, {
       type: "application/pdf",
     });
-    previewFile = filledFile;
+    if (!signing) {
+      previewFile = filledFile;
+    }
     return filledFile;
   }
 
@@ -280,7 +287,11 @@
   </button>
 </div>
 
-<Modal bind:data={forms.sign} title={`Tanda Tangan Dokumen`}>
+<Modal
+  bind:data={forms.sign}
+  title={`Tanda Tangan Dokumen`}
+  closeable={!forms.sign?.completed?.length}
+>
   <!-- <h1>Tanda Tangan</h1> -->
   {#snippet children(item)}
     <form
@@ -288,42 +299,85 @@
       autocomplete="off"
       onsubmit={async (e) => {
         e.preventDefault();
+        const startTime = performance.now();
+
+        elapsedTime = 0;
+        let interval = setInterval(() => {
+          timer = Math.floor(performance.now() - startTime);
+        }, 10);
+
         loading = true;
+
         try {
-          const docs = [];
-          for (const [id, file] of Object.entries(item.documents)) {
-            const processedFile = await fillFormFields(file);
-            docs.push({
-              id,
-              email: item.email,
-              nama: item.nama,
-              jabatan: item.jabatan,
-              pangkat: item.pangkat,
-              instansi: item.instansi,
-              passphrase: item.passphrase,
-              note: item.note,
-              signatureProperties: item.signatureProperties,
-              fileName: file.name,
-              fileBase64: await fileToBase64(processedFile),
-            });
-          }
+          const docsx = Object.entries(item.documents);
 
-          const results = await promisePool(docs, 2, async (doc) => {
-            const signing = await signDocument(doc);
+          const MAX_CONCURRENT_REQUESTS = 1;
+          const MAX_RETRIES = 2;
 
-            if (signing.file) {
-              item.completed.push(doc.id);
-            }
+          // 🔴 GLOBAL ABORT FLAG
+          let abortSigning = false;
 
-            return signing;
-          });
+          const results = await promisePool(
+            docsx,
+            MAX_CONCURRENT_REQUESTS,
+            async ([id, file]) => {
+              // stop immediately if any previous document failed
+              if (abortSigning) return null;
+
+              // already completed → skip
+              if (item.completed.includes(id)) {
+                return null;
+              }
+
+              for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+                // check again before each retry
+                if (abortSigning) return null;
+
+                const fileSign = await fillFormFields(file, true);
+
+                const signing = await signDocument({
+                  id,
+                  email: item.email,
+                  nama: item.nama,
+                  jabatan: item.jabatan,
+                  pangkat: item.pangkat,
+                  instansi: item.instansi,
+                  passphrase: item.passphrase,
+                  note: item.note,
+                  signatureProperties: item.signatureProperties,
+                  fileName: file.name,
+                  fileBase64: await fileToBase64(fileSign),
+                });
+
+                // ❌ FIRST ERROR → STOP EVERYTHING
+                if (signing?.error) {
+                  forms.signError = signing.error;
+                  abortSigning = true;
+                  return null;
+                }
+
+                // ✅ SUCCESS
+                if (signing?.file) {
+                  item.completed.push(id);
+                  return signing;
+                }
+              }
+
+              // retries exhausted → also stop everything
+              abortSigning = true;
+              throw new Error(`Failed to sign document ${id}`);
+            },
+          );
+
+          elapsedTime = performance.now() - startTime;
+          clearInterval(interval);
 
           console.log(results);
         } catch (err) {
-          console.log(err);
+          console.error(err);
+        } finally {
+          loading = false;
         }
-        loading = false;
-        // forms.sign = undefined;
       }}
     >
       <ul
@@ -334,19 +388,22 @@
             <a
               href={item.completed.includes(id) ? `/verify?id=${id}` : "#"}
               target="_blank"
-              class="flex justify-between"
+              class="flex justify-between w-full"
             >
-              <span class="text-sm text-base-content/80">
+              <div class="text-sm text-base-content/80 truncate mr-auto">
+                <span class="badge badge-sm badge-secondary">
+                  {(file.size / 1024).toFixed(2)} KB
+                </span>
                 {file.name}
-              </span>
+              </div>
               <div>
                 {#if item.completed.includes(id)}
-                  <iconify-icon icon="bx:check" class="text-success"
+                  <iconify-icon icon="bx:check" class="text-success text-2xl"
                   ></iconify-icon>
-                {:else if loading}
-                  <div class="loading"></div>
                 {:else}
-                  <iconify-icon icon="bx:circle" class="text-warning text-2xl"
+                  <iconify-icon
+                    icon="bx:loader-circle"
+                    class="text-2xl {loading ? 'animate-spin' : 'text-warning'}"
                   ></iconify-icon>
                 {/if}
               </div>
@@ -354,29 +411,54 @@
           </li>
         {/each}
       </ul>
-      {#if loading}
-        <div>
+      <div class="flex justify-between h-8 text-base-content/60">
+        {#if loading}
           Proses Penandatangan... ({item.completed.length}/{Object.keys(
             item.documents,
           ).length})
-        </div>
-      {/if}
+          <span>({(timer / 1000).toFixed(3)} detik)</span>
+        {:else if forms.signError}
+          <span class="text-error">{forms.signError}</span>
+        {/if}
+      </div>
+
       {#if item.completed.length == Object.keys(item.documents).length}
-        <div>
-          <iconify-icon icon="bx:badge-check" class="text-success text-5xl"
+        <div role="alert" class="alert">
+          <iconify-icon icon="bx:check-circle" class="text-3xl text-success"
           ></iconify-icon>
-        </div>
-        <div class="text-xl">
-          {item.completed.length} dokumen berhasil ditandatangani
+          <span>
+            {item.completed.length} Dokumen berhasil ditandatangani
+            <strong class="text-sm text-base-content/80">
+              ({(elapsedTime / 1000).toFixed(3)} detik)
+            </strong>
+          </span>
+
+          <div>
+            <a
+              href={`/verify?id=${item.completed.join(",")}`}
+              target="_blank"
+              class="btn btn-sm btn-success"
+            >
+              Lihat Dokumen
+            </a>
+            <button
+              type="button"
+              class="btn btn-sm btn-error"
+              onclick={() => (forms.sign = undefined)}
+            >
+              Tutup
+            </button>
+          </div>
         </div>
       {:else}
         <label class="floating-label">
           <span>Email Penandatangan</span>
           <input
             type="text"
-            bind:value={item.email}
+            value={item.email}
             placeholder="mail@mojokertokota.go.id"
             class="input"
+            readonly
           />
         </label>
 
@@ -401,6 +483,13 @@
         <button type="submit" class="btn btn-primary" disabled={loading}>
           Tanda Tangan
         </button>
+        <!-- <button
+          type="button"
+          class="btn btn-error"
+          onclick={() => (forms.sign = undefined)}
+        >
+          Tutup
+        </button> -->
       {/if}
     </form>
   {/snippet}
