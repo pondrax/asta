@@ -26,7 +26,9 @@
   const checkEmail = async (el: Event) => {
     loading = true;
     try {
-      const result = await checkUser({ nik: form.nik });
+      const result = await checkUser(
+        useEmail ? { email: form.email } : { nik: form.nik },
+      );
       status = result.status;
       form = {
         ...form,
@@ -119,11 +121,16 @@
       <li class="p-2">
         <label class="label py-0 bg-transparent flex justify-between">
           <span class={!useEmail ? "font-bold text-primary" : ""}>NIK</span>
-          <input type="checkbox" bind:checked={useEmail} class="toggle" />
+          <input
+            type="checkbox"
+            bind:checked={useEmail}
+            class="toggle"
+            onchange={debounceCheckEmail}
+          />
           <span class={useEmail ? "font-bold text-primary" : ""}>EMAIL</span>
         </label>
       </li>
-      <li class="p-2">
+      <li class="p-2 tooltip" data-tip={`Status Akun: ${status}`}>
         {#if useEmail}
           <label class="floating-label p-0 bg-transparent">
             <span>Email Dinas Penandatangan ({status})</span>

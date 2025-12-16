@@ -24,7 +24,7 @@
     footer: true,
     email: "pondra@mojokertokota.go.id",
     nik: "1234567890123452",
-    nama: "-",
+    nama: "",
     jabatan: "-",
     pangkat: "-",
     instansi: "-",

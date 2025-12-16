@@ -178,7 +178,7 @@
       </div>
     </div>
 
-    <div class="flex-1 min-h-0 overflow-auto">
+    <div class="flex-1 min-h-0 overflow-y-auto">
       {#if previewFile}
         <div class="font-bold text-base-content/60 mt-10">
           Informasi Dokumen ({documents.current?.length || 0})
