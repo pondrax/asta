@@ -35,6 +35,9 @@
   z-index: 2;
 }
 
+.text-password {
+  -webkit-text-security: disc;
+}
 
 /* play state */
 @utility animate-run {

@@ -65,6 +65,11 @@ export const signDocument = command(type({
 
 
   const response = await req.json();
+  if (req.status >= 500) {
+    return {
+      message: 'Internal Server Error',
+    }
+  }
   if (response.error) {
     await logger.log('error', response.error, {
       email: props.email,
@@ -106,7 +111,7 @@ export const signDocument = command(type({
           checksums: sql`array_append(${doc.checksums}, ${checksum})`,
         })
       })
-      console.log(saved)
+      // console.log(saved)
     }
   }
 

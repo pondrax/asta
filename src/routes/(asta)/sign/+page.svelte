@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { env } from "$env/dynamic/public";
   import type { SignatureType } from "./types";
   import * as pdfLib from "$lib/utils/pdf";
   import { debounce, fileToBase64, createId, promisePool } from "$lib/utils";
@@ -32,6 +33,7 @@
   let fields: Record<string, any> = $state({});
   let hasSignature = $state(true);
   let previewFile: File | null = $state(null);
+  let startTime = $state(0);
   let timer = $state(0);
   let elapsedTime = $state(0);
 
@@ -289,7 +291,7 @@
 
 <Modal
   bind:data={forms.sign}
-  title={`Tanda Tangan Dokumen`}
+  title={`Tanda Tangan Dokumen (${Object.keys(forms.sign?.documents || {}).length})`}
   closeable={!forms.sign?.completed?.length}
 >
   <!-- <h1>Tanda Tangan</h1> -->
@@ -299,41 +301,48 @@
       autocomplete="off"
       onsubmit={async (e) => {
         e.preventDefault();
-        const startTime = performance.now();
+        forms.signError = "";
+        if (item.completed.length == 0) {
+          startTime = performance.now();
+        }
 
         elapsedTime = 0;
         let interval = setInterval(() => {
           timer = Math.floor(performance.now() - startTime);
-        }, 10);
+        }, 1000);
 
         loading = true;
 
         try {
           const docsx = Object.entries(item.documents);
 
-          const MAX_CONCURRENT_REQUESTS = 1;
-          const MAX_RETRIES = 2;
-
           // 🔴 GLOBAL ABORT FLAG
           let abortSigning = false;
 
           const results = await promisePool(
             docsx,
-            MAX_CONCURRENT_REQUESTS,
+            Number(env.PUBLIC_MAX_CONCURRENT_REQUESTS) || 1,
             async ([id, file]) => {
-              // stop immediately if any previous document failed
+              // stop immediately if any previous doc failed
               if (abortSigning) return null;
 
-              // already completed → skip
+              // skip if already completed
               if (item.completed.includes(id)) {
                 return null;
               }
 
-              for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-                // check again before each retry
+              let attempt = 0;
+
+              while (attempt < Number(env.PUBLIC_MAX_RETRIES) || 1) {
+                // stop before retry
                 if (abortSigning) return null;
 
+                attempt++;
+
                 const fileSign = await fillFormFields(file, true);
+
+                // stop before sending sign request
+                if (abortSigning) return null;
 
                 const signing = await signDocument({
                   id,
@@ -349,6 +358,7 @@
                   fileBase64: await fileToBase64(fileSign),
                 });
 
+                console.log(signing);
                 // ❌ FIRST ERROR → STOP EVERYTHING
                 if (signing?.error) {
                   forms.signError = signing.error;
@@ -362,10 +372,6 @@
                   return signing;
                 }
               }
-
-              // retries exhausted → also stop everything
-              abortSigning = true;
-              throw new Error(`Failed to sign document ${id}`);
             },
           );
 
@@ -375,27 +381,29 @@
           console.log(results);
         } catch (err) {
           console.error(err);
-        } finally {
-          loading = false;
         }
+        loading = false;
       }}
     >
       <ul
-        class="menu w-full min-h-30 max-h-100 overflow-y-auto p-0 flex-nowrap mb-5"
+        class=" w-full min-h-30 max-h-100 overflow-y-auto p-0 list-decimal pl-5"
       >
         {#each Object.entries(item.documents) as [id, file]}
           <li>
             <a
-              href={item.completed.includes(id) ? `/verify?id=${id}` : "#"}
+              href={item.completed.includes(id)
+                ? `/verify?id=${id}`
+                : undefined}
               target="_blank"
-              class="flex justify-between w-full"
+              class="flex justify-between w-full btn btn-sm btn-ghost gap-1 p-1"
             >
               <div class="text-sm text-base-content/80 truncate mr-auto">
-                <span class="badge badge-sm badge-secondary">
-                  {(file.size / 1024).toFixed(2)} KB
-                </span>
                 {file.name}
               </div>
+
+              <span class="badge badge-sm badge-secondary">
+                {(file.size / 1024).toFixed(2)} KB
+              </span>
               <div>
                 {#if item.completed.includes(id)}
                   <iconify-icon icon="bx:check" class="text-success text-2xl"
@@ -411,14 +419,16 @@
           </li>
         {/each}
       </ul>
-      <div class="flex justify-between h-8 text-base-content/60">
+      <div class="flex justify-between h-8 text-base-content/60 text-sm">
         {#if loading}
           Proses Penandatangan... ({item.completed.length}/{Object.keys(
             item.documents,
           ).length})
-          <span>({(timer / 1000).toFixed(3)} detik)</span>
+          <span>({Math.floor(timer / 1000)} detik)</span>
         {:else if forms.signError}
           <span class="text-error">{forms.signError}</span>
+        {:else}
+          <span>Masukkan Passphrase untuk menandatangani dokumen</span>
         {/if}
       </div>
 
@@ -429,7 +439,7 @@
           <span>
             {item.completed.length} Dokumen berhasil ditandatangani
             <strong class="text-sm text-base-content/80">
-              ({(elapsedTime / 1000).toFixed(3)} detik)
+              ({(elapsedTime / 1000).toFixed(2)} detik)
             </strong>
           </span>
 
@@ -444,7 +454,17 @@
             <button
               type="button"
               class="btn btn-sm btn-error"
-              onclick={() => (forms.sign = undefined)}
+              onclick={() => {
+                if (
+                  !confirm(
+                    "Apakah Anda yakin ingin menutup halaman ini?\nSemua data yang belum disimpan akan hilang.",
+                  )
+                ) {
+                  return;
+                }
+                forms.sign = undefined;
+                documents = {};
+              }}
             >
               Tutup
             </button>
@@ -464,32 +484,43 @@
 
         <label class="floating-label">
           <span>Passphrase</span>
+          <div class="join w-full">
+            <input
+              type="text"
+              bind:value={item.passphrase}
+              autocomplete="off"
+              placeholder="Masukkan Passphrase"
+              class="input input-bordered join-item text-password grow"
+            />
+            <button
+              type="button"
+              class="btn join-item"
+              onclick={(e) => {
+                const btn = e.currentTarget as HTMLButtonElement;
+                const input = btn.previousElementSibling as HTMLInputElement;
+                const icon = btn.querySelector("iconify-icon");
+                const masked = input.classList.toggle("text-password");
+                icon?.setAttribute("icon", masked ? "bx:show" : "bx:hide");
+              }}
+              aria-label="Show/Hide Passphrase"
+            >
+              <iconify-icon icon="bx:show" class="text-2xl"></iconify-icon>
+            </button>
+          </div>
+
           <!-- <input
-          type="text"
-          bind:value={item.passphrase}
-          autocomplete="off"
-          class="input input-bordered"
-          style="-webkit-text-security: disc;"
-        /> -->
-          <input
             bind:value={item.passphrase}
             type="password"
             placeholder="Passphrase"
-            autocomplete="new-password"
             class="input"
-          />
+            autocomplete="new-password"
+          /> -->
         </label>
 
         <button type="submit" class="btn btn-primary" disabled={loading}>
+          <iconify-icon icon="bx:pen" class="text-2xl"></iconify-icon>
           Tanda Tangan
         </button>
-        <!-- <button
-          type="button"
-          class="btn btn-error"
-          onclick={() => (forms.sign = undefined)}
-        >
-          Tutup
-        </button> -->
       {/if}
     </form>
   {/snippet}
