@@ -20,7 +20,9 @@ const config = {
 		}
 	},
 	vitePlugin: {
-		inspector: true, // enables the inspector
+		inspector: {
+			toggleKeyCombo: 'alt-x',
+		}
 	},
 };
 

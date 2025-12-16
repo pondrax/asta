@@ -91,7 +91,7 @@ export const signDocument = command(type({
     if (contentType && contentType.includes("text/html")) {
       const htmlText = await req.text();
       return {
-        erro: '[Server Error]' + htmlText,
+        error: '[Esign Server Error] ' + htmlText,
       }
     }
     const response = await req.json();
@@ -195,12 +195,12 @@ export const verifyDocument = command(type({
 
     return {
       conclusion: 'Error',
-      description: 'Server Error, Failed to verify document',
+      description: '[Esign Server Error] Failed to verify document',
     }
   } catch (err) {
     return {
       conclusion: 'Error',
-      description: 'Server Error, Failed to verify document',
+      description: '[Esign Server Error] Failed to verify document',
     }
   }
 })
@@ -208,12 +208,22 @@ export const verifyDocument = command(type({
 
 export const getDocument = query(type({
   id: 'string',
+  checksum: 'string?',
 }), async (props) => {
   const document = await db.query.documents.findMany({
     where: {
-      id: {
-        in: props.id.split(','),
-      }
+      OR: [
+        {
+          checksums: {
+            arrayContains: [props.checksum || '-'],
+          }
+        },
+        {
+          id: {
+            in: props.id.split(','),
+          }
+        }
+      ]
     }
   })
   return document;

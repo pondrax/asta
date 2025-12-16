@@ -29,13 +29,4 @@ export default defineConfig({
 			}
 		]
 	},
-	// server: {
-	// 	fs: {
-	// 		allow: [
-	// 			searchForWorkspaceRoot(process.cwd()),
-	// 			'/uploads'
-	// 		],
-	// 	},
-	// },
-
 });

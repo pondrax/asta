@@ -6,7 +6,6 @@
   import { calculateFileChecksum, fileToBase64 } from "$lib/utils";
   import Status from "./status.svelte";
   import type { SignatureVerificationResponse } from "./types";
-  import { goto } from "$app/navigation";
 
   const MODES = ["upload", "search", "scan"] as const;
   let mode: (typeof MODES)[number] = $state("upload");
@@ -21,6 +20,7 @@
   const documents = $derived(
     getDocument({
       id: page.url.searchParams.get("id") || "",
+      checksum,
     }),
   );
 
@@ -146,10 +146,10 @@
               }}
             />
           </label>
-          {#if checksum}
+          <!-- {#if checksum}
             <div class="text-base-content/60 mt-3">SHA-256 Digest</div>
             <div class="wrap-anywhere">{checksum}</div>
-          {/if}
+          {/if} -->
         {:else if mode === "search"}
           <div>
             Cari Dokumen yang telah ditandatangani menggunakan Aplikasi Tapak
@@ -179,11 +179,18 @@
     </div>
 
     <div class="flex-1 min-h-0 overflow-auto">
-      <div class="font-bold text-base-content/60 mt-10">
-        Informasi Dokumen ({documents.current?.length || 0})
-      </div>
+      {#if previewFile}
+        <div class="font-bold text-base-content/60 mt-10">
+          Informasi Dokumen ({documents.current?.length || 0})
+        </div>
+        {#if documents.current && documents.current.length > 0}
+          <div>Dokumen tersimpan di Tapak Asta</div>
+        {:else}
+          <div>Dokumen tidak ditemukan di Tapak Asta</div>
+        {/if}
+      {/if}
       <div class="h-[calc(100vh-500px)] overflow-auto">
-        <ul class="menu w-full p-0 overflow-x-clip">
+        <ul class="menu w-full p-0">
           {#each documents.current as doc, i}
             <li class="w-full">
               <details>
@@ -192,6 +199,7 @@
                 >
                   <button
                     class="truncate"
+                    title={doc.title}
                     onclick={() => {
                       if (doc.files)
                         previewURL(doc.files[0], doc.title || "default.pdf");
@@ -205,6 +213,7 @@
                     <li class="flex">
                       <div
                         class="join p-0 gap-0"
+                        title={file.split("/").pop()}
                         class:bg-base-300={file === fileURL}
                       >
                         <button
@@ -235,9 +244,9 @@
       </div>
     </div>
 
-    <div class="shrink-0">
+    <div class="shrink-0 max-h-100 overflow-y-auto">
       <div class="font-bold text-base-content/60 mt-10">Status Dokumen</div>
-      <div class="max-h-100 overflow-y-auto">
+      <div class="">
         {#if loading}
           <div class="text-sm">
             <div class="loading"></div>
@@ -246,7 +255,7 @@
         {:else if verifyStatus}
           <Status {verifyStatus} {verify} />
         {:else}
-          <div class="text-sm text-base-content/60 -mt-2">
+          <div class="text-sm text-base-content/60">
             Belum ada dokumen untuk diperiksa
           </div>
         {/if}
