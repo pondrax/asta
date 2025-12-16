@@ -265,10 +265,12 @@
   <button
     bind:this={signButton}
     class="btn btn-lg btn-secondary tooltip rounded-full font-normal
-    {allowSigning ? 'animate-bounce' : 'bg-base-300'}"
+    {allowSigning && forms.sign == undefined
+      ? 'animate-bounce'
+      : 'bg-base-300'}"
     aria-label="Sign Document"
     data-tip="Sign Document"
-    disabled={!allowSigning}
+    disabled={!(allowSigning && forms.sign == undefined)}
     onclick={async () =>
       (forms.sign = {
         ...form,
@@ -419,29 +421,33 @@
           </li>
         {/each}
       </ul>
-      <div class="flex justify-between h-8 text-base-content/60 text-sm">
+      <div class="alert justify-between min-h-8 text-base-content/60 text-sm">
         {#if loading}
           Proses Penandatangan... ({item.completed.length}/{Object.keys(
             item.documents,
           ).length})
-          <span>({Math.floor(timer / 1000)} detik)</span>
+          <span>
+            ({timer > 60000 ? Math.floor(timer / 1000 / 60) + " menit" : ""}
+            {Math.floor((timer / 1000) % 60)} detik )
+          </span>
         {:else if forms.signError}
           <span class="text-error">{forms.signError}</span>
         {:else if item.completed.length == 0}
           <span>Masukkan Passphrase untuk menandatangani dokumen</span>
-        {/if}
-      </div>
-
-      {#if item.completed.length == Object.keys(item.documents).length}
-        <div role="alert" class="alert">
-          <iconify-icon icon="bx:check-circle" class="text-3xl text-success"
+        {:else if item.completed.length == Object.keys(item.documents).length}
+          <iconify-icon icon="bx:check-circle" class="text-5xl text-success"
           ></iconify-icon>
-          <span>
-            {item.completed.length} Dokumen berhasil ditandatangani
-            <strong class="text-sm text-base-content/80">
-              ({(elapsedTime / 1000).toFixed(2)} detik)
-            </strong>
-          </span>
+          <div>
+            <div>
+              {item.completed.length} Dokumen berhasil ditandatangani
+            </div>
+            <div class="text-sm text-base-content/80">
+              ({elapsedTime > 60000
+                ? Math.floor(elapsedTime / 1000 / 60) + " menit"
+                : ""}
+              {Math.floor((elapsedTime / 1000) % 60)} detik )
+            </div>
+          </div>
 
           <div>
             <a
@@ -469,8 +475,10 @@
               Tutup
             </button>
           </div>
-        </div>
-      {:else}
+        {/if}
+      </div>
+
+      {#if item.completed.length < Object.keys(item.documents).length}
         <label class="floating-label">
           <span>Email Penandatangan</span>
           <input
@@ -503,6 +511,7 @@
                 icon?.setAttribute("icon", masked ? "bx:show" : "bx:hide");
               }}
               aria-label="Show/Hide Passphrase"
+              disabled={item.completed.length > 0}
             >
               <iconify-icon icon="bx:show" class="text-2xl"></iconify-icon>
             </button>

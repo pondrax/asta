@@ -3,7 +3,7 @@ import devtoolsJson from 'vite-plugin-devtools-json';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vitest/config';
 import { sveltekit } from '@sveltejs/kit/vite';
-import { searchForWorkspaceRoot } from 'vite';
+// import { searchForWorkspaceRoot } from 'vite';
 
 export default defineConfig({
 	plugins: [
@@ -29,13 +29,13 @@ export default defineConfig({
 			}
 		]
 	},
-	server: {
-		fs: {
-			allow: [
-				searchForWorkspaceRoot(process.cwd()),
-				'/uploads'
-			],
-		},
-	},
+	// server: {
+	// 	fs: {
+	// 		allow: [
+	// 			searchForWorkspaceRoot(process.cwd()),
+	// 			'/uploads'
+	// 		],
+	// 	},
+	// },
 
 });

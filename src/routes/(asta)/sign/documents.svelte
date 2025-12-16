@@ -44,7 +44,11 @@
     <li class={activeIndex === key ? "bg-primary/60" : ""}>
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <!-- svelte-ignore a11y_click_events_have_key_events -->
-      <div onclick={() => (activeIndex = key)}>
+      <div
+        onclick={() => (activeIndex = key)}
+        class="tooltip"
+        data-tip={doc.name}
+      >
         <span class="truncate">
           {i + 1}. {doc.name}
         </span>

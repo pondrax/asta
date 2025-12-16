@@ -27,7 +27,7 @@
     >
       {verifyStatus.conclusion}
     </button>
-    <div class="inline-flex gap-2">
+    <div class="inline-flex gap-2 pt-2">
       <iconify-icon
         icon={verifyStatus.conclusion === "VALID" ? "bx:check" : "bx:error"}
       ></iconify-icon>

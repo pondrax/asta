@@ -64,21 +64,13 @@ class LocalStorage {
     }
   }
 
-  async read(filename: string): Promise<StorageResult> {
+  async read(filename: string): Promise<ArrayBuffer> {
     try {
       const filepath = path.join(this.baseDir, filename);
-      await fs.readFile(filepath);
+      return (await fs.readFile(filepath)).buffer;
 
-      return {
-        success: true,
-        path: filepath,
-        url: `/uploads/${filename}`,
-      };
     } catch (error) {
-      return {
-        success: false,
-        error: `Local storage read error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      };
+      throw new Error(`Local storage read error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -145,7 +137,7 @@ class VercelBlobStorage {
     }
   }
 
-  async read(filename: string): Promise<StorageResult> {
+  async read(filename: string): Promise<ArrayBuffer> {
     try {
       const response = await fetch(`${this.apiUrl}/get/${filename}`, {
         headers: {
@@ -156,16 +148,13 @@ class VercelBlobStorage {
       if (!response.ok) {
         throw new Error(`Failed to read file: ${response.status}`);
       }
-
-      return {
-        success: true,
-        url: `${this.apiUrl}/get/${filename}`,
-      };
+      return await response.arrayBuffer();
+      // return {
+      //   success: true,
+      //   url: `${this.apiUrl}/get/${filename}`,
+      // };
     } catch (error) {
-      return {
-        success: false,
-        error: `Vercel Blob read error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      };
+      throw new Error(`Vercel Blob read error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -215,7 +204,7 @@ export class FileStorage {
     return this.storage.save(filename, content as Buffer);
   }
 
-  async read(filename: string): Promise<StorageResult> {
+  async read(filename: string): Promise<ArrayBuffer> {
     return this.storage.read(filename);
   }
 

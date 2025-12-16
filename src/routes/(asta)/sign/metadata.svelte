@@ -70,9 +70,13 @@
   }
 
   onMount(() => {
-    getUserCity();
+    // getUserCity();
     // @ts-expect-error
     debounceCheckEmail();
+  });
+  $effect(() => {
+    hasSignature;
+    getUserCity();
   });
 </script>
 
