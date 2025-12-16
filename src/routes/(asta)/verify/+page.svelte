@@ -191,6 +191,7 @@
                   class:menu-active={doc.files?.includes(fileURL || "-")}
                 >
                   <button
+                    class="truncate"
                     onclick={() => {
                       if (doc.files)
                         previewURL(doc.files[0], doc.title || "default.pdf");
@@ -202,14 +203,28 @@
                 <ul class="menu p-0 w-full">
                   {#each doc.files as file}
                     <li class="flex">
-                      <button
-                        class=""
-                        class:menu-active={file === fileURL}
-                        onclick={() =>
-                          previewURL(file, doc.title || "default.pdf")}
+                      <div
+                        class="join p-0 gap-0"
+                        class:bg-base-300={file === fileURL}
                       >
-                        <span class="truncate">{file.split("/").pop()}</span>
-                      </button>
+                        <button
+                          class="btn btn-sm btn-ghost join-item w-xs"
+                          onclick={() =>
+                            previewURL(file, doc.title || "default.pdf")}
+                        >
+                          <span class="truncate">{file.split("/").pop()}</span>
+                        </button>
+                        <a
+                          href={file}
+                          target="_blank"
+                          class="btn btn-sm btn-primary join-item"
+                          download={file.split("/").pop()}
+                          aria-label="Download"
+                        >
+                          <iconify-icon icon="bx:download" class="w-5 h-5"
+                          ></iconify-icon>
+                        </a>
+                      </div>
                     </li>
                   {/each}
                 </ul>
@@ -222,7 +237,7 @@
 
     <div class="shrink-0">
       <div class="font-bold text-base-content/60 mt-10">Status Dokumen</div>
-      <div>
+      <div class="max-h-100 overflow-y-auto">
         {#if loading}
           <div class="text-sm">
             <div class="loading"></div>

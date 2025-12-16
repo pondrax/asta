@@ -19,13 +19,14 @@
     hasSignature,
     setSignature,
     signButton,
+    useEmail = $bindable(true),
   } = $props();
 
   let signaturePanel = $state(true);
   const checkEmail = async (el: Event) => {
     loading = true;
     try {
-      const result = await checkUser(form.email);
+      const result = await checkUser({ nik: form.nik });
       status = result.status;
       form = {
         ...form,
@@ -116,32 +117,63 @@
     </li>
     {#if bsre}
       <li class="p-2">
-        <label class="floating-label p-0 bg-transparent">
-          <span>Email Dinas Penandatangan ({status})</span>
-          <div class="input input-sm">
-            <input
-              bind:value={
-                () => form.email?.split("@")?.at(0),
-                (value) => (form.email = value + "@mojokertokota.go.id")
-              }
-              required
-              type="text"
-              placeholder="Email Dinas"
-              oninput={debounceCheckEmail}
-            />
-            <span class="label">@mojokertokota.go.id</span>
-            {#if loading}
-              <span class="loading"></span>
-            {:else if status == "ISSUE"}
-              <iconify-icon icon="bx:check" class="text-success"></iconify-icon>
-            {:else}
-              <iconify-icon icon="bx:x" class="text-error"></iconify-icon>
-            {/if}
-          </div>
-          <div class="text-[10px] text-gray-400">
-            Contoh: mail@mojokertokota.go.id
-          </div>
+        <label class="label py-0 bg-transparent flex justify-between">
+          <span class={!useEmail ? "font-bold text-primary" : ""}>NIK</span>
+          <input type="checkbox" bind:checked={useEmail} class="toggle" />
+          <span class={useEmail ? "font-bold text-primary" : ""}>EMAIL</span>
         </label>
+      </li>
+      <li class="p-2">
+        {#if useEmail}
+          <label class="floating-label p-0 bg-transparent">
+            <span>Email Dinas Penandatangan ({status})</span>
+            <div class="input input-sm">
+              <input
+                bind:value={
+                  () => form.email?.split("@")?.at(0),
+                  (value) => (form.email = value + "@mojokertokota.go.id")
+                }
+                required
+                type="text"
+                placeholder="Email Dinas"
+                oninput={debounceCheckEmail}
+              />
+              <span class="label">@mojokertokota.go.id</span>
+              {#if loading}
+                <span class="loading"></span>
+              {:else if status == "ISSUE"}
+                <iconify-icon icon="bx:check" class="text-success"
+                ></iconify-icon>
+              {:else}
+                <iconify-icon icon="bx:x" class="text-error"></iconify-icon>
+              {/if}
+            </div>
+            <div class="text-[10px] text-gray-400">
+              Contoh: mail@mojokertokota.go.id
+            </div>
+          </label>
+        {:else}
+          <label class="floating-label p-0 bg-transparent">
+            <span>NIK Penandatangan ({status})</span>
+            <div class="input input-sm">
+              <input
+                bind:value={form.nik}
+                required
+                type="text"
+                placeholder="Nomor Induk Kependudukan"
+                oninput={debounceCheckEmail}
+              />
+              {#if loading}
+                <span class="loading"></span>
+              {:else if status == "ISSUE"}
+                <iconify-icon icon="bx:check" class="text-success"
+                ></iconify-icon>
+              {:else}
+                <iconify-icon icon="bx:x" class="text-error"></iconify-icon>
+              {/if}
+            </div>
+          </label>
+        {/if}
       </li>
     {:else}
       <li class="p-2">

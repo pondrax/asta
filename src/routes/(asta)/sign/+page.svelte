@@ -23,13 +23,16 @@
   let form: Record<string, any> = $state({
     footer: true,
     email: "pondra@mojokertokota.go.id",
-    nama: "",
-    jabatan: "",
+    nik: "1234567890123452",
+    nama: "-",
+    jabatan: "-",
     pangkat: "-",
     instansi: "-",
     tanggal: "",
+    location: "",
     note: "Tanda Tangan Elektronik",
   });
+  let useEmail = $state(true);
   let fields: Record<string, any> = $state({});
   let hasSignature = $state(true);
   let previewFile: File | null = $state(null);
@@ -39,6 +42,7 @@
 
   let forms: {
     sign?: {
+      nik: "";
       email: "";
       nama: "";
       jabatan: "";
@@ -46,6 +50,7 @@
       instansi: "";
       passphrase: "";
       note: "";
+      location: "";
       signatureProperties: SignatureType[];
       documents: Record<string, File>;
       // files: File[];
@@ -210,6 +215,7 @@
               bind:status
               bind:bsre
               bind:form
+              bind:useEmail
               {fields}
               {hasSignature}
               {setSignature}
@@ -335,7 +341,7 @@
 
               let attempt = 0;
 
-              while (attempt < Number(env.PUBLIC_MAX_RETRIES) || 1) {
+              while (attempt < (Number(env.PUBLIC_MAX_RETRIES) || 1)) {
                 // stop before retry
                 if (abortSigning) return null;
 
@@ -348,19 +354,22 @@
 
                 const signing = await signDocument({
                   id,
-                  email: item.email,
+                  // email: item.email,
+                  // nik: item.nik,
+                  ...(useEmail ? { email: item.email } : { nik: item.nik }),
                   nama: item.nama,
-                  jabatan: item.jabatan,
-                  pangkat: item.pangkat,
-                  instansi: item.instansi,
+                  jabatan: item.jabatan || "-",
+                  pangkat: item.pangkat || "-",
+                  instansi: item.instansi || "-",
                   passphrase: item.passphrase,
-                  note: item.note,
+                  note: item.note || "-",
+                  location: item.location || "-",
                   signatureProperties: item.signatureProperties,
                   fileName: file.name,
                   fileBase64: await fileToBase64(fileSign),
                 });
 
-                console.log(signing);
+                console.log(signing, Number(env.PUBLIC_MAX_RETRIES), attempt);
                 // ❌ FIRST ERROR → STOP EVERYTHING
                 if (signing?.error) {
                   forms.signError = signing.error;
@@ -383,8 +392,9 @@
           console.log(results);
         } catch (err) {
           console.error(err);
+        } finally {
+          loading = false;
         }
-        loading = false;
       }}
     >
       <ul
@@ -403,7 +413,7 @@
                 {file.name}
               </div>
 
-              <span class="badge badge-sm badge-secondary">
+              <span class="badge badge-sm badge-secondary text-nowrap">
                 {(file.size / 1024).toFixed(2)} KB
               </span>
               <div>
@@ -480,11 +490,10 @@
 
       {#if item.completed.length < Object.keys(item.documents).length}
         <label class="floating-label">
-          <span>Email Penandatangan</span>
+          <span>{useEmail ? "Email" : "NIK"} Penandatangan</span>
           <input
             type="text"
-            value={item.email}
-            placeholder="mail@mojokertokota.go.id"
+            value={useEmail ? item.email : item.nik}
             class="input"
             readonly
           />

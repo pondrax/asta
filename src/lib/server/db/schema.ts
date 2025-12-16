@@ -22,6 +22,7 @@ export const posts = pgTable('posts', {
 
 export const signers = pgTable('signers', {
 	id,
+	nik: text('nik').unique(),
 	email: text('email').unique(),
 	name: text('name'),
 	position: text('position'),
