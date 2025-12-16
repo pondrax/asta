@@ -140,7 +140,7 @@
 
   const stopDrawing = () => {
     drawing = false;
-    ctxPad.closePath();
+    ctxPad?.closePath();
   };
 
   async function addSignature() {

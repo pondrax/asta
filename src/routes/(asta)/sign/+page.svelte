@@ -386,7 +386,7 @@
       }}
     >
       <ul
-        class=" w-full min-h-30 max-h-100 overflow-y-auto p-0 list-decimal pl-5"
+        class=" w-full min-h-30 max-h-100 overflow-y-auto p-0 list-decimal pl-12"
       >
         {#each Object.entries(item.documents) as [id, file]}
           <li>
@@ -427,7 +427,7 @@
           <span>({Math.floor(timer / 1000)} detik)</span>
         {:else if forms.signError}
           <span class="text-error">{forms.signError}</span>
-        {:else}
+        {:else if item.completed.length == 0}
           <span>Masukkan Passphrase untuk menandatangani dokumen</span>
         {/if}
       </div>

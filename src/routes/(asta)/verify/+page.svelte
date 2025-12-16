@@ -6,6 +6,7 @@
   import { calculateFileChecksum, fileToBase64 } from "$lib/utils";
   import Status from "./status.svelte";
   import type { SignatureVerificationResponse } from "./types";
+  import { goto } from "$app/navigation";
 
   const MODES = ["upload", "search", "scan"] as const;
   let mode: (typeof MODES)[number] = $state("upload");
@@ -14,7 +15,9 @@
   let verifyStatus: SignatureVerificationResponse | undefined = $state();
   let loading = $state(false);
   let checksum = $state("");
+  let idDocument = $state("");
 
+  let fileName = $state("");
   const documents = $derived(
     getDocument({
       id: page.url.searchParams.get("id") || "",
@@ -33,20 +36,8 @@
       fileName = doc.title || "default.pdf";
       fileURL = doc.files?.[0] || "";
     }
-
     if (fileURL) {
       await previewURL(fileURL, fileName);
-      // try {
-      //   const response = await fetch(fileURL);
-      //   const blob = await response.blob();
-      //   previewFile = new File([blob], fileName, {
-      //     type: blob.type,
-      //   });
-      //   verify();
-      // } catch (error) {
-      //   console.error("Error fetching blob:", error);
-      //   clearSearchParams();
-      // }
     }
   });
 
@@ -140,7 +131,8 @@
       </div>
       <div class="text-sm">
         {#if mode === "upload"}
-          <label class="floating-label">
+          <div>Unggah untuk memverifikasi dokumen PDF.</div>
+          <label class="floating-label mt-5">
             <span>Pilih Dokumen</span>
             <input
               type="file"
@@ -165,11 +157,20 @@
           </div>
           <label class="floating-label mt-5">
             <span>Masukkan ID dokumen</span>
-            <input
-              type="text"
-              class="input input-sm"
-              placeholder="Masukkan ID Dokumen"
-            />
+            <div class="join w-full">
+              <input
+                type="text"
+                bind:value={idDocument}
+                class="input input-sm join-item"
+                placeholder="Masukkan ID Dokumen"
+              />
+              <button
+                class="btn btn-sm join-item"
+                onclick={() => (location.href = `/verify?id=${idDocument}`)}
+              >
+                Cari
+              </button>
+            </div>
           </label>
         {:else if mode === "scan"}
           <div>Scan QR Code</div>
@@ -189,9 +190,14 @@
                 <summary
                   class:menu-active={doc.files?.includes(fileURL || "-")}
                 >
-                  <div>
+                  <button
+                    onclick={() => {
+                      if (doc.files)
+                        previewURL(doc.files[0], doc.title || "default.pdf");
+                    }}
+                  >
                     {i + 1} - {doc.title}
-                  </div>
+                  </button>
                 </summary>
                 <ul class="menu p-0 w-full">
                   {#each doc.files as file}
