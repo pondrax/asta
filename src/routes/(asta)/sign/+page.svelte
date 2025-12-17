@@ -14,6 +14,7 @@
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
   import { page } from "$app/state";
+  import Dragresize from "./dragresize.svelte";
 
   let loading = $state(false);
   let signButton: HTMLButtonElement | null = $state(null);
@@ -42,6 +43,7 @@
   let startTime = $state(0);
   let timer = $state(0);
   let elapsedTime = $state(0);
+  let turnstileId = $state("");
 
   let forms: {
     sign?: {
@@ -73,9 +75,10 @@
     if (id > -1) {
       signatures[id] = sign;
     } else {
-      sign.reason = form.deskripsi;
-      sign.location = form.lokasi;
-      signatures = [...signatures, sign];
+      signatures = [sign];
+      // sign.reason = form.note;
+      // sign.location = form.location;
+      // signatures = [...signatures, sign];
     }
   };
   const hasDocuments = $derived(Object.keys(documents).length > 0);
@@ -208,20 +211,45 @@
               {@const sumPrevHeight = pageSizes
                 .slice(0, sign.page - 1)
                 .reduce((acc, cur) => acc + cur.height + gutter, 0)}
-              <div
-                id={`sign-${sign.id}`}
-                class="absolute"
-                style="
-                  top: {(sign.originY + sumPrevHeight) * scale}px; 
-                  left: {sign.originX * scale}px;
-                  width: {sign.width * scale}px;
-                  height: {sign.height * scale}px;"
+              <Dragresize
+                x={sign.originX}
+                y={sign.originY + sumPrevHeight}
+                width={sign.width}
+                height={sign.height}
+                {scale}
+                onchange={(e) => {
+                  let acc = 0;
+                  for (let i = 0; i < pageSizes.length; i++) {
+                    const h = pageSizes[i].height;
+                    if (e.y < acc + h) {
+                      sign.page = i + 1;
+                      sign.originY = e.y - acc;
+                      break;
+                    }
+                    acc += h + gutter;
+                  }
+
+                  sign.originX = e.x;
+                  sign.width = e.width;
+                  sign.height = e.height;
+                }}
               >
+                <button
+                  type="button"
+                  class="btn btn-xs btn-circle btn-error absolute -top-6 left-1/2 -translate-x-1/2"
+                  onclick={() => {
+                    signatures = signatures.filter((s) => s !== sign);
+                  }}
+                >
+                  x
+                </button>
                 <img
+                  id={`sign-${sign.id}`}
                   src={`data:image/png;base64,${sign.imageBase64}`}
-                  alt={"Visualisasi"}
+                  class="w-full h-full pointer-events-none"
+                  alt="Visualisasi"
                 />
-              </div>
+              </Dragresize>
             {/each}
           {/snippet}
         </Preview>
@@ -341,7 +369,7 @@
       } as any;
       setTimeout(() => {
         // @ts-expect-error
-        window.turnstile.render("#turnstile-container", {
+        turnstileId = window.turnstile.render("#turnstile-container", {
           sitekey: env.PUBLIC_TURNSTILE_KEY,
           size: "flexible",
           callback: function (token: string) {
@@ -371,6 +399,7 @@
         e.preventDefault();
         forms.sign!.__error = "";
         elapsedTime = 0;
+
         if (item.completed.length == 0) {
           startTime = performance.now();
         } else {
@@ -458,6 +487,8 @@
           console.error(err);
         } finally {
           loading = false;
+          //@ts-expect-error
+          window.turnstile.reset(turnstileId);
         }
       }}
     >

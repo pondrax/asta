@@ -279,7 +279,7 @@
   <div class="relative w-full" style="height: {totalHeight}px">
     <div class="pdf-layer absolute top-0 left-0 right-0 bottom-0"></div>
     <div
-      class="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 z-1"
+      class="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 z-1 overflow-clip"
       style="width: {displayVp.width}px;"
     >
       {@render children?.(displayScale, pageSizes, GAP)}

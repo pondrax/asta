@@ -1,5 +1,4 @@
 import { command, form, getRequestEvent, query } from "$app/server";
-import { env } from "$env/dynamic/private";
 import { db } from "$lib/server/db";
 import { Logger } from "$lib/server/log";
 import { FileStorage } from "$lib/server/storage";
@@ -55,6 +54,8 @@ export const signDocument = command(type({
     const event = getRequestEvent();
     await validateTurnstile(props.__token, event.getClientAddress());
 
+    // const { fileBase64, fileName, __token, ...metadata } = props;
+    // console.log(metadata);
     const response = await esign.signPDF(props);
     if (response.status >= 500) {
       return {
@@ -68,6 +69,7 @@ export const signDocument = command(type({
         note: props.note,
         fileName: props.fileName,
       })
+      response.data.error += '\n' + response.data?.error_description;
       return response.data;
     }
 

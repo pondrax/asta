@@ -51,22 +51,20 @@ export class Esign {
     location?: string,
     note?: string
   }) {
-    const props = signatureProperties.length === 0
-      ? [{
-        tampilan: "INVISIBLE",
-        page: 1,
-        originX: 0.0,
-        originY: 0.0,
-        width: 100.0,
-        height: 75.0,
-        location,
-        reason: note
-      }]
-      : signatureProperties.map(item => ({
-        ...item,
-        location,
-        reason: note
-      }));
+    const props = [
+      signatureProperties[0]
+        ? { ...signatureProperties[0], location, reason: note }
+        : {
+          tampilan: "INVISIBLE",
+          page: 1,
+          originX: 0,
+          originY: 0,
+          width: 100,
+          height: 75,
+          location,
+          reason: note
+        }
+    ];
 
     return this.makeRequest(
       `${env.ESIGN_URL}/api/v2/sign/pdf`,

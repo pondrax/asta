@@ -32,9 +32,10 @@
                 <td>
                   <button
                     type="button"
-                    class="join-item btn btn-sm p-0.5 w-20 bg-center bg-no-repeat bg-contain bg-white"
+                    class="join-item btn btn-sm p-0.5 w-20 bg-center bg-no-repeat bg-contain bg-white tooltip tooltip-right"
                     aria-label="Preview Signature"
                     style={`background-image: url("data:image/png;base64,${signature.imageBase64}")`}
+                    data-tip="Preview Signature"
                     onclick={() => {
                       const signElement = document.getElementById(
                         `sign-${signature.id}`,
