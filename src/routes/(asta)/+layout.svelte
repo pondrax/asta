@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { page } from "$app/state";
   import { app } from "$lib/app/index.svelte";
   let { children } = $props();
 </script>
@@ -7,7 +8,7 @@
   <title>Tapak Astà</title>
 </svelte:head>
 
-<div class="navbar bg-base-100 sticky top-0 lg:px-5 z-1">
+<div class="navbar bg-base-100 sticky top-0 lg:px-5 z-10">
   <div class="navbar-start">
     <div class="dropdown">
       <div tabindex="0" role="button" class="btn btn-ghost lg:hidden">
@@ -15,17 +16,14 @@
       </div>
       <ul
         tabindex="-1"
-        class="menu menu-sm dropdown-content bg-base-100 rounded-box z-1 mt-3 w-52 p-2 shadow"
+        class="menu dropdown-content bg-base-100 rounded-box z-1 mt-3 w-52 p-2 shadow"
       >
-        <li><a href="/asta/sign">Tanda Tangan</a></li>
-        <!-- <li>
-          <div>Parent</div>
-          <ul class="p-2">
-            <li><a href="/">Submenu 1</a></li>
-            <li><a href="/">Submenu 2</a></li>
-          </ul>
+        <li><a href="/sign">Tanda Tangan</a></li>
+        <li><a href="/verify">Verifikasi</a></li>
+        <li><a href="/user-guide">Panduan</a></li>
+        <li>
+          <a href="/auth" class="btn btn-sm btn-primary btn-soft mt-2">Masuk</a>
         </li>
-        <li><a>Item 3</a></li> -->
       </ul>
     </div>
     <a class="btn btn-ghost text-xl px-0" href="/" aria-label="Logo">
@@ -34,24 +32,28 @@
     </a>
   </div>
   <div class="navbar-center hidden lg:flex">
-    <ul class="menu menu-horizontal px-1">
+    <ul class="menu menu-horizontal px-1 gap-1">
       <li>
-        <a href="/" class=""> Beranda </a>
+        <a href="/" class:menu-active={page.url.pathname === "/"}> Beranda </a>
       </li>
       <li>
-        <a href="/sign"> Tanda Tangan </a>
+        <a href="/sign" class:menu-active={page.url.pathname === "/sign"}>
+          Tanda Tangan
+        </a>
       </li>
-      <!-- <li>
-        <details>
-          <summary>Parent</summary>
-          <ul class="p-2">
-            <li><a>Submenu 1</a></li>
-            <li><a>Submenu 2</a></li>
-          </ul>
-        </details>
-      </li> -->
-      <li><a href="/verify"> Verifikasi </a></li>
-      <li><a href="/auth"> Panduan </a></li>
+      <li>
+        <a href="/verify" class:menu-active={page.url.pathname === "/verify"}>
+          Verifikasi
+        </a>
+      </li>
+      <li>
+        <a
+          href="/user-guide"
+          class:menu-active={page.url.pathname === "/user-guide"}
+        >
+          Panduan
+        </a>
+      </li>
     </ul>
   </div>
   <div class="navbar-end gap-5">

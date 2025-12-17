@@ -3,10 +3,19 @@
 
   let { children } = $props();
   const stats = getStats({});
+  const current = $derived(stats.current);
+
+  function formatNumber(num: number) {
+    const n = num;
+    if (n >= 1e9) return (n / 1e9).toFixed(1) + "B";
+    if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
+    if (n >= 1e4) return (n / 1e3).toFixed(1) + "k";
+    return n.toLocaleString();
+  }
 </script>
 
 <div>
-  <div class="flex justify-center items-center h-[calc(100vh-8rem)]">
+  <div class="flex justify-center items-center h-[calc(100vh-12rem)]">
     <div class="max-w-xl text-center">
       <figure class="">
         <img src="/logo-white.png" alt="logo" class="dark-logo h-40" />
@@ -22,117 +31,85 @@
         mudah diakses oleh pengguna.
       </p>
       <a href="./sign" class="btn btn-primary animate-bounce">
-        Tanda Tangan Dokumen Sekarang!
         <iconify-icon icon="bx:pen"></iconify-icon>
+        Tanda Tangan Dokumen Sekarang!
       </a>
     </div>
   </div>
-  <section class="text-center max-w-2xl mx-auto my-10">
-    <div>
-      <h3 class="text-lg">Statistik Penandatangan</h3>
-    </div>
-    <div class="grid grid-cols-1 md:grid-cols-6">
-      {#if stats.loading}
-        <div>loading</div>
-      {:else if stats.current}
-        {@const { signed, verified } = stats.current}
-        <div class="stats shadow">
-          <div class="stat">
-            <div class="stat-title">Hari Ini</div>
-            <div class="stat-value">{signed.today}</div>
-            <div class="stat-desc">Dokumen</div>
+  <section class="max-w-4xl mx-auto">
+    {#if current}
+      <div class="stats stats-vertical lg:stats-horizontal shadow w-full">
+        <div class="stat">
+          <div class="stat-figure text-primary/90 text-5xl">
+            <iconify-icon icon="bx:bxs-file-archive"></iconify-icon>
+          </div>
+          <div class="stat-title">Tanda Tangan Hari ini</div>
+          <div class="stat-value">
+            {formatNumber(current?.signed?.today)}
+          </div>
+          <div class="stat-desc">
+            {current?.signed?.today - current?.signed?.yesterday > 0
+              ? "+"
+              : ""}{current?.signed?.today - current?.signed?.yesterday}
+            Kemarin
           </div>
         </div>
-        <div class="stats shadow">
-          <div class="stat">
-            <div class="stat-title">Kemarin</div>
-            <div class="stat-value">{signed.yesterday}</div>
-            <div class="stat-desc">Dokumen</div>
+
+        <div class="stat">
+          <div class="stat-figure text-primary text-5xl">
+            <iconify-icon icon="bx:bxs-file-archive"></iconify-icon>
+          </div>
+          <div class="stat-title">Total Tanda Tangan</div>
+          <div class="stat-value">
+            {formatNumber(current?.signed?.total)}
+          </div>
+          <div class="stat-desc">
+            {current?.signed?.thisMonth > 0 ? "+" : ""}{current?.signed
+              ?.thisMonth}
+            Bulan Ini
           </div>
         </div>
-        <div class="stats shadow">
-          <div class="stat">
-            <div class="stat-title">Minggu Ini</div>
-            <div class="stat-value">{signed.thisWeek}</div>
-            <div class="stat-desc">Dokumen</div>
+
+        <div class="stat">
+          <div class="stat-figure text-accent/90 text-5xl">
+            <iconify-icon icon="bx:bxs-file-find"></iconify-icon>
+          </div>
+          <div class="stat-title">Verifikasi Hari Ini</div>
+          <div class="stat-value">
+            {formatNumber(current?.verified?.today)}
+          </div>
+          <div class="stat-desc">
+            {current?.verified?.today - current?.verified?.yesterday > 0
+              ? "+"
+              : ""}{current?.verified?.today - current?.verified?.yesterday}
+            Kemarin
           </div>
         </div>
-        <div class="stats shadow">
-          <div class="stat">
-            <div class="stat-title">Bulan Ini</div>
-            <div class="stat-value">{signed.thisMonth}</div>
-            <div class="stat-desc">Dokumen</div>
+        <div class="stat">
+          <div class="stat-figure text-accent text-5xl">
+            <iconify-icon icon="bx:bxs-file-find"></iconify-icon>
+          </div>
+          <div class="stat-title">Total Verifikasi</div>
+          <div class="stat-value">
+            {formatNumber(current?.verified?.total)}
+          </div>
+          <div class="stat-desc">
+            {current?.verified?.thisMonth > 0 ? "+" : ""}{current?.verified
+              ?.thisMonth}
+            Bulan Ini
           </div>
         </div>
-        <div class="stats shadow">
+      </div>
+    {:else}
+      <div class="stats stats-vertical lg:stats-horizontal shadow w-full">
+        {#each Array.from({ length: 4 }) as _, i}
           <div class="stat">
-            <div class="stat-title">Tahun Ini</div>
-            <div class="stat-value">{signed.thisYear}</div>
-            <div class="stat-desc">Dokumen</div>
+            <div class="stat-title skeleton w-1/2">&nbsp;</div>
+            <div class="stat-value skeleton my-1">&nbsp;</div>
+            <div class="stat-desc skeleton w-3/4">&nbsp;</div>
           </div>
-        </div>
-        <div class="stats shadow">
-          <div class="stat">
-            <div class="stat-title">Total</div>
-            <div class="stat-value">{signed.total}</div>
-            <div class="stat-desc">Dokumen</div>
-          </div>
-        </div>
-      {/if}
-    </div>
-  </section>
-  <section class="text-center max-w-2xl mx-auto my-10">
-    <div>
-      <h3 class="text-lg">Statistik Verifikasi</h3>
-    </div>
-    <div class="grid grid-cols-1 md:grid-cols-6">
-      {#if stats.loading}
-        <div>loading</div>
-      {:else if stats.current}
-        {@const { signed, verified } = stats.current}
-        <div class="stats shadow">
-          <div class="stat">
-            <div class="stat-title">Hari Ini</div>
-            <div class="stat-value">{verified.today}</div>
-            <div class="stat-desc">Dokumen</div>
-          </div>
-        </div>
-        <div class="stats shadow">
-          <div class="stat">
-            <div class="stat-title">Kemarin</div>
-            <div class="stat-value">{verified.yesterday}</div>
-            <div class="stat-desc">Dokumen</div>
-          </div>
-        </div>
-        <div class="stats shadow">
-          <div class="stat">
-            <div class="stat-title">Minggu Ini</div>
-            <div class="stat-value">{verified.thisWeek}</div>
-            <div class="stat-desc">Dokumen</div>
-          </div>
-        </div>
-        <div class="stats shadow">
-          <div class="stat">
-            <div class="stat-title">Bulan Ini</div>
-            <div class="stat-value">{verified.thisMonth}</div>
-            <div class="stat-desc">Dokumen</div>
-          </div>
-        </div>
-        <div class="stats shadow">
-          <div class="stat">
-            <div class="stat-title">Tahun Ini</div>
-            <div class="stat-value">{verified.thisYear}</div>
-            <div class="stat-desc">Dokumen</div>
-          </div>
-        </div>
-        <div class="stats shadow">
-          <div class="stat">
-            <div class="stat-title">Total</div>
-            <div class="stat-value">{verified.total}</div>
-            <div class="stat-desc">Dokumen</div>
-          </div>
-        </div>
-      {/if}
-    </div>
+        {/each}
+      </div>
+    {/if}
   </section>
 </div>

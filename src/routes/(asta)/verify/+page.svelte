@@ -106,7 +106,7 @@
       <div class="text-xl font-bold text-base-content/60">
         Verifikasi Dokumen PDF!
       </div>
-      <div class="join w-full mb-5">
+      <div class="join w-full mb-2">
         <button
           class="btn btn-sm join-item grow"
           onclick={() => (mode = "upload")}
@@ -131,7 +131,7 @@
       </div>
       <div class="text-sm">
         {#if mode === "upload"}
-          <div>Unggah untuk memverifikasi dokumen PDF.</div>
+          <div class="alert">Unggah untuk memverifikasi dokumen PDF.</div>
           <label class="floating-label mt-5">
             <span>Pilih Dokumen</span>
             <input
@@ -151,10 +151,7 @@
             <div class="wrap-anywhere">{checksum}</div>
           {/if} -->
         {:else if mode === "search"}
-          <div>
-            Cari Dokumen yang telah ditandatangani menggunakan Aplikasi Tapak
-            Asta
-          </div>
+          <div class="alert">Cari Dokumen tertandatangan di Tapak Asta</div>
           <label class="floating-label mt-5">
             <span>Masukkan ID dokumen</span>
             <div class="join w-full">
@@ -173,7 +170,12 @@
             </div>
           </label>
         {:else if mode === "scan"}
-          <div>Scan QR Code</div>
+          <div class="alert">
+            <div>
+              <div class="font-bold">Scan QR Code</div>
+              <div class="">Fitur dalam pengembangan</div>
+            </div>
+          </div>
         {/if}
       </div>
     </div>
@@ -193,7 +195,7 @@
         <ul class="menu w-full p-0">
           {#each documents.current as doc, i}
             <li class="">
-              <details>
+              <details open={doc.files?.includes(fileURL || "-")}>
                 <summary
                   class="my-1"
                   class:menu-active={doc.files?.includes(fileURL || "-")}
@@ -211,14 +213,14 @@
                 </summary>
                 <ul class="menu p-0 w-full">
                   {#each doc.files?.reverse() as file, ix}
-                    <li class="flex">
+                    <li class="w-85 pb-0.5">
                       <div
                         class="flex p-0 gap-1"
                         title={file.split("/").pop()}
                         class:bg-base-300={file === fileURL}
                       >
                         <button
-                          class="btn btn-sm btn-ghost join-item w-70 justify-start"
+                          class="btn btn-sm btn-ghost join-item flex-1 justify-start mr-auto"
                           title={file.split("/").pop()}
                           onclick={() =>
                             previewURL(file, doc.title || "default.pdf")}
@@ -228,21 +230,24 @@
                           </span>
 
                           {#if ix == 0}
-                            <span class="badge badge-xs badge-primary"
-                              >latest</span
-                            >
+                            <span class="badge badge-xs badge-primary">
+                              latest
+                            </span>
                           {/if}
                         </button>
-                        <a
-                          href={`/sign?id=${doc.id}`}
-                          target="_blank"
-                          class="btn btn-sm btn-secondary join-item tooltip tooltip-left"
-                          aria-label="Tanda Tangan"
-                          data-tip="Tanda Tangan Lanjutan"
-                        >
-                          <iconify-icon icon="bx:pen" class="w-5 h-5"
-                          ></iconify-icon>
-                        </a>
+
+                        {#if ix == 0}
+                          <a
+                            href={`/sign?id=${doc.id}`}
+                            target="_blank"
+                            class="btn btn-sm btn-secondary join-item tooltip tooltip-left"
+                            aria-label="Tanda Tangan"
+                            data-tip="Tanda Tangan Lanjutan"
+                          >
+                            <iconify-icon icon="bx:pen" class="w-5 h-5"
+                            ></iconify-icon>
+                          </a>
+                        {/if}
                         <a
                           href={file}
                           target="_blank"
@@ -265,7 +270,7 @@
       </div>
     </div>
 
-    <div class="shrink-0 max-h-100 overflow-y-auto">
+    <div class="shrink-0">
       <div class="font-bold text-base-content/60 mt-10">Status Dokumen</div>
       <div class="">
         {#if loading}
