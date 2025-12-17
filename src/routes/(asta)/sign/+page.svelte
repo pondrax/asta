@@ -57,6 +57,7 @@
       completed: string[];
     };
     signError?: string;
+    confirm?: boolean;
   } = $state({});
 
   let fileInput: HTMLInputElement | null = $state(null);
@@ -310,11 +311,13 @@
       onsubmit={async (e) => {
         e.preventDefault();
         forms.signError = "";
+        elapsedTime = 0;
         if (item.completed.length == 0) {
           startTime = performance.now();
+        } else {
+          startTime = performance.now() - timer;
         }
 
-        elapsedTime = 0;
         let interval = setInterval(() => {
           timer = Math.floor(performance.now() - startTime);
         }, 1000);
@@ -327,10 +330,13 @@
           // 🔴 GLOBAL ABORT FLAG
           let abortSigning = false;
 
+          let index = -1;
           const results = await promisePool(
             docsx,
             Number(env.PUBLIC_MAX_CONCURRENT_REQUESTS) || 1,
             async ([id, file]) => {
+              index++;
+              await new Promise((resolve) => setTimeout(resolve, 500 * index));
               // stop immediately if any previous doc failed
               if (abortSigning) return null;
 
@@ -369,15 +375,12 @@
                   fileBase64: await fileToBase64(fileSign),
                 });
 
-                console.log(signing, Number(env.PUBLIC_MAX_RETRIES), attempt);
-                // ❌ FIRST ERROR → STOP EVERYTHING
                 if (signing?.error) {
                   forms.signError = signing.error;
                   abortSigning = true;
                   return null;
                 }
 
-                // ✅ SUCCESS
                 if (signing?.file) {
                   item.completed.push(id);
                   return signing;
@@ -471,19 +474,32 @@
               type="button"
               class="btn btn-sm btn-error"
               onclick={() => {
-                if (
-                  !confirm(
-                    "Apakah Anda yakin ingin menutup halaman ini?\nSemua data yang belum disimpan akan hilang.",
-                  )
-                ) {
-                  return;
-                }
-                forms.sign = undefined;
-                documents = {};
+                forms.confirm = true;
+                // if (
+                //   !confirm(
+                //     "Apakah Anda yakin ingin menutup menu ini?\nSemua data sesi ini yang belum disimpan akan hilang.\nAnda dapat mengakses semua dokumen yang sudah ditandatangani di halaman dashboard setelah login.",
+                //   )
+                // ) {
+                //   return;
+                // }
+                // forms.sign = undefined;
+                // documents = {};
               }}
             >
               Tutup
             </button>
+          </div>
+        {:else}
+          <div>
+            {item.completed.length} / {Object.keys(item.documents).length}
+            Dokumen berhasil ditandatangani.
+            <span>
+              ({timer > 60000 ? Math.floor(timer / 1000 / 60) + " menit" : ""}
+              {Math.floor((timer / 1000) % 60)} detik )
+            </span>
+            <br />
+            Klik tombol <kbd class="kbd kbd-sm">Tanda Tangan</kbd> untuk melanjutkan
+            proses tanda tangan.
           </div>
         {/if}
       </div>
@@ -544,4 +560,37 @@
   {/snippet}
 </Modal>
 
+<Modal
+  bind:data={forms.confirm}
+  title="Anda yakin ingin menutup menu ini?"
+  closeable={false}
+>
+  <div class="my-5">
+    <p>Semua data sesi ini yang belum disimpan akan hilang.</p>
+    <p>
+      Anda dapat mengakses semua dokumen yang sudah ditandatangani di halaman
+      dashboard setelah login.
+    </p>
+  </div>
+  <div class="flex justify-center gap-2">
+    <button
+      type="button"
+      class="btn btn-sm btn-success"
+      onclick={() => (forms.confirm = false)}
+    >
+      Batal
+    </button>
+    <button
+      type="button"
+      class="btn btn-sm btn-error"
+      onclick={() => {
+        forms.confirm = false;
+        forms.sign = undefined;
+        documents = {};
+      }}
+    >
+      Tutup
+    </button>
+  </div>
+</Modal>
 <!-- <SignModal bind:data={forms.sign} /> -->

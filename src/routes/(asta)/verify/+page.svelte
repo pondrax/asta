@@ -189,10 +189,10 @@
           <div>Dokumen tidak ditemukan di Tapak Asta</div>
         {/if}
       {/if}
-      <div class="h-[calc(100vh-500px)] overflow-auto">
+      <div class="h-[calc(100vh-500px)] overflow-y-auto overflow-x-clip">
         <ul class="menu w-full p-0">
           {#each documents.current as doc, i}
-            <li class="w-full">
+            <li class="">
               <details>
                 <summary
                   class:menu-active={doc.files?.includes(fileURL || "-")}
