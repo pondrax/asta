@@ -195,6 +195,7 @@
             <li class="">
               <details>
                 <summary
+                  class="my-1"
                   class:menu-active={doc.files?.includes(fileURL || "-")}
                 >
                   <button
@@ -209,26 +210,46 @@
                   </button>
                 </summary>
                 <ul class="menu p-0 w-full">
-                  {#each doc.files as file}
+                  {#each doc.files?.reverse() as file, ix}
                     <li class="flex">
                       <div
-                        class="join p-0 gap-0"
+                        class="flex p-0 gap-1"
                         title={file.split("/").pop()}
                         class:bg-base-300={file === fileURL}
                       >
                         <button
-                          class="btn btn-sm btn-ghost join-item w-xs"
+                          class="btn btn-sm btn-ghost join-item w-70 justify-start"
+                          title={file.split("/").pop()}
                           onclick={() =>
                             previewURL(file, doc.title || "default.pdf")}
                         >
-                          <span class="truncate">{file.split("/").pop()}</span>
+                          <span class="truncate">
+                            {file.split("/").pop()}
+                          </span>
+
+                          {#if ix == 0}
+                            <span class="badge badge-xs badge-primary"
+                              >latest</span
+                            >
+                          {/if}
                         </button>
+                        <a
+                          href={`/sign?id=${doc.id}`}
+                          target="_blank"
+                          class="btn btn-sm btn-secondary join-item tooltip tooltip-left"
+                          aria-label="Tanda Tangan"
+                          data-tip="Tanda Tangan Lanjutan"
+                        >
+                          <iconify-icon icon="bx:pen" class="w-5 h-5"
+                          ></iconify-icon>
+                        </a>
                         <a
                           href={file}
                           target="_blank"
-                          class="btn btn-sm btn-primary join-item"
+                          class="btn btn-sm btn-primary join-item tooltip tooltip-left"
                           download={file.split("/").pop()}
                           aria-label="Download"
+                          data-tip="Download"
                         >
                           <iconify-icon icon="bx:download" class="w-5 h-5"
                           ></iconify-icon>

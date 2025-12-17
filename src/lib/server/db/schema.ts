@@ -1,5 +1,6 @@
 import { pgTable, integer, text, timestamp, json, customType, date } from 'drizzle-orm/pg-core';
 import { id, created, updated, encryptedJson } from './utils';
+import { boolean } from 'drizzle-orm/gel-core';
 
 export const users = pgTable('users', {
 	id,
@@ -34,6 +35,7 @@ export const signers = pgTable('signers', {
 
 export const documents = pgTable('documents', {
 	id,
+	template: boolean('template').default(false),
 	owner: text('owner'),
 	signer: text('signer'),
 	title: text('title'),

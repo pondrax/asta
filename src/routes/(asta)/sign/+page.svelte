@@ -9,8 +9,10 @@
   import Preview from "./preview.svelte";
   import Upload from "./upload.svelte";
   import Visualizer from "./visualizer.svelte";
-  import { signDocument } from "$lib/remotes/sign.remote";
+  import { getDocument, signDocument } from "$lib/remotes/sign.remote";
   import { goto } from "$app/navigation";
+  import { onMount } from "svelte";
+  import { page } from "$app/state";
 
   let loading = $state(false);
   let signButton: HTMLButtonElement | null = $state(null);
@@ -120,6 +122,26 @@
     }
     return filledFile;
   }
+  onMount(async () => {
+    const id = page.url.searchParams.get("id");
+    const asTemplate = page.url.searchParams.get("template") === "true";
+    if (!id) return;
+    const existing = await getDocument({ id });
+    // console.log(existing);
+    if (existing) {
+      existing.forEach(async (doc) => {
+        const fileUrl = doc.files?.pop();
+        if (!fileUrl) return;
+        const docId = asTemplate || doc.template ? createId(10) : doc.id;
+        console.log(doc.id, asTemplate, doc.template, docId);
+        const file = await fetch(fileUrl).then((res) => res.blob());
+        documents[docId] = new File([file], doc.title || "default.pdf", {
+          type: file.type,
+        });
+        activeIndex = docId;
+      });
+    }
+  });
 
   //@ts-expect-error
   const debounceFillFormFields = debounce(() => {
@@ -575,7 +597,7 @@
   <div class="flex justify-center gap-2">
     <button
       type="button"
-      class="btn btn-sm btn-success"
+      class="btn btn-sm"
       onclick={() => (forms.confirm = false)}
     >
       Batal
