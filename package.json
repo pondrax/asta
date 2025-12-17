@@ -5,6 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"start": "vite-node --options.transformMode.ssr='/.*/'  ./build/index.js",
+		"serve": "pm2 delete asta || true && pm2 start pnpm --name asta -- run start",
 		"dev": "vite dev",
 		"build": "vite build",
 		"preview": "vite preview",

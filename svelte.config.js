@@ -14,7 +14,8 @@ const config = {
 		},
 		adapter: adapter(),
 		csrf: {
-			checkOrigin: false,
+			// checkOrigin: false,
+			trustedOrigins: ['localhost', '192.168.33.54', 'asta.mojokertokota.go.id'],
 		}
 	},
 	compilerOptions: {
