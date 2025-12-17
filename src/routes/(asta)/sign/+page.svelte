@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { version } from '$app/environment';
+  import { version } from "$app/environment";
   import { env } from "$env/dynamic/public";
   import type { SignatureType } from "./types";
   import * as pdfLib from "$lib/utils/pdf";
@@ -201,7 +201,30 @@
             </button>
           </div>
         {/if}
-        <Preview file={previewFile} {hasSignature} />
+
+        <Preview file={previewFile} {hasSignature}>
+          {#snippet children(scale, pageSizes, gutter)}
+            {#each signatures as sign}
+              {@const sumPrevHeight = pageSizes
+                .slice(0, sign.page - 1)
+                .reduce((acc, cur) => acc + cur.height + gutter, 0)}
+              <div
+                id={`sign-${sign.id}`}
+                class="absolute"
+                style="
+                  top: {(sign.originY + sumPrevHeight) * scale}px; 
+                  left: {sign.originX * scale}px;
+                  width: {sign.width * scale}px;
+                  height: {sign.height * scale}px;"
+              >
+                <img
+                  src={`data:image/png;base64,${sign.imageBase64}`}
+                  alt={"Visualisasi"}
+                />
+              </div>
+            {/each}
+          {/snippet}
+        </Preview>
       </div>
 
       <div class:hidden={hasDocuments} class="h-full">

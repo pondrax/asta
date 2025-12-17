@@ -220,14 +220,14 @@
                 </summary>
                 <ul class="menu p-0 w-full">
                   {#each doc.files?.reverse() as file, ix}
-                    <li class="w-85 pb-0.5">
+                    <li class="w-[calc(100%-16px)] pb-0.5">
                       <div
                         class="flex p-0 gap-1"
                         title={file.split("/").pop()}
                         class:bg-base-300={file === fileURL}
                       >
                         <button
-                          class="btn btn-sm btn-ghost join-item flex-1 justify-start mr-auto"
+                          class="btn btn-sm btn-ghost join-item flex-1 justify-start w-60 mr-auto"
                           title={file.split("/").pop()}
                           onclick={() =>
                             previewURL(file, doc.title || "default.pdf")}

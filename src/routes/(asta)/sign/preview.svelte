@@ -1,7 +1,17 @@
 <script lang="ts">
-  import { onMount, onDestroy, tick } from "svelte";
+  import { onMount, onDestroy, tick, type Snippet } from "svelte";
 
-  let { file, hasSignature = true } = $props();
+  let {
+    file,
+    hasSignature = true,
+    children = undefined,
+  }: {
+    file: File | null;
+    hasSignature?: boolean;
+    children?: Snippet<
+      [number, { width: number; height: number; ratio: number }[], number]
+    >;
+  } = $props();
 
   let pdfjsLib: typeof import("pdfjs-dist") | null = null;
   let pdfDoc: any = null;
@@ -11,11 +21,18 @@
   const BUFFER = 3;
   const PADDING = 1; // 1rem = 16px (p-4)
   const DPI_SCALE = 1.5; // Increase for higher resolution (2x = ~150 DPI, 3x = ~225 DPI)
+  let displayScale = $state(1);
+  let displayVp: { width: number; height: number } = $state({
+    width: 0,
+    height: 0,
+  });
 
   let pageCount = $state(0);
   let pageSizes: { width: number; height: number; ratio: number }[] = $state(
     [],
   );
+
+  $inspect(displayScale, pageSizes);
   let pageHeights: number[] = $state([]);
   let offsets: number[] = $state([]);
   let totalHeight = $state(0);
@@ -191,12 +208,12 @@
     // Scale to fit both width and height (auto-fit)
     const scaleW = containerWidth / vp1.width;
     const scaleH = containerHeight / vp1.height;
-    const displayScale = Math.min(scaleW, scaleH);
+    displayScale = Math.min(scaleW, scaleH);
 
     // High-resolution scale for canvas
     const renderScale = displayScale * DPI_SCALE;
 
-    const displayVp = page.getViewport({ scale: displayScale });
+    displayVp = page.getViewport({ scale: displayScale });
     const renderVp = page.getViewport({ scale: renderScale });
 
     // Wrapper div for page and overlay
@@ -261,5 +278,11 @@
 >
   <div class="relative w-full" style="height: {totalHeight}px">
     <div class="pdf-layer absolute top-0 left-0 right-0 bottom-0"></div>
+    <div
+      class="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 z-1"
+      style="width: {displayVp.width}px;"
+    >
+      {@render children?.(displayScale, pageSizes, GAP)}
+    </div>
   </div>
 </div>
