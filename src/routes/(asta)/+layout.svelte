@@ -1,11 +1,21 @@
 <script lang="ts">
   import { page } from "$app/state";
+  import { env } from "$env/dynamic/public";
   import { app } from "$lib/app/index.svelte";
   let { children } = $props();
 </script>
 
 <svelte:head>
   <title>Tapak Astà</title>
+  <link rel="preconnect" href="https://challenges.cloudflare.com" />
+  <script
+    src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+    async
+    defer
+  ></script>
+  <!-- <script
+    src="https://www.google.com/recaptcha/api.js?render={env.PUBLIC_RECAPTCHA_SITE_KEY}"
+  ></script> -->
 </svelte:head>
 
 <div class="navbar bg-base-100 sticky top-0 lg:px-5 z-10">
@@ -78,3 +88,5 @@
 <div>
   {@render children()}
 </div>
+
+<!-- <div class="cf-turnstile" data-sitekey={env.PUBLIC_TURNSTILE_KEY}></div> -->

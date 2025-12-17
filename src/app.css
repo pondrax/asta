@@ -51,3 +51,7 @@
 @utility animate-pause {
     animation-play-state: paused;
 }
+
+.grecaptcha-badge{
+  bottom:80px !important;
+}

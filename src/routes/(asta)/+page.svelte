@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { env } from "$env/dynamic/public";
   import { getStats } from "$lib/remotes/stats.remote";
 
   let { children } = $props();
@@ -21,7 +22,7 @@
         <img src="/logo-white.png" alt="logo" class="dark-logo h-40" />
         <img src="/logo.png" alt="logo" class="light-logo h-40" />
       </figure>
-      <p class="my-5">
+      <p class="p-5">
         Tata Pelayanan Keamanan dan Asisten Sertifikat Elektronik Kota Mojokerto
         disingkat <span class="animate-pulse font-semibold text-primary">
           Tapak Astà
@@ -36,7 +37,7 @@
       </a>
     </div>
   </div>
-  <section class="max-w-4xl mx-auto">
+  <section class="max-w-md sm:max-w-4xl mx-auto">
     {#if current}
       <div class="stats stats-vertical lg:stats-horizontal shadow w-full">
         <div class="stat">
@@ -113,3 +114,45 @@
     {/if}
   </section>
 </div>
+
+<footer
+  class="footer sm:footer-horizontal bg-base-200 text-base-content p-10 mt-30 shadow-[0_-2px_6px_-1px_rgba(0,0,0,0.1)]"
+>
+  <aside class="-mt-20">
+    <img src="/logo-white.png" alt="logo" class="dark-logo h-32" />
+    <img src="/logo.png" alt="logo" class="light-logo h-32" />
+    <p class="skeleton skeleton-text">
+      Tanda tangan menjadi lebih mudah dan aman
+    </p>
+    <div>
+      <p class="my-2">Didukung oleh:</p>
+      <div class="flex gap-5">
+        <img src="/favicon.png" alt="logo bsre" class="h-10" />
+        <img src="/logo-bsre.png" alt="logo bsre" class="h-10" />
+      </div>
+    </div>
+  </aside>
+  <nav>
+    <h6 class="footer-title">Layanan</h6>
+    <a href="/pages/request-user" class="link link-hover">Pengajuan Pengguna</a>
+    <a href="/pages/update-data" class="link link-hover">Pembaruan Data</a>
+    <a href="/pages/guide" class="link link-hover">Panduan Penggunaan</a>
+    <a href="/pages/helpdesk" class="link link-hover">Aduan</a>
+  </nav>
+  <nav>
+    <h6 class="footer-title">Tentang</h6>
+    <a href="/pages/about-us" class="link link-hover">Tentang Kami</a>
+    <a href="/pages/contact" class="link link-hover">Kontak</a>
+    <!-- <a href="/pages/jobs" class="link link-hover">Jobs</a>
+    <a href="/pages/press-kit" class="link link-hover">Press kit</a> -->
+  </nav>
+  <nav>
+    <h6 class="footer-title">Legal</h6>
+    <a href="/pages/terms-of-use" class="link link-hover">
+      Ketentuan Penggunaan
+    </a>
+    <a href="/pages/privacy-policy" class="link link-hover">
+      Kebijakan Privasi
+    </a>
+  </nav>
+</footer>

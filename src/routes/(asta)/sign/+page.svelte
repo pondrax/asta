@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { version } from '$app/environment';
   import { env } from "$env/dynamic/public";
   import type { SignatureType } from "./types";
   import * as pdfLib from "$lib/utils/pdf";
@@ -44,21 +45,22 @@
 
   let forms: {
     sign?: {
-      nik: "";
-      email: "";
-      nama: "";
-      jabatan: "";
-      pangkat: "";
-      instansi: "";
-      passphrase: "";
-      note: "";
-      location: "";
+      nik: string;
+      email: string;
+      nama: string;
+      jabatan: string;
+      pangkat: string;
+      instansi: string;
+      passphrase: string;
+      note: string;
+      location: string;
       signatureProperties: SignatureType[];
       documents: Record<string, File>;
       // files: File[];
       completed: string[];
+      __token: string;
+      __error?: string;
     };
-    signError?: string;
     confirm?: boolean;
   } = $state({});
 
@@ -133,7 +135,7 @@
         const fileUrl = doc.files?.pop();
         if (!fileUrl) return;
         const docId = asTemplate || doc.template ? createId(10) : doc.id;
-        console.log(doc.id, asTemplate, doc.template, docId);
+        // console.log(doc.id, asTemplate, doc.template, docId);
         const file = await fetch(fileUrl).then((res) => res.blob());
         documents[docId] = new File([file], doc.title || "default.pdf", {
           type: file.type,
@@ -250,13 +252,13 @@
         </div>
       </div>
       <div class="text-sm">
+        <div class="mr-auto">Tapak Astà v2.0.1 #{version.slice(0, 7)}</div>
         <div class="flex gap-2">
-          <div class="mr-auto">Tapak Astà v2.0.1</div>
-          <a href="/asta/privacy" class="text-primary hover:underline">
-            Kebijakan Privasi
+          <a href="/pages/terms-of-use" class="underline">
+            Ketentuan Penggunaan
           </a>
-          <a href="/asta/terms" class="text-primary hover:underline">
-            Kebijakan Umum
+          <a href="/pages/privacy-policy" class="underline">
+            Kebijakan Privasi
           </a>
         </div>
       </div>
@@ -300,8 +302,8 @@
     aria-label="Sign Document"
     data-tip="Sign Document"
     disabled={!(allowSigning && forms.sign == undefined)}
-    onclick={async () =>
-      (forms.sign = {
+    onclick={async () => {
+      forms.sign = {
         ...form,
         passphrase: "",
         signatureProperties: signatures,
@@ -313,7 +315,19 @@
         // ),
         // completed: documents.map(() => false),
         // files: documents.map((_, i) => editedDocuments[i] || documents[i]),
-      } as any)}
+      } as any;
+      setTimeout(() => {
+        // @ts-expect-error
+        window.turnstile.render("#turnstile-container", {
+          sitekey: env.PUBLIC_TURNSTILE_KEY,
+          size: "flexible",
+          callback: function (token: string) {
+            console.log("Success:", token);
+            forms.sign!.__token = token;
+          },
+        });
+      }, 100);
+    }}
   >
     <iconify-icon icon="bx:pen" class="text-xl"></iconify-icon>
     Tanda Tangan
@@ -332,7 +346,7 @@
       autocomplete="off"
       onsubmit={async (e) => {
         e.preventDefault();
-        forms.signError = "";
+        forms.sign!.__error = "";
         elapsedTime = 0;
         if (item.completed.length == 0) {
           startTime = performance.now();
@@ -382,6 +396,7 @@
 
                 const signing = await signDocument({
                   id,
+                  __token: item.__token,
                   // email: item.email,
                   // nik: item.nik,
                   ...(useEmail ? { email: item.email } : { nik: item.nik }),
@@ -397,8 +412,9 @@
                   fileBase64: await fileToBase64(fileSign),
                 });
 
+                console.log(signing);
                 if (signing?.error) {
-                  forms.signError = signing.error;
+                  forms.sign!.__error = signing.error;
                   abortSigning = true;
                   return null;
                 }
@@ -465,8 +481,8 @@
             ({timer > 60000 ? Math.floor(timer / 1000 / 60) + " menit" : ""}
             {Math.floor((timer / 1000) % 60)} detik )
           </span>
-        {:else if forms.signError}
-          <span class="text-error">{forms.signError}</span>
+        {:else if item.__error}
+          <span class="text-error">{item.__error}</span>
         {:else if item.completed.length == 0}
           <span>Masukkan Passphrase untuk menandatangani dokumen</span>
         {:else if item.completed.length == Object.keys(item.documents).length}
@@ -572,6 +588,8 @@
             autocomplete="new-password"
           /> -->
         </label>
+
+        <div id="turnstile-container"></div>
 
         <button type="submit" class="btn btn-primary" disabled={loading}>
           <iconify-icon icon="bx:pen" class="text-2xl"></iconify-icon>

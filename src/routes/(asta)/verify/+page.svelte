@@ -6,6 +6,7 @@
   import { calculateFileChecksum, fileToBase64 } from "$lib/utils";
   import Status from "./status.svelte";
   import type { SignatureVerificationResponse } from "./types";
+  import { env } from "$env/dynamic/public";
 
   const MODES = ["upload", "search", "scan"] as const;
   let mode: (typeof MODES)[number] = $state("upload");
@@ -178,6 +179,12 @@
           </div>
         {/if}
       </div>
+      <!-- 
+      <div
+        class="cf-turnstile mt-3"
+        data-sitekey={env.PUBLIC_TURNSTILE_KEY}
+        data-size="flexible"
+      ></div> -->
     </div>
 
     <div class="flex-1 min-h-0 overflow-y-auto">

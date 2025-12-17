@@ -7,7 +7,7 @@
 		"start": "vite-node --options.transformMode.ssr='/.*/'  ./build/index.js",
 		"serve": "pm2 delete asta || true && pm2 start pnpm --name asta -- run start",
 		"dev": "vite dev",
-		"build": "vite build",
+		"build": "vite build && ./fix.sh",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",

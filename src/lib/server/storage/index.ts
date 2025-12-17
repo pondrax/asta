@@ -41,8 +41,13 @@ class LocalStorage {
 
   async save(filename: string, content: Buffer | string): Promise<StorageResult> {
     try {
-      // console.log(this.baseDir)
-      await fs.mkdir(this.baseDir, { recursive: true });
+      // Create full directory path including any subdirectories in the filename
+      const fullPath = path.join(this.baseDir, filename);
+      const dirname = path.dirname(fullPath);
+
+      // Recursively create directory structure if it doesn't exist
+      await fs.mkdir(dirname, { recursive: true });
+
       const suffix = createId(4);
       filename = filename.replace(/(\.[^/.]+)$/, `.${suffix}$1`);
 
