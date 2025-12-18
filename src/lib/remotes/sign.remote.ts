@@ -33,8 +33,15 @@ export const checkUser = command(type({
 })
 
 
-export const signDocument = command(type({
+export const verifyTurnstile = command(type({
   __token: 'string',
+}), async (props) => {
+  const event = getRequestEvent();
+  await validateTurnstile(props.__token, event.getClientAddress());
+  return { success: true }
+})
+export const signDocument = command(type({
+  // __token: 'string',
   __manual: 'boolean?',
   id: 'string',
   email: 'string?',
@@ -52,8 +59,8 @@ export const signDocument = command(type({
 }), async (props) => {
   try {
     // Validate Turnstile
-    const event = getRequestEvent();
-    await validateTurnstile(props.__token, event.getClientAddress());
+    // const event = getRequestEvent();
+    // await validateTurnstile(props.__token, event.getClientAddress());
 
     // const { fileBase64, fileName, __token, ...metadata } = props;
     // console.log(metadata);

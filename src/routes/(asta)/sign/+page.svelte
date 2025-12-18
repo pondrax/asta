@@ -16,12 +16,17 @@
   import Preview from "./preview.svelte";
   import Upload from "./upload.svelte";
   import Visualizer from "./visualizer.svelte";
-  import { getDocument, signDocument } from "$lib/remotes/sign.remote";
+  import {
+    getDocument,
+    signDocument,
+    verifyTurnstile,
+  } from "$lib/remotes/sign.remote";
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
   import { page } from "$app/state";
   import Dragresize from "./dragresize.svelte";
 
+  let turnstileSuccess = $state(false);
   let loading = $state(false);
   let signButton: HTMLButtonElement | null = $state(null);
   let activeIndex = $state("");
@@ -32,8 +37,8 @@
   let bsre = $state(true);
   let form: Record<string, any> = $state({
     footer: true,
-    email: "pondra@mojokertokota.go.id",
-    nik: "1234567890123452",
+    email: "",
+    nik: "",
     nama: "",
     jabatan: "-",
     pangkat: "-",
@@ -387,9 +392,14 @@
         turnstileId = window.turnstile.render("#turnstile-container", {
           sitekey: env.PUBLIC_TURNSTILE_KEY,
           size: "flexible",
-          callback: function (token: string) {
+          callback: async function (token: string) {
             // console.log("Success:", token);
             forms.sign!.__token = token;
+            const verify = await verifyTurnstile({ __token: token });
+            if (verify.success) {
+              turnstileSuccess = true;
+            }
+            // console.log(verify, "turnstile");
           },
         });
       }, 100);
@@ -479,7 +489,6 @@
 
                 const signing = await signDocument({
                   id,
-                  __token: item.__token,
                   __manual: !bsre,
                   // email: item.email,
                   // nik: item.nik,
@@ -676,7 +685,7 @@
         <button
           type="submit"
           class="btn {bsre ? 'btn-secondary' : 'btn-primary'}"
-          disabled={loading}
+          disabled={loading || !turnstileSuccess}
         >
           <iconify-icon icon="bx:pen" class="text-2xl"></iconify-icon>
           Tanda Tangan {bsre ? "Elektronik" : "Non-Elektronik (Manual)"}
