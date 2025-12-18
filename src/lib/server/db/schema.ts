@@ -44,6 +44,7 @@ export const documents = pgTable('documents', {
 	checksums: text('checksums').array(),
 	metadata: encryptedJson('metadata'),
 	status: text('status').default('draft').$type<'draft' | 'queue' | 'failed' | 'signed'>(),
+	esign: boolean('esign').default(true),
 	created,
 	updated,
 })

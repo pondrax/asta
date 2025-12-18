@@ -35,6 +35,7 @@ export const checkUser = command(type({
 
 export const signDocument = command(type({
   __token: 'string',
+  __manual: 'boolean?',
   id: 'string',
   email: 'string?',
   nik: 'string?',
@@ -56,21 +57,35 @@ export const signDocument = command(type({
 
     // const { fileBase64, fileName, __token, ...metadata } = props;
     // console.log(metadata);
-    const response = await esign.signPDF(props);
-    if (response.status >= 500) {
-      return {
-        message: '[Sign Document Error] Retry Signing',
+    let response: {
+      status: number,
+      data: any,
+    };
+
+    if (props.__manual) {
+      response = {
+        status: 200,
+        data: {
+          file: [props.fileBase64],
+        },
       }
-    }
-    if (response.data.error) {
-      await logger.log('error', response.data.error, {
-        email: props.email,
-        nik: props.nik,
-        note: props.note,
-        fileName: props.fileName,
-      })
-      response.data.error += '\n' + response.data?.error_description;
-      return response.data;
+    } else {
+      response = await esign.signPDF(props);
+      if (response.status >= 500) {
+        return {
+          message: '[Sign Document Error] Retry Signing',
+        }
+      }
+      if (response.data.error) {
+        await logger.log('error', response.data.error, {
+          email: props.email,
+          nik: props.nik,
+          note: props.note,
+          fileName: props.fileName,
+        })
+        response.data.error += '\n' + response.data?.error_description;
+        return response.data;
+      }
     }
 
     if (response.data.file && response.data.file.length > 0) {
@@ -101,6 +116,7 @@ export const signDocument = command(type({
             files: [saved.url],
             checksums: [checksum],
             status: 'signed',
+            esign: !props.__manual
           },
           update: doc => ({
             files: sql`array_append(${doc.files}, ${saved.url})`,

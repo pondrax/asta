@@ -112,6 +112,9 @@
             name="options"
             bind:group={bsre}
             value={false}
+            onclick={() => {
+              form.footer = true;
+            }}
             aria-label="Manual"
           />
         </div>
@@ -324,12 +327,7 @@
           class="label p-0 tooltip"
           data-tip="Dokumen manual wajib menggunakan footer"
         >
-          <input
-            type="checkbox"
-            class="toggle"
-            checked={form.footer}
-            disabled
-          />
+          <input type="checkbox" class="toggle" checked={true} disabled />
           Visualisasi Footer Dokumen
         </label>
       {/if}

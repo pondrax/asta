@@ -3,7 +3,13 @@
   import { env } from "$env/dynamic/public";
   import type { SignatureType } from "./types";
   import * as pdfLib from "$lib/utils/pdf";
-  import { debounce, fileToBase64, createId, promisePool } from "$lib/utils";
+  import {
+    debounce,
+    fileToBase64,
+    createId,
+    promisePool,
+    generateQRCode,
+  } from "$lib/utils";
   import { Modal } from "$lib/components";
   import Documents from "./documents.svelte";
   import Metadata from "./metadata.svelte";
@@ -74,11 +80,11 @@
     const id = signatures.findIndex((signature) => signature.id === sign.id);
     if (id > -1) {
       signatures[id] = sign;
-    } else {
+    } else if (bsre) {
+      // Only allow 1 signature for BSre
       signatures = [sign];
-      // sign.reason = form.note;
-      // sign.location = form.location;
-      // signatures = [...signatures, sign];
+    } else {
+      signatures = [...signatures, sign];
     }
   };
   const hasDocuments = $derived(Object.keys(documents).length > 0);
@@ -98,9 +104,10 @@
     await pdfLib.fillFormFields(buffer, form);
   }
 
-  async function fillFormFields(file: File, signing = false) {
+  async function fillFormFields(file: File, signing = false, id?: string) {
     let buffer: ArrayBuffer = await file.arrayBuffer();
 
+    if (!id) id = activeIndex;
     const checkSignature = await pdfLib.hasSignature(buffer);
     if (checkSignature) {
       if (!signing) {
@@ -108,11 +115,18 @@
       }
       return file;
     }
-    // console.log(form.footer, "footer");
+
     if (form.footer) {
+      const base64QR = await generateQRCode({
+        data: `${location.origin}/d?id=${id}`,
+      });
+
       buffer = (
         await pdfLib.drawFooter(buffer, {
-          text: "Dokumen ini ditandatangani menggunakan sertifikat elektronik yang diterbitkan BSrE - BSSN",
+          imageBase64: base64QR as string,
+          text: bsre
+            ? `Dokumen ini ditandatangani menggunakan sertifikat elektronik yang diterbitkan BSrE - BSSN\n#${id}`
+            : `Dokumen ini ditandatangani menggunakan Aplikasi Tapak Astà\n#${id}`,
         })
       ).buffer as ArrayBuffer;
     }
@@ -127,6 +141,7 @@
     }
     return filledFile;
   }
+
   onMount(async () => {
     const id = page.url.searchParams.get("id");
     const asTemplate = page.url.searchParams.get("template") === "true";
@@ -373,7 +388,7 @@
           sitekey: env.PUBLIC_TURNSTILE_KEY,
           size: "flexible",
           callback: function (token: string) {
-            console.log("Success:", token);
+            // console.log("Success:", token);
             forms.sign!.__token = token;
           },
         });
@@ -392,6 +407,8 @@
 >
   <!-- <h1>Tanda Tangan</h1> -->
   {#snippet children(item)}
+    {@const total = Object.keys(item.documents).length}
+    {@const completed = item.completed.length}
     <form
       class="flex flex-col gap-4"
       autocomplete="off"
@@ -441,14 +458,29 @@
 
                 attempt++;
 
-                const fileSign = await fillFormFields(file, true);
+                const fileSign = await fillFormFields(file, true, id);
 
-                // stop before sending sign request
-                if (abortSigning) return null;
+                let fileBase64 = await fileToBase64(fileSign);
+                if (!bsre) {
+                  // const buffer = await fileSign.arrayBuffer();
+                  const drawSignatures = (
+                    await pdfLib.drawImages(
+                      await fileSign.arrayBuffer(),
+                      item.signatureProperties,
+                    )
+                  ).buffer as ArrayBuffer;
+
+                  const blobSignature = new Blob([drawSignatures], {
+                    type: "application/pdf",
+                  });
+
+                  fileBase64 = await fileToBase64(blobSignature);
+                }
 
                 const signing = await signDocument({
                   id,
                   __token: item.__token,
+                  __manual: !bsre,
                   // email: item.email,
                   // nik: item.nik,
                   ...(useEmail ? { email: item.email } : { nik: item.nik }),
@@ -461,10 +493,9 @@
                   location: item.location || "-",
                   signatureProperties: item.signatureProperties,
                   fileName: file.name,
-                  fileBase64: await fileToBase64(fileSign),
+                  fileBase64,
                 });
 
-                console.log(signing);
                 if (signing?.error) {
                   forms.sign!.__error = signing.error;
                   abortSigning = true;
@@ -527,24 +558,30 @@
         {/each}
       </ul>
       <div class="alert justify-between min-h-8 text-base-content/60 text-sm">
-        {#if loading}
-          Proses Penandatangan... ({item.completed.length}/{Object.keys(
-            item.documents,
-          ).length})
+        {#if item.completed.length == 0}
+          {#if bsre}
+            <span>
+              Masukkan Passphrase untuk menandatangani dokumen ({total})
+            </span>
+          {:else}
+            <span>
+              Klik tombol tanda tangan untuk menandatangani dokumen ({total})
+            </span>
+          {/if}
+        {:else if loading}
+          Proses Penandatangan... ( {completed} / {total})
           <span>
             ({timer > 60000 ? Math.floor(timer / 1000 / 60) + " menit" : ""}
             {Math.floor((timer / 1000) % 60)} detik )
           </span>
         {:else if item.__error}
           <span class="text-error">{item.__error}</span>
-        {:else if item.completed.length == 0}
-          <span>Masukkan Passphrase untuk menandatangani dokumen</span>
-        {:else if item.completed.length == Object.keys(item.documents).length}
+        {:else if completed === total}
           <iconify-icon icon="bx:check-circle" class="text-5xl text-success"
           ></iconify-icon>
           <div>
             <div>
-              {item.completed.length} Dokumen berhasil ditandatangani
+              {completed} Dokumen berhasil ditandatangani
             </div>
             <div class="text-sm text-base-content/80">
               ({elapsedTime > 60000
@@ -565,25 +602,14 @@
             <button
               type="button"
               class="btn btn-sm btn-error"
-              onclick={() => {
-                forms.confirm = true;
-                // if (
-                //   !confirm(
-                //     "Apakah Anda yakin ingin menutup menu ini?\nSemua data sesi ini yang belum disimpan akan hilang.\nAnda dapat mengakses semua dokumen yang sudah ditandatangani di halaman dashboard setelah login.",
-                //   )
-                // ) {
-                //   return;
-                // }
-                // forms.sign = undefined;
-                // documents = {};
-              }}
+              onclick={() => (forms.confirm = true)}
             >
               Tutup
             </button>
           </div>
         {:else}
           <div>
-            {item.completed.length} / {Object.keys(item.documents).length}
+            {completed} / {total}
             Dokumen berhasil ditandatangani.
             <span>
               ({timer > 60000 ? Math.floor(timer / 1000 / 60) + " menit" : ""}
@@ -596,7 +622,7 @@
         {/if}
       </div>
 
-      {#if item.completed.length < Object.keys(item.documents).length}
+      {#if completed < total}
         <label class="floating-label">
           <span>{useEmail ? "Email" : "NIK"} Penandatangan</span>
           <input
@@ -607,47 +633,53 @@
           />
         </label>
 
-        <label class="floating-label">
-          <span>Passphrase</span>
-          <div class="join w-full">
-            <input
-              type="text"
-              bind:value={item.passphrase}
-              autocomplete="off"
-              placeholder="Masukkan Passphrase"
-              class="input input-bordered join-item text-password grow"
-            />
-            <button
-              type="button"
-              class="btn join-item"
-              onclick={(e) => {
-                const btn = e.currentTarget as HTMLButtonElement;
-                const input = btn.previousElementSibling as HTMLInputElement;
-                const icon = btn.querySelector("iconify-icon");
-                const masked = input.classList.toggle("text-password");
-                icon?.setAttribute("icon", masked ? "bx:show" : "bx:hide");
-              }}
-              aria-label="Show/Hide Passphrase"
-              disabled={item.completed.length > 0}
-            >
-              <iconify-icon icon="bx:show" class="text-2xl"></iconify-icon>
-            </button>
-          </div>
+        {#if bsre}
+          <label class="floating-label">
+            <span>Passphrase</span>
+            <div class="join w-full">
+              <input
+                type="text"
+                bind:value={item.passphrase}
+                autocomplete="off"
+                placeholder="Masukkan Passphrase"
+                class="input input-bordered join-item text-password grow"
+              />
+              <button
+                type="button"
+                class="btn join-item"
+                onclick={(e) => {
+                  const btn = e.currentTarget as HTMLButtonElement;
+                  const input = btn.previousElementSibling as HTMLInputElement;
+                  const icon = btn.querySelector("iconify-icon");
+                  const masked = input.classList.toggle("text-password");
+                  icon?.setAttribute("icon", masked ? "bx:show" : "bx:hide");
+                }}
+                aria-label="Show/Hide Passphrase"
+                disabled={item.completed.length > 0}
+              >
+                <iconify-icon icon="bx:show" class="text-2xl"></iconify-icon>
+              </button>
+            </div>
 
-          <!-- <input
+            <!-- <input
             bind:value={item.passphrase}
             type="password"
             placeholder="Passphrase"
             class="input"
             autocomplete="new-password"
           /> -->
-        </label>
+          </label>
+        {/if}
 
         <div id="turnstile-container"></div>
 
-        <button type="submit" class="btn btn-primary" disabled={loading}>
+        <button
+          type="submit"
+          class="btn {bsre ? 'btn-secondary' : 'btn-primary'}"
+          disabled={loading}
+        >
           <iconify-icon icon="bx:pen" class="text-2xl"></iconify-icon>
-          Tanda Tangan
+          Tanda Tangan {bsre ? "Elektronik" : "Non-Elektronik (Manual)"}
         </button>
       {/if}
     </form>

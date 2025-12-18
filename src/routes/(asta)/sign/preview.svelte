@@ -32,7 +32,7 @@
     [],
   );
 
-  $inspect(displayScale, pageSizes);
+  // $inspect(displayScale, pageSizes);
   let pageHeights: number[] = $state([]);
   let offsets: number[] = $state([]);
   let totalHeight = $state(0);
