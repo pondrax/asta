@@ -324,14 +324,14 @@
       </div>
       <div class="text-sm">
         <div class="mr-auto">Tapak Astà v2.0.1 #{version.slice(0, 7)}</div>
-        <div class="flex gap-2">
+        <!-- <div class="flex gap-2">
           <a href="/pages/terms-of-use" class="underline">
             Ketentuan Penggunaan
           </a>
           <a href="/pages/privacy-policy" class="underline">
             Kebijakan Privasi
           </a>
-        </div>
+        </div> -->
       </div>
     </div>
   </div>

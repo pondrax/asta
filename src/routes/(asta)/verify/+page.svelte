@@ -7,6 +7,7 @@
   import Status from "./status.svelte";
   import type { SignatureVerificationResponse } from "./types";
   import { env } from "$env/dynamic/public";
+  import { version } from "$app/environment";
 
   const MODES = ["upload", "search", "scan"] as const;
   let mode: (typeof MODES)[number] = $state("upload");
@@ -320,6 +321,11 @@
             Belum ada dokumen untuk diperiksa
           </div>
         {/if}
+      </div>
+    </div>
+    <div class="shrink-0 mt-5">
+      <div class="text-sm">
+        <div class="mr-auto">Tapak Astà v2.0.1 #{version.slice(0, 7)}</div>
       </div>
     </div>
   </div>

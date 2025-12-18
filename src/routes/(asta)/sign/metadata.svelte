@@ -24,7 +24,13 @@
 
   let signaturePanel = $state(true);
   const checkEmail = async (el: Event) => {
+    const cancel = useEmail
+      ? form.email.startsWith("@") || form.email.length === 0
+      : form.nik.length == 0;
+    if (cancel) return;
+    // console.log(form, cancel);
     loading = true;
+
     try {
       const result = await checkUser(
         useEmail ? { email: form.email } : { nik: form.nik },
@@ -91,11 +97,9 @@
   }}
   class="h-full relative"
 >
-  <ul
-    class="menu h-full overflow-auto flex-nowrap bg-base-100 rounded-xl w-full relative"
-  >
-    <li class="menu-title bg-inherit sticky -top-2 z-5">
-      <div class="flex gap-5 justify-between bg-transparent items-center">
+  <ul class="menu h-full overflow-auto flex-nowrap rounded-xl w-full relative">
+    <li class="menu-title bg-base-100 sticky -top-2 z-5">
+      <div class="flex gap-5 justify-between items-center">
         <div>Meta Data</div>
         <div class="join">
           <input

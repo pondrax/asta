@@ -15,29 +15,6 @@
   }
 </script>
 
-<div class="background">
-  <span></span>
-  <span></span>
-  <span></span>
-  <span></span>
-  <span></span>
-  <span></span>
-  <span></span>
-  <span></span>
-  <span></span>
-  <span></span>
-  <span></span>
-  <span></span>
-  <span></span>
-  <span></span>
-  <span></span>
-  <span></span>
-  <span></span>
-  <span></span>
-  <span></span>
-  <span></span>
-</div>
-
 <div>
   <div class="flex justify-center items-center h-[calc(100vh-12rem)]">
     <div class="max-w-xl text-center">
@@ -139,7 +116,7 @@
 </div>
 
 <footer
-  class="footer sm:footer-horizontal bg-base-200 text-base-content p-10 mt-30 shadow-[0_-2px_6px_-1px_rgba(0,0,0,0.1)]"
+  class="footer sm:footer-horizontal bg-base-200 text-base-content p-10 mt-30 shadow-[0_-2px_6px_-1px_rgba(0,0,0,0.1)] relative z-1"
 >
   <aside class="-mt-20">
     <img src="/logo-white.png" alt="logo" class="dark-logo h-32" />

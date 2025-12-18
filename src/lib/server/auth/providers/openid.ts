@@ -69,6 +69,7 @@ export default class OpenIDOAuth extends OAuthProvider {
     body.append('grant_type', 'authorization_code');
     body.append('code', code);
 
+
     const response = await fetch(tokenEndpoint, {
       method: "POST",
       headers: {
@@ -79,7 +80,8 @@ export default class OpenIDOAuth extends OAuthProvider {
     });
 
     const data = await response.json();
-    if (!data.access_token) throw new Error(data);
+    console.log('Token response:', data);
+    if (!data.access_token) throw new Error(JSON.stringify(data));
     return data.access_token;
   }
 

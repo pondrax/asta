@@ -14,9 +14,9 @@
   const listDocuments = $derived(Object.entries(documents));
 </script>
 
-<ul class="menu h-full overflow-auto flex-nowrap bg-base-100 rounded-xl w-full">
-  <li class="menu-title sticky -top-2 bg-inherit z-1">
-    <div class="flex gap-5 justify-between bg-transparent items-center">
+<ul class="menu h-full overflow-auto flex-nowrap rounded-xl w-full">
+  <li class="menu-title sticky -top-2 bg-base-100 z-1">
+    <div class="flex gap-5 justify-between items-center">
       <div>File Dokumen ({listDocuments.length})</div>
       <div class="join">
         <button

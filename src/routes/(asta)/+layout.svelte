@@ -2,7 +2,10 @@
   import { page } from "$app/state";
   import { env } from "$env/dynamic/public";
   import { app } from "$lib/app/index.svelte";
-  let { children } = $props();
+  let { children, data } = $props();
+
+  const user = $derived(data.user);
+  // console.log(data);
 </script>
 
 <svelte:head>
@@ -83,11 +86,69 @@
       <iconify-icon icon="bx:moon" class="swap-on fill-current w-10"
       ></iconify-icon>
     </label>
-    <a href="/auth/openid" class="btn btn-primary btn-soft">Masuk</a>
+    {#if user}
+      <div class="dropdown dropdown-end">
+        <div tabindex="0" role="button" class="btn btn-ghost">
+          <div class="avatar rounded-full bg-secondary w-12 -ml-6">
+            <img src="/ava.png" alt={user.name} />
+          </div>
+          <div>{user.email?.split("@")[0]}</div>
+        </div>
+        <ul
+          tabindex="-1"
+          class="dropdown-content menu bg-base-100 rounded-box z-1 w-48 mt-3 p-2 shadow-sm"
+        >
+          <li>
+            <a href="/profile">
+              <iconify-icon icon="bx:user" class="mr-2"></iconify-icon>
+              Profil
+            </a>
+          </li>
+          <li>
+            <a href="/documents">
+              <iconify-icon icon="bx:file" class="mr-2"></iconify-icon>
+              Dokumen Saya
+            </a>
+          </li>
+          <li></li>
+          <li>
+            <a href="/auth/logout">
+              <iconify-icon icon="bx:log-out" class="mr-2"></iconify-icon>
+              Logout
+            </a>
+          </li>
+        </ul>
+      </div>
+    {:else}
+      <a href="/auth/openid" class="btn btn-primary btn-soft">Masuk</a>
+    {/if}
   </div>
 </div>
 
-<div>
+<div class="background">
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+</div>
+
+<div class="relative z-1">
   {@render children()}
 </div>
 
