@@ -32,7 +32,9 @@
         <li><a href="/verify">Verifikasi</a></li>
         <li><a href="/user-guide">Panduan</a></li>
         <li>
-          <a href="/auth" class="btn btn-sm btn-primary btn-soft mt-2">Masuk</a>
+          <a href="/auth/openid" class="btn btn-sm btn-primary btn-soft mt-2">
+            Masuk
+          </a>
         </li>
       </ul>
     </div>
@@ -81,7 +83,7 @@
       <iconify-icon icon="bx:moon" class="swap-on fill-current w-10"
       ></iconify-icon>
     </label>
-    <button class="btn btn-primary btn-soft">Masuk</button>
+    <a href="/auth/openid" class="btn btn-primary btn-soft">Masuk</a>
   </div>
 </div>
 

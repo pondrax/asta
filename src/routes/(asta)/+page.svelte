@@ -15,6 +15,29 @@
   }
 </script>
 
+<div class="background">
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+</div>
+
 <div>
   <div class="flex justify-center items-center h-[calc(100vh-12rem)]">
     <div class="max-w-xl text-center">

@@ -31,11 +31,8 @@ if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
         log "✅ Packages unchanged"
     fi
     
-    # Build if source files changed
-    if git diff --name-only "$OLD_HASH" "$NEW_HASH" | grep -q -E '\.(ts|tsx|js|jsx)$'; then
-        log "🔨 Building..."
-        pnpm run build
-    fi
+    log "🔨 Building..."
+    pnpm run build
     
     # Restart with PM2 or similar
     log "🚀 Restarting application..."
