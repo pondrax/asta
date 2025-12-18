@@ -16,6 +16,7 @@
   let loading = $state(false);
   let checksum = $state("");
   let idDocument = $state("");
+  let verifyUnsign = $state(false);
 
   let fileName = $state("");
   const documents = $derived(
@@ -36,6 +37,7 @@
     if (doc) {
       fileName = doc.title || "default.pdf";
       fileURL = doc.files?.[0] || "";
+      if (!doc.esign) verifyUnsign = true;
     }
     if (fileURL) {
       await previewURL(fileURL, fileName);
@@ -50,6 +52,18 @@
         clearSearchParams();
       }
     }
+  });
+
+  $effect(() => {
+    documents;
+    (async () => {
+      const doc = (await documents)[0];
+      if (doc) {
+        fileName = doc.title || "default.pdf";
+        fileURL = doc.files?.[0] || "";
+        if (!doc.esign) verifyUnsign = true;
+      }
+    })();
   });
 
   async function previewURL(fileUri: string, fileName: string) {
@@ -284,6 +298,20 @@
           <div class="text-sm">
             <div class="loading"></div>
             Melakukan verifikasi ...
+          </div>
+        {:else if verifyUnsign}
+          <div class="space-y-2">
+            <div class="-mb-1">
+              <button class="btn btn-sm w-full tooltip btn-warning">
+                VALID &middot; NO_SIGNATURE
+              </button>
+              <div class="inline-flex gap-2 pt-2">
+                <iconify-icon icon="bx:check"></iconify-icon>
+                <div class="text-xs">
+                  Dokumen hanya valid di aplikasi Tapak Asta
+                </div>
+              </div>
+            </div>
           </div>
         {:else if verifyStatus}
           <Status {verifyStatus} {verify} />
