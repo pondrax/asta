@@ -380,12 +380,6 @@
         signatureProperties: signatures,
         documents,
         completed: [],
-        // fileNames: documents.map((doc) => doc.name),
-        // files: await Promise.all(
-        //   documents.map(async (doc) => await fillFormFields(doc)),
-        // ),
-        // completed: documents.map(() => false),
-        // files: documents.map((_, i) => editedDocuments[i] || documents[i]),
       } as any;
       setTimeout(() => {
         // @ts-expect-error
@@ -393,13 +387,12 @@
           sitekey: env.PUBLIC_TURNSTILE_KEY,
           size: "flexible",
           callback: async function (token: string) {
-            // console.log("Success:", token);
-            forms.sign!.__token = token;
+            turnstileSuccess = false;
+
             const verify = await verifyTurnstile({ __token: token });
             if (verify.success) {
               turnstileSuccess = true;
             }
-            // console.log(verify, "turnstile");
           },
         });
       }, 100);
@@ -451,7 +444,13 @@
             Number(env.PUBLIC_MAX_CONCURRENT_REQUESTS) || 1,
             async ([id, file]) => {
               index++;
-              await new Promise((resolve) => setTimeout(resolve, 500 * index));
+              await new Promise((resolve) =>
+                setTimeout(
+                  resolve,
+                  (500 * index) % Number(env.PUBLIC_MAX_CONCURRENT_REQUESTS) ||
+                    1,
+                ),
+              );
               // stop immediately if any previous doc failed
               if (abortSigning) return null;
 
