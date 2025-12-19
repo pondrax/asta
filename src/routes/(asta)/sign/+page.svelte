@@ -58,7 +58,7 @@
   let elapsedTime = $state(0);
   let turnstileId = $state("");
 
-  let showPassphrase = $state(true);
+  let showPassphrase = $state(false);
 
   let forms: {
     sign?: {
@@ -332,7 +332,7 @@
           data-tip="Ada Pertanyaan?"
         >
           <div class="scale-80 -mt-15 -mb-10 overflow-clip">
-            <Char closeeye={!showPassphrase} />
+            <Char closeeye={showPassphrase} />
           </div>
         </div>
         <div class="mr-auto">Tapak Astà v2.0.1 #{version.slice(0, 7)}</div>
@@ -658,23 +658,22 @@
                 bind:value={item.passphrase}
                 autocomplete="off"
                 placeholder="Masukkan Passphrase"
-                class="input input-bordered join-item text-password grow"
+                class="input input-bordered join-item grow
+                {!showPassphrase ? 'text-password' : ''}"
               />
               <button
                 type="button"
                 class="btn join-item"
-                onclick={(e) => {
-                  const btn = e.currentTarget as HTMLButtonElement;
-                  const input = btn.previousElementSibling as HTMLInputElement;
-                  const icon = btn.querySelector("iconify-icon");
-                  const masked = input.classList.toggle("text-password");
-                  icon?.setAttribute("icon", masked ? "bx:show" : "bx:hide");
-                  showPassphrase = masked;
+                onclick={() => {
+                  showPassphrase = !showPassphrase;
                 }}
                 aria-label="Show/Hide Passphrase"
                 disabled={item.completed.length > 0}
               >
-                <iconify-icon icon="bx:show" class="text-2xl"></iconify-icon>
+                <iconify-icon
+                  icon={showPassphrase ? "bx:show" : "bx:hide"}
+                  class="text-2xl"
+                ></iconify-icon>
               </button>
             </div>
 
