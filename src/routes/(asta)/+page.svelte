@@ -18,7 +18,7 @@
 <div>
   <div class="flex justify-center items-center h-[calc(100vh-12rem)]">
     <div class="max-w-xl text-center">
-      <div class="-my-20">
+      <div class="-my-10">
         <Lottie url="/asta-themed.json" loop autoplay />
       </div>
 

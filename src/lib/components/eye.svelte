@@ -1,9 +1,10 @@
 <script lang="ts">
   let eye: HTMLElement | null = $state(null);
   let pupil: HTMLElement | null = $state(null);
+  let { closeeye = false } = $props();
 
   function followMouse(event: MouseEvent) {
-    if (!eye || !pupil) return;
+    if (!eye || !pupil || closeeye) return;
 
     const rect = eye.getBoundingClientRect();
     const eyeX = rect.left + rect.width / 2;
@@ -27,7 +28,7 @@
 <svelte:window on:mousemove={followMouse} />
 
 <div class="eye" bind:this={eye}>
-  <div class="pupil" bind:this={pupil}></div>
+  <div class="pupil" bind:this={pupil} class:close={closeeye}></div>
 </div>
 
 <style>
@@ -41,12 +42,21 @@
     justify-content: center;
   }
   /* border: 2px solid black; */
-
   .pupil {
     width: 8px;
     height: 8px;
     background: black;
     border-radius: 50%;
-    transition: transform 0.05s linear;
+    transition:
+      transform 0.15s ease,
+      height 0.15s ease;
+  }
+
+  /* Closed eye */
+  .pupil.close {
+    width: 15px;
+    height: 1px; /* squint / closed look */
+    border-radius: 1px;
+    transform: translate(-4px, 4px); /* bottom-left corner */
   }
 </style>

@@ -58,6 +58,8 @@
   let elapsedTime = $state(0);
   let turnstileId = $state("");
 
+  let showPassphrase = $state(false);
+
   let forms: {
     sign?: {
       nik: string;
@@ -330,7 +332,7 @@
           data-tip="Ada Pertanyaan?"
         >
           <div class="scale-80 -mt-15 -mb-10 overflow-clip">
-            <Char />
+            <Char closeeye={!showPassphrase} />
           </div>
         </div>
         <div class="mr-auto">Tapak Astà v2.0.1 #{version.slice(0, 7)}</div>
@@ -387,7 +389,7 @@
         // @ts-expect-error
         turnstileId = window.turnstile.render("#turnstile-container", {
           sitekey: env.PUBLIC_TURNSTILE_KEY,
-          size: "flexible",
+          // size: "flexible",
           callback: async function (token: string) {
             turnstileSuccess = false;
 
@@ -419,6 +421,10 @@
       autocomplete="off"
       onsubmit={async (e) => {
         e.preventDefault();
+        if (!turnstileSuccess) {
+          forms.sign!.__error = "Please verify the captcha";
+          return;
+        }
         forms.sign!.__error = "";
         elapsedTime = 0;
 
@@ -663,6 +669,7 @@
                   const icon = btn.querySelector("iconify-icon");
                   const masked = input.classList.toggle("text-password");
                   icon?.setAttribute("icon", masked ? "bx:show" : "bx:hide");
+                  showPassphrase = masked;
                 }}
                 aria-label="Show/Hide Passphrase"
                 disabled={item.completed.length > 0}
@@ -680,7 +687,6 @@
           /> -->
           </label>
         {/if}
-
         <div id="turnstile-container"></div>
 
         <button
