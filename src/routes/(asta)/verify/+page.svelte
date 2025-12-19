@@ -1,13 +1,14 @@
 <script lang="ts">
   import { page } from "$app/state";
   import { onDestroy, onMount } from "svelte";
-  import Preview from "../sign/preview.svelte";
+  import Preview from "$lib/components/preview.svelte";
   import { getDocument, verifyDocument } from "$lib/remotes/sign.remote";
   import { calculateFileChecksum, fileToBase64 } from "$lib/utils";
   import Status from "./status.svelte";
   import type { SignatureVerificationResponse } from "./types";
   import { env } from "$env/dynamic/public";
   import { version } from "$app/environment";
+  import Char from "$lib/components/char.svelte";
 
   const MODES = ["upload", "search", "scan"] as const;
   let mode: (typeof MODES)[number] = $state("upload");
@@ -324,9 +325,20 @@
       </div>
     </div>
     <div class="shrink-0 mt-5">
-      <div class="text-sm">
+      <div class="text-sm flex items-end relative z-10">
+        <div
+          class="tooltip tooltip-right before:-translate-x-10 after:-translate-x-10"
+          data-tip="Ada Pertanyaan?"
+        >
+          <div class="scale-80 -mt-15 -mb-10 overflow-clip">
+            <Char />
+          </div>
+        </div>
         <div class="mr-auto">Tapak Astà v2.0.1 #{version.slice(0, 7)}</div>
       </div>
+      <!-- <div class="text-sm">
+        <div class="mr-auto">Tapak Astà v2.0.1 #{version.slice(0, 7)}</div>
+      </div> -->
     </div>
   </div>
 </div>

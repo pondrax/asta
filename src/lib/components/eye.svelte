@@ -13,7 +13,7 @@
     const dy = event.clientY - eyeY;
 
     const angle = Math.atan2(dy, dx);
-    const radius = 4; // how far the pupil can move
+    const radius = 5; // how far the pupil can move
 
     pupil.style.transform = `
       translate(
@@ -36,15 +36,15 @@
     height: 20px;
     /* background: white; */
     border-radius: 50%;
-    border: 2px solid black;
     display: flex;
     align-items: center;
     justify-content: center;
   }
+  /* border: 2px solid black; */
 
   .pupil {
-    width: 5px;
-    height: 5px;
+    width: 8px;
+    height: 8px;
     background: black;
     border-radius: 50%;
     transition: transform 0.05s linear;

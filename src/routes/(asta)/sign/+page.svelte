@@ -3,6 +3,12 @@
   import { env } from "$env/dynamic/public";
   import type { SignatureType } from "./types";
   import * as pdfLib from "$lib/utils/pdf";
+  import { Modal } from "$lib/components";
+  import Documents from "./documents.svelte";
+  import Metadata from "./metadata.svelte";
+  import Preview from "$lib/components/preview.svelte";
+  import Upload from "./upload.svelte";
+  import Visualizer from "./visualizer.svelte";
   import {
     debounce,
     fileToBase64,
@@ -10,22 +16,17 @@
     promisePool,
     generateQRCode,
   } from "$lib/utils";
-  import { Modal } from "$lib/components";
-  import Documents from "./documents.svelte";
-  import Metadata from "./metadata.svelte";
-  import Preview from "./preview.svelte";
-  import Upload from "./upload.svelte";
-  import Visualizer from "./visualizer.svelte";
   import {
     getDocument,
     signDocument,
     verifyTurnstile,
   } from "$lib/remotes/sign.remote";
+
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
   import { page } from "$app/state";
-  import Dragresize from "./dragresize.svelte";
-  import Eye from "./eye.svelte";
+  import Dragresize from "$lib/components/dragresize.svelte";
+  import Char from "$lib/components/char.svelte";
 
   let turnstileSuccess = $state(false);
   let loading = $state(false);
@@ -281,16 +282,9 @@
       </div>
     </div>
     <div class="flex flex-col gap-3">
-      <div class="relative overflow-hidden h-24 w-25">
-        <img src="/ava-flip.svg" alt="Avatar" class="w-20 h-20 rounded-full" />
-        <div class="absolute flex gap-5 top-10 left-2 scale-50">
-          <Eye />
-          <Eye />
-        </div>
-      </div>
       <div class="grow flex min-h-0">
         <div class="tabs tabs-lift md:w-sm h-150 md:h-auto">
-          <label class="tab">
+          <label class="tab bg-base-100">
             <input type="radio" name="sign-nav" checked />
             <iconify-icon icon="bx:file"></iconify-icon>
             <span class="mx-2"> Dokumen ({Object.keys(documents).length})</span>
@@ -303,7 +297,7 @@
           <div class="tab-content border-base-300">
             <Documents bind:documents bind:activeIndex {fileInput} />
           </div>
-          <label class="tab">
+          <label class="tab bg-base-100">
             <input type="radio" name="sign-nav" checked />
             <iconify-icon icon="bx:detail"></iconify-icon>
             <span class="mx-2"> Meta Data ({bsre ? "TTE" : "Manual"})</span>
@@ -330,16 +324,16 @@
           </div>
         </div>
       </div>
-      <div class="text-sm">
+      <div class="text-sm flex items-end relative z-10">
+        <div
+          class="tooltip tooltip-right before:-translate-x-10 after:-translate-x-10"
+          data-tip="Ada Pertanyaan?"
+        >
+          <div class="scale-80 -mt-15 -mb-10 overflow-clip">
+            <Char />
+          </div>
+        </div>
         <div class="mr-auto">Tapak Astà v2.0.1 #{version.slice(0, 7)}</div>
-        <!-- <div class="flex gap-2">
-          <a href="/pages/terms-of-use" class="underline">
-            Ketentuan Penggunaan
-          </a>
-          <a href="/pages/privacy-policy" class="underline">
-            Kebijakan Privasi
-          </a>
-        </div> -->
       </div>
     </div>
   </div>
