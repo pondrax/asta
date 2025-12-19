@@ -26,7 +26,7 @@ if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
     
     if [ "$OLD_PACKAGE_HASH" != "$NEW_PACKAGE_HASH" ]; then
         log "📦 Packages changed, installing..."
-        pnpm install --frozen-lockfile
+        pnpm install #--frozen-lockfile
     else
         log "✅ Packages unchanged"
     fi

@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { env } from "$env/dynamic/public";
-  import { app } from "$lib/app/index.svelte";
+  import Lottie from "$lib/components/lottie.svelte";
   import { getStats } from "$lib/remotes/stats.remote";
+
   let { children } = $props();
   const stats = getStats({});
   const current = $derived(stats.current);
@@ -18,14 +18,9 @@
 <div>
   <div class="flex justify-center items-center h-[calc(100vh-12rem)]">
     <div class="max-w-xl text-center">
-      {#key app.theme}
-        <dotlottie-wc
-          src="/logo.lottie"
-          loop
-          autoplay
-          themeId={app.theme === "dark" ? "dark" : "default"}
-        ></dotlottie-wc>
-      {/key}
+      <div class="-my-20">
+        <Lottie url="/asta-themed.json" loop autoplay />
+      </div>
 
       <p class="pb-5">
         Tata Pelayanan Keamanan dan Asisten Sertifikat Elektronik Kota Mojokerto
@@ -123,22 +118,14 @@
 <footer
   class="footer sm:footer-horizontal bg-base-200 text-base-content p-10 mt-30 shadow-[0_-2px_6px_-1px_rgba(0,0,0,0.1)] relative z-1"
 >
-  <aside class="-mt-20">
-    {#key app.theme}
-      <dotlottie-wc
-        src="/logo.lottie"
-        loop
-        autoplay
-        class="-m-8 h-50"
-        themeId={app.theme === "dark" ? "dark" : "default"}
-      ></dotlottie-wc>
-    {/key}
+  <aside class="">
+    <div class="w-50 -mb-10 -mt-20">
+      <Lottie url="/asta-themed.json" loop autoplay />
+    </div>
 
     <!-- <img src="/logo-white.png" alt="logo" class="dark-logo h-32" />
     <img src="/logo.png" alt="logo" class="light-logo h-32" /> -->
-    <p class="skeleton skeleton-text">
-      Tanda tangan menjadi lebih mudah dan aman
-    </p>
+    <p class="skeleton skeleton-text">Tanda tangan mudah dan aman</p>
     <div>
       <p class="my-2">Didukung oleh:</p>
       <div class="flex gap-5">
