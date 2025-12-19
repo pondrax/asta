@@ -1,7 +1,7 @@
 <script lang="ts">
   import { env } from "$env/dynamic/public";
+  import { app } from "$lib/app/index.svelte";
   import { getStats } from "$lib/remotes/stats.remote";
-
   let { children } = $props();
   const stats = getStats({});
   const current = $derived(stats.current);
@@ -10,7 +10,7 @@
     const n = num;
     if (n >= 1e9) return (n / 1e9).toFixed(1) + "B";
     if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
-    if (n >= 1e4) return (n / 1e3).toFixed(1) + "k";
+    if (n >= 1e4) return (n / 1e3).toFixed(1) + "K";
     return n.toLocaleString();
   }
 </script>
@@ -18,11 +18,16 @@
 <div>
   <div class="flex justify-center items-center h-[calc(100vh-12rem)]">
     <div class="max-w-xl text-center">
-      <figure class="">
-        <img src="/logo-white.png" alt="logo" class="dark-logo h-40" />
-        <img src="/logo.png" alt="logo" class="light-logo h-40" />
-      </figure>
-      <p class="p-5">
+      {#key app.theme}
+        <dotlottie-wc
+          src="/logo.lottie"
+          loop
+          autoplay
+          themeId={app.theme === "dark" ? "dark" : "default"}
+        ></dotlottie-wc>
+      {/key}
+
+      <p class="pb-5">
         Tata Pelayanan Keamanan dan Asisten Sertifikat Elektronik Kota Mojokerto
         disingkat <span class="animate-pulse font-semibold text-primary">
           Tapak Astà
@@ -119,8 +124,18 @@
   class="footer sm:footer-horizontal bg-base-200 text-base-content p-10 mt-30 shadow-[0_-2px_6px_-1px_rgba(0,0,0,0.1)] relative z-1"
 >
   <aside class="-mt-20">
-    <img src="/logo-white.png" alt="logo" class="dark-logo h-32" />
-    <img src="/logo.png" alt="logo" class="light-logo h-32" />
+    {#key app.theme}
+      <dotlottie-wc
+        src="/logo.lottie"
+        loop
+        autoplay
+        class="-m-8 h-50"
+        themeId={app.theme === "dark" ? "dark" : "default"}
+      ></dotlottie-wc>
+    {/key}
+
+    <!-- <img src="/logo-white.png" alt="logo" class="dark-logo h-32" />
+    <img src="/logo.png" alt="logo" class="light-logo h-32" /> -->
     <p class="skeleton skeleton-text">
       Tanda tangan menjadi lebih mudah dan aman
     </p>

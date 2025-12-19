@@ -25,6 +25,7 @@
   import { onMount } from "svelte";
   import { page } from "$app/state";
   import Dragresize from "./dragresize.svelte";
+  import Eye from "./eye.svelte";
 
   let turnstileSuccess = $state(false);
   let loading = $state(false);
@@ -280,6 +281,13 @@
       </div>
     </div>
     <div class="flex flex-col gap-3">
+      <div class="relative overflow-hidden h-24 w-25">
+        <img src="/ava-flip.svg" alt="Avatar" class="w-20 h-20 rounded-full" />
+        <div class="absolute flex gap-5 top-10 left-2 scale-50">
+          <Eye />
+          <Eye />
+        </div>
+      </div>
       <div class="grow flex min-h-0">
         <div class="tabs tabs-lift md:w-sm h-150 md:h-auto">
           <label class="tab">

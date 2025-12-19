@@ -16,6 +16,11 @@
     async
     defer
   ></script>
+  <script
+    src="https://unpkg.com/@lottiefiles/dotlottie-wc@latest/dist/dotlottie-wc.js"
+    type="module"
+  ></script>
+
   <!-- <script
     src="https://www.google.com/recaptcha/api.js?render={env.PUBLIC_RECAPTCHA_SITE_KEY}"
   ></script> -->
@@ -42,8 +47,17 @@
       </ul>
     </div>
     <a class="btn btn-ghost text-xl px-0" href="/" aria-label="Logo">
-      <img src="/logo-white.png" alt="logo" class="h-12 dark-logo" />
-      <img src="/logo.png" alt="logo" class="h-12 light-logo" />
+      {#key app.theme}
+        <dotlottie-wc
+          src="/logo.lottie"
+          loop
+          autoplay
+          class="h-20"
+          themeId={app.theme === "dark" ? "dark" : "default"}
+        ></dotlottie-wc>
+      {/key}
+      <!-- <img src="/logo-white.png" alt="logo" class="h-12 dark-logo" />
+      <img src="/logo.png" alt="logo" class="h-12 light-logo" /> -->
     </a>
   </div>
   <div class="navbar-center hidden lg:flex">
