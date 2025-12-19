@@ -58,7 +58,7 @@
   let elapsedTime = $state(0);
   let turnstileId = $state("");
 
-  let showPassphrase = $state(false);
+  let showPassphrase = $state(true);
 
   let forms: {
     sign?: {

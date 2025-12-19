@@ -23,6 +23,11 @@
       )
     `;
   }
+  $effect(() => {
+    if (closeeye && pupil) {
+      pupil.style.transform = "translate(-8px, 4px)";
+    }
+  });
 </script>
 
 <svelte:window on:mousemove={followMouse} />
@@ -56,7 +61,5 @@
   .pupil.close {
     width: 15px;
     height: 1px; /* squint / closed look */
-    border-radius: 1px;
-    transform: translate(-4px, 4px); /* bottom-left corner */
   }
 </style>
