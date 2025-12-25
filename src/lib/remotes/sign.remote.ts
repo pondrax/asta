@@ -90,7 +90,9 @@ export const signDocument = command(type({
           note: props.note,
           fileName: props.fileName,
         })
-        response.data.error += '\n' + response.data?.error_description;
+        if (response.data?.error_description) {
+          response.data.error += '\n' + response.data?.error_description;
+        }
         return response.data;
       }
     }

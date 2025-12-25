@@ -574,18 +574,8 @@
         {/each}
       </ul>
       <div class="alert justify-between min-h-8 text-base-content/60 text-sm">
-        {#if item.completed.length == 0}
-          {#if bsre}
-            <span>
-              Masukkan Passphrase untuk menandatangani dokumen ({total})
-            </span>
-          {:else}
-            <span>
-              Klik tombol tanda tangan untuk menandatangani dokumen ({total})
-            </span>
-          {/if}
-        {:else if loading}
-          Proses Penandatangan... ( {completed} / {total})
+        {#if loading}
+          Proses Penandatangan... ( {completed} / {total} )
           <span>
             ({timer > 60000 ? Math.floor(timer / 1000 / 60) + " menit" : ""}
             {Math.floor((timer / 1000) % 60)} detik )
@@ -623,6 +613,16 @@
               Tutup
             </button>
           </div>
+        {:else if item.completed.length == 0}
+          {#if bsre}
+            <span>
+              Masukkan Passphrase untuk menandatangani dokumen ({total})
+            </span>
+          {:else}
+            <span>
+              Klik tombol tanda tangan untuk menandatangani dokumen ({total})
+            </span>
+          {/if}
         {:else}
           <div>
             {completed} / {total}
@@ -727,6 +727,7 @@
       onclick={() => {
         forms.confirm = false;
         forms.sign = undefined;
+        showPassphrase = false;
         documents = {};
       }}
     >

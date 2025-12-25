@@ -14,7 +14,7 @@
     const dy = event.clientY - eyeY;
 
     const angle = Math.atan2(dy, dx);
-    const radius = 5; // how far the pupil can move
+    const radius = 8; // how far the pupil can move
 
     pupil.style.transform = `
       translate(
@@ -25,7 +25,7 @@
   }
   $effect(() => {
     if (closeeye && pupil) {
-      pupil.style.transform = "translate(-8px, 4px)";
+      pupil.style.transform = "translate(-2px, 4px)";
     }
   });
 </script>

@@ -145,7 +145,9 @@
               <input
                 bind:value={
                   () => form.email?.split("@")?.at(0),
-                  (value) => (form.email = value + "@mojokertokota.go.id")
+                  (value) =>
+                    (form.email =
+                      String(value).toLowerCase() + "@mojokertokota.go.id")
                 }
                 required
                 type="text"
