@@ -9,6 +9,7 @@
   import Preview from "$lib/components/preview.svelte";
   import Upload from "./upload.svelte";
   import Visualizer from "./visualizer.svelte";
+  import Template from "../templates/+page.svelte";
   import {
     debounce,
     fileToBase64,
@@ -79,6 +80,7 @@
       __error?: string;
     };
     confirm?: boolean;
+    template?: string;
   } = $state({});
 
   let fileInput: HTMLInputElement | null = $state(null);
@@ -362,7 +364,11 @@
     Unggah PDF
     <iconify-icon icon="bx:upload" class="text-2xl"></iconify-icon>
   </button>
-  <button class="btn btn-lg rounded-xl" aria-label="Template PDF">
+  <button
+    class="btn btn-lg rounded-xl"
+    aria-label="Template PDF"
+    onclick={() => (forms.template = "open")}
+  >
     Template PDF
     <iconify-icon icon="bx:book" class="text-2xl"></iconify-icon>
   </button>
@@ -734,5 +740,18 @@
       Tutup
     </button>
   </div>
+</Modal>
+<Modal bind:data={forms.template} title="Pilih Template" size="xl">
+  <Template
+    onSelect={async (item: any) => {
+      forms.template = undefined;
+      const docId = createId(10);
+      const file = await fetch(item.file).then((res) => res.blob());
+      documents[docId] = new File([file], item.name || "default.pdf", {
+        type: file.type,
+      });
+      activeIndex = docId;
+    }}
+  />
 </Modal>
 <!-- <SignModal bind:data={forms.sign} /> -->

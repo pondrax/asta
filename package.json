@@ -18,11 +18,11 @@
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate",
 		"db:studio": "drizzle-kit studio",
-		"db:seed": "vite-node  --options.transformMode.ssr='/.*/' src/lib/server/db/seed.ts"
+		"db:seed": "vite-node --options.transformMode.ssr='/.*/' src/lib/server/db/seed.ts"
 	},
 	"devDependencies": {
-		"@inlang/paraglide-js": "^2.7.0",
-		"@paralleldrive/cuid2": "^3.0.4",
+		"@inlang/paraglide-js": "^2.7.1",
+		"@paralleldrive/cuid2": "^3.0.6",
 		"@sveltejs/adapter-auto": "^7.0.0",
 		"@sveltejs/adapter-node": "^5.4.0",
 		"@sveltejs/kit": "^2.49.2",
@@ -33,8 +33,8 @@
 		"drizzle-orm": "1.0.0-beta.1-03a5cdc",
 		"drizzle-plus": "1.0.0-beta.34",
 		"iconify-icon": "^3.0.2",
-		"svelte": "^5.46.0",
-		"svelte-check": "^4.3.4",
+		"svelte": "^5.46.1",
+		"svelte-check": "^4.3.5",
 		"tailwindcss": "^4.1.18",
 		"typescript": "^5.9.3",
 		"vite": "^7.3.0",
@@ -48,7 +48,7 @@
 		"jose": "^6.1.3",
 		"lottie-web": "^5.13.0",
 		"pdf-lib": "^1.17.1",
-		"pdfjs-dist": "^5.4.449",
+		"pdfjs-dist": "^5.4.530",
 		"postgres": "^3.4.7",
 		"qr-code-styling": "^1.9.2",
 		"vite-node": "^5.2.0"

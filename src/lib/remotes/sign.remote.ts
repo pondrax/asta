@@ -201,3 +201,8 @@ export const getDocument = query(type({
   })
   return document;
 })
+
+export const getTemplates = query('unchecked', async () => {
+  const templates = await db.query.templates.findMany();
+  return templates;
+})

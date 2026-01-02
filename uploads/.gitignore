@@ -1,2 +1,4 @@
 *
+!templates/
+!templates/*.pdf
 !.gitignore
