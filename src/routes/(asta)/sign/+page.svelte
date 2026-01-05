@@ -16,6 +16,7 @@
     createId,
     promisePool,
     generateQRCode,
+    d,
   } from "$lib/utils";
   import {
     getDocument,
@@ -46,7 +47,7 @@
     jabatan: "-",
     pangkat: "-",
     instansi: "-",
-    tanggal: "",
+    tanggal: d().format("DD MMMM YYYY"),
     location: "",
     note: "Tanda Tangan Elektronik",
   });

@@ -1,5 +1,11 @@
 import { init } from '@paralleldrive/cuid2'
 import type { Options } from 'qr-code-styling';
+import dayjs from 'dayjs';
+import 'dayjs/locale/id';
+dayjs.locale('id');
+
+
+export const d = dayjs;
 export function debounce(fn: (el: Event) => Promise<void>, delay: number) {
   let timeoutId: number | NodeJS.Timeout;
   return (el: Event) => {

@@ -13,16 +13,44 @@
     const dx = event.clientX - eyeX;
     const dy = event.clientY - eyeY;
 
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    const maxRadius = 8;
+    const maxDistance = 60; // jarak mouse untuk gerakan penuh
+
+    // skala 0..1
+    const strength = Math.min(distance / maxDistance, 1);
+
     const angle = Math.atan2(dy, dx);
-    const radius = 8; // how far the pupil can move
 
     pupil.style.transform = `
-      translate(
-        ${Math.cos(angle) * radius}px,
-        ${Math.sin(angle) * radius}px
-      )
-    `;
+    translate(
+      ${Math.cos(angle) * maxRadius * strength}px,
+      ${Math.sin(angle) * maxRadius * strength}px
+    )
+  `;
   }
+
+  // function followMouse(event: MouseEvent) {
+  //   if (!eye || !pupil || closeeye) return;
+
+  //   const rect = eye.getBoundingClientRect();
+  //   const eyeX = rect.left + rect.width / 2;
+  //   const eyeY = rect.top + rect.height / 2;
+
+  //   const dx = event.clientX - eyeX;
+  //   const dy = event.clientY - eyeY;
+
+  //   const angle = Math.atan2(dy, dx);
+  //   const radius = 8; // how far the pupil can move
+
+  //   pupil.style.transform = `
+  //     translate(
+  //       ${Math.cos(angle) * radius}px,
+  //       ${Math.sin(angle) * radius}px
+  //     )
+  //   `;
+  // }
   $effect(() => {
     if (closeeye && pupil) {
       pupil.style.transform = "translate(-2px, 4px)";

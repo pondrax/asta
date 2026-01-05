@@ -296,6 +296,19 @@
       <!-- {JSON.stringify(Object.keys(fields))}
       {JSON.stringify(Object.keys(form))} -->
     </li>
+    <li class="p-2">
+      <label class="floating-label p-0 bg-transparent">
+        <span>Tanggal Penandatangan</span>
+        <input
+          bind:value={form.tanggal}
+          type="text"
+          placeholder="Tanggal Penandatangan"
+          class="input input-sm"
+        />
+      </label>
+      <!-- {JSON.stringify(Object.keys(fields))}
+      {JSON.stringify(Object.keys(form))} -->
+    </li>
     {#each Object.keys(fields) as key}
       {#if !Object.keys(form).includes(key)}
         <li class="p-2">
