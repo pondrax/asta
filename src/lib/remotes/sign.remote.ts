@@ -43,6 +43,7 @@ export const verifyTurnstile = command(type({
 export const signDocument = command(type({
   // __token: 'string',
   __manual: 'boolean?',
+  __asDraft: 'boolean?',
   id: 'string',
   email: 'string?',
   nik: 'string?',
@@ -76,6 +77,13 @@ export const signDocument = command(type({
           file: [props.fileBase64],
         },
       }
+    } else if (props.__asDraft) {
+      response = {
+        status: 200,
+        data: {
+          file: [props.fileBase64],
+        },
+      }
     } else {
       response = await esign.signPDF(props);
       if (response.status >= 500) {
@@ -101,7 +109,7 @@ export const signDocument = command(type({
       const blob = base64ToBlob(response.data.file[0]);
       const buffer = Buffer.from(await blob.arrayBuffer());
       const checksum = await calculateFileChecksum(buffer);
-      const saved = await storage.save('documents/signed_' + props.fileName, buffer);
+      const saved = await storage.save(`documents/${props.__asDraft ? 'draft_' : 'signed_'}${props.fileName}`, buffer);
 
       if (saved.url) {
         // const { fileBase64, fileName, ...metadata } = props
@@ -124,8 +132,9 @@ export const signDocument = command(type({
             title: props.fileName,
             files: [saved.url],
             checksums: [checksum],
-            status: 'signed',
-            esign: !props.__manual
+            status: props.__asDraft ? 'draft' : 'signed',
+            esign: !props.__manual,
+            signatureProperties: props.__asDraft ? props.signatureProperties : null,
           },
           update: doc => ({
             files: sql`array_append(${doc.files}, ${saved.url})`,
@@ -147,7 +156,7 @@ export const signDocument = command(type({
     return response.data;
   } catch (err) {
     //@ts-expect-error
-    return { error: '[Server Error] ' + err?.message }
+    return { error: '[Server Esign Error] ' + err?.message + '.\nHarap mencoba lagi dalam beberapa saat' }
   }
 })
 

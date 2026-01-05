@@ -1,8 +1,15 @@
 #!/bin/bash
-# Production pnpm auto-deploy with smart install
+set -e
 
-LOG_FILE="deploy.log"
-cd "$(dirname "$0")"
+# ===== CONFIG =====
+APP_DIR="$(cd "$(dirname "$0")" && pwd)"
+LOG_FILE="$APP_DIR/deploy.log"
+BRANCH="main"
+
+# Cron-safe PATH
+export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
+
+cd "$APP_DIR"
 
 log() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
@@ -10,34 +17,25 @@ log() {
 
 log "🔍 Checking for updates..."
 
-OLD_HASH=$(git rev-parse HEAD)
 git fetch origin
 
-if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
-    log "🔄 Pulling updates..."
-    git pull origin main
-    
-    # Store new hash
-    NEW_HASH=$(git rev-parse HEAD)
-    
-    # Check package changes
-    OLD_PACKAGE_HASH=$(git show "$OLD_HASH:package.json" 2>/dev/null | md5sum)
-    NEW_PACKAGE_HASH=$(git show "$NEW_HASH:package.json" 2>/dev/null | md5sum)
-    
-    if [ "$OLD_PACKAGE_HASH" != "$NEW_PACKAGE_HASH" ]; then
-        log "📦 Packages changed, installing..."
-        pnpm install #--frozen-lockfile
-    else
-        log "✅ Packages unchanged"
-    fi
-    
+LOCAL_HASH=$(git rev-parse HEAD)
+REMOTE_HASH=$(git rev-parse origin/$BRANCH)
+
+if [ "$LOCAL_HASH" != "$REMOTE_HASH" ]; then
+    log "🔄 Updates found, deploying..."
+
+    git pull origin "$BRANCH"
+
+    log "📦 Installing dependencies..."
+    pnpm install --frozen-lockfile || pnpm install
+
     log "🔨 Building..."
     pnpm run build
-    
-    # Restart with PM2 or similar
-    log "🚀 Restarting application..."
-    pnpm serve
-    
+
+    log "🚀 Restarting app..."
+    pm2 restart asta
+
     log "✅ Deploy complete"
 else
     log "✅ Already up to date"

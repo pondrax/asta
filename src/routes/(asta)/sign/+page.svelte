@@ -35,6 +35,8 @@
   let signButton: HTMLButtonElement | null = $state(null);
   let activeIndex = $state("");
   let documents: Record<string, File> = $state({});
+  let asTemplate = $state(false);
+  let asDraft = $state(false);
   // let documents: File[] = $state([]);
   // let editedDocuments: File[] | null[] = $state([]);
   let status = $state("NOT_REGISTERED");
@@ -156,7 +158,7 @@
 
   onMount(async () => {
     const id = page.url.searchParams.get("id");
-    const asTemplate = page.url.searchParams.get("template") === "true";
+    asTemplate = page.url.searchParams.get("template") === "true";
     if (!id) return;
     const existing = await getDocument({ id });
     // console.log(existing);
@@ -164,7 +166,7 @@
       existing.forEach(async (doc) => {
         const fileUrl = doc.files?.pop();
         if (!fileUrl) return;
-        const docId = asTemplate || doc.template ? createId(10) : doc.id;
+        const docId = asTemplate ? createId(10) : doc.id;
         // console.log(doc.id, asTemplate, doc.template, docId);
         const file = await fetch(fileUrl).then((res) => res.blob());
         documents[docId] = new File([file], doc.title || "default.pdf", {
@@ -428,6 +430,10 @@
       autocomplete="off"
       onsubmit={async (e) => {
         e.preventDefault();
+        // if (asDraft) {
+        //   console.log("Simpan Draft");
+        //   return;
+        // }
         if (!turnstileSuccess) {
           forms.sign!.__error = "Please verify the captcha";
           return;
@@ -504,6 +510,7 @@
                 const signing = await signDocument({
                   id,
                   __manual: !bsre,
+                  __asDraft: asDraft,
                   // email: item.email,
                   // nik: item.nik,
                   ...(useEmail ? { email: item.email } : { nik: item.nik }),
@@ -515,7 +522,9 @@
                   note: item.note || "-",
                   location: item.location || "-",
                   signatureProperties: item.signatureProperties,
-                  fileName: file.name,
+                  fileName: asTemplate
+                    ? file.name + " - " + item.nama
+                    : file.name,
                   fileBase64,
                 });
 
@@ -541,6 +550,7 @@
           console.error(err);
         } finally {
           loading = false;
+          asTemplate = false;
           //@ts-expect-error
           window.turnstile.reset(turnstileId);
         }
@@ -594,7 +604,10 @@
           ></iconify-icon>
           <div>
             <div>
-              {completed} Dokumen berhasil ditandatangani
+              {completed}
+              {asDraft
+                ? "Dokumen disimpan sebagai draft"
+                : "Dokumen berhasil ditandatangani"}
             </div>
             <div class="text-sm text-base-content/80">
               ({elapsedTime > 60000
@@ -703,6 +716,19 @@
           <iconify-icon icon="bx:pen" class="text-2xl"></iconify-icon>
           Tanda Tangan {bsre ? "Elektronik" : "Non-Elektronik (Manual)"}
         </button>
+
+        <!-- <div class="divider">Atau</div> -->
+        <button
+          type="submit"
+          class="btn btn-accent"
+          disabled={loading || !turnstileSuccess}
+          onclick={() => {
+            asDraft = true;
+          }}
+        >
+          <iconify-icon icon="bx:save" class="text-2xl"></iconify-icon>
+          Simpan Draft
+        </button>
       {/if}
     </form>
   {/snippet}
@@ -745,13 +771,14 @@
 <Modal bind:data={forms.template} title="Pilih Template" size="xl">
   <Template
     onSelect={async (item: any) => {
-      forms.template = undefined;
+      asTemplate = true;
       const docId = createId(10);
       const file = await fetch(item.file).then((res) => res.blob());
       documents[docId] = new File([file], item.name || "default.pdf", {
         type: file.type,
       });
       activeIndex = docId;
+      forms.template = undefined;
     }}
   />
 </Modal>

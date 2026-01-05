@@ -35,7 +35,6 @@ export const signers = pgTable('signers', {
 
 export const documents = pgTable('documents', {
 	id,
-	template: boolean('template').default(false),
 	owner: text('owner'),
 	signer: text('signer'),
 	title: text('title'),
@@ -45,6 +44,8 @@ export const documents = pgTable('documents', {
 	metadata: encryptedJson('metadata'),
 	status: text('status').default('draft').$type<'draft' | 'queue' | 'failed' | 'signed'>(),
 	esign: boolean('esign').default(true),
+	signatureProperties: json('signature_properties'),
+	to: text('to').array(),
 	created,
 	updated,
 })
