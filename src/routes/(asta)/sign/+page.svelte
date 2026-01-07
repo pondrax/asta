@@ -156,7 +156,14 @@
     return filledFile;
   }
 
-  onMount(async () => {
+  $effect(() => {
+    init();
+  });
+  // onMount(async () => {
+  //   init();
+  // });
+
+  async function init() {
     const id = page.url.searchParams.get("id");
     asTemplate = page.url.searchParams.get("template") === "true";
     if (!id) return;
@@ -173,9 +180,11 @@
           type: file.type,
         });
         activeIndex = docId;
+        console.log(doc);
+        form.email = doc.owner;
       });
     }
-  });
+  }
 
   //@ts-expect-error
   const debounceFillFormFields = debounce(() => {
@@ -720,7 +729,7 @@
         <!-- <div class="divider">Atau</div> -->
         <button
           type="submit"
-          class="btn btn-accent"
+          class="btn"
           disabled={loading || !turnstileSuccess}
           onclick={() => {
             asDraft = true;

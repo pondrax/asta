@@ -145,10 +145,11 @@ export const signDocument = command(type({
         await db.query.documentStatistics.upsert({
           data: {
             date: dayjs().format('YYYY-MM-DD'),
-            signed: 1,
+            type: 'signed',
+            value: 1,
           },
           update: stat => ({
-            signed: sql`${stat.signed} + 1`,
+            value: sql`${stat.value} + 1`,
           })
         })
       }
@@ -170,10 +171,11 @@ export const verifyDocument = command(type({
       await db.query.documentStatistics.upsert({
         data: {
           date: dayjs().format('YYYY-MM-DD'),
-          verified: 1,
+          type: 'verified',
+          value: 1,
         },
         update: stat => ({
-          verified: sql`${stat.verified} + 1`,
+          value: sql`${stat.value} + 1`,
         })
       })
       return response.data;

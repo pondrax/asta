@@ -52,8 +52,10 @@ export const documents = pgTable('documents', {
 export const documentStatistics = pgTable('document_statistics', {
 	id,
 	date: date('date').defaultNow().unique(),
-	verified: integer('verified').default(0),
-	signed: integer('signed').default(0),
+	type: text('type')
+		.default('signed')
+		.$type<'signed' | 'verified' | 'new-request' | 'reset-email' | 'reset-passphrase'>(),
+	value: integer('value').default(0),
 	created,
 	updated,
 })

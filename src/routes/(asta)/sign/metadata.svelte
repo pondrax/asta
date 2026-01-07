@@ -45,7 +45,7 @@
       };
       console.log(result);
     } catch {
-      status = "NOT_REGISTERED";
+      status = "[Server Esign Error] Check User Failed";
     }
     loading = false;
   };
@@ -137,10 +137,14 @@
           <span class={useEmail ? "font-bold text-primary" : ""}>EMAIL</span>
         </label>
       </li>
-      <li class="p-2 tooltip" data-tip={`Status Akun: ${status}`}>
+      <li
+        class="p-2 tooltip"
+        data-tip={status.includes("Error") ? status : `Status Akun: ${status}`}
+      >
         {#if useEmail}
           <label class="floating-label p-0 bg-transparent">
-            <span>Email Dinas Penandatangan ({status})</span>
+            <span class="text-nowrap">Email Dinas Penandatangan ({status})</span
+            >
             <div class="input input-sm">
               <input
                 bind:value={
@@ -170,7 +174,7 @@
           </label>
         {:else}
           <label class="floating-label p-0 bg-transparent">
-            <span>NIK Penandatangan ({status})</span>
+            <span class="text-nowrap">NIK Penandatangan ({status})</span>
             <div class="input input-sm">
               <input
                 bind:value={form.nik}
