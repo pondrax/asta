@@ -36,3 +36,14 @@ export const handleRedirect: Handle = ({ event, resolve }) => {
 	return resolve(event);
 };
 export const handle: Handle = sequence(handleParaglide, handleAuth, handleRedirect);
+
+
+import type { HandleValidationError } from '@sveltejs/kit';
+
+export const handleValidationError: HandleValidationError = ({ event, issues }) => {
+	return {
+		message: 'Validation Errors',
+		//@ts-expect-error
+		issues: issues?.summary || issues,
+	};
+};

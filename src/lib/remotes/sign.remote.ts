@@ -2,7 +2,7 @@ import { command, form, getRequestEvent, query } from "$app/server";
 import { db } from "$lib/server/db";
 import { Logger } from "$lib/server/log";
 import { FileStorage } from "$lib/server/storage";
-import { base64ToBlob, calculateFileChecksum } from "$lib/utils";
+import { base64ToBlob, calculateFileChecksum, createId } from "$lib/utils";
 import { type } from "arktype";
 import dayjs from "dayjs";
 import { sql } from "drizzle-orm";
@@ -56,7 +56,8 @@ export const signDocument = command(type({
   location: 'string?',
   note: 'string?',
   fileBase64: 'string',
-  fileName: 'string'
+  fileName: 'string',
+  to: 'string[]|undefined',
 }), async (props) => {
   try {
     // Validate Turnstile
@@ -134,6 +135,7 @@ export const signDocument = command(type({
             checksums: [checksum],
             status: props.__asDraft ? 'draft' : 'signed',
             esign: !props.__manual,
+            to: props.to,
             signatureProperties: props.__asDraft ? props.signatureProperties : null,
           },
           update: doc => ({
@@ -142,9 +144,12 @@ export const signDocument = command(type({
           })
         })
 
+        const id = (await db.query.documentStatistics.findFirst({
+          where: { type: 'signed' }
+        }))?.id || createId();
         await db.query.documentStatistics.upsert({
           data: {
-            date: dayjs().format('YYYY-MM-DD'),
+            id,
             type: 'signed',
             value: 1,
           },
@@ -168,9 +173,12 @@ export const verifyDocument = command(type({
     const response = await esign.verifyPDF(props)
 
     if (response.status == 200) {
+      const id = (await db.query.documentStatistics.findFirst({
+        where: { type: 'verified' }
+      }))?.id || createId();
       await db.query.documentStatistics.upsert({
         data: {
-          date: dayjs().format('YYYY-MM-DD'),
+          id,
           type: 'verified',
           value: 1,
         },
@@ -181,7 +189,10 @@ export const verifyDocument = command(type({
       return response.data;
     }
 
-  } catch { }
+  } catch (err) {
+    //@ts-expect-error
+    return { error: '[Server Esign Error] ' + err?.message + '.\nHarap mencoba lagi dalam beberapa saat' }
+  }
 
   return {
     conclusion: 'Error',

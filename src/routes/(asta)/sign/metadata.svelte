@@ -24,6 +24,7 @@
 
   let signaturePanel = $state(true);
   const checkEmail = async (el: Event) => {
+    if (!form.email && !form.nik) return;
     const cancel = useEmail
       ? form.email.startsWith("@") || form.email.length === 0
       : form.nik.length == 0;
@@ -43,7 +44,8 @@
         instansi: result.user?.organizations,
         jabatan: result.user?.position,
       };
-      console.log(result);
+      // console.log(result);
+      localStorage.setItem("email", form.email);
     } catch {
       status = "[Server Esign Error] Check User Failed";
     }

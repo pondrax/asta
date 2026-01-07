@@ -6,7 +6,7 @@
   const stats = getStats({});
   const current = $derived(stats.current);
 
-  function formatNumber(num: number) {
+  function formatNumber(num: number = 0) {
     const n = num;
     if (n >= 1e9) return (n / 1e9).toFixed(1) + "B";
     if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";

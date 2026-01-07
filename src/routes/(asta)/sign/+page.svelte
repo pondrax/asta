@@ -41,18 +41,7 @@
   // let editedDocuments: File[] | null[] = $state([]);
   let status = $state("NOT_REGISTERED");
   let bsre = $state(true);
-  let form: Record<string, any> = $state({
-    footer: true,
-    email: "",
-    nik: "",
-    nama: "",
-    jabatan: "-",
-    pangkat: "-",
-    instansi: "-",
-    tanggal: d().format("DD MMMM YYYY"),
-    location: "",
-    note: "Tanda Tangan Elektronik",
-  });
+  let form: Record<string, any> = $state({});
   let useEmail = $state(true);
   let fields: Record<string, any> = $state({});
   let hasSignature = $state(true);
@@ -78,6 +67,7 @@
       signatureProperties: SignatureType[];
       documents: Record<string, File>;
       // files: File[];
+      to?: string[];
       completed: string[];
       __token: string;
       __error?: string;
@@ -159,9 +149,20 @@
   $effect(() => {
     init();
   });
-  // onMount(async () => {
-  //   init();
-  // });
+  onMount(async () => {
+    form = {
+      footer: true,
+      email: localStorage.getItem("email") || "",
+      nik: "",
+      nama: "",
+      jabatan: "-",
+      pangkat: "-",
+      instansi: "-",
+      tanggal: d().format("DD MMMM YYYY"),
+      location: "",
+      note: "Tanda Tangan Elektronik",
+    };
+  });
 
   async function init() {
     const id = page.url.searchParams.get("id");
@@ -520,6 +521,7 @@
                   id,
                   __manual: !bsre,
                   __asDraft: asDraft,
+                  to: item.to,
                   // email: item.email,
                   // nik: item.nik,
                   ...(useEmail ? { email: item.email } : { nik: item.nik }),
@@ -554,14 +556,19 @@
           elapsedTime = performance.now() - startTime;
           clearInterval(interval);
 
-          console.log(results);
-        } catch (err) {
+          // console.log(results);
+        } catch (err: any) {
+          if (err?.body) {
+            const { message, issues } = err.body;
+            forms.sign!.__error = `[${message}] ${issues}`;
+          }
           console.error(err);
         } finally {
           loading = false;
           asTemplate = false;
-          //@ts-expect-error
+          // @ts-expect-error
           window.turnstile.reset(turnstileId);
+          turnstileSuccess = false;
         }
       }}
     >
@@ -720,7 +727,7 @@
         <button
           type="submit"
           class="btn {bsre ? 'btn-secondary' : 'btn-primary'}"
-          disabled={loading || !turnstileSuccess}
+          disabled={loading || !turnstileSuccess || (bsre && !item.passphrase)}
         >
           <iconify-icon icon="bx:pen" class="text-2xl"></iconify-icon>
           Tanda Tangan {bsre ? "Elektronik" : "Non-Elektronik (Manual)"}
@@ -783,9 +790,13 @@
       asTemplate = true;
       const docId = createId(10);
       const file = await fetch(item.file).then((res) => res.blob());
-      documents[docId] = new File([file], item.name || "default.pdf", {
+      documents[docId] = new File([file], (item.name || "default") + ".pdf", {
         type: file.type,
       });
+      console.log(item);
+      bsre = item.properties.type == "bsre";
+      form.note = item.properties.description || "Tanda Tangan Elektronik";
+      form.to = item.properties.to || null;
       activeIndex = docId;
       forms.template = undefined;
     }}
