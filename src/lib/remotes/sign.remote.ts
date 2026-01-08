@@ -145,7 +145,13 @@ export const signDocument = command(type({
         })
 
         const id = (await db.query.documentStatistics.findFirst({
-          where: { type: 'signed' }
+          where: {
+            type: 'signed',
+            created: {
+              lt: dayjs().endOf('day').toString(),
+              gt: dayjs().startOf('day').toString(),
+            }
+          }
         }))?.id || createId();
         await db.query.documentStatistics.upsert({
           data: {
@@ -174,7 +180,13 @@ export const verifyDocument = command(type({
 
     if (response.status == 200) {
       const id = (await db.query.documentStatistics.findFirst({
-        where: { type: 'verified' }
+        where: {
+          type: 'verified',
+          created: {
+            lt: dayjs().endOf('day').toString(),
+            gt: dayjs().startOf('day').toString(),
+          }
+        }
       }))?.id || createId();
       await db.query.documentStatistics.upsert({
         data: {

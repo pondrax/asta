@@ -45,14 +45,21 @@
             <iconify-icon icon="bx:bxs-file-archive"></iconify-icon>
           </div>
           <div class="stat-title">Tanda Tangan Hari ini</div>
-          <div class="stat-value">
+          <div class="stat-value text-5xl">
             {formatNumber(current?.signed?.today)}
           </div>
-          <div class="stat-desc">
-            {current?.signed?.today - current?.signed?.yesterday > 0
-              ? "+"
-              : ""}{current?.signed?.today - current?.signed?.yesterday}
-            Kemarin
+          <div class="stat-desc text-xs">
+            <div>
+              <iconify-icon
+                icon={current?.signed?.yesterday < current?.signed?.today
+                  ? "bx:trending-up"
+                  : "bx:trending-down"}
+              ></iconify-icon>
+              {current?.signed?.today - current?.signed?.yesterday} verifikasi
+            </div>
+            <div>
+              {current?.signed?.yesterday} Kemarin
+            </div>
           </div>
         </div>
 
@@ -61,13 +68,12 @@
             <iconify-icon icon="bx:bxs-file-archive"></iconify-icon>
           </div>
           <div class="stat-title">Total Tanda Tangan</div>
-          <div class="stat-value">
+          <div class="stat-value text-5xl">
             {formatNumber(current?.signed?.total)}
           </div>
-          <div class="stat-desc">
-            {current?.signed?.thisMonth > 0 ? "+" : ""}{current?.signed
-              ?.thisMonth}
-            Bulan Ini
+          <div class="stat-desc text-xs">
+            <div>{current?.signed?.thisWeek} Minggu Ini</div>
+            <div>{current?.signed?.thisMonth} Bulan Ini</div>
           </div>
         </div>
 
@@ -76,14 +82,22 @@
             <iconify-icon icon="bx:bxs-file-find"></iconify-icon>
           </div>
           <div class="stat-title">Verifikasi Hari Ini</div>
-          <div class="stat-value">
+          <div class="stat-value text-5xl">
             {formatNumber(current?.verified?.today)}
           </div>
-          <div class="stat-desc">
-            {current?.verified?.today - current?.verified?.yesterday > 0
-              ? "+"
-              : ""}{current?.verified?.today - current?.verified?.yesterday}
-            Kemarin
+          <div class="stat-desc text-xs">
+            <div>
+              <iconify-icon
+                icon={current?.verified?.yesterday < current?.verified?.today
+                  ? "bx:trending-up"
+                  : "bx:trending-down"}
+              ></iconify-icon>
+              {current?.verified?.today - current?.verified?.yesterday}
+              verifikasi
+            </div>
+            <div>
+              {current?.verified?.yesterday} Kemarin
+            </div>
           </div>
         </div>
         <div class="stat">
@@ -91,13 +105,12 @@
             <iconify-icon icon="bx:bxs-file-find"></iconify-icon>
           </div>
           <div class="stat-title">Total Verifikasi</div>
-          <div class="stat-value">
+          <div class="stat-value 5xl">
             {formatNumber(current?.verified?.total)}
           </div>
-          <div class="stat-desc">
-            {current?.verified?.thisMonth > 0 ? "+" : ""}{current?.verified
-              ?.thisMonth}
-            Bulan Ini
+          <div class="stat-desc text-xs">
+            <div>{current?.verified?.thisWeek} Minggu Ini</div>
+            <div>{current?.verified?.thisMonth} Bulan Ini</div>
           </div>
         </div>
       </div>

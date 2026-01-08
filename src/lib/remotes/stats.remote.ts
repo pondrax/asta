@@ -17,12 +17,12 @@ const empty = () => ({
 export const getStats = query("unchecked", async () => {
   const rows = await db.query.documentStatistics.findMany();
 
-  const now = dayjs();
+  const now = dayjs().startOf("day");
   const yesterday = now.subtract(1, "day");
 
   return rows.reduce((acc: Record<string, ReturnType<typeof empty>>, r) => {
     if (!r.type || !r.value) return acc;
-    const d = dayjs(r.created);
+    const d = dayjs(r.created).startOf("day");
     const v = +r.value || 0;
 
     const bucket = acc[r.type] ??= empty();
