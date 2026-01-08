@@ -1,4 +1,4 @@
-import { OAuthProvider } from './base';
+import { OAuthProvider } from "./base";
 
 interface OpenIDProviderConfig {
   authorizationEndpoint?: string;
@@ -20,7 +20,7 @@ export default class OpenIDOAuth extends OAuthProvider {
       userInfoEndpoint: config.userInfoEndpoint,
       baseUrl: config.baseUrl,
       realm: config.realm,
-      scope: config.scope || 'openid email profile'
+      scope: config.scope || "openid email profile",
     };
   }
 
@@ -34,16 +34,18 @@ export default class OpenIDOAuth extends OAuthProvider {
     }
 
     if (!authEndpoint) {
-      throw new Error('Missing authorization endpoint. Provide either authorizationEndpoint or baseUrl+realm');
+      throw new Error(
+        "Missing authorization endpoint. Provide either authorizationEndpoint or baseUrl+realm",
+      );
     }
 
     const params = new URLSearchParams();
-    params.set('client_id', this.config.clientId);
-    params.set('redirect_uri', this.config.redirectUri);
-    params.set('response_type', 'code');
+    params.set("client_id", this.config.clientId);
+    params.set("redirect_uri", this.config.redirectUri);
+    params.set("response_type", "code");
 
     if (scope) {
-      params.set('scope', scope);
+      params.set("scope", scope);
     }
 
     return `${authEndpoint}?${params.toString()}`;
@@ -59,28 +61,29 @@ export default class OpenIDOAuth extends OAuthProvider {
     }
 
     if (!tokenEndpoint) {
-      throw new Error('Missing token endpoint. Provide either tokenEndpoint or baseUrl+realm');
+      throw new Error(
+        "Missing token endpoint. Provide either tokenEndpoint or baseUrl+realm",
+      );
     }
 
     const body = new URLSearchParams();
-    body.append('client_id', this.config.clientId);
-    body.append('client_secret', this.config.clientSecret);
-    body.append('redirect_uri', this.config.redirectUri);
-    body.append('grant_type', 'authorization_code');
-    body.append('code', code);
-
+    body.append("client_id", this.config.clientId);
+    body.append("client_secret", this.config.clientSecret);
+    body.append("redirect_uri", this.config.redirectUri);
+    body.append("grant_type", "authorization_code");
+    body.append("code", code);
 
     const response = await fetch(tokenEndpoint, {
       method: "POST",
       headers: {
-        "Accept": "application/json",
-        "Content-Type": "application/x-www-form-urlencoded"
+        Accept: "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: body
+      body: body,
     });
 
     const data = await response.json();
-    console.log('Token response:', data);
+    console.log("Token response:", data);
     if (!data.access_token) throw new Error(JSON.stringify(data));
     return data.access_token;
   }
@@ -95,14 +98,16 @@ export default class OpenIDOAuth extends OAuthProvider {
     }
 
     if (!userInfoEndpoint) {
-      throw new Error('Missing userinfo endpoint. Provide either userInfoEndpoint or baseUrl+realm');
+      throw new Error(
+        "Missing userinfo endpoint. Provide either userInfoEndpoint or baseUrl+realm",
+      );
     }
 
     const response = await fetch(userInfoEndpoint, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        "Accept": "application/json"
-      }
+        Accept: "application/json",
+      },
     });
 
     if (!response.ok) {
@@ -115,7 +120,7 @@ export default class OpenIDOAuth extends OAuthProvider {
     return {
       username: user.preferred_username || user.email || user.sub,
       email: user.email || null,
-      avatarUrl: user.picture || ''
+      avatarUrl: user.picture || "",
     };
   }
 
@@ -129,22 +134,22 @@ export default class OpenIDOAuth extends OAuthProvider {
     }
 
     if (!tokenEndpoint) {
-      throw new Error('Missing token endpoint');
+      throw new Error("Missing token endpoint");
     }
 
     const body = new URLSearchParams();
-    body.append('client_id', this.config.clientId);
-    body.append('client_secret', this.config.clientSecret);
-    body.append('grant_type', 'refresh_token');
-    body.append('refresh_token', refreshToken);
+    body.append("client_id", this.config.clientId);
+    body.append("client_secret", this.config.clientSecret);
+    body.append("grant_type", "refresh_token");
+    body.append("refresh_token", refreshToken);
 
     const response = await fetch(tokenEndpoint, {
       method: "POST",
       headers: {
-        "Accept": "application/json",
-        "Content-Type": "application/x-www-form-urlencoded"
+        Accept: "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: body
+      body: body,
     });
 
     const data = await response.json();

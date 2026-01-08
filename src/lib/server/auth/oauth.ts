@@ -1,6 +1,10 @@
 // oauth.ts
 import { createId } from "$lib/utils";
-import { type OAuthConfig, type UserInfo, OAuthProvider } from "./providers/base";
+import {
+  type OAuthConfig,
+  type UserInfo,
+  OAuthProvider,
+} from "./providers/base";
 import providersConfig from "./providers/config";
 import github from "./providers/github";
 import google from "./providers/google";
@@ -11,7 +15,7 @@ const providers = {
   openid,
   github,
   google,
-  microsoft
+  microsoft,
 };
 
 export type Providers = typeof providers;
@@ -20,7 +24,11 @@ export class OAuth {
   private provider: OAuthProvider;
   private state: string;
 
-  constructor(provider: keyof Providers, config?: OAuthConfig, params: Record<string, string> = {}) {
+  constructor(
+    provider: keyof Providers,
+    config?: OAuthConfig,
+    params: Record<string, string> = {},
+  ) {
     this.state = createId(32);
     const query = new URLSearchParams(params);
     if (!config) {
@@ -34,7 +42,7 @@ export class OAuth {
   getAuthUrl(state?: Record<string, any>) {
     return {
       state: this.state,
-      url: this.provider.getAuthUrl(state)
+      url: this.provider.getAuthUrl(state),
     };
   }
 

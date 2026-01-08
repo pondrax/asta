@@ -8,7 +8,7 @@ export type SignatureType = {
   height: number;
   location: string;
   reason: string;
-  tampilan: 'VISIBLE' | 'INVISIBLE';
+  tampilan: "VISIBLE" | "INVISIBLE";
 };
 
 export type PagesInfoType = {

@@ -25,4 +25,4 @@ export default [
   { id: 15, rank: "I/c", grade: "Juru" },
   { id: 16, rank: "I/b", grade: "Juru Muda Tingkat I" },
   { id: 17, rank: "I/a", grade: "Juru Muda" },
-]
+];

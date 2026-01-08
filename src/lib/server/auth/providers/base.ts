@@ -16,7 +16,7 @@ export interface UserInfo {
 }
 
 export abstract class OAuthProvider {
-  constructor(protected config: OAuthConfig) { }
+  constructor(protected config: OAuthConfig) {}
   abstract getAuthUrl(state?: Record<string, any>): string;
   abstract getAccessToken(code: string): Promise<string>;
   abstract getUser(accessToken: string): Promise<UserInfo>;
