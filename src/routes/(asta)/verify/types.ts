@@ -95,61 +95,71 @@ interface ICertificateDetail {
 // Helper types for handling both timestamp formats
 type DateLike = string | number | Date;
 
-type FlexibleSignatureVerificationResponse = Omit<SignatureVerificationResponse, 'signatureInformations'> & {
+type FlexibleSignatureVerificationResponse = Omit<
+  SignatureVerificationResponse,
+  "signatureInformations"
+> & {
   signatureInformations: FlexibleSignatureInformation[];
 };
 
-type FlexibleSignatureInformation = Omit<SignatureInformation,
-  'signatureDate' | 'timestampInfomation' | 'certificateDetails'
+type FlexibleSignatureInformation = Omit<
+  SignatureInformation,
+  "signatureDate" | "timestampInfomation" | "certificateDetails"
 > & {
   signatureDate: DateLike;
   timestampInfomation: FlexibleTimestampInformation;
   certificateDetails: FlexibleCertificateDetail[];
 };
 
-type FlexibleTimestampInformation = Omit<TimestampInformation, 'timestampDate'> & {
+type FlexibleTimestampInformation = Omit<
+  TimestampInformation,
+  "timestampDate"
+> & {
   timestampDate: DateLike;
 };
 
-type FlexibleCertificateDetail = Omit<CertificateDetail, 'notBeforeDate' | 'notAfterDate'> & {
+type FlexibleCertificateDetail = Omit<
+  CertificateDetail,
+  "notBeforeDate" | "notAfterDate"
+> & {
   notBeforeDate: DateLike;
   notAfterDate: DateLike;
 };
 
 // Utility function to normalize dates to ISO strings
 function normalizeSignatureResponse(
-  response: FlexibleSignatureVerificationResponse
+  response: FlexibleSignatureVerificationResponse,
 ): SignatureVerificationResponse {
   return {
     ...response,
-    signatureInformations: response.signatureInformations.map(sig => ({
+    signatureInformations: response.signatureInformations.map((sig) => ({
       ...sig,
       signatureDate: normalizeDate(sig.signatureDate),
       timestampInfomation: {
         ...sig.timestampInfomation,
-        timestampDate: normalizeDate(sig.timestampInfomation.timestampDate)
+        timestampDate: normalizeDate(sig.timestampInfomation.timestampDate),
       },
-      certificateDetails: sig.certificateDetails.map(cert => ({
+      certificateDetails: sig.certificateDetails.map((cert) => ({
         ...cert,
         notBeforeDate: normalizeDate(cert.notBeforeDate),
-        notAfterDate: normalizeDate(cert.notAfterDate)
-      }))
-    }))
+        notAfterDate: normalizeDate(cert.notAfterDate),
+      })),
+    })),
   };
 }
 
 function normalizeDate(date: DateLike): string {
-  if (typeof date === 'number') {
+  if (typeof date === "number") {
     // Assuming Unix timestamp in milliseconds
     return new Date(date).toISOString();
-  } else if (typeof date === 'string') {
+  } else if (typeof date === "string") {
     // If it's already an ISO string, return as-is
     // If it's a different format, you might need additional parsing
     return date;
   } else if (date instanceof Date) {
     return date.toISOString();
   }
-  return '';
+  return "";
 }
 
 // Usage example:

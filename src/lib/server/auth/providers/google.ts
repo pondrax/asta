@@ -1,5 +1,5 @@
 // google.ts
-import { OAuthProvider } from './base';
+import { OAuthProvider } from "./base";
 
 export default class GoogleAuth extends OAuthProvider {
   getAuthUrl() {
@@ -9,7 +9,7 @@ export default class GoogleAuth extends OAuthProvider {
       response_type: "code",
       scope: "openid email profile",
       access_type: "offline",
-      prompt: "consent"
+      prompt: "consent",
     })}`;
   }
 
@@ -17,16 +17,16 @@ export default class GoogleAuth extends OAuthProvider {
     const response = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: {
-        "Accept": "application/json",
-        "Content-Type": "application/x-www-form-urlencoded"
+        Accept: "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
         client_id: this.config.clientId,
         client_secret: this.config.clientSecret,
         redirect_uri: this.config.redirectUri,
         code,
-        grant_type: "authorization_code"
-      })
+        grant_type: "authorization_code",
+      }),
     });
     const data = await response.json();
     if (!data.access_token) throw new Error("No access token");
@@ -35,12 +35,12 @@ export default class GoogleAuth extends OAuthProvider {
 
   async getUser(accessToken: string) {
     const user = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
-      headers: { Authorization: `Bearer ${accessToken}` }
-    }).then(res => res.json());
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }).then((res) => res.json());
     return {
       username: user.name,
       email: user.email,
-      avatarUrl: user.picture
+      avatarUrl: user.picture,
     };
   }
 }

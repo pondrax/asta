@@ -1,9 +1,8 @@
-import { init } from '@paralleldrive/cuid2'
-import type { Options } from 'qr-code-styling';
-import dayjs from 'dayjs';
-import 'dayjs/locale/id';
-dayjs.locale('id');
-
+import { init } from "@paralleldrive/cuid2";
+import type { Options } from "qr-code-styling";
+import dayjs from "dayjs";
+import "dayjs/locale/id";
+dayjs.locale("id");
 
 export const d = dayjs;
 export function debounce(fn: (el: Event) => Promise<void>, delay: number) {
@@ -26,22 +25,22 @@ export function formatFileSize(bytes: number) {
 }
 
 export function createId(length = 15) {
-  return init({ length })()
+  return init({ length })();
 }
-
-
 
 export function blobToBase64(blob: Blob) {
   return new Promise<string>((resolve, _) => {
     const reader = new FileReader();
-    reader.onloadend = () => resolve(String(reader.result).split(';base64,')[1]);
+    reader.onloadend = () =>
+      resolve(String(reader.result).split(";base64,")[1]);
     reader.readAsDataURL(blob);
   });
 }
 export function fileToBase64(blob: Blob) {
   return new Promise<string>((resolve, _) => {
     const reader = new FileReader();
-    reader.onloadend = () => resolve(String(reader.result).split(';base64,')[1]);
+    reader.onloadend = () =>
+      resolve(String(reader.result).split(";base64,")[1]);
     reader.readAsDataURL(blob);
   });
 }
@@ -66,27 +65,29 @@ export async function calculateFileChecksum(file: File | Buffer) {
   }
 
   if (!arrayBuffer) {
-    throw new Error('Invalid file type');
+    throw new Error("Invalid file type");
   }
   // Calculate SHA-256
-  const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  const hashHex = hashArray
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 
   return hashHex;
 }
 
 export async function generateQRCode(options: Options, asBlob = false) {
-  const QRCode = (await import('qr-code-styling')).default;
+  const QRCode = (await import("qr-code-styling")).default;
   const qrcode = new QRCode({
     ...options,
-    type: 'canvas',
+    type: "canvas",
     width: 300,
     height: 300,
     // image:
     // 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAIAQMAAAD+wSzIAAAABlBMVEX///+/v7+jQ3Y5AAAADklEQVQI12P4AIX8EAgALgAD/aNpbtEAAAAASUVORK5CYII',
     // image: 'https://upload.wikimedia.org/wikipedia/commons/5/51/Facebook_f_logo_%282019%29.svg',
-    image: options.image || '/favicon.png',
+    image: options.image || "/favicon.png",
 
     // imageOptions: {
     // 	crossOrigin: 'anonymous',
@@ -94,14 +95,14 @@ export async function generateQRCode(options: Options, asBlob = false) {
     // },
     dotsOptions: {
       // color: '#ff6767',
-      type: 'rounded'
+      type: "rounded",
     },
     cornersSquareOptions: {
-      type: 'extra-rounded'
-    }
+      type: "extra-rounded",
+    },
   });
   // return await qrcode.download();
-  const blob = (await qrcode.getRawData('png')) as Blob;
+  const blob = (await qrcode.getRawData("png")) as Blob;
   if (asBlob) {
     return blob;
   }

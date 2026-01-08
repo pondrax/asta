@@ -1,11 +1,11 @@
-import { redirect } from '@sveltejs/kit';
+import { redirect } from "@sveltejs/kit";
 
 export async function GET({ cookies }) {
-  cookies.delete('auth-token', {
-    path: '/',
+  cookies.delete("auth-token", {
+    path: "/",
     httpOnly: true,
-    sameSite: 'lax',
-    secure: true
+    sameSite: "lax",
+    secure: true,
   });
-  return redirect(302, '/');
+  return redirect(302, "/");
 }

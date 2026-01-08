@@ -6,8 +6,8 @@ import {
   PDFDropdown,
   PDFOptionList,
   PDFSignature,
-  rgb
-} from 'pdf-lib';
+  rgb,
+} from "pdf-lib";
 
 // ---------------------------------------------------------
 // Load PDF
@@ -50,7 +50,7 @@ export async function getAllFormFields(bytes: Uint8Array | ArrayBuffer) {
 // ---------------------------------------------------------
 export async function fillFormFields(
   bytes: Uint8Array | ArrayBuffer,
-  values: Record<string, string | boolean>
+  values: Record<string, string | boolean>,
 ) {
   const pdfDoc = await PDFDocument.load(bytes);
   const form = pdfDoc.getForm();
@@ -60,7 +60,7 @@ export async function fillFormFields(
     if (!field) return;
 
     // text input
-    if (field instanceof PDFTextField && typeof value === 'string') {
+    if (field instanceof PDFTextField && typeof value === "string") {
       // console.log(field.constructor.name, name, value);
       field.setText(value);
     }
@@ -71,17 +71,17 @@ export async function fillFormFields(
     }
 
     // radio
-    if (field instanceof PDFRadioGroup && typeof value === 'string') {
+    if (field instanceof PDFRadioGroup && typeof value === "string") {
       field.select(value);
     }
 
     // dropdown
-    if (field instanceof PDFDropdown && typeof value === 'string') {
+    if (field instanceof PDFDropdown && typeof value === "string") {
       field.select(value);
     }
 
     // option list
-    if (field instanceof PDFOptionList && typeof value === 'string') {
+    if (field instanceof PDFOptionList && typeof value === "string") {
       field.select(value);
     }
   });
@@ -99,9 +99,9 @@ export async function drawFooter(
     imageBase64?: string;
     paddingY?: number;
     lineHeight?: number;
-  }
+  },
 ) {
-  const { text = '', imageBase64, paddingY = 20, lineHeight = 14 } = opts;
+  const { text = "", imageBase64, paddingY = 20, lineHeight = 14 } = opts;
 
   const pdfDoc = await PDFDocument.load(bytes);
 
@@ -109,8 +109,8 @@ export async function drawFooter(
   if (imageBase64) {
     const imageBytes = Uint8Array.from(
       atob(imageBase64)
-        .split('')
-        .map((c) => c.charCodeAt(0))
+        .split("")
+        .map((c) => c.charCodeAt(0)),
     );
     try {
       image = await pdfDoc.embedPng(imageBytes);
@@ -132,12 +132,12 @@ export async function drawFooter(
         x: 20,
         y: y - 5,
         width: imgWidth,
-        height: imgHeight
+        height: imgHeight,
       });
     }
 
     if (text) {
-      const textLines = text.split('\n');
+      const textLines = text.split("\n");
       const textX = image ? 20 + imgWidth + 10 : 20;
       const textSize = 10;
 
@@ -147,7 +147,8 @@ export async function drawFooter(
 
       if (image) {
         // Center text vertically with the image
-        startY = y + (imgHeight - totalTextHeight) / 2 + (lineHeight - textSize);
+        startY =
+          y + (imgHeight - totalTextHeight) / 2 + (lineHeight - textSize);
       } else {
         // Use original position
         startY = y + 10;
@@ -157,9 +158,9 @@ export async function drawFooter(
       textLines.forEach((line, index) => {
         page.drawText(line, {
           x: textX,
-          y: startY - (index * lineHeight),
+          y: startY - index * lineHeight,
           size: textSize,
-          color: rgb(0, 0, 0)
+          color: rgb(0, 0, 0),
         });
       });
     }
@@ -182,12 +183,12 @@ export async function drawImages(
   bytes: Uint8Array | ArrayBuffer,
   signatures: SignatureType[],
   options?: {
-    pageIndexing?: 'zero' | 'one'; // Default: 'one'
-    coordinateSystem?: 'bottom-left' | 'top-left'; // Default: 'top-left'
-  }
+    pageIndexing?: "zero" | "one"; // Default: 'one'
+    coordinateSystem?: "bottom-left" | "top-left"; // Default: 'top-left'
+  },
 ): Promise<Uint8Array> {
-  const pageIndexing = options?.pageIndexing || 'one';
-  const coordinateSystem = options?.coordinateSystem || 'top-left';
+  const pageIndexing = options?.pageIndexing || "one";
+  const coordinateSystem = options?.coordinateSystem || "top-left";
 
   const pdfDoc = await PDFDocument.load(bytes);
   const pages = pdfDoc.getPages();
@@ -198,13 +199,15 @@ export async function drawImages(
     let pageIndex = signature.page;
 
     // Convert to 0-indexed if using 1-indexed
-    if (pageIndexing === 'one') {
+    if (pageIndexing === "one") {
       pageIndex = signature.page - 1;
     }
 
     if (pageIndex < 0 || pageIndex >= pages.length) {
-      const displayedPage = pageIndexing === 'one' ? signature.page : pageIndex;
-      throw new Error(`Page ${displayedPage} does not exist for signature ${signature.id}. Document has ${pages.length} pages.`);
+      const displayedPage = pageIndexing === "one" ? signature.page : pageIndex;
+      throw new Error(
+        `Page ${displayedPage} does not exist for signature ${signature.id}. Document has ${pages.length} pages.`,
+      );
     }
 
     if (!signaturesByPage[pageIndex]) {
@@ -225,8 +228,8 @@ export async function drawImages(
 
       const imageBytes = Uint8Array.from(
         atob(imageBase64)
-          .split('')
-          .map((c) => c.charCodeAt(0))
+          .split("")
+          .map((c) => c.charCodeAt(0)),
       );
 
       let image;
@@ -236,14 +239,16 @@ export async function drawImages(
         try {
           image = await pdfDoc.embedJpg(imageBytes);
         } catch (error) {
-          console.warn(`Failed to embed image for signature ${signature.id}. Skipping.`);
+          console.warn(
+            `Failed to embed image for signature ${signature.id}. Skipping.`,
+          );
           continue;
         }
       }
 
       // Calculate Y coordinate based on coordinate system
       let finalY = originY;
-      if (coordinateSystem === 'top-left') {
+      if (coordinateSystem === "top-left") {
         // Invert Y coordinate: top-left (0,0) to bottom-left coordinate system
         finalY = pageHeight - originY - height;
       }
@@ -253,7 +258,7 @@ export async function drawImages(
         x: originX,
         y: finalY,
         width: width,
-        height: height
+        height: height,
       });
     }
   }
@@ -266,7 +271,7 @@ export async function drawImages(
 // ---------------------------------------------------------
 export function toBlob(bytes: Uint8Array | ArrayBuffer) {
   return new Blob([new Uint8Array(bytes)], {
-    type: 'application/pdf'
+    type: "application/pdf",
   });
 }
 
@@ -274,9 +279,7 @@ export function toBlob(bytes: Uint8Array | ArrayBuffer) {
 // Utility: Uint8Array → Base64
 // ---------------------------------------------------------
 export function toBase64(bytes: Uint8Array | ArrayBuffer) {
-  return btoa(
-    String.fromCharCode(...new Uint8Array(bytes))
-  );
+  return btoa(String.fromCharCode(...new Uint8Array(bytes)));
 }
 
 // ---------------------------------------------------------
@@ -284,12 +287,12 @@ export function toBase64(bytes: Uint8Array | ArrayBuffer) {
 // ---------------------------------------------------------
 export function toDownload(
   bytes: Uint8Array | ArrayBuffer,
-  filename = 'result.pdf'
+  filename = "result.pdf",
 ) {
   const blob = toBlob(bytes);
   const url = URL.createObjectURL(blob);
 
-  const a = document.createElement('a');
+  const a = document.createElement("a");
   a.href = url;
   a.download = filename;
   a.click();
@@ -297,10 +300,12 @@ export function toDownload(
   URL.revokeObjectURL(url);
 }
 
-export async function hasSignature(bytes: Uint8Array | ArrayBuffer): Promise<boolean> {
+export async function hasSignature(
+  bytes: Uint8Array | ArrayBuffer,
+): Promise<boolean> {
   const pdfDoc = await PDFDocument.load(bytes);
   const form = pdfDoc.getForm();
   const fields = form.getFields();
 
-  return fields.some(field => field instanceof PDFSignature);
+  return fields.some((field) => field instanceof PDFSignature);
 }

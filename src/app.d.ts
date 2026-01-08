@@ -1,16 +1,16 @@
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
 declare global {
-	namespace App {
-		// interface Error {}
-		interface Locals {
-			user?: Record<string, any>;
-		}
-		// interface PageData {}
-		// interface PageState {}
-		// interface Platform {}
-	}
-	var pdfjsLib: typeof import('pdfjs-dist') | undefined;
+  namespace App {
+    // interface Error {}
+    interface Locals {
+      user?: Record<string, any>;
+    }
+    // interface PageData {}
+    // interface PageState {}
+    // interface Platform {}
+  }
+  var pdfjsLib: typeof import("pdfjs-dist") | undefined;
 }
 
-export { };
+export {};

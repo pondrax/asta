@@ -11,7 +11,7 @@ const empty = () => ({
   thisWeek: 0,
   thisMonth: 0,
   thisYear: 0,
-  total: 0
+  total: 0,
 });
 
 export const getStats = query("unchecked", async () => {
@@ -25,7 +25,7 @@ export const getStats = query("unchecked", async () => {
     const d = dayjs(r.created).startOf("day");
     const v = +r.value || 0;
 
-    const bucket = acc[r.type] ??= empty();
+    const bucket = (acc[r.type] ??= empty());
 
     bucket.total += v;
     if (d.isSame(now, "day")) bucket.today += v;
