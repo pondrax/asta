@@ -534,7 +534,10 @@
                   location: item.location || "-",
                   signatureProperties: item.signatureProperties,
                   fileName: asTemplate
-                    ? file.name + " - " + item.nama
+                    ? file.name.replace(".pdf", "") +
+                      "_" +
+                      String(item.nama).replace(/\W/g, "_") +
+                      ".pdf"
                     : file.name,
                   fileBase64,
                 });
@@ -797,6 +800,7 @@
       bsre = item.properties.type == "bsre";
       form.note = item.properties.description || "Tanda Tangan Elektronik";
       form.to = item.properties.to || null;
+      form.footer = true;
       activeIndex = docId;
       forms.template = undefined;
     }}

@@ -31,15 +31,19 @@ export async function getAllFormFields(bytes: Uint8Array | ArrayBuffer) {
     const type = field.constructor.name;
 
     let value: any = null;
+    let multiline = false;
 
     if (field instanceof PDFSignature) continue;
-    if (field instanceof PDFTextField) value = field.getText();
+    if (field instanceof PDFTextField) {
+      value = field.getText();
+      multiline = field.isMultiline();
+    }
     if (field instanceof PDFCheckBox) value = field.isChecked();
     if (field instanceof PDFRadioGroup) value = field.getSelected();
     if (field instanceof PDFDropdown) value = field.getSelected();
     if (field instanceof PDFOptionList) value = field.getSelected();
 
-    output[name] = { type, value };
+    output[name] = { type, value, multiline };
   }
 
   return output;

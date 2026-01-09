@@ -22,6 +22,19 @@
     useEmail = $bindable(true),
   } = $props();
 
+  $inspect(fields);
+  const predefinedForms = [
+    "email",
+    "nik",
+    "nama",
+    "jabatan",
+    "instansi",
+    "pangkat",
+    "note",
+    "location",
+    "tanggal",
+    "",
+  ];
   let signaturePanel = $state(true);
   const checkEmail = async (el: Event) => {
     if (!form.email && !form.nik) return;
@@ -315,17 +328,28 @@
       <!-- {JSON.stringify(Object.keys(fields))}
       {JSON.stringify(Object.keys(form))} -->
     </li>
+
     {#each Object.keys(fields) as key}
-      {#if !Object.keys(form).includes(key)}
+      {#if !predefinedForms.includes(key)}
+        {@const readableKey = key.replace(/[_\W]/g, " ")}
         <li class="p-2">
           <label class="floating-label p-0 bg-transparent">
-            <span>{key}</span>
-            <input
-              bind:value={form[key]}
-              type="text"
-              placeholder={key}
-              class="input input-sm"
-            />
+            <span class="capitalize">{readableKey}</span>
+            <!-- {JSON.stringify(fields[key])} -->
+            {#if fields[key].multiline}
+              <textarea
+                bind:value={form[key]}
+                placeholder={readableKey}
+                class="textarea textarea-sm w-full"
+              ></textarea>
+            {:else}
+              <input
+                bind:value={form[key]}
+                type="text"
+                placeholder={readableKey}
+                class="input input-sm"
+              />
+            {/if}
           </label>
         </li>
       {/if}
