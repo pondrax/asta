@@ -238,6 +238,10 @@
   });
 </script>
 
+<svelte:head>
+  <title>Tapak Astà - Tanda Tangan Dokumen</title>
+</svelte:head>
+
 <div class="p-5">
   <div class="h-[calc(100vh-110px)] flex gap-5 flex-col md:flex-row">
     <div class="rounded-2xl grow min-h-150 sm:order-1">
