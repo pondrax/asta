@@ -35,7 +35,7 @@
     image: { originX: 10, originY: 10, width: 128, height: 128 },
     qr: { originX: 350, originY: 630, width: 100, height: 100 },
     box: { originX: 310, originY: 700, width: 200, height: 80 },
-    draw: { originX: 310, originY: 630, width: 200, height: 100 },
+    draw: { originX: 310, originY: 640, width: 200, height: 100 },
   };
 
   let canvasMap = $derived({
@@ -91,6 +91,7 @@
     ctxPad.fillRect(0, 290, 640, 100);
     ctxPad.fillStyle = "#000";
     ctxPad.textAlign = "center";
+    ctxPad.font = "28px Arial";
     ctxPad.textBaseline = "middle";
     ctxPad.fillText(form?.nama || "", 320, 300);
 

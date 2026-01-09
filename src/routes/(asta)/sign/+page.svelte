@@ -166,7 +166,7 @@
   });
 
   async function fetchFile(url: string, fileName?: string) {
-    const file = await fetch(url).then((res) => res.blob());
+    const file = await fetch(url + "?" + Date.now()).then((res) => res.blob());
     return new File([file], fileName || "default.pdf", {
       type: file.type,
     });
