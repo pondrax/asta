@@ -34,7 +34,7 @@
   const canvasConfigs = {
     image: { originX: 10, originY: 10, width: 128, height: 128 },
     qr: { originX: 350, originY: 630, width: 100, height: 100 },
-    box: { originX: 310, originY: 630, width: 200, height: 80 },
+    box: { originX: 310, originY: 700, width: 200, height: 80 },
     draw: { originX: 310, originY: 630, width: 200, height: 100 },
   };
 

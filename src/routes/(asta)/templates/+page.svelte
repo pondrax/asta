@@ -1,34 +1,8 @@
 <script lang="ts">
-  import { getTemplates } from "$lib/remotes/sign.remote";
-
-  let { onSelect } = $props();
-  let records = await getTemplates({});
+  import Template from "./template.svelte";
 </script>
 
-<div class="p-5">
-  <table class="table table-sm">
-    <thead>
-      <tr>
-        <!-- <th>ID</th> -->
-        <th>Name</th>
-        <th>Description</th>
-      </tr>
-    </thead>
-    <tbody>
-      {#each records as item}
-        <tr>
-          <!-- <td>{item.id}</td> -->
-          <td>{item.name}</td>
-          <td>{item.file}</td>
-          <td>{JSON.stringify(item.properties)}</td>
-          <td>
-            <button
-              class="btn btn-sm btn-primary"
-              onclick={() => onSelect(item)}>Pilih</button
-            >
-          </td>
-        </tr>
-      {/each}
-    </tbody>
-  </table>
+<div class="max-w-7xl mx-auto p-5">
+  <h3 class="text-xl">Dokumen template formulir tanda tangan</h3>
+  <Template />
 </div>

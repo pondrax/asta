@@ -63,7 +63,11 @@ export const templates = pgTable('templates', {
 	id,
 	name: text('name').unique(),
 	file: text('file'),
-	properties: json('properties'),
+	properties: json('properties').$type<{
+		description: string;
+		type: string;
+		to?: string[]
+	}>(),
 	created,
 	updated,
 })

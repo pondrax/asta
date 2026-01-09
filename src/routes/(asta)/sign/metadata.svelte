@@ -22,7 +22,6 @@
     useEmail = $bindable(true),
   } = $props();
 
-  $inspect(fields);
   const predefinedForms = [
     "email",
     "nik",
@@ -286,7 +285,7 @@
         <select bind:value={form.pangkat} class="select select-sm">
           <option disabled selected>Pilih Opsi</option>
           {#each ranks as opt}
-            <option>{opt.rank} {opt.grade}</option>
+            <option>{opt.grade} ({opt.rank})</option>
           {/each}
         </select>
       </label>

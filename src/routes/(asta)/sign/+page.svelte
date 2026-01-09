@@ -9,7 +9,7 @@
   import Preview from "$lib/components/preview.svelte";
   import Upload from "./upload.svelte";
   import Visualizer from "./visualizer.svelte";
-  import Template from "../templates/+page.svelte";
+  import Template from "../templates/template.svelte";
   import {
     debounce,
     fileToBase64,
@@ -20,6 +20,7 @@
   } from "$lib/utils";
   import {
     getDocument,
+    getTemplates,
     signDocument,
     verifyTurnstile,
   } from "$lib/remotes/sign.remote";
@@ -164,27 +165,48 @@
     };
   });
 
+  async function fetchFile(url: string, fileName?: string) {
+    const file = await fetch(url).then((res) => res.blob());
+    return new File([file], fileName || "default.pdf", {
+      type: file.type,
+    });
+    // return await fetch(url).then((res) => res.blob());
+  }
   async function init() {
+    const docId = createId(10);
     const id = page.url.searchParams.get("id");
-    asTemplate = page.url.searchParams.get("template") === "true";
-    if (!id) return;
-    const existing = await getDocument({ id });
-    // console.log(existing);
-    if (existing) {
-      existing.forEach(async (doc) => {
-        const fileUrl = doc.files?.pop();
-        if (!fileUrl) return;
-        const docId = asTemplate ? createId(10) : doc.id;
-        // console.log(doc.id, asTemplate, doc.template, docId);
-        const file = await fetch(fileUrl).then((res) => res.blob());
-        documents[docId] = new File([file], doc.title || "default.pdf", {
-          type: file.type,
+    const templateId = page.url.searchParams.get("template");
+    if (id) {
+      const existing = await getDocument({ id });
+      if (existing) {
+        existing.forEach(async (doc) => {
+          const fileUrl = doc.files?.pop();
+          if (!fileUrl) return;
+          const file = await fetchFile(fileUrl);
+          documents[docId] = file;
+          activeIndex = docId;
+          form.email = doc.owner;
         });
-        activeIndex = docId;
-        console.log(doc);
-        form.email = doc.owner;
-      });
+      }
     }
+    if (templateId) {
+      const existing = await getTemplates({ id: templateId });
+      if (existing.length > 0) initTemplate(existing[0]);
+    }
+  }
+
+  async function initTemplate(item: any) {
+    asTemplate = true;
+    const docId = createId(10);
+    const file = await fetchFile(item.file, item.name);
+    documents = { [docId]: file };
+
+    bsre = item.properties.type == "bsre";
+    form.note = item.properties.description || "Tanda Tangan Elektronik";
+    form.to = item.properties.to || null;
+    form.footer = true;
+    activeIndex = docId;
+    forms.template = undefined;
   }
 
   //@ts-expect-error
@@ -787,23 +809,11 @@
     </button>
   </div>
 </Modal>
-<Modal bind:data={forms.template} title="Pilih Template" size="xl">
-  <Template
-    onSelect={async (item: any) => {
-      asTemplate = true;
-      const docId = createId(10);
-      const file = await fetch(item.file).then((res) => res.blob());
-      documents[docId] = new File([file], (item.name || "default") + ".pdf", {
-        type: file.type,
-      });
-      console.log(item);
-      bsre = item.properties.type == "bsre";
-      form.note = item.properties.description || "Tanda Tangan Elektronik";
-      form.to = item.properties.to || null;
-      form.footer = true;
-      activeIndex = docId;
-      forms.template = undefined;
-    }}
-  />
+<Modal
+  bind:data={forms.template}
+  title="Pilih Template dokumen untuk tanda tangan"
+  size="xl"
+>
+  <Template onSelect={initTemplate} />
 </Modal>
 <!-- <SignModal bind:data={forms.sign} /> -->
