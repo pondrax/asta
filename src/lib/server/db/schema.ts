@@ -24,11 +24,13 @@ export const posts = pgTable('posts', {
 export const signers = pgTable('signers', {
 	id,
 	nik: text('nik').unique(),
+	nip: text('nip'),
 	email: text('email').unique(),
 	name: text('name'),
 	position: text('position'),
 	rank: text('rank'),
 	organizations: text('organizations'),
+	phone: text('phone'),
 	created,
 	updated,
 })

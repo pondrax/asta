@@ -32,7 +32,7 @@
     "note",
     "location",
     "tanggal",
-    "",
+    "nomor_telepon",
   ];
   let signaturePanel = $state(true);
   const checkEmail = async (el: Event) => {
@@ -55,6 +55,7 @@
         pangkat: result.user?.rank,
         instansi: result.user?.organizations,
         jabatan: result.user?.position,
+        nomor_telepon: result.user?.phone || "",
       };
       // console.log(result);
       localStorage.setItem("email", form.email);
@@ -250,6 +251,30 @@
         <div class="text-[10px] text-gray-400">
           Contoh: Budi Pekerti Akhlak, S.H
         </div>
+      </label>
+    </li>
+    <li class="p-2">
+      <label class="floating-label p-0 bg-transparent">
+        <span>Nomor Telepon (Whatsapp)</span>
+        <div class="input input-sm">
+          <span class="label">+62</span>
+          <input
+            bind:value={
+              () => String(form.nomor_telepon).replace(/^62/, ""),
+              (value) =>
+                (form.nomor_telepon =
+                  "62" +
+                  String(value)
+                    .replace(/[^0-9]/g, "")
+                    .replace(/^0+/, "")
+                    .replace(/^62/, ""))
+            }
+            required
+            type="text"
+            placeholder="Nomor Telepon WA"
+          />
+        </div>
+        <div class="text-[10px] text-gray-400"></div>
       </label>
     </li>
     <li class="p-2">

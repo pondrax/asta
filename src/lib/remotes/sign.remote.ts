@@ -8,6 +8,7 @@ import dayjs from "dayjs";
 import { sql } from "drizzle-orm";
 import { Esign } from "../server/plugins/esign";
 import { validateTurnstile } from "$lib/server/plugins/turnstile";
+import { sendMessage } from "$lib/server/plugins/whatsapp";
 
 const storage = new FileStorage;
 const logger = new Logger;
@@ -55,10 +56,12 @@ export const signDocument = command(type({
   signatureProperties: 'Array',
   location: 'string?',
   note: 'string?',
+  nomor_telepon: 'string?',
   fileBase64: 'string',
   fileName: 'string',
   to: 'string[]|undefined',
 }), async (props) => {
+  const event = getRequestEvent();
   try {
     // Validate Turnstile
     // const event = getRequestEvent();
@@ -122,6 +125,7 @@ export const signDocument = command(type({
             rank: props.pangkat,
             organizations: props.instansi,
             position: props.jabatan,
+            phone: props.nomor_telepon,
           }
         })
 
@@ -164,6 +168,19 @@ export const signDocument = command(type({
           })
         })
       }
+    }
+
+    if (props.nomor_telepon) {
+      const sent = await sendMessage({
+        recipient: props.nomor_telepon,
+        payload: {
+          text: `Dokumen  berhasil ditandatangani
+          \n*${props.fileName}*.
+          \n🔗 Akses dokumen:\n${event.url.origin}/d?id=${props.id}
+          \n\nTerima kasih telah menggunakan layanan *Tapak Astà*.`
+        }
+      })
+      console.log(sent)
     }
     return response.data;
   } catch (err) {

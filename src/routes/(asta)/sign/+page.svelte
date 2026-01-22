@@ -67,6 +67,7 @@
       location: string;
       signatureProperties: SignatureType[];
       documents: Record<string, File>;
+      nomor_telepon: string;
       // files: File[];
       to?: string[];
       completed: string[];
@@ -557,6 +558,7 @@
                   instansi: item.instansi || "-",
                   passphrase: item.passphrase,
                   note: item.note || "-",
+                  nomor_telepon: item.nomor_telepon,
                   location: item.location || "-",
                   signatureProperties: item.signatureProperties,
                   fileName: asTemplate
