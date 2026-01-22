@@ -30,6 +30,7 @@
   import { page } from "$app/state";
   import Dragresize from "$lib/components/dragresize.svelte";
   import Char from "$lib/components/char.svelte";
+  import { sendMessage } from "$lib/remotes/whatsapp.remote";
 
   let turnstileSuccess = $state(false);
   let loading = $state(false);
@@ -490,6 +491,7 @@
 
         loading = true;
 
+        const completed: { id: string; fileName: string }[] = [];
         try {
           const docsx = Object.entries(item.documents);
 
@@ -544,6 +546,12 @@
                   fileBase64 = await fileToBase64(blobSignature);
                 }
 
+                const fileName = asTemplate
+                  ? file.name.replace(".pdf", "") +
+                    "_" +
+                    String(item.nama).replace(/\W/g, "_") +
+                    ".pdf"
+                  : file.name;
                 const signing = await signDocument({
                   id,
                   __manual: !bsre,
@@ -561,12 +569,7 @@
                   nomor_telepon: item.nomor_telepon,
                   location: item.location || "-",
                   signatureProperties: item.signatureProperties,
-                  fileName: asTemplate
-                    ? file.name.replace(".pdf", "") +
-                      "_" +
-                      String(item.nama).replace(/\W/g, "_") +
-                      ".pdf"
-                    : file.name,
+                  fileName,
                   fileBase64,
                 });
 
@@ -578,11 +581,14 @@
 
                 if (signing?.file) {
                   item.completed.push(id);
+                  completed.push({ id, fileName });
                   return signing;
                 }
               }
             },
           );
+
+          // console.log(results);
 
           elapsedTime = performance.now() - startTime;
           clearInterval(interval);
@@ -601,6 +607,20 @@
           window.turnstile.reset(turnstileId);
           turnstileSuccess = false;
         }
+
+        const notifyText = completed
+          .map(
+            (r, i) =>
+              `${i + 1}. *${r?.fileName}*\n${location.origin}/d?id=${r?.id}`,
+          )
+          .join("\n\n");
+
+        await sendMessage({
+          recipient: item.nomor_telepon,
+          payload: {
+            text: `*Dokumen berhasil ditandatangani*\n\n${notifyText}\n\nTerima kasih telah menggunakan layanan *Tapak Astà*.`,
+          },
+        });
       }}
     >
       <ul

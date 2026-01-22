@@ -8,7 +8,6 @@ import dayjs from "dayjs";
 import { sql } from "drizzle-orm";
 import { Esign } from "../server/plugins/esign";
 import { validateTurnstile } from "$lib/server/plugins/turnstile";
-import { sendMessage } from "$lib/server/plugins/whatsapp";
 
 const storage = new FileStorage;
 const logger = new Logger;
@@ -170,18 +169,18 @@ export const signDocument = command(type({
       }
     }
 
-    if (props.nomor_telepon) {
-      const sent = await sendMessage({
-        recipient: props.nomor_telepon,
-        payload: {
-          text: `Dokumen  berhasil ditandatangani
-          \n*${props.fileName}*.
-          \n🔗 Akses dokumen:\n${event.url.origin}/d?id=${props.id}
-          \n\nTerima kasih telah menggunakan layanan *Tapak Astà*.`
-        }
-      })
-      console.log(sent)
-    }
+    // if (props.nomor_telepon) {
+    //   const sent = await sendMessage({
+    //     recipient: props.nomor_telepon,
+    //     payload: {
+    //       text: `Dokumen  berhasil ditandatangani
+    //       \n*${props.fileName}*.
+    //       \n🔗 Akses dokumen:\n${event.url.origin}/d?id=${props.id}
+    //       \n\nTerima kasih telah menggunakan layanan *Tapak Astà*.`
+    //     }
+    //   })
+    //   console.log(sent)
+    // }
     return response.data;
   } catch (err) {
     //@ts-expect-error
