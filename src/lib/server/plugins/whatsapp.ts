@@ -1,22 +1,27 @@
-import { WHATSAPP_AUTH, WHATSAPP_HOST } from "$env/static/private"
+import { WHATSAPP_AUTH, WHATSAPP_HOST } from "$env/static/private";
 
-export async function sendMessage({ recipient, payload }: { recipient: string, payload: any }) {
+export async function sendMessage({
+  recipient,
+  payload,
+}: {
+  recipient: string;
+  payload: any;
+}) {
   try {
-
-    const response = await fetch(WHATSAPP_HOST + '/api/v1/send', {
-      method: 'POST',
+    const response = await fetch(WHATSAPP_HOST + "/api/v1/send", {
+      method: "POST",
       headers: {
-        'Authorization': WHATSAPP_AUTH,
-        'Content-Type': 'application/json',
+        Authorization: WHATSAPP_AUTH,
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         recipient,
         payload,
-      })
-    })
-    return response
+      }),
+    });
+    return response;
   } catch (err) {
-    console.log(err)
-    return false
+    console.log(err);
+    return false;
   }
 }
