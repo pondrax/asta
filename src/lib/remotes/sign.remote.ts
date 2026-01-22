@@ -1,4 +1,4 @@
-import { command, form, getRequestEvent, query } from "$app/server";
+import { command, getRequestEvent, query } from "$app/server";
 import { db } from "$lib/server/db";
 import { Logger } from "$lib/server/log";
 import { FileStorage } from "$lib/server/storage";
@@ -60,17 +60,15 @@ export const signDocument = command(type({
   fileName: 'string',
   to: 'string[]|undefined',
 }), async (props) => {
-  const event = getRequestEvent();
   try {
-    // Validate Turnstile
-    // const event = getRequestEvent();
-    // await validateTurnstile(props.__token, event.getClientAddress());
-
-    // const { fileBase64, fileName, __token, ...metadata } = props;
-    // console.log(metadata);
     let response: {
       status: number,
-      data: any,
+      data: {
+        file?: string[];
+        error?: string;
+        message?: string;
+        error_description?: string;
+      },
     };
 
     if (props.__manual) {
@@ -169,18 +167,6 @@ export const signDocument = command(type({
       }
     }
 
-    // if (props.nomor_telepon) {
-    //   const sent = await sendMessage({
-    //     recipient: props.nomor_telepon,
-    //     payload: {
-    //       text: `Dokumen  berhasil ditandatangani
-    //       \n*${props.fileName}*.
-    //       \n🔗 Akses dokumen:\n${event.url.origin}/d?id=${props.id}
-    //       \n\nTerima kasih telah menggunakan layanan *Tapak Astà*.`
-    //     }
-    //   })
-    //   console.log(sent)
-    // }
     return response.data;
   } catch (err) {
     //@ts-expect-error
