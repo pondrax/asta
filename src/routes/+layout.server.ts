@@ -5,6 +5,6 @@ export async function load({ locals, url }) {
 
   return {
     user: locals.user,
-    baseURL: url.origin
+    baseURL: url.origin,
   };
 }
