@@ -73,7 +73,7 @@
         >
           {#if records.current?.count}
             {query.offset + 1} -
-            {query.offset + query.limit}
+            {Math.min(records.current?.count, query.offset + query.limit)}
             /
             {records.current?.count}
           {:else}
@@ -121,7 +121,8 @@
             />
           </th>
           <th class="w-1">No</th>
-          <th>Nama Dokumen</th>
+          <th class="w-64">Nama Dokumen</th>
+          <th>File</th>
           <th>Tanggal Dibuat</th>
           <th>Status</th>
         </tr>
@@ -136,15 +137,36 @@
           {#each records.current?.data as record, i}
             <tr>
               <td>
-                <input
-                  type="checkbox"
-                  class="checkbox"
-                  bind:group={selections}
-                  value={record.id}
-                />
+                <div class="flex gap-1">
+                  <input
+                    type="checkbox"
+                    class="checkbox"
+                    bind:group={selections}
+                    value={record.id}
+                  />
+                  <a
+                    href={`/sign?id=${record.id}`}
+                    class="btn btn-xs btn-soft"
+                    aria-label="sign"
+                  >
+                    <iconify-icon icon="bx:pen"></iconify-icon>
+                  </a>
+                </div>
               </td>
               <td>{i + 1}</td>
               <td>{record.title}</td>
+              <td>
+                <div class="space-y-2">
+                  {#each record.files as file}
+                    <a href={file} target="_blank" class="btn btn-xs btn-soft">
+                      <iconify-icon icon="bx:file"></iconify-icon>
+                      <span class="max-w-64 truncate text-left">
+                        {file?.split("/")?.pop()}
+                      </span>
+                    </a>
+                  {/each}
+                </div>
+              </td>
               <td>{record.created}</td>
               <td>{record.status}</td>
             </tr>

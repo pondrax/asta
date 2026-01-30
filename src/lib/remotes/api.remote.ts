@@ -14,7 +14,6 @@ type Tables = typeof db.query;
 // })
 
 const GUARD = () => {
-
   const event = getRequestEvent()
   const user = event.locals.user
   return {
@@ -38,7 +37,7 @@ export const getData = query(
     { table, ...params }: GetDataParams<T>
   ) => {
     // @ts-expect-error Drizzle type inference is not working
-    params.where = Object.assign(params.where ?? {}, GUARD()[table].findMany())
+    params.where = Object.assign(params.where ?? {}, GUARD()[table]?.findMany() ?? {})
 
     // @ts-expect-error Drizzle type inference is not working
     const data = await db.query[table].findManyAndCount(params);
