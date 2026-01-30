@@ -14,34 +14,31 @@ type Tables = typeof db.query;
 // })
 
 const GUARD = () => {
-
-  const event = getRequestEvent()
-  const user = event.locals.user
+  const event = getRequestEvent();
+  const user = event.locals.user;
   return {
     documents: {
       findMany: () => {
         return {
-          owner: user?.email ?? '-'
-        }
-      }
-    }
-  }
-}
+          owner: user?.email ?? "-",
+        };
+      },
+    },
+  };
+};
 
-export type GetDataParams<T extends keyof Tables> =
-  { table: T } &
-  Parameters<Tables[T]['findMany']>[0];
+export type GetDataParams<T extends keyof Tables> = { table: T } & Parameters<
+  Tables[T]["findMany"]
+>[0];
 
 export const getData = query(
-  'unchecked',
-  async <T extends keyof Tables>(
-    { table, ...params }: GetDataParams<T>
-  ) => {
+  "unchecked",
+  async <T extends keyof Tables>({ table, ...params }: GetDataParams<T>) => {
     // @ts-expect-error Drizzle type inference is not working
-    params.where = Object.assign(params.where ?? {}, GUARD()[table].findMany())
+    params.where = Object.assign(params.where ?? {}, GUARD()[table].findMany());
 
     // @ts-expect-error Drizzle type inference is not working
     const data = await db.query[table].findManyAndCount(params);
     return data;
-  }
+  },
 );
