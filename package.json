@@ -21,25 +21,25 @@
 		"db:seed": "vite-node --options.transformMode.ssr='/.*/' src/lib/server/db/seed.ts"
 	},
 	"devDependencies": {
-		"@inlang/paraglide-js": "^2.7.1",
-		"@paralleldrive/cuid2": "^3.0.6",
+		"@inlang/paraglide-js": "^2.9.1",
+		"@paralleldrive/cuid2": "^3.3.0",
 		"@sveltejs/adapter-auto": "^7.0.0",
-		"@sveltejs/adapter-node": "^5.4.0",
-		"@sveltejs/kit": "^2.49.2",
-		"@sveltejs/vite-plugin-svelte": "^6.2.1",
+		"@sveltejs/adapter-node": "^5.5.2",
+		"@sveltejs/kit": "^2.50.1",
+		"@sveltejs/vite-plugin-svelte": "^6.2.4",
 		"@tailwindcss/vite": "^4.1.18",
 		"daisyui": "^5.5.14",
 		"drizzle-kit": "1.0.0-beta.1-03a5cdc",
 		"drizzle-orm": "1.0.0-beta.1-03a5cdc",
 		"drizzle-plus": "1.0.0-beta.34",
 		"iconify-icon": "^3.0.2",
-		"svelte": "^5.46.1",
+		"svelte": "^5.49.0",
 		"svelte-check": "^4.3.5",
 		"tailwindcss": "^4.1.18",
 		"typescript": "^5.9.3",
-		"vite": "^7.3.0",
+		"vite": "^7.3.1",
 		"vite-plugin-devtools-json": "^1.0.0",
-		"vitest": "^4.0.16"
+		"vitest": "^4.0.18"
 	},
 	"dependencies": {
 		"@node-rs/argon2": "^2.0.2",
@@ -49,9 +49,9 @@
 		"lottie-web": "^5.13.0",
 		"pdf-lib": "^1.17.1",
 		"pdfjs-dist": "^5.4.530",
-		"postgres": "^3.4.7",
+		"postgres": "^3.4.8",
 		"qr-code-styling": "^1.9.2",
-		"vite-node": "^5.2.0"
+		"vite-node": "^5.3.0"
 	},
 	"packageManager": "pnpm@10.17.1+sha512.17c560fca4867ae9473a3899ad84a88334914f379be46d455cbf92e5cf4b39d34985d452d2583baf19967fa76cb5c17bc9e245529d0b98745721aa7200ecaf7a"
 }

@@ -87,7 +87,7 @@
       <div class="dropdown dropdown-end">
         <div tabindex="0" role="button" class="btn btn-ghost">
           <div class="avatar rounded-full bg-secondary w-12 -ml-6">
-            <img src="/ava.png" alt={user.name} />
+            <img src="/ava.svg" alt={user.name} />
           </div>
           <div>{user.email?.split("@")[0]}</div>
         </div>

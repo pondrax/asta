@@ -2,10 +2,9 @@
   import { onMount } from "svelte";
   import { debounce } from "$lib/utils";
   import { checkUser } from "$lib/remotes/sign.remote";
-  import ranks from "./ranks";
-  import organizations from "./organizations";
   import Signature from "./signature.svelte";
   import { type } from "arktype";
+  import { getData } from "$lib/remotes/api.remote";
 
   let {
     children,
@@ -294,9 +293,13 @@
         <span>Nama Perangkat Daerah</span>
         <select bind:value={form.instansi} class="select select-sm">
           <option disabled selected>Pilih Opsi</option>
-          {#each organizations as opt}
-            <option value={opt.short_name}>{opt.name}</option>
-          {/each}
+          {#await getData({ table: "organizations", orderBy: { id: "asc" } })}
+            <option disabled selected>Loading...</option>
+          {:then orgs}
+            {#each orgs?.data as org}
+              <option value={org.short_name}>{org.name}</option>
+            {/each}
+          {/await}
         </select>
         <div class="text-[10px] text-gray-400">
           Pilih Eksternal untuk intansi diluar pemerintah kota mojokerto
@@ -309,9 +312,16 @@
         <span>Pangkat / Golongan</span>
         <select bind:value={form.pangkat} class="select select-sm">
           <option disabled selected>Pilih Opsi</option>
-          {#each ranks as opt}
-            <option>{opt.grade} ({opt.rank})</option>
-          {/each}
+          {#await getData({ table: "ranks" })}
+            <option disabled selected>Loading...</option>
+          {:then ranks}
+            {#each ranks?.data as opt}
+              <option>
+                {opt.grade}
+                {opt.rank !== "-" ? `(${opt.rank})` : ""}
+              </option>
+            {/each}
+          {/await}
         </select>
       </label>
     </li>
