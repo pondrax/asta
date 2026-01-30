@@ -222,11 +222,11 @@ export const getDocument = query(type({
   const document = await db.query.documents.findMany({
     where: {
       OR: [
-        {
-          checksums: {
-            arrayContains: [props.checksum || '-'],
-          }
-        },
+        // {
+        //   checksums: {
+        //     arrayContains: [props.checksum || '-'],
+        //   }
+        // },
         {
           id: {
             in: props.id.split(','),
@@ -235,6 +235,7 @@ export const getDocument = query(type({
       ]
     }
   })
+  console.log(document);
   return document;
 })
 

@@ -184,9 +184,9 @@
         existing.forEach(async (doc) => {
           const fileUrl = doc.files?.pop();
           if (!fileUrl) return;
-          const file = await fetchFile(fileUrl);
-          documents[docId] = file;
-          activeIndex = docId;
+          const file = await fetchFile(fileUrl, doc.title || "default.pdf");
+          documents[doc.id ?? docId] = file;
+          activeIndex = doc.id ?? docId;
           form.email = doc.owner;
         });
       }
@@ -615,12 +615,14 @@
           )
           .join("\n\n");
 
-        await sendMessage({
-          recipient: item.nomor_telepon,
-          payload: {
-            text: `*Dokumen berhasil ditandatangani*\n\n${notifyText}\n\nTerima kasih telah menggunakan layanan *Tapak Astà*.`,
-          },
-        });
+        try {
+          await sendMessage({
+            recipient: item.nomor_telepon,
+            payload: {
+              text: `*Dokumen berhasil ditandatangani*\n\n${notifyText}\n\nTerima kasih telah menggunakan layanan *Tapak Astà*.`,
+            },
+          });
+        } catch {}
       }}
     >
       <ul

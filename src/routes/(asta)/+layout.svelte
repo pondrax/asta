@@ -66,6 +66,16 @@
           Panduan
         </a>
       </li>
+      {#if user}
+        <li>
+          <a
+            href="/documents"
+            class:menu-active={page.url.pathname === "/documents"}
+          >
+            Dokumen Saya
+          </a>
+        </li>
+      {/if}
     </ul>
   </div>
   <div class="navbar-end gap-5">

@@ -80,7 +80,7 @@ export default class OpenIDOAuth extends OAuthProvider {
     });
 
     const data = await response.json();
-    console.log('Token response:', data);
+    // console.log('Token response:', data);
     if (!data.access_token) throw new Error(JSON.stringify(data));
     return data.access_token;
   }

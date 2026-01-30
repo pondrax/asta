@@ -27,6 +27,7 @@ const GUARD = () => {
   }
 }
 
+
 export type GetDataParams<T extends keyof Tables> =
   { table: T } &
   Parameters<Tables[T]['findMany']>[0];

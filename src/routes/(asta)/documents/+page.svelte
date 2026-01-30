@@ -23,7 +23,7 @@
   let search = $state("");
 </script>
 
-<div class="max-w-7xl mx-auto p-5">
+<div class="p-5">
   <h3 class="text-xl">Daftar Dokumen</h3>
 
   <!-- <pre>{JSON.stringify(selections, null, 2)}</pre> -->
@@ -45,9 +45,19 @@
         />
       </div>
       <a href="/sign" class="btn btn-primary btn-sm btn-soft">
-        <iconify-icon icon="bx:pen" class="mr-2"></iconify-icon>
-        Tanda Tangan Dokumen
+        <iconify-icon icon="bx:plus" class="mr-2"></iconify-icon>
+        Unggah
       </a>
+      {#if selections.length}
+        <a href="/sign?id={selections}" class="btn btn-success btn-sm btn-soft">
+          <iconify-icon icon="bx:pen" class="mr-2"></iconify-icon>
+          Tanda Tangani
+        </a>
+        <button class="btn btn-error btn-sm btn-soft">
+          <iconify-icon icon="bx:trash" class="mr-2"></iconify-icon>
+          Hapus
+        </button>
+      {/if}
     </div>
     <div class="flex gap-2">
       <form class="filter" onchange={(e) => console.log(e)}>
