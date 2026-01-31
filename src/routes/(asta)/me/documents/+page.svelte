@@ -1,23 +1,31 @@
 <script lang="ts">
-  import { getData, type GetDataParams } from "$lib/remotes/api.remote";
+  import { getData, type GetParams } from "$lib/remotes/api.remote";
   import { Toolbar } from "$lib/components";
-  let query: GetDataParams<"documents"> = $state({
-    limit: 10,
+  import { d } from "$lib/utils";
+
+  const expand = {
+    with: {
+      user: {},
+    },
+  };
+  let query: GetParams<"documents"> = $state({
+    table: "documents",
+    limit: 20,
     offset: 0,
     where: {},
-    search: "",
+    ...expand,
   });
-  const records = $derived(
-    getData({
-      table: "documents",
-      ...query,
-    }),
-  );
+  const records = $derived(getData({ ...query, ...expand }));
   const items = $derived(records.current ?? { data: [], count: 0 });
   let selections: string[] = $state([]);
+
+  $effect(() => {
+    items;
+    selections = [];
+  });
 </script>
 
-<div class="p-5">
+<div class="px-5">
   <h3 class="text-xl">Daftar Dokumen</h3>
 
   <Toolbar bind:query {records}>
@@ -86,14 +94,15 @@
               }
             />
           </th>
-          <th class="w-1">No</th>
           <th class="min-w-64">Nama Dokumen</th>
           <th class="w-64">File</th>
-          <th>Metadata</th>
-          <th>Signer</th>
-          <th>Tanggal</th>
+          <th>Tipe</th>
           <th>Status</th>
-          <th class="w-1">#</th>
+          <th>Signer</th>
+          <th>Dibuat</th>
+          <th>Diperbarui</th>
+          <th>Metadata</th>
+          <th class="w-1 text-center">#</th>
         </tr>
       </thead>
       <tbody>
@@ -108,7 +117,7 @@
             <th colspan="4">No data</th>
           </tr>
         {:else}
-          {#each items.data.slice(0, query.limit) as item, i}
+          {#each items.data as item, i}
             <tr>
               <th>
                 <div class="flex gap-1">
@@ -120,7 +129,6 @@
                   />
                 </div>
               </th>
-              <td>{i + 1}</td>
               <td>{item.title}</td>
               <td>
                 <div class="space-y-2">
@@ -134,15 +142,32 @@
                   {/each}
                 </div>
               </td>
-              <td>{JSON.stringify(item.metadata)}</td>
-              <td>{item.signer?.split("@")[0]}</td>
-              <td>{item.created}</td>
+              <td>
+                {#if item.esign}
+                  <span class="badge badge-sm badge-soft badge-success">
+                    ESign
+                  </span>
+                {:else}
+                  <span class="badge badge-sm badge-soft badge-warning">
+                    Manual
+                  </span>
+                {/if}
+              </td>
               <td>{item.status}</td>
+              <td>{item.signer?.split("@")[0]}</td>
+              <td class="text-xs whitespace-nowrap">
+                {d(item.created).format("HH:mm, DD MMM YYYY")}
+              </td>
+              <td class="text-xs whitespace-nowrap">
+                {d(item.updated).format("HH:mm, DD MMM YYYY")}
+              </td>
+              <td>{JSON.stringify(item.metadata)}</td>
               <th>
                 <a
                   href={`/sign?id=${item.id}`}
-                  class="btn btn-xs btn-soft"
+                  class="btn btn-sm btn-soft tooltip tooltip-left"
                   aria-label="sign"
+                  data-tip="Tanda Tangan"
                 >
                   <iconify-icon icon="bx:pen"></iconify-icon>
                 </a>

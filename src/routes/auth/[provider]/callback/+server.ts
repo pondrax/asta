@@ -1,6 +1,8 @@
 import { OAuth, type Providers } from "$lib/server/auth/oauth";
+import { db } from "$lib/server/db/index.js";
 import { createJWT } from "$lib/server/plugins/jwt.js";
 import { error, json, redirect } from "@sveltejs/kit";
+
 export async function GET({ params, url, cookies }) {
   const provider = params.provider as keyof Providers;
 
@@ -21,6 +23,11 @@ export async function GET({ params, url, cookies }) {
     sameSite: 'lax',
     secure: true
   });
+  await db.query.users.upsert({
+    data: {
+      email: user.email,
+    }
+  })
 
   return redirect(302, '/');
   // return json({

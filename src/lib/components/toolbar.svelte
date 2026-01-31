@@ -6,11 +6,14 @@
     loading: boolean
   }"
 >
-  import { getLeafValues } from "$lib/utils";
+  import { getData } from "$lib/remotes/api.remote";
+
+  import { d, getLeafValues } from "$lib/utils";
 
   import Modal from "./modal.svelte";
   type Props = {
     query: {
+      table: string;
       limit: number;
       offset: number;
       search?: string;
@@ -25,6 +28,7 @@
   };
   let {
     query = $bindable({
+      table: "",
       limit: 10,
       offset: 0,
       search: "",
@@ -40,6 +44,34 @@
   let exportAll = $state(false);
   let filterModal = $state(false);
   let search = $state("");
+  let exportLoading = $state(false);
+
+  async function exportData(type: "csv" | "json") {
+    exportLoading = true;
+    let data = records.current?.data ?? [];
+    if (exportAll) {
+      const { limit, offset, ...allQuery } = query;
+      // @ts-expect-error getData dynamic table
+      const allData = await getData(allQuery);
+      data = allData?.data ?? [];
+    }
+
+    const a = document.createElement("a");
+    a.download = `${query.table}-${d().format("YYYYMMDD")}.${type}`;
+    let obj: Blob | undefined;
+    if (type === "csv") {
+      obj = new Blob([JSON.stringify(data)], { type: "text/csv" });
+    } else if (type === "json") {
+      obj = new Blob([JSON.stringify(data, null, 2)], {
+        type: "application/json",
+      });
+    }
+    if (obj) {
+      a.href = URL.createObjectURL(obj);
+      a.click();
+    }
+    exportLoading = false;
+  }
 </script>
 
 <div>
@@ -95,7 +127,7 @@
           <div
             tabindex="0"
             role="button"
-            class="btn btn-sm join-item font-normal flex-col gap-0 text-[10px]!"
+            class="btn btn-sm join-item font-normal flex-col gap-0 text-[10px]! min-w-36 whitespace-nowrap"
             aria-label="Paging"
           >
             <div>
@@ -120,7 +152,7 @@
           >
             <li class="menu-title text-xs">Goto Page</li>
             <li>
-              <div class="input input-sm">
+              <form class="input input-sm">
                 <input
                   type="number"
                   min={1}
@@ -139,7 +171,7 @@
                 >
                   Go
                 </button>
-              </div>
+              </form>
             </li>
             <li></li>
             <li class="menu-title text-xs">Per Page</li>
@@ -173,6 +205,7 @@
             tabindex="-1"
             class="dropdown-content menu bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm"
           >
+            <li class="menu-title text-xs">Actions</li>
             <li>
               <button onclick={() => records.refresh()}>
                 <iconify-icon
@@ -185,24 +218,42 @@
             <li></li>
             <li class="menu-title text-xs">
               <label class="flex justify-between">
-                Export {exportAll ? "All" : "Current Page"}
-                <input
-                  type="checkbox"
-                  class="toggle toggle-sm"
-                  bind:checked={exportAll}
-                />
+                Export {exportAll ? "All Data" : "Current Page"}
+                {#if exportLoading}
+                  <span class="loading loading-spinner loading-xs"></span>
+                {:else}
+                  <input
+                    type="checkbox"
+                    class="toggle toggle-sm"
+                    bind:checked={exportAll}
+                  />
+                {/if}
               </label>
             </li>
-            <li><button>JSON</button></li>
-            <li><button>CSV</button></li>
+            <li>
+              <button
+                onclick={() => exportData("json")}
+                class:pointer-events-none={exportLoading}
+              >
+                <iconify-icon icon="bx:file-blank"></iconify-icon>
+                JSON
+              </button>
+            </li>
+            <li>
+              <button
+                onclick={() => exportData("csv")}
+                class:pointer-events-none={exportLoading}
+              >
+                <iconify-icon icon="bx:file"></iconify-icon>
+                CSV
+              </button>
+            </li>
           </ul>
         </div>
       </div>
     </div>
   </div>
   <div>
-    <!-- {JSON.stringify(query.where)} -->
-
     {#each Object.entries(query.where ?? {}) as [key, value]}
       {@const val = getLeafValues(value)}
       {#if val.length}

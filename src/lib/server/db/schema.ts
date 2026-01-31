@@ -1,6 +1,6 @@
 import { pgTable, integer, text, timestamp, json, customType, date } from 'drizzle-orm/pg-core';
 import { id, created, updated, encryptedJson } from './utils';
-import { boolean } from 'drizzle-orm/gel-core';
+import { boolean, index } from 'drizzle-orm/gel-core';
 
 export const users = pgTable('users', {
 	id,
@@ -43,14 +43,22 @@ export const documents = pgTable('documents', {
 	files: text('files').array(),
 	signatures: text('signatures').array(),
 	checksums: text('checksums').array(),
-	metadata: json('metadata'),
+	metadata: encryptedJson('metadata'),
 	status: text('status').default('draft').$type<'draft' | 'queue' | 'failed' | 'signed'>(),
 	esign: boolean('esign').default(true),
 	signatureProperties: json('signature_properties'),
 	to: text('to').array(),
 	created,
 	updated,
-})
+}, table => [
+	index('documents_owner_idx').on(table.owner),
+	index('documents_signer_idx').on(table.signer),
+	index('documents_checksums_idx').on(table.checksums),
+	index('documents_esign_idx').on(table.esign),
+	index('documents_to_idx').on(table.to),
+	index('documents_status_idx').on(table.status),
+])
+
 export const documentStatistics = pgTable('document_statistics', {
 	id,
 	// date: date('date').defaultNow(),

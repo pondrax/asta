@@ -1,4 +1,4 @@
-import type { BuildQueryResult, ExtractTablesWithRelations } from 'drizzle-orm';
+// import type { BuildQueryResult, ExtractTablesWithRelations } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { env } from '$env/dynamic/private';
 import { relations } from './relations';
