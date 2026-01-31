@@ -43,7 +43,7 @@ export const documents = pgTable('documents', {
 	files: text('files').array(),
 	signatures: text('signatures').array(),
 	checksums: text('checksums').array(),
-	metadata: encryptedJson('metadata'),
+	metadata: json('metadata'),
 	status: text('status').default('draft').$type<'draft' | 'queue' | 'failed' | 'signed'>(),
 	esign: boolean('esign').default(true),
 	signatureProperties: json('signature_properties'),

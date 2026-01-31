@@ -8,5 +8,11 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.users.id,
       to: r.posts.user_id
     }),
+  },
+  documents: {
+    user: r.one.users({
+      from: r.documents.owner,
+      to: r.users.email
+    })
   }
 }))

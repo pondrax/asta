@@ -137,3 +137,46 @@ export async function promisePool<T, R>(
 
   return Promise.all(results);
 }
+
+
+export function getShallowDiff(
+  current: Record<string, any>,
+  base: Record<string, any>
+): Record<string, any> {
+  const diff: Record<string, any> = {};
+
+  for (const key in current) {
+    const currentValue = current[key];
+    const baseValue = base[key];
+
+    const isDifferent =
+      Array.isArray(currentValue) && Array.isArray(baseValue)
+        ? currentValue.length !== baseValue.length ||
+        currentValue.some((v, i) => v !== baseValue[i])
+        : JSON.stringify(currentValue) !== JSON.stringify(baseValue);
+
+    if (!(key in base) || isDifferent) {
+      diff[key] = currentValue;
+    }
+  }
+
+  return diff;
+}
+
+
+export function getLeafValues(obj: unknown): unknown[] {
+  const result: unknown[] = [];
+
+  function recurse(value: unknown) {
+    if (Array.isArray(value)) {
+      value.forEach(recurse);
+    } else if (value !== null && typeof value === 'object') {
+      Object.values(value).forEach(recurse);
+    } else {
+      result.push(value);
+    }
+  }
+
+  recurse(obj);
+  return result;
+}

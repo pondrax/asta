@@ -69,8 +69,8 @@
       {#if user}
         <li>
           <a
-            href="/documents"
-            class:menu-active={page.url.pathname === "/documents"}
+            href="/me/documents"
+            class:menu-active={page.url.pathname === "/me/documents"}
           >
             Dokumen Saya
           </a>
@@ -106,15 +106,21 @@
           class="dropdown-content menu bg-base-100 rounded-box z-1 w-48 mt-3 p-2 shadow-sm"
         >
           <li>
-            <a href="/profile">
-              <iconify-icon icon="bx:user" class="mr-2"></iconify-icon>
-              Profil
+            <a href="/me">
+              <iconify-icon icon="bx:bxs-dashboard" class="mr-2"></iconify-icon>
+              Overview
             </a>
           </li>
           <li>
-            <a href="/documents">
+            <a href="/me/documents">
               <iconify-icon icon="bx:file" class="mr-2"></iconify-icon>
               Dokumen Saya
+            </a>
+          </li>
+          <li>
+            <a href="/me/profile">
+              <iconify-icon icon="bx:user" class="mr-2"></iconify-icon>
+              Profil
             </a>
           </li>
           <li></li>
