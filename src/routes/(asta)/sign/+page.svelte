@@ -32,6 +32,7 @@
   import Char from "$lib/components/char.svelte";
   import { sendMessage } from "$lib/remotes/whatsapp.remote";
 
+  const { data } = $props();
   let turnstileSuccess = $state(false);
   let loading = $state(false);
   let signButton: HTMLButtonElement | null = $state(null);
@@ -176,20 +177,40 @@
   }
   async function init() {
     const docId = createId(10);
-    const id = page.url.searchParams.get("id");
+    const id = data.id || page.url.searchParams.get("id");
     const templateId = page.url.searchParams.get("template");
+
     if (id) {
-      const existing = await getDocument({ id });
-      if (existing) {
-        existing.forEach(async (doc) => {
-          const fileUrl = doc.files?.pop();
-          if (!fileUrl) return;
-          const file = await fetchFile(fileUrl, doc.title || "default.pdf");
-          documents[doc.id ?? docId] = file;
-          activeIndex = doc.id ?? docId;
-          form.email = doc.owner;
-        });
-      }
+      const ids = id.split(",");
+      const chunkIds = Array.from(
+        { length: Math.ceil(ids.length / 100) },
+        (_, i) => ids.slice(i * 100, i * 100 + 100),
+      );
+      let isFirst = true;
+      await Promise.all(
+        chunkIds.map(async (chunkId) => {
+          const existing = await getDocument({ id: chunkId });
+
+          if (!existing) return;
+
+          for (const doc of existing) {
+            const fileUrl = doc.files?.pop();
+            if (!fileUrl) continue;
+
+            const file = await fetchFile(fileUrl, doc.title || "default.pdf");
+
+            const key = doc.id ?? docId;
+
+            documents[key] = file;
+
+            if (isFirst) {
+              activeIndex = key;
+              form.email = doc.owner;
+              isFirst = false;
+            }
+          }
+        }),
+      );
     }
     if (templateId) {
       const existing = await getTemplates({ id: templateId });

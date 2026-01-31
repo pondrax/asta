@@ -39,10 +39,17 @@
       </a>
     </div>
     {#if selections.length}
-      <a href="/sign?id={selections}" class="btn btn-sm btn-primary">
+      <form action="/sign" method="POST">
+        <input type="hidden" name="id" value={selections} />
+        <button type="submit" class="btn btn-sm btn-primary whitespace-nowrap">
+          <iconify-icon icon="bx:pen"></iconify-icon>
+          Tanda Tangan
+        </button>
+      </form>
+      <!-- <a href="/sign?id={selections}" class="btn btn-sm btn-primary">
         <iconify-icon icon="bx:pen" class="mr-2"></iconify-icon>
-        Tanda Tangan
-      </a>
+        Share
+      </a> -->
       <button class="btn btn-sm btn-error">
         <iconify-icon icon="bx:trash" class="mr-2"></iconify-icon>
         Hapus
@@ -163,14 +170,17 @@
               </td>
               <td>{JSON.stringify(item.metadata)}</td>
               <th>
-                <a
-                  href={`/sign?id=${item.id}`}
-                  class="btn btn-sm btn-soft tooltip tooltip-left"
-                  aria-label="sign"
-                  data-tip="Tanda Tangan"
-                >
-                  <iconify-icon icon="bx:pen"></iconify-icon>
-                </a>
+                <form action="/sign" method="POST">
+                  <input type="hidden" name="id" value={item.id} />
+                  <button
+                    type="submit"
+                    class="btn btn-sm btn-soft tooltip tooltip-left"
+                    aria-label="sign"
+                    data-tip="Tanda Tangan"
+                  >
+                    <iconify-icon icon="bx:pen"></iconify-icon>
+                  </button>
+                </form>
               </th>
             </tr>
           {/each}

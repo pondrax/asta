@@ -37,7 +37,7 @@
     children,
     extended,
     filter,
-    pageList = $bindable([5, 10, 20, 30, 50, 100, 250]),
+    pageList = $bindable([5, 10, 20, 30, 50, 100, 250, 500, 1000]),
     defaultFilter = [],
   }: Props = $props();
 

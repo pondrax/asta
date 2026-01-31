@@ -216,9 +216,10 @@ export const verifyDocument = command(type({
 
 
 export const getDocument = query(type({
-  id: 'string',
+  id: 'string|string[]',
   checksum: 'string?',
 }), async (props) => {
+  const ids = Array.isArray(props.id) ? props.id : [props.id];
   const document = await db.query.documents.findMany({
     where: {
       OR: [
@@ -229,13 +230,13 @@ export const getDocument = query(type({
         // },
         {
           id: {
-            in: props.id.split(','),
+            in: ids,
           }
         }
       ]
     }
   })
-  console.log(document);
+  // console.log(document);
   return document;
 })
 
