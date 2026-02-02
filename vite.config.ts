@@ -29,4 +29,7 @@ export default defineConfig({
 			}
 		]
 	},
+	build: {
+		chunkSizeWarningLimit: 1000 // in kB, e.g., 1000 kB
+	}
 });

@@ -1,7 +1,7 @@
-import { command, form, getRequestEvent, query } from "$app/server";
+import { form, getRequestEvent, query } from "$app/server";
 import { db } from "$lib/server/db";
 import { delay } from "$lib/utils";
-import { eq, inArray, sql } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 
 type Tables = typeof db.query;
 

@@ -1,4 +1,4 @@
-import { pgTable, integer, text, timestamp, json, customType, date } from 'drizzle-orm/pg-core';
+import { pgTable, integer, text, timestamp, json, customType } from 'drizzle-orm/pg-core';
 import { id, created, updated, encryptedJson } from './utils';
 import { boolean, index } from 'drizzle-orm/gel-core';
 

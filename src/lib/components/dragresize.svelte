@@ -93,6 +93,8 @@
 </script>
 
 <div
+  tabindex="0"
+  role="button"
   class="absolute select-none"
   style="
     left: {x * scale}px;
@@ -104,10 +106,30 @@
   {@render children?.()}
 
   <!-- corners -->
-  <div class="corner nw" onpointerdown={(e) => pointerDown(e, "nw")}></div>
-  <div class="corner ne" onpointerdown={(e) => pointerDown(e, "ne")}></div>
-  <div class="corner sw" onpointerdown={(e) => pointerDown(e, "sw")}></div>
-  <div class="corner se" onpointerdown={(e) => pointerDown(e, "se")}></div>
+  <div
+    tabindex="0"
+    role="button"
+    class="corner nw"
+    onpointerdown={(e) => pointerDown(e, "nw")}
+  ></div>
+  <div
+    tabindex="0"
+    role="button"
+    class="corner ne"
+    onpointerdown={(e) => pointerDown(e, "ne")}
+  ></div>
+  <div
+    tabindex="0"
+    role="button"
+    class="corner sw"
+    onpointerdown={(e) => pointerDown(e, "sw")}
+  ></div>
+  <div
+    tabindex="0"
+    role="button"
+    class="corner se"
+    onpointerdown={(e) => pointerDown(e, "se")}
+  ></div>
 </div>
 
 <style>
