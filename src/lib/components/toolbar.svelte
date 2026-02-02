@@ -6,11 +6,12 @@
     loading: boolean
   }"
 >
-  import { getData } from "$lib/remotes/api.remote";
-
   import { d, getLeafValues } from "$lib/utils";
-
+  import Export from "./export.svelte";
   import Modal from "./modal.svelte";
+
+  type Item = NonNullable<T["current"]>["data"][number];
+  type Where = NonNullable<Props["query"]["where"]>;
   type Props = {
     query: {
       table: string;
@@ -22,7 +23,12 @@
     records: T;
     children?: () => any;
     extended?: () => any;
-    filter?: () => any;
+    filter?: (query: Where) => any;
+    del?: () => any;
+    mapper?: {
+      import?: (item: Item, data: Item[]) => void;
+      export?: (item: Item, index: number, data: Item[]) => any;
+    };
     pageList?: number[];
     defaultFilter?: Record<string, any>;
   };
@@ -37,40 +43,30 @@
     children,
     extended,
     filter,
+    del,
+    mapper,
     pageList = $bindable([5, 10, 20, 30, 50, 100, 250, 500, 1000]),
     defaultFilter = [],
   }: Props = $props();
 
+  let search = $state("");
+  let filterWhere: Where = $state({});
   let exportAll = $state(false);
   let filterModal = $state(false);
-  let search = $state("");
   let exportLoading = $state(false);
 
-  async function exportData(type: "csv" | "json") {
-    exportLoading = true;
-    let data = records.current?.data ?? [];
-    if (exportAll) {
-      const { limit, offset, ...allQuery } = query;
-      // @ts-expect-error getData dynamic table
-      const allData = await getData(allQuery);
-      data = allData?.data ?? [];
+  let searchInput = $state() as HTMLInputElement;
+  function handleKeyDown(e: KeyboardEvent) {
+    if (e.altKey && e.key === "ArrowLeft") {
+      query.offset = Math.max(0, query.offset - query.limit);
+    } else if (e.altKey && e.key === "ArrowRight") {
+      query.offset = Math.min(
+        records.current?.count || 0,
+        query.offset + query.limit,
+      );
+    } else if (e.metaKey && e.key === "k") {
+      searchInput.focus();
     }
-
-    const a = document.createElement("a");
-    a.download = `${query.table}-${d().format("YYYYMMDD")}.${type}`;
-    let obj: Blob | undefined;
-    if (type === "csv") {
-      obj = new Blob([JSON.stringify(data)], { type: "text/csv" });
-    } else if (type === "json") {
-      obj = new Blob([JSON.stringify(data, null, 2)], {
-        type: "application/json",
-      });
-    }
-    if (obj) {
-      a.href = URL.createObjectURL(obj);
-      a.click();
-    }
-    exportLoading = false;
   }
 </script>
 
@@ -78,28 +74,46 @@
   <div class="flex gap-2 justify-between mb-2 z-1 relative">
     <div class="flex gap-2">
       {#if filter}
-        <button class="btn btn-sm" onclick={() => (filterModal = !filterModal)}>
+        <button
+          class="btn btn-sm"
+          onclick={() => {
+            filterModal = !filterModal;
+            filterWhere = Object.assign({}, query.where);
+          }}
+        >
           <iconify-icon icon="bx:filter-alt"></iconify-icon>
           Filter
         </button>
       {/if}
-      <div class="input input-sm">
-        <iconify-icon icon="bx:search"></iconify-icon>
-        <input
-          type="search"
-          placeholder="Cari dokumen"
-          class="transition-all"
-          onfocus={(e) => e.currentTarget.classList.add("w-64")}
-          onblur={(e) => e.currentTarget.classList.remove("w-64")}
-          bind:value={
-            () => search,
-            (v) => {
-              search = v;
-              query.search = v;
-              query.offset = 0;
+
+      <div class="tooltip tooltip-bottom">
+        {#if !search}
+          <div class="tooltip-content text-xs">
+            Search
+            <kbd class="kbd kbd-xs text-neutral ml-2">Cmd</kbd>
+            +
+            <kbd class="kbd kbd-xs text-neutral">K</kbd>
+          </div>
+        {/if}
+        <div class="input input-sm">
+          <iconify-icon icon="bx:search"></iconify-icon>
+          <input
+            bind:this={searchInput}
+            type="search"
+            placeholder="Cari dokumen"
+            class="transition-all"
+            onfocus={(e) => e.currentTarget.classList.add("w-64")}
+            onblur={(e) => e.currentTarget.classList.remove("w-64")}
+            bind:value={
+              () => search,
+              (v) => {
+                search = v;
+                query.search = v;
+                query.offset = 0;
+              }
             }
-          }
-        />
+          />
+        </div>
       </div>
       {@render children?.()}
     </div>
@@ -107,22 +121,40 @@
     <div class="flex gap-2">
       {@render extended?.()}
       <div class="join">
-        <button
-          class="btn btn-sm join-item"
-          onclick={() => (query.offset -= query.limit)}
-          disabled={query.offset <= 0}
-          aria-label="Previous"
-        >
-          <iconify-icon icon="bx:chevron-left"></iconify-icon>
-        </button>
-        <button
-          class="btn btn-sm join-item"
-          onclick={() => (query.offset += query.limit)}
-          disabled={query.offset + query.limit >= (records.current?.count || 0)}
-          aria-label="Next"
-        >
-          <iconify-icon icon="bx:chevron-right"></iconify-icon>
-        </button>
+        <div class="tooltip tooltip-bottom">
+          <div class="tooltip-content text-xs">
+            Previous
+            <kbd class="kbd kbd-xs text-neutral ml-2">Alt</kbd>
+            +
+            <kbd class="kbd kbd-xs text-neutral">←</kbd>
+          </div>
+          <button
+            class="btn btn-sm join-item"
+            onclick={() => (query.offset -= query.limit)}
+            disabled={query.offset <= 0}
+            aria-label="Previous"
+          >
+            <iconify-icon icon="bx:chevron-left"></iconify-icon>
+          </button>
+        </div>
+        <div class="tooltip tooltip-bottom">
+          <div class="tooltip-content text-xs">
+            Next
+            <kbd class="kbd kbd-xs text-neutral ml-2">Alt</kbd>
+            +
+            <kbd class="kbd kbd-xs text-neutral">→</kbd>
+          </div>
+          <button
+            class="btn btn-sm join-item"
+            onclick={() => (query.offset += query.limit)}
+            disabled={query.offset + query.limit >=
+              (records.current?.count || 0)}
+            aria-label="Next"
+          >
+            <iconify-icon icon="bx:chevron-right"></iconify-icon>
+          </button>
+        </div>
+
         <div class="dropdown dropdown-end">
           <div
             tabindex="0"
@@ -138,6 +170,8 @@
                   : query.offset + query.limit}
                 of
                 {records.current?.count}
+              {:else if records.loading}
+                Loading...
               {:else}
                 No data
               {/if}
@@ -230,24 +264,13 @@
                 {/if}
               </label>
             </li>
-            <li>
-              <button
-                onclick={() => exportData("json")}
-                class:pointer-events-none={exportLoading}
-              >
-                <iconify-icon icon="bx:file-blank"></iconify-icon>
-                JSON
-              </button>
-            </li>
-            <li>
-              <button
-                onclick={() => exportData("csv")}
-                class:pointer-events-none={exportLoading}
-              >
-                <iconify-icon icon="bx:file"></iconify-icon>
-                CSV
-              </button>
-            </li>
+            <Export
+              data={records.current?.data || []}
+              bind:exportLoading
+              {exportAll}
+              {query}
+              {mapper}
+            />
           </ul>
         </div>
       </div>
@@ -286,5 +309,33 @@
 </div>
 
 <Modal bind:data={filterModal} title="Filter Data">
-  {@render filter?.()}
+  <form
+    onsubmit={() => {
+      query.where = Object.assign({}, filterWhere);
+      filterModal = false;
+    }}
+  >
+    <div class="space-y-2 min-h-30 overflow-y-auto px-1">
+      {@render filter?.(filterWhere)}
+    </div>
+    <div class="flex gap-2">
+      <button type="submit" class="btn btn-sm btn-primary">
+        <iconify-icon icon="bx:filter-alt"></iconify-icon>
+        Filter
+      </button>
+      <button
+        type="button"
+        class="btn btn-sm btn-soft"
+        onclick={() => {
+          query.where = {};
+          filterModal = false;
+        }}
+      >
+        <iconify-icon icon="bx:x"></iconify-icon>
+        Reset
+      </button>
+    </div>
+  </form>
 </Modal>
+
+<svelte:window onkeydown={handleKeyDown} />

@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { getData, type GetParams } from "$lib/remotes/api.remote";
-  import { Toolbar } from "$lib/components";
+  import { delData, getData, type GetParams } from "$lib/remotes/api.remote";
+  import { Modal, Toolbar } from "$lib/components";
   import { d } from "$lib/utils";
 
   const expand = {
@@ -17,18 +17,66 @@
   });
   const records = $derived(getData({ ...query, ...expand }));
   const items = $derived(records.current ?? { data: [], count: 0 });
+  const forms: Record<string, any> = $state({});
   let selections: string[] = $state([]);
-
   $effect(() => {
-    items;
+    items.count;
     selections = [];
   });
 </script>
 
+<Modal bind:data={forms.del} title="Delete Data">
+  <form
+    {...delData.enhance(async ({ form, data, submit }) => {
+      try {
+        await submit();
+        forms.del = false;
+      } catch (e) {
+        console.error(e);
+      }
+    })}
+  >
+    <input type="hidden" name="table" value="documents" />
+    <p class="sticky top-0 bg-base-100 py-2">
+      Apakah Anda yakin ingin menghapus data ini?
+    </p>
+    {#each selections as id}
+      {@const item = items.data.find((i) => i.id === id)}
+      <div>
+        <input type="text" name="id[]" value={id} class="w-20" readonly />
+        - {item?.title}
+      </div>
+    {/each}
+    <div class="sticky bottom-0 bg-base-100 pt-2">
+      <button
+        type="submit"
+        class="btn btn-sm btn-error"
+        disabled={!!delData.pending}
+      >
+        {#if delData.pending}
+          <span class="loading loading-spinner loading-xs"></span>
+        {:else}
+          <iconify-icon icon="bx:trash"></iconify-icon>
+        {/if}
+        Hapus
+      </button>
+    </div>
+  </form>
+</Modal>
+
 <div class="px-5">
   <h3 class="text-xl">Daftar Dokumen</h3>
 
-  <Toolbar bind:query {records}>
+  <Toolbar
+    bind:query
+    {records}
+    mapper={{
+      export: (item) => ({
+        coba: item.id,
+        ...item,
+      }),
+    }}
+  >
     <div class="fab">
       <a
         href="/sign"
@@ -50,56 +98,70 @@
         <iconify-icon icon="bx:pen" class="mr-2"></iconify-icon>
         Share
       </a> -->
-      <button class="btn btn-sm btn-error">
+      <button class="btn btn-sm btn-error" onclick={() => (forms.del = true)}>
         <iconify-icon icon="bx:trash" class="mr-2"></iconify-icon>
         Hapus
       </button>
     {/if}
     {#snippet extended()}
-      <form
-        class="filter"
-        onchange={(e) => (query.where!.status = e.currentTarget.status.value)}
-        onreset={() => (query.where!.status = {})}
-      >
-        <input class="btn btn-sm btn-square" type="reset" value="x" />
+      <div class="filter">
         <input
+          bind:group={query.where!.status}
+          value={{}}
+          class="btn btn-sm filter-reset w-15"
+          type="radio"
+          name="status"
+          aria-label="Semua"
+        />
+        <input
+          bind:group={query.where!.status}
+          value="draft"
           class="btn btn-sm"
           type="radio"
           name="status"
-          value="draft"
           aria-label="Draft"
         />
         <input
+          bind:group={query.where!.status}
+          value="signed"
           class="btn btn-sm"
           type="radio"
           name="status"
-          value="signed"
           aria-label="Ditandatangani"
         />
-      </form>
+      </div>
     {/snippet}
-    {#snippet filter()}
-      <input bind:value={query.search} />
+    {#snippet filter(where)}
+      <div>
+        <span class="text-xs">Judul</span>
+        <input bind:value={where.title} class="input input-sm" />
+      </div>
     {/snippet}
   </Toolbar>
 
   <div class="overflow-x-auto h-[calc(100vh-12rem)] w-full z-0 relative">
-    <table class="table table-pin-rows table-pin-cols">
+    <table class="table table-sm table-pin-rows table-pin-cols">
       <thead>
         <tr>
           <th class="w-1 z-1">
-            <input
-              type="checkbox"
-              class="checkbox"
-              bind:checked={
-                () =>
-                  !!selections.length &&
-                  selections.length === items.data?.length,
-                (v) => {
-                  selections = v ? items.data?.map((r) => r.id) || [] : [];
+            <div
+              class="tooltip tooltip-right"
+              class:tooltip-open={!!selections.length}
+              data-tip="{selections.length} Terpilih"
+            >
+              <input
+                type="checkbox"
+                class="checkbox"
+                bind:checked={
+                  () =>
+                    !!selections.length &&
+                    selections.length === items.data?.length,
+                  (v) => {
+                    selections = v ? items.data?.map((r) => r.id) || [] : [];
+                  }
                 }
-              }
-            />
+              />
+            </div>
           </th>
           <th class="min-w-64">Nama Dokumen</th>
           <th class="w-64">File</th>

@@ -180,3 +180,8 @@ export function getLeafValues(obj: unknown): unknown[] {
   recurse(obj);
   return result;
 }
+
+
+export function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
