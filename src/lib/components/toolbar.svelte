@@ -68,25 +68,41 @@
   }
 
   function handleKeyDown(e: KeyboardEvent) {
-    const mod = e.ctrlKey || e.metaKey;
-    if (!mod) return;
+    const el = document.activeElement as HTMLElement | null;
+    if (
+      el &&
+      (el.tagName === "INPUT" ||
+        el.tagName === "TEXTAREA" ||
+        el.isContentEditable)
+    ) {
+      return;
+    }
+
+    const parts: string[] = [];
+
+    if (e.ctrlKey || e.metaKey) parts.push("Mod");
+    if (e.shiftKey) parts.push("Shift");
+
+    const key = e.key.length === 1 ? e.key.toUpperCase() : e.key;
+
+    parts.push(key);
+
+    const combo = parts.join("+");
+
     const shortcuts: Record<string, () => void> = {
-      "Shift+ArrowLeft": () =>
-        (query.offset = Math.max(0, query.offset - query.limit)),
-      "Shift+ArrowRight": () =>
+      "Shift+f": () => (filterModal = !filterModal),
+      "Mod+k": () => toggleFocus(searchInput),
+      "Shift+J": () => (query.offset = Math.max(0, query.offset - query.limit)),
+      "Shift+K": () =>
         (query.offset = Math.min(
           records.current?.count || 0,
           query.offset + query.limit,
         )),
-      "Shift+f": () => (filterModal = !filterModal),
-      "Shift+g": () => toggleFocus(pagingDropdown),
-      "Shift+a": () => toggleFocus(actionDropdown),
-      k: () => toggleFocus(searchInput),
+      "Shift+L": () => toggleFocus(pagingDropdown),
+      "Shift+:": () => toggleFocus(actionDropdown),
     };
 
-    const key = e.shiftKey ? `Shift+${e.key}` : e.key;
-
-    const handler = shortcuts[key];
+    const handler = shortcuts[combo];
 
     if (!handler) return;
 
@@ -102,9 +118,9 @@
         <div class="tooltip">
           <div class="tooltip-content text-xs">
             Filter
-            <kbd class="kbd kbd-sm ml-2">⌘</kbd>
-            <kbd class="kbd kbd-sm">⇧</kbd>
-            <kbd class="kbd kbd-sm">F</kbd>
+            <kbd class="kbd kbd-xs">Shift</kbd>
+            +
+            <kbd class="kbd kbd-xs">F</kbd>
           </div>
           <button
             class="btn btn-sm"
@@ -123,8 +139,9 @@
         {#if !search}
           <div class="tooltip-content text-xs">
             Search
-            <kbd class="kbd kbd-sm ml-2">⌘</kbd>
-            <kbd class="kbd kbd-sm">K</kbd>
+            <kbd class="kbd kbd-xs">CMD</kbd>
+            +
+            <kbd class="kbd kbd-xs">K</kbd>
           </div>
         {/if}
         <div class="input input-sm">
@@ -156,9 +173,9 @@
         <div class="tooltip">
           <div class="tooltip-content text-xs">
             Previous
-            <kbd class="kbd kbd-sm ml-2">⌘</kbd>
-            <kbd class="kbd kbd-sm">⇧</kbd>
-            <kbd class="kbd kbd-sm">←</kbd>
+            <kbd class="kbd kbd-xs">Shift</kbd>
+            +
+            <kbd class="kbd kbd-xs">J</kbd>
           </div>
           <button
             class="btn btn-sm join-item"
@@ -172,9 +189,9 @@
         <div class="tooltip">
           <div class="tooltip-content text-xs">
             Next
-            <kbd class="kbd kbd-sm ml-2">⌘</kbd>
-            <kbd class="kbd kbd-sm">⇧</kbd>
-            <kbd class="kbd kbd-sm">→</kbd>
+            <kbd class="kbd kbd-xs">Shift</kbd>
+            +
+            <kbd class="kbd kbd-xs">K</kbd>
           </div>
           <button
             class="btn btn-sm join-item"
@@ -191,9 +208,9 @@
           <div class="tooltip">
             <div class="tooltip-content text-xs">
               Paging
-              <kbd class="kbd kbd-sm">⌘</kbd>
-              <kbd class="kbd kbd-sm">⇧</kbd>
-              <kbd class="kbd kbd-sm">G</kbd>
+              <kbd class="kbd kbd-xs">Shift</kbd>
+              +
+              <kbd class="kbd kbd-xs">L</kbd>
             </div>
             <div
               bind:this={pagingDropdown}
@@ -271,9 +288,9 @@
         <div class="dropdown dropdown-end">
           <div class="tooltip">
             <div class="tooltip-content text-xs">
-              <kbd class="kbd kbd-sm">⌘</kbd>
-              <kbd class="kbd kbd-sm">⇧</kbd>
-              <kbd class="kbd kbd-sm">A</kbd>
+              <kbd class="kbd kbd-xs">Shift</kbd>
+              +
+              <kbd class="kbd kbd-xs">;</kbd>
             </div>
             <div
               bind:this={actionDropdown}
