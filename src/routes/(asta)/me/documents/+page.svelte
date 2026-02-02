@@ -64,7 +64,7 @@
   </form>
 </Modal>
 
-<div class="px-5">
+<div class="px-5 overflow-x-clip pt-2">
   <h3 class="text-xl">Daftar Dokumen</h3>
 
   <Toolbar
@@ -80,7 +80,8 @@
     <div class="fab">
       <a
         href="/sign"
-        class="btn btn-lg btn-circle btn-primary"
+        class="btn btn-lg btn-circle btn-primary tooltip"
+        data-tip="Unggah"
         aria-label="Unggah"
       >
         <iconify-icon icon="bx:plus"></iconify-icon>
@@ -107,14 +108,6 @@
       <div class="filter">
         <input
           bind:group={query.where!.status}
-          value={{}}
-          class="btn btn-sm filter-reset w-15"
-          type="radio"
-          name="status"
-          aria-label="Semua"
-        />
-        <input
-          bind:group={query.where!.status}
           value="draft"
           class="btn btn-sm"
           type="radio"
@@ -128,6 +121,14 @@
           type="radio"
           name="status"
           aria-label="Ditandatangani"
+        />
+        <input
+          bind:group={query.where!.status}
+          value={{}}
+          class="btn btn-sm filter-reset"
+          type="radio"
+          name="status"
+          aria-label="x"
         />
       </div>
     {/snippet}
@@ -147,7 +148,9 @@
             <div
               class="tooltip tooltip-right"
               class:tooltip-open={!!selections.length}
-              data-tip="{selections.length} Terpilih"
+              data-tip={selections.length
+                ? selections.length + " Terpilih"
+                : "Pilih Semua"}
             >
               <input
                 type="checkbox"
@@ -232,17 +235,28 @@
               </td>
               <td>{JSON.stringify(item.metadata)}</td>
               <th>
-                <form action="/sign" method="POST">
-                  <input type="hidden" name="id" value={item.id} />
-                  <button
-                    type="submit"
-                    class="btn btn-sm btn-soft tooltip tooltip-left"
-                    aria-label="sign"
-                    data-tip="Tanda Tangan"
+                <div class="flex gap-1 -m-1">
+                  <form action="/sign" method="POST" target="_blank">
+                    <input type="hidden" name="id" value={item.id} />
+                    <button
+                      type="submit"
+                      class="btn btn-sm btn-soft btn-primary tooltip tooltip-left"
+                      aria-label="sign"
+                      data-tip="Tanda Tangan"
+                    >
+                      <iconify-icon icon="bx:pen"></iconify-icon>
+                    </button>
+                  </form>
+                  <a
+                    href="/verify?id={item.id}"
+                    target="_blank"
+                    class="btn btn-sm btn-soft btn-accent tooltip tooltip-left"
+                    aria-label="Verifikasi"
+                    data-tip="Verifikasi Dokumen"
                   >
-                    <iconify-icon icon="bx:pen"></iconify-icon>
-                  </button>
-                </form>
+                    <iconify-icon icon="bx:search"></iconify-icon>
+                  </a>
+                </div>
               </th>
             </tr>
           {/each}

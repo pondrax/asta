@@ -32,11 +32,6 @@
         <li><a href="/sign">Tanda Tangan</a></li>
         <li><a href="/verify">Verifikasi</a></li>
         <li><a href="/user-guide">Panduan</a></li>
-        <li>
-          <a href="/auth/openid" class="btn btn-sm btn-primary btn-soft mt-2">
-            Masuk
-          </a>
-        </li>
       </ul>
     </div>
     <a class="btn btn-ghost text-xl px-0 h-15" href="/" aria-label="Logo">
@@ -118,7 +113,7 @@
             </a>
           </li>
           <li>
-            <a href="/me/profile">
+            <a href={`${data.baseURLSSO}/account`} target="_blank">
               <iconify-icon icon="bx:user" class="mr-2"></iconify-icon>
               Profil
             </a>

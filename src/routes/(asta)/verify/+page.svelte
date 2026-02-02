@@ -103,7 +103,7 @@
   }
 </script>
 
-<div class="p-5 flex gap-5 h-[calc(100vh-75px)] flex-col md:flex-row">
+<div class="px-5 flex gap-5 h-[calc(100vh-100px)] flex-col md:flex-row">
   <div class="grow h-full min-h-200 md:order-2">
     {#if previewFile}
       <Preview file={previewFile} />

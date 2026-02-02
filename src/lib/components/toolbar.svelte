@@ -24,7 +24,6 @@
     children?: () => any;
     extended?: () => any;
     filter?: (query: Where) => any;
-    del?: () => any;
     mapper?: {
       import?: (item: Item, data: Item[]) => void;
       export?: (item: Item, index: number, data: Item[]) => any;
@@ -43,7 +42,6 @@
     children,
     extended,
     filter,
-    del,
     mapper,
     pageList = $bindable([5, 10, 20, 30, 50, 100, 250, 500, 1000]),
     defaultFilter = [],
@@ -56,17 +54,44 @@
   let exportLoading = $state(false);
 
   let searchInput = $state() as HTMLInputElement;
-  function handleKeyDown(e: KeyboardEvent) {
-    if (e.altKey && e.key === "ArrowLeft") {
-      query.offset = Math.max(0, query.offset - query.limit);
-    } else if (e.altKey && e.key === "ArrowRight") {
-      query.offset = Math.min(
-        records.current?.count || 0,
-        query.offset + query.limit,
-      );
-    } else if (e.metaKey && e.key === "k") {
-      searchInput.focus();
+  let pagingDropdown = $state() as HTMLDivElement;
+  let actionDropdown = $state() as HTMLDivElement;
+
+  function toggleFocus(el: HTMLElement | null | undefined) {
+    if (!el) return;
+
+    if (document.activeElement === el) {
+      el.blur(); // unfocus
+    } else {
+      el.focus();
     }
+  }
+
+  function handleKeyDown(e: KeyboardEvent) {
+    const mod = e.ctrlKey || e.metaKey;
+    if (!mod) return;
+    const shortcuts: Record<string, () => void> = {
+      "Shift+ArrowLeft": () =>
+        (query.offset = Math.max(0, query.offset - query.limit)),
+      "Shift+ArrowRight": () =>
+        (query.offset = Math.min(
+          records.current?.count || 0,
+          query.offset + query.limit,
+        )),
+      "Shift+f": () => (filterModal = !filterModal),
+      "Shift+g": () => toggleFocus(pagingDropdown),
+      "Shift+a": () => toggleFocus(actionDropdown),
+      k: () => toggleFocus(searchInput),
+    };
+
+    const key = e.shiftKey ? `Shift+${e.key}` : e.key;
+
+    const handler = shortcuts[key];
+
+    if (!handler) return;
+
+    e.preventDefault();
+    handler();
   }
 </script>
 
@@ -74,25 +99,32 @@
   <div class="flex gap-2 justify-between mb-2 z-1 relative">
     <div class="flex gap-2">
       {#if filter}
-        <button
-          class="btn btn-sm"
-          onclick={() => {
-            filterModal = !filterModal;
-            filterWhere = Object.assign({}, query.where);
-          }}
-        >
-          <iconify-icon icon="bx:filter-alt"></iconify-icon>
-          Filter
-        </button>
+        <div class="tooltip">
+          <div class="tooltip-content text-xs">
+            Filter
+            <kbd class="kbd kbd-sm ml-2">⌘</kbd>
+            <kbd class="kbd kbd-sm">⇧</kbd>
+            <kbd class="kbd kbd-sm">F</kbd>
+          </div>
+          <button
+            class="btn btn-sm"
+            onclick={() => {
+              filterModal = !filterModal;
+              filterWhere = Object.assign({}, query.where);
+            }}
+          >
+            <iconify-icon icon="bx:filter-alt"></iconify-icon>
+            Filter
+          </button>
+        </div>
       {/if}
 
-      <div class="tooltip tooltip-bottom">
+      <div class="tooltip">
         {#if !search}
           <div class="tooltip-content text-xs">
             Search
-            <kbd class="kbd kbd-xs text-neutral ml-2">Cmd</kbd>
-            +
-            <kbd class="kbd kbd-xs text-neutral">K</kbd>
+            <kbd class="kbd kbd-sm ml-2">⌘</kbd>
+            <kbd class="kbd kbd-sm">K</kbd>
           </div>
         {/if}
         <div class="input input-sm">
@@ -121,12 +153,12 @@
     <div class="flex gap-2">
       {@render extended?.()}
       <div class="join">
-        <div class="tooltip tooltip-bottom">
+        <div class="tooltip">
           <div class="tooltip-content text-xs">
             Previous
-            <kbd class="kbd kbd-xs text-neutral ml-2">Alt</kbd>
-            +
-            <kbd class="kbd kbd-xs text-neutral">←</kbd>
+            <kbd class="kbd kbd-sm ml-2">⌘</kbd>
+            <kbd class="kbd kbd-sm">⇧</kbd>
+            <kbd class="kbd kbd-sm">←</kbd>
           </div>
           <button
             class="btn btn-sm join-item"
@@ -137,12 +169,12 @@
             <iconify-icon icon="bx:chevron-left"></iconify-icon>
           </button>
         </div>
-        <div class="tooltip tooltip-bottom">
+        <div class="tooltip">
           <div class="tooltip-content text-xs">
             Next
-            <kbd class="kbd kbd-xs text-neutral ml-2">Alt</kbd>
-            +
-            <kbd class="kbd kbd-xs text-neutral">→</kbd>
+            <kbd class="kbd kbd-sm ml-2">⌘</kbd>
+            <kbd class="kbd kbd-sm">⇧</kbd>
+            <kbd class="kbd kbd-sm">→</kbd>
           </div>
           <button
             class="btn btn-sm join-item"
@@ -156,28 +188,37 @@
         </div>
 
         <div class="dropdown dropdown-end">
-          <div
-            tabindex="0"
-            role="button"
-            class="btn btn-sm join-item font-normal flex-col gap-0 text-[10px]! min-w-36 whitespace-nowrap"
-            aria-label="Paging"
-          >
-            <div>
-              {#if records.current?.count}
-                {query.offset + 1} -
-                {isNaN(query.limit) || query.limit > records.current?.count
-                  ? records.current?.count
-                  : query.offset + query.limit}
-                of
-                {records.current?.count}
-              {:else if records.loading}
-                Loading...
-              {:else}
-                No data
-              {/if}
+          <div class="tooltip">
+            <div class="tooltip-content text-xs">
+              Paging
+              <kbd class="kbd kbd-sm">⌘</kbd>
+              <kbd class="kbd kbd-sm">⇧</kbd>
+              <kbd class="kbd kbd-sm">G</kbd>
             </div>
-            <div>
-              {records.current?.time}
+            <div
+              bind:this={pagingDropdown}
+              tabindex="0"
+              role="button"
+              class="btn btn-sm join-item font-normal flex-col gap-0 text-[10px]! min-w-36 whitespace-nowrap"
+              aria-label="Paging"
+            >
+              <div>
+                {#if records.current?.count}
+                  {query.offset + 1} -
+                  {isNaN(query.limit) || query.limit > records.current?.count
+                    ? records.current?.count
+                    : query.offset + query.limit}
+                  of
+                  {records.current?.count}
+                {:else if records.loading}
+                  Loading...
+                {:else}
+                  No data
+                {/if}
+              </div>
+              <div>
+                {records.current?.time}
+              </div>
             </div>
           </div>
           <ul
@@ -226,14 +267,23 @@
             {/each}
           </ul>
         </div>
+
         <div class="dropdown dropdown-end">
-          <div
-            tabindex="0"
-            role="button"
-            class="btn btn-sm join-item"
-            aria-label="Setting"
-          >
-            <iconify-icon icon="bx:dots-vertical"></iconify-icon>
+          <div class="tooltip">
+            <div class="tooltip-content text-xs">
+              <kbd class="kbd kbd-sm">⌘</kbd>
+              <kbd class="kbd kbd-sm">⇧</kbd>
+              <kbd class="kbd kbd-sm">A</kbd>
+            </div>
+            <div
+              bind:this={actionDropdown}
+              tabindex="0"
+              role="button"
+              class="btn btn-sm join-item"
+              aria-label="Setting"
+            >
+              <iconify-icon icon="bx:dots-vertical"></iconify-icon>
+            </div>
           </div>
           <ul
             tabindex="-1"
@@ -319,7 +369,7 @@
       {@render filter?.(filterWhere)}
     </div>
     <div class="flex gap-2">
-      <button type="submit" class="btn btn-sm btn-primary">
+      <button type="submit" class="btn btn-sm btn-secondary">
         <iconify-icon icon="bx:filter-alt"></iconify-icon>
         Filter
       </button>

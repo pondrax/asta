@@ -265,145 +265,145 @@
   <title>Tapak Astà - Tanda Tangan Dokumen</title>
 </svelte:head>
 
-<div class="p-5">
-  <div class="h-[calc(100vh-110px)] flex gap-5 flex-col md:flex-row">
-    <div class="rounded-2xl grow min-h-150 sm:order-1">
-      <div class:hidden={!documents[activeIndex]} class="h-full relative">
-        {#if hasSignature}
-          <div
-            class="absolute -top-5 alert py-1 px-5 alert-warning left-0 right-0 z-5"
+<!-- <div class="px-5"> -->
+<div class="h-[calc(100vh-100px)] flex gap-5 flex-col md:flex-row">
+  <div class="rounded-2xl grow min-h-150 sm:order-1">
+    <div class:hidden={!documents[activeIndex]} class="h-full relative">
+      {#if hasSignature}
+        <div
+          class="absolute -top-5 alert py-1 px-5 alert-warning left-0 right-0 z-5"
+        >
+          <iconify-icon icon="bx:error" class="text-xl"></iconify-icon>
+          <span>
+            <strong>Peringatan:</strong> Terdapat tanda tangan elektronik pada dokumen
+            ini.
+          </span>
+          <button
+            type="button"
+            class="btn btn-xs btn-primary"
+            onclick={() => {
+              const file = documents[activeIndex];
+              const blobURL = URL.createObjectURL(file);
+              const blobId = blobURL.split("/").pop();
+              goto(`/verify?blob=${blobId}&fileName=${file.name}`);
+            }}
           >
-            <iconify-icon icon="bx:error" class="text-xl"></iconify-icon>
-            <span>
-              <strong>Peringatan:</strong> Terdapat tanda tangan elektronik pada
-              dokumen ini.
-            </span>
-            <button
-              type="button"
-              class="btn btn-xs btn-primary"
-              onclick={() => {
-                const file = documents[activeIndex];
-                const blobURL = URL.createObjectURL(file);
-                const blobId = blobURL.split("/").pop();
-                goto(`/verify?blob=${blobId}&fileName=${file.name}`);
+            Verifikasi
+          </button>
+        </div>
+      {/if}
+
+      <Preview file={previewFile} {hasSignature}>
+        {#snippet children(scale, pageSizes, gutter)}
+          {#each signatures as sign}
+            {@const sumPrevHeight = pageSizes
+              .slice(0, sign.page - 1)
+              .reduce((acc, cur) => acc + cur.height + gutter, 0)}
+            <Dragresize
+              x={sign.originX}
+              y={sign.originY + sumPrevHeight}
+              width={sign.width}
+              height={sign.height}
+              {scale}
+              onchange={(e) => {
+                let acc = 0;
+                for (let i = 0; i < pageSizes.length; i++) {
+                  const h = pageSizes[i].height;
+                  if (e.y < acc + h) {
+                    sign.page = i + 1;
+                    sign.originY = e.y - acc;
+                    break;
+                  }
+                  acc += h + gutter;
+                }
+
+                sign.originX = e.x;
+                sign.width = e.width;
+                sign.height = e.height;
               }}
             >
-              Verifikasi
-            </button>
-          </div>
-        {/if}
-
-        <Preview file={previewFile} {hasSignature}>
-          {#snippet children(scale, pageSizes, gutter)}
-            {#each signatures as sign}
-              {@const sumPrevHeight = pageSizes
-                .slice(0, sign.page - 1)
-                .reduce((acc, cur) => acc + cur.height + gutter, 0)}
-              <Dragresize
-                x={sign.originX}
-                y={sign.originY + sumPrevHeight}
-                width={sign.width}
-                height={sign.height}
-                {scale}
-                onchange={(e) => {
-                  let acc = 0;
-                  for (let i = 0; i < pageSizes.length; i++) {
-                    const h = pageSizes[i].height;
-                    if (e.y < acc + h) {
-                      sign.page = i + 1;
-                      sign.originY = e.y - acc;
-                      break;
-                    }
-                    acc += h + gutter;
-                  }
-
-                  sign.originX = e.x;
-                  sign.width = e.width;
-                  sign.height = e.height;
+              <button
+                type="button"
+                class="btn btn-xs btn-circle btn-error absolute -top-6 left-1/2 -translate-x-1/2"
+                onclick={() => {
+                  signatures = signatures.filter((s) => s !== sign);
                 }}
               >
-                <button
-                  type="button"
-                  class="btn btn-xs btn-circle btn-error absolute -top-6 left-1/2 -translate-x-1/2"
-                  onclick={() => {
-                    signatures = signatures.filter((s) => s !== sign);
-                  }}
-                >
-                  x
-                </button>
-                <img
-                  id={`sign-${sign.id}`}
-                  src={`data:image/png;base64,${sign.imageBase64}`}
-                  class="w-full h-full pointer-events-none"
-                  alt="Visualisasi"
-                />
-              </Dragresize>
-            {/each}
-          {/snippet}
-        </Preview>
-      </div>
+                x
+              </button>
+              <img
+                id={`sign-${sign.id}`}
+                src={`data:image/png;base64,${sign.imageBase64}`}
+                class="w-full h-full pointer-events-none"
+                alt="Visualisasi"
+              />
+            </Dragresize>
+          {/each}
+        {/snippet}
+      </Preview>
+    </div>
 
-      <div class:hidden={hasDocuments} class="h-full">
-        <Upload bind:fileInput bind:files />
+    <div class:hidden={hasDocuments} class="h-full">
+      <Upload bind:fileInput bind:files />
+    </div>
+  </div>
+  <div class="flex flex-col gap-3">
+    <div class="grow flex min-h-0">
+      <div class="tabs tabs-lift md:w-sm h-150 md:h-auto">
+        <label class="tab bg-base-100">
+          <input type="radio" name="sign-nav" checked />
+          <iconify-icon icon="bx:file"></iconify-icon>
+          <span class="mx-2"> Dokumen ({Object.keys(documents).length})</span>
+          {#if hasDocuments}
+            <iconify-icon icon="bx:check" class="text-success"></iconify-icon>
+          {:else}
+            <iconify-icon icon="bx:x" class="text-error"></iconify-icon>
+          {/if}
+        </label>
+        <div class="tab-content border-base-300">
+          <Documents bind:documents bind:activeIndex {fileInput} />
+        </div>
+        <label class="tab bg-base-100">
+          <input type="radio" name="sign-nav" checked />
+          <iconify-icon icon="bx:detail"></iconify-icon>
+          <span class="mx-2"> Meta Data ({bsre ? "TTE" : "Manual"})</span>
+          {#if hasMetadata}
+            <iconify-icon icon="bx:check" class="text-success"></iconify-icon>
+          {:else}
+            <iconify-icon icon="bx:x" class="text-error"></iconify-icon>
+          {/if}
+        </label>
+        <div class="tab-content border-base-300">
+          <!-- bind:footer -->
+          <Metadata
+            bind:status
+            bind:bsre
+            bind:form
+            bind:useEmail
+            {fields}
+            {hasSignature}
+            {setSignature}
+            {signButton}
+          >
+            <Visualizer bind:signatures />
+          </Metadata>
+        </div>
       </div>
     </div>
-    <div class="flex flex-col gap-3">
-      <div class="grow flex min-h-0">
-        <div class="tabs tabs-lift md:w-sm h-150 md:h-auto">
-          <label class="tab bg-base-100">
-            <input type="radio" name="sign-nav" checked />
-            <iconify-icon icon="bx:file"></iconify-icon>
-            <span class="mx-2"> Dokumen ({Object.keys(documents).length})</span>
-            {#if hasDocuments}
-              <iconify-icon icon="bx:check" class="text-success"></iconify-icon>
-            {:else}
-              <iconify-icon icon="bx:x" class="text-error"></iconify-icon>
-            {/if}
-          </label>
-          <div class="tab-content border-base-300">
-            <Documents bind:documents bind:activeIndex {fileInput} />
-          </div>
-          <label class="tab bg-base-100">
-            <input type="radio" name="sign-nav" checked />
-            <iconify-icon icon="bx:detail"></iconify-icon>
-            <span class="mx-2"> Meta Data ({bsre ? "TTE" : "Manual"})</span>
-            {#if hasMetadata}
-              <iconify-icon icon="bx:check" class="text-success"></iconify-icon>
-            {:else}
-              <iconify-icon icon="bx:x" class="text-error"></iconify-icon>
-            {/if}
-          </label>
-          <div class="tab-content border-base-300">
-            <!-- bind:footer -->
-            <Metadata
-              bind:status
-              bind:bsre
-              bind:form
-              bind:useEmail
-              {fields}
-              {hasSignature}
-              {setSignature}
-              {signButton}
-            >
-              <Visualizer bind:signatures />
-            </Metadata>
-          </div>
+    <div class="text-sm flex items-end relative z-10">
+      <div
+        class="tooltip tooltip-right before:-translate-x-10 after:-translate-x-10"
+        data-tip="Ada Pertanyaan?"
+      >
+        <div class="scale-80 -mt-15 -mb-10 overflow-clip">
+          <Char closeeye={showPassphrase} />
         </div>
       </div>
-      <div class="text-sm flex items-end relative z-10">
-        <div
-          class="tooltip tooltip-right before:-translate-x-10 after:-translate-x-10"
-          data-tip="Ada Pertanyaan?"
-        >
-          <div class="scale-80 -mt-15 -mb-10 overflow-clip">
-            <Char closeeye={showPassphrase} />
-          </div>
-        </div>
-        <div class="mr-auto">Tapak Astà v2.0.1 #{version.slice(0, 7)}</div>
-      </div>
+      <div class="mr-auto">Tapak Astà v2.0.1 #{version.slice(0, 7)}</div>
     </div>
   </div>
 </div>
+<!-- </div> -->
 
 <div class="fab">
   <div
