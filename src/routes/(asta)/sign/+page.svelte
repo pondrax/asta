@@ -347,7 +347,7 @@
       <Upload bind:fileInput bind:files />
     </div>
   </div>
-  <div class="flex flex-col gap-3">
+  <div class="flex flex-col">
     <div class="grow flex min-h-0">
       <div class="tabs tabs-lift md:w-sm h-150 md:h-auto">
         <label class="tab bg-base-100">
@@ -395,7 +395,7 @@
         class="tooltip tooltip-right before:-translate-x-10 after:-translate-x-10"
         data-tip="Ada Pertanyaan?"
       >
-        <div class="scale-80 -mt-15 -mb-10 overflow-clip">
+        <div class="scale-60 -mt-15 -mb-15 -ml-5 overflow-clip">
           <Char closeeye={showPassphrase} />
         </div>
       </div>

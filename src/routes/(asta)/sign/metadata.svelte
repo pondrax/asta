@@ -418,7 +418,7 @@
   </ul>
 
   {#if signaturePanel}
-    <div class="absolute bottom-0 z-5 p-3">
+    <div class="absolute bottom-0 z-5 px-3">
       <Signature
         {form}
         {setSignature}

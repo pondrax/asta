@@ -200,7 +200,7 @@
   class="hidden"
 />
 
-<div class="tabs tabs-box bg-base-300 grow mt-1 gap-0">
+<div class="tabs tabs-xs tabs-box bg-base-300 grow mt-1 gap-0">
   <label class="tab" class:invisible={!availableVisual.includes("image")}>
     <input type="radio" bind:group={visual} value="image" />
     <iconify-icon icon="bx:file"></iconify-icon>
@@ -277,7 +277,7 @@
     </button>
   </div>
   <div
-    class="tab tooltip tooltip-left ml-auto"
+    class="tab tooltip tooltip-left ml-auto -mt-3"
     data-tip="Tambahkan visualisasi ke dokumen"
   >
     <button
