@@ -46,7 +46,7 @@ git fetch origin
 LOCAL_HASH=$(git rev-parse HEAD)
 REMOTE_HASH=$(git rev-parse origin/$BRANCH)
 
-# if [ "$LOCAL_HASH" != "$REMOTE_HASH" ]; then
+if [ "$LOCAL_HASH" != "$REMOTE_HASH" ]; then
   log "🔄 Updates found, deploying..."
 
   git pull origin "$BRANCH" 2>&1 | tee -a "$LOG_FILE"
@@ -68,6 +68,6 @@ REMOTE_HASH=$(git rev-parse origin/$BRANCH)
 
 
   log "✅ Deploy complete"
-# else
-#   log "✅ Already up to date"
-# fi
+else
+  log "✅ Already up to date"
+fi
