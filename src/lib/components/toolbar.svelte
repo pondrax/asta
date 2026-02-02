@@ -90,14 +90,12 @@
     const combo = parts.join("+");
 
     const shortcuts: Record<string, () => void> = {
-      "Shift+f": () => (filterModal = !filterModal),
-      "Mod+k": () => toggleFocus(searchInput),
+      "Shift+F": () => (filterModal = !filterModal),
+      "Mod+K": () => toggleFocus(searchInput),
       "Shift+J": () => (query.offset = Math.max(0, query.offset - query.limit)),
       "Shift+K": () =>
-        (query.offset = Math.min(
-          records.current?.count || 0,
-          query.offset + query.limit,
-        )),
+        query.offset + query.limit <= (records.current?.count || 0) &&
+        (query.offset += query.limit),
       "Shift+L": () => toggleFocus(pagingDropdown),
       "Shift+:": () => toggleFocus(actionDropdown),
     };
