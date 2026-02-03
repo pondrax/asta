@@ -8,6 +8,7 @@ BRANCH="main"
 
 # ===== ENV (cron-safe) =====
 export CI=true
+export GCP_BUILDPACKS=true
 export PATH="/usr/bin:/bin:/usr/local/bin:$HOME/.local/bin"
 
 # Ensure HOME exists
