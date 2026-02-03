@@ -34,6 +34,18 @@ trap 'rmdir "$LOCKDIR"' EXIT
 
 cd "$APP_DIR"
 
+# ===== LOG CLEANUP (keep last 5MB) =====
+MAX_SIZE=$((5 * 1024 * 1024)) # 5MB
+
+if [ -f "$LOG_FILE" ]; then
+  FILE_SIZE=$(stat -c%s "$LOG_FILE" 2>/dev/null || wc -c < "$LOG_FILE")
+
+  if [ "$FILE_SIZE" -gt "$MAX_SIZE" ]; then
+    tail -c "$MAX_SIZE" "$LOG_FILE" > "${LOG_FILE}.tmp"
+    mv "${LOG_FILE}.tmp" "$LOG_FILE"
+  fi
+fi
+
 # ===== LOG FUNCTION =====
 log() {
   echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
@@ -47,23 +59,18 @@ git fetch origin
 LOCAL_HASH=$(git rev-parse HEAD)
 REMOTE_HASH=$(git rev-parse origin/$BRANCH)
 
-# if [ "$LOCAL_HASH" != "$REMOTE_HASH" ]; then
+if [ "$LOCAL_HASH" != "$REMOTE_HASH" ]; then
   log "🔄 Updates found, deploying..."
   
   git pull origin "$BRANCH" 2>&1 | tee -a "$LOG_FILE"
 
   log "📦 Installing dependencies..."
-  pnpm install --frozen-lockfile --reporter=append-only \
-    2>&1 | tee -a "$LOG_FILE"
-  # log "🗂 Current working directory: $(pwd)"
-  # log "📄 Files in directory:"
-  # ls -1 | tee -a "$LOG_FILE"
-
+  pnpm install --frozen-lockfile 
+  
   log "🔨 Building..."
-  pnpm run build #2>&1 | tee -a "$LOG_FILE"
+  pnpm run build
 
   log "🚀 Restarting app..."
-    #   pm2 restart asta 2>&1 | tee -a "$LOG_FILE"
   if pm2 describe asta > /dev/null 2>&1; then
     pm2 restart asta
   else
@@ -72,6 +79,6 @@ REMOTE_HASH=$(git rev-parse origin/$BRANCH)
 
 
   log "✅ Deploy complete"
-# else
-#   log "✅ Already up to date"
-# fi
+else
+  log "✅ Already up to date"
+fi
