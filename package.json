@@ -18,7 +18,8 @@
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate",
 		"db:studio": "drizzle-kit studio",
-		"db:seed": "vite-node --options.transformMode.ssr='/.*/' src/lib/server/db/seed.ts"
+		"db:seed": "vite-node --options.transformMode.ssr='/.*/' src/lib/server/db/seed.ts",
+		"test:load": "vite-node  --options.transformMode.ssr='/.*/' web/tests/exec.js"
 	},
 	"devDependencies": {
 		"@inlang/paraglide-js": "^2.9.1",
