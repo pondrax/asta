@@ -2,10 +2,20 @@ import { pgTable, integer, text, timestamp, json, customType } from 'drizzle-orm
 import { id, created, updated, encryptedJson } from './utils';
 import { boolean, index } from 'drizzle-orm/gel-core';
 
+
+export const roles = pgTable('roles', {
+	id,
+	name: text('name').unique(),
+	description: text('description'),
+	created,
+	updated,
+})
+
 export const users = pgTable('users', {
 	id,
 	email: text('email').unique(),
 	password: text('password'),
+	role_id: text('role_id').references(() => roles.id).default('member'),
 	created,
 	updated,
 });

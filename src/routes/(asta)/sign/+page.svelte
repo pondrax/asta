@@ -271,7 +271,7 @@
     <div class:hidden={!documents[activeIndex]} class="h-full relative">
       {#if hasSignature}
         <div
-          class="absolute -top-5 alert py-1 px-5 alert-warning left-0 right-0 z-5"
+          class="absolute top-0 alert py-1 px-5 alert-warning left-0 right-0 z-5"
         >
           <iconify-icon icon="bx:error" class="text-xl"></iconify-icon>
           <span>

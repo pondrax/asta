@@ -92,7 +92,7 @@
       <div class="dropdown dropdown-end">
         <div tabindex="0" role="button" class="btn btn-ghost">
           <div class="avatar rounded-full bg-secondary w-12 -ml-6">
-            <img src="/ava.svg" alt={user.name} />
+            <img src="/ava.svg" alt={user.email} />
           </div>
           <div>{user.email?.split("@")[0]}</div>
         </div>
@@ -100,6 +100,7 @@
           tabindex="-1"
           class="dropdown-content menu bg-base-100 rounded-box z-1 w-48 mt-3 p-2 shadow-sm"
         >
+          <li class="menu-title uppercase">{user.role?.name}</li>
           <li>
             <a href="/me">
               <iconify-icon icon="bx:bxs-dashboard" class="mr-2"></iconify-icon>
