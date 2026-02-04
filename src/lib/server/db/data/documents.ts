@@ -1,8 +1,8 @@
-import { createId } from "$lib/utils"
-import { db } from ".."
+import { createId } from "$lib/utils";
+import { db } from "..";
 
 export default async () => {
-  console.log('Upserting documents...')
+  console.log("Upserting documents...");
   // const data = Array.from({ length: 100_000 }, (_, i) => ({
   //   id: createId(),
   //   owner: 'pondra@mojokertokota.go.id',
@@ -18,5 +18,5 @@ export default async () => {
   //     data: data.slice(i, i + 10000)
   //   })
   // }
-  console.log('Documents upserted successfully!')
-}
+  console.log("Documents upserted successfully!");
+};
