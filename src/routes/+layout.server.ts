@@ -6,17 +6,8 @@ export async function load({ locals, url }) {
     // throw redirect(302, '/login');
   }
 
-  const user = await db.query.users.findFirst({
-    where: {
-      email: locals.user?.email || '-'
-    },
-    with: {
-      role: true,
-    },
-  });
-
   return {
-    user,
+    user: locals.user,
     baseURL: url.origin,
     baseURLSSO: `${OPENID_BASE_URL}/realms/${OPENID_REALM}`
   };

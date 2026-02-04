@@ -44,8 +44,15 @@ const getAuthGuard = (name: keyof Tables) => {
     documents: {
       get: (search?: string) => {
         return {
-          owner: user?.email ?? '-',
-          OR: searchable(name, search)
+          AND: [
+            {
+              OR: [
+                { owner: user?.email ?? '-', },
+                { to: { arrayContains: [user?.role?.name] } },
+              ]
+            },
+            ...searchable(name, search)
+          ]
         }
       }
     },
@@ -73,6 +80,7 @@ export const getData = query(
     Params extends GetParams<T>
   >({ table, ...params }: { table: T } & Params) => {
   const time = performance.now()
+  console.log(getAuthGuard(table)?.get(params.search))
   params.where = Object.assign(params.where ?? {}, getAuthGuard(table)?.get(params.search) ?? {})
 
   // await delay(3000)

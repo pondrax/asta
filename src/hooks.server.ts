@@ -17,7 +17,16 @@ export const handleAuth: Handle = async ({ event, resolve }) => {
 
 	if (token) {
 		try {
-			event.locals.user = await verifyJWT(token);
+			const userjwt = await verifyJWT(token);
+
+			event.locals.user = await db.query.users.findFirst({
+				where: {
+					email: userjwt?.email || '-'
+				},
+				with: {
+					role: true,
+				},
+			});
 		} catch {
 			event.cookies.delete('auth-token', { path: '/' });
 		}
@@ -39,6 +48,7 @@ export const handle: Handle = sequence(handleParaglide, handleAuth, handleRedire
 
 
 import type { HandleValidationError } from '@sveltejs/kit';
+import { db } from '$lib/server/db';
 
 export const handleValidationError: HandleValidationError = ({ event, issues }) => {
 	return {

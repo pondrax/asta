@@ -19,9 +19,14 @@
   const items = $derived(records.current ?? { data: [], count: 0 });
   const forms: Record<string, any> = $state({});
   let selections: string[] = $state([]);
+
+  let lastCount = $state(0);
   $effect(() => {
-    items.count;
-    selections = [];
+    if (records.current && lastCount !== items.count) {
+      query.offset = 0;
+      lastCount = items.count;
+      selections = [];
+    }
   });
 </script>
 
