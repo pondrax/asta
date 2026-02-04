@@ -67,7 +67,11 @@ export const signDocument = command(type({
         file?: string[];
         error?: string;
         message?: string;
+        hint?: string;
+        path?: string;
+        timestamp?: number;
         error_description?: string;
+        retry?: boolean;
       },
     };
 
@@ -87,10 +91,11 @@ export const signDocument = command(type({
       }
     } else {
       response = await esign.signPDF(props);
+
       if (response.status >= 500) {
-        console.log('[Sign Document Error] Retry Signing', response)
         return {
-          message: '[Sign Document Error] Retry Signing',
+          message: `[Sign Document Error] ${response.data?.message} ${response.data?.hint}`,
+          retry: true,
         }
       }
       if (response.data.error) {

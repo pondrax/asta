@@ -594,6 +594,12 @@
                   fileBase64,
                 });
 
+                console.log(signing);
+
+                if (signing?.retry) {
+                  forms.sign!.__error = signing.message;
+                  continue;
+                }
                 if (signing?.error) {
                   forms.sign!.__error = signing.error;
                   abortSigning = true;
@@ -641,7 +647,9 @@
             await sendMessage({
               recipient: item.nomor_telepon,
               payload: {
-                text: `*Dokumen berhasil ditandatangani*\n\n${notifyText}\n\nTerima kasih telah menggunakan layanan *Tapak Astà*.`,
+                text: asDraft
+                  ? `*Dokumen berhasil disimpan sebagai draft*\n\n${notifyText}\n\nTerima kasih telah menggunakan layanan *Tapak Astà*.`
+                  : `*Dokumen berhasil ditandatangani*\n\n${notifyText}\n\nTerima kasih telah menggunakan layanan *Tapak Astà*.`,
               },
             });
           } catch {}
