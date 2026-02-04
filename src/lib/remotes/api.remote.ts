@@ -75,7 +75,7 @@ export const getData = query(
   const time = performance.now()
   params.where = Object.assign(params.where ?? {}, getAuthGuard(table)?.get(params.search) ?? {})
 
-  await delay(10000)
+  // await delay(3000)
   // @ts-expect-error Drizzle type inference is not working
   const data = await db.query[table].findManyAndCount(params);
 
@@ -88,7 +88,7 @@ export const delData = form('unchecked', async ({ table, id }: { table: keyof Ta
   if (!id || !table) return;
   const time = performance.now();
   const schemaTable = db._.relations[table].table;
-  await delay(10000)
+  // await delay(10000)
   const data = await db.delete(schemaTable).where(inArray(schemaTable.id, id));
 
   return Object.assign(data, {

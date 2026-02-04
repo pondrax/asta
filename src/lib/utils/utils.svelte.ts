@@ -1,3 +1,6 @@
+import { query } from "$app/server";
+import type { RemoteQueryFunction } from "@sveltejs/kit";
+
 export type ReactivePromise<T> = {
   readonly loading: boolean;
   readonly current: T | undefined;
@@ -12,23 +15,24 @@ export function withTimeout<T>(
   let loading = $state(true);
   let current = $state<T | undefined>(undefined);
   let error = $state<Error | undefined>(undefined);
+  let trigger = $state(0);
 
   const factory =
-    typeof promiseOrFactory === 'function'
-      ? promiseOrFactory
-      : () => promiseOrFactory;
+    typeof promiseOrFactory === 'function' ? promiseOrFactory : () => promiseOrFactory;
 
-  function execute() {
+  $effect(() => {
+    // Access trigger to re-run when refresh() is called
+    trigger;
+
     loading = true;
     error = undefined;
 
-    let timerId: any;
     const promise = Promise.resolve(factory());
+    let timerId: any;
+
     const timeout = ms
       ? new Promise<never>((_, reject) => {
-        console.log(`[withTimeout] Starting timeout: ${ms}ms`);
         timerId = setTimeout(() => {
-          console.error(`[withTimeout] Timed out after ${ms}ms`);
           reject(new Error('Request timed out'));
         }, ms);
       })
@@ -38,7 +42,7 @@ export function withTimeout<T>(
 
     race
       .then((result) => {
-        current = result;
+        current = result as T;
       })
       .catch((err) => {
         error = err instanceof Error ? err : new Error(String(err));
@@ -47,12 +51,10 @@ export function withTimeout<T>(
         loading = false;
         if (timerId) {
           clearTimeout(timerId);
-          console.log(`[withTimeout] Cleared timeout`);
         }
       });
-  }
-
-  execute();
+    // console.log(promiseOrFactory)
+  });
 
   return {
     get loading() {
@@ -64,6 +66,8 @@ export function withTimeout<T>(
     get error() {
       return error;
     },
-    refresh: execute,
+    refresh: () => {
+      trigger++;
+    },
   };
 }

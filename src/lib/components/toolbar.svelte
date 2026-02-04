@@ -53,12 +53,14 @@
   let filterModal = $state(false);
   let exportLoading = $state(false);
 
+  let prevBtn = $state() as HTMLButtonElement;
+  let nextBtn = $state() as HTMLButtonElement;
   let searchInput = $state() as HTMLInputElement;
   let pagingDropdown = $state() as HTMLDivElement;
   let actionDropdown = $state() as HTMLDivElement;
 
   function toggleFocus(el: HTMLElement | null | undefined) {
-    if (!el) return;
+    if (!el || records.loading) return;
 
     if (document.activeElement === el) {
       el.blur(); // unfocus
@@ -92,10 +94,8 @@
     const shortcuts: Record<string, () => void> = {
       "Shift+F": () => (filterModal = !filterModal),
       "Mod+K": () => toggleFocus(searchInput),
-      "Shift+J": () => (query.offset = Math.max(0, query.offset - query.limit)),
-      "Shift+K": () =>
-        query.offset + query.limit <= (records.current?.count || 0) &&
-        (query.offset += query.limit),
+      "Shift+J": () => prevBtn.click(),
+      "Shift+K": () => nextBtn.click(),
       "Shift+L": () => toggleFocus(pagingDropdown),
       "Shift+:": () => toggleFocus(actionDropdown),
     };
@@ -176,9 +176,10 @@
             <kbd class="kbd kbd-xs">J</kbd>
           </div>
           <button
+            bind:this={prevBtn}
             class="btn btn-sm join-item"
             onclick={() => (query.offset -= query.limit)}
-            disabled={query.offset <= 0}
+            disabled={query.offset <= 0 || records.loading}
             aria-label="Previous"
           >
             <iconify-icon icon="bx:chevron-left"></iconify-icon>
@@ -192,10 +193,11 @@
             <kbd class="kbd kbd-xs">K</kbd>
           </div>
           <button
+            bind:this={nextBtn}
             class="btn btn-sm join-item"
             onclick={() => (query.offset += query.limit)}
             disabled={query.offset + query.limit >=
-              (records.current?.count || 0)}
+              (records.current?.count || 0) || records.loading}
             aria-label="Next"
           >
             <iconify-icon icon="bx:chevron-right"></iconify-icon>
@@ -216,17 +218,18 @@
               role="button"
               class="btn btn-sm join-item font-normal flex-col gap-0 text-[10px]! min-w-36 whitespace-nowrap"
               aria-label="Paging"
+              class:btn-disabled={records.loading}
             >
               <div>
-                {#if records.current?.count}
+                {#if records.loading}
+                  Loading...
+                {:else if records.current?.count}
                   {query.offset + 1} -
                   {isNaN(query.limit) || query.limit > records.current?.count
                     ? records.current?.count
                     : query.offset + query.limit}
                   of
                   {records.current?.count}
-                {:else if records.loading}
-                  Loading...
                 {:else}
                   No data
                 {/if}

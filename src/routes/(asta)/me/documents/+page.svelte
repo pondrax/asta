@@ -15,9 +15,7 @@
     where: {},
     ...expand,
   });
-  const records = $derived(
-    withTimeout(() => getData({ ...query, ...expand }), 5000),
-  );
+  const records = $derived(getData({ ...query, ...expand }));
   const items = $derived(records.current ?? { data: [], count: 0 });
   const forms: Record<string, any> = $state({});
   let selections: string[] = $state([]);
@@ -205,7 +203,7 @@
         {:else if !items.data?.length}
           <tr>
             <th></th>
-            <th colspan="4">No data</th>
+            <th colspan="10">No data</th>
           </tr>
         {:else}
           {#each items.data as item, i}
