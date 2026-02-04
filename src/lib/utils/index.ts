@@ -185,3 +185,7 @@ export function getLeafValues(obj: unknown): unknown[] {
 export function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+// Re-export reactive utilities from .svelte.ts module
+export { withTimeout, type ReactivePromise } from './utils.svelte';
+

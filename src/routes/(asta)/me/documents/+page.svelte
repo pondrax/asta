@@ -1,7 +1,7 @@
 <script lang="ts">
   import { delData, getData, type GetParams } from "$lib/remotes/api.remote";
   import { Modal, Toolbar } from "$lib/components";
-  import { d } from "$lib/utils";
+  import { d, withTimeout } from "$lib/utils";
 
   const expand = {
     with: {
@@ -15,7 +15,9 @@
     where: {},
     ...expand,
   });
-  const records = $derived(getData({ ...query, ...expand }));
+  const records = $derived(
+    withTimeout(() => getData({ ...query, ...expand }), 5000),
+  );
   const items = $derived(records.current ?? { data: [], count: 0 });
   const forms: Record<string, any> = $state({});
   let selections: string[] = $state([]);
@@ -181,7 +183,24 @@
         {#if records.loading}
           <tr>
             <th></th>
-            <th colspan="4">Loading...</th>
+            <th colspan="10">
+              <span class="loading loading-spinner loading-xs mr-2"></span>
+              Memuat data...
+            </th>
+          </tr>
+        {:else if records.error}
+          <tr>
+            <th></th>
+            <th colspan="10" class="text-error">
+              <iconify-icon icon="bx:error-circle" class="mr-2"></iconify-icon>
+              Gagal memuat data: {records.error.message}
+              <button
+                class="btn btn-xs btn-error btn-outline ml-2"
+                onclick={() => records.refresh()}
+              >
+                Coba Lagi
+              </button>
+            </th>
           </tr>
         {:else if !items.data?.length}
           <tr>

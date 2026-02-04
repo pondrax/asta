@@ -75,6 +75,7 @@ export const getData = query(
   const time = performance.now()
   params.where = Object.assign(params.where ?? {}, getAuthGuard(table)?.get(params.search) ?? {})
 
+  await delay(10000)
   // @ts-expect-error Drizzle type inference is not working
   const data = await db.query[table].findManyAndCount(params);
 

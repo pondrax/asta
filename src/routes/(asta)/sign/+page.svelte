@@ -629,21 +629,23 @@
           turnstileSuccess = false;
         }
 
-        const notifyText = completed
-          .map(
-            (r, i) =>
-              `${i + 1}. *${r?.fileName}*\n${location.origin}/d?id=${r?.id}`,
-          )
-          .join("\n\n");
+        if (completed.length > 0) {
+          const notifyText = completed
+            .map(
+              (r, i) =>
+                `${i + 1}. *${r?.fileName}*\n${location.origin}/d?id=${r?.id}`,
+            )
+            .join("\n\n");
 
-        try {
-          await sendMessage({
-            recipient: item.nomor_telepon,
-            payload: {
-              text: `*Dokumen berhasil ditandatangani*\n\n${notifyText}\n\nTerima kasih telah menggunakan layanan *Tapak Astà*.`,
-            },
-          });
-        } catch {}
+          try {
+            await sendMessage({
+              recipient: item.nomor_telepon,
+              payload: {
+                text: `*Dokumen berhasil ditandatangani*\n\n${notifyText}\n\nTerima kasih telah menggunakan layanan *Tapak Astà*.`,
+              },
+            });
+          } catch {}
+        }
       }}
     >
       <ul

@@ -88,6 +88,7 @@ export const signDocument = command(type({
     } else {
       response = await esign.signPDF(props);
       if (response.status >= 500) {
+        console.log('[Sign Document Error] Retry Signing', response)
         return {
           message: '[Sign Document Error] Retry Signing',
         }
