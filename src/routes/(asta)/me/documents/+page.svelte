@@ -1,7 +1,7 @@
 <script lang="ts">
   import { delData, getData, type GetParams } from "$lib/remotes/api.remote";
   import { Modal, Toolbar } from "$lib/components";
-  import { d, withTimeout } from "$lib/utils";
+  import { d } from "$lib/utils";
 
   const expand = {
     with: {

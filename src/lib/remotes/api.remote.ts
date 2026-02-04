@@ -3,7 +3,9 @@ import { db } from "$lib/server/db";
 import { delay } from "$lib/utils";
 import { inArray } from "drizzle-orm";
 
-type Tables = typeof db.query;
+export type Tables = typeof db.query;
+export type TableName = keyof Tables;
+export type TableRow<T extends TableName> = Awaited<ReturnType<Tables[T]['findFirst']>>;
 
 const getAuthGuard = (name: keyof Tables) => {
   const event = getRequestEvent()
@@ -51,16 +53,24 @@ const getAuthGuard = (name: keyof Tables) => {
                 { to: { arrayContains: [user?.role?.name] } },
               ]
             },
-            { OR: searchable(name, search) }
+            search ? { OR: searchable(name, search) } : {}
           ]
         }
       }
     },
     users: {
       get: (search?: string) => {
-        return {
-          OR: searchable(name, search)
-        }
+        return search ? { OR: searchable(name, search) } : {}
+      }
+    },
+    roles: {
+      get: (search?: string) => {
+        return search ? { OR: searchable(name, search) } : {}
+      }
+    },
+    organizations: {
+      get: (search?: string) => {
+        return search ? { OR: searchable(name, search) } : {}
       }
     }
   }

@@ -139,22 +139,46 @@
       </div>
     </li>
     {#if bsre}
-      <li class="p-2">
+      <li class="px-0 py-1">
         <label class="label py-0 bg-transparent flex justify-between">
-          <span class={!useEmail ? "font-bold text-primary" : ""}>NIK</span>
+          <span class="btn btn-sm" class:btn-primary={!useEmail}> NIK</span>
           <input
             type="checkbox"
             bind:checked={useEmail}
             class="toggle"
             onchange={debounceCheckEmail}
           />
-          <span class={useEmail ? "font-bold text-primary" : ""}>EMAIL</span>
+          <span class="btn btn-sm" class:btn-primary={useEmail}> EMAIL</span>
         </label>
       </li>
-      <li
-        class="p-2 tooltip"
-        data-tip={status.includes("Error") ? status : `Status Akun: ${status}`}
-      >
+      <li class="p-2 tooltip">
+        {#if form.email?.split("@").at(0) !== ""}
+          <div class="tooltip-content pointer-events-auto!">
+            {#if status === "ISSUE"}
+              <div class="">
+                Status Akun : {status}
+              </div>
+            {:else if status === "NOT_REGISTERED"}
+              <div class="">
+                {status}
+              </div>
+              <div>
+                <a
+                  href="/account/register"
+                  class="btn btn-xs btn-error"
+                  target="_blank"
+                >
+                  Daftar Sekarang
+                </a>
+              </div>
+            {:else}
+              <div class="">
+                {status}
+              </div>
+            {/if}
+          </div>
+        {/if}
+
         {#if useEmail}
           <label class="floating-label p-0 bg-transparent">
             <span class="text-nowrap">Email Dinas Penandatangan ({status})</span
@@ -259,7 +283,7 @@
           <span class="label">+62</span>
           <input
             bind:value={
-              () => String(form.nomor_telepon).replace(/^62/, ""),
+              () => String(form.nomor_telepon ?? "").replace(/^62/, ""),
               (value) =>
                 (form.nomor_telepon =
                   "62" +
@@ -293,7 +317,7 @@
         <span>Nama Perangkat Daerah</span>
         <select bind:value={form.instansi} class="select select-sm">
           <option disabled selected>Pilih Opsi</option>
-          {#await getData({ table: "organizations", orderBy: { id: "asc" } })}
+          {#await getData( { table: "organizations", orderBy: { id: "asc" }, offset: 0, limit: 100 }, )}
             <option disabled selected>Loading...</option>
           {:then orgs}
             {#each orgs?.data as org}
@@ -312,7 +336,7 @@
         <span>Pangkat / Golongan</span>
         <select bind:value={form.pangkat} class="select select-sm">
           <option disabled selected>Pilih Opsi</option>
-          {#await getData({ table: "ranks" })}
+          {#await getData({ table: "ranks", offset: 0, limit: 100 })}
             <option disabled selected>Loading...</option>
           {:then ranks}
             {#each ranks?.data as opt}
