@@ -28,6 +28,16 @@
       selections = [];
     }
   });
+
+  let ownerOnly = $state(false);
+  $effect(() => {
+    if (ownerOnly) {
+      query.where!.to = { arrayContains: ["admin"] };
+    } else {
+      delete query.where!.to;
+      // query.where!.to = { NOT: { arrayContains: ["admin"] } };
+    }
+  });
 </script>
 
 <Modal bind:data={forms.del} title="Delete Data">
@@ -110,6 +120,14 @@
       </button>
     {/if}
     {#snippet extended()}
+      <div class="filter">
+        <input
+          bind:checked={ownerOnly}
+          type="checkbox"
+          class="btn btn-sm"
+          aria-label="Owner Only"
+        />
+      </div>
       <div class="filter">
         <input
           bind:group={query.where!.status}

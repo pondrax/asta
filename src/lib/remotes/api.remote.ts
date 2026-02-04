@@ -51,7 +51,7 @@ const getAuthGuard = (name: keyof Tables) => {
                 { to: { arrayContains: [user?.role?.name] } },
               ]
             },
-            ...searchable(name, search)
+            { OR: searchable(name, search) }
           ]
         }
       }
