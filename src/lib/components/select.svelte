@@ -2,18 +2,20 @@
   lang="ts"
   generics="Table extends TableName | 'local' = 'local', T extends Record<string, any> = any"
 >
-  import { onMount, untrack } from "svelte";
+  import { onMount, untrack, type Snippet } from "svelte";
   import { fly } from "svelte/transition";
   import {
     getData,
     type TableName,
     type TableRow,
+    type Tables,
   } from "$lib/remotes/api.remote";
 
   // Strict inference for the item structure
   type Item = Table extends TableName ? NonNullable<TableRow<Table>> : T;
   type Key = Extract<keyof Item, string>;
-  type ValueType = any; // Often string or number from valueKey
+  type OrderBy = any;
+  type ValueType = any;
 
   type Props = {
     options?: Item[];
@@ -21,8 +23,9 @@
     params?: any;
     value?: ValueType | ValueType[] | null;
     object?: Item | Item[] | null;
-    labelKey?: Key;
-    valueKey?: Key;
+    labelKey?: Key | ((item: Item) => string);
+    valueKey?: Key | ((item: Item) => any);
+    lookupKey?: Key;
     label?: string;
     placeholder?: string;
     disabled?: boolean;
@@ -30,7 +33,13 @@
     class?: string;
     inputClass?: string;
     collapse?: boolean;
+    limit?: number;
+    orderBy?: OrderBy;
+    name?: string;
+    required?: boolean;
     onSelect?: (option: Item) => void;
+    children?: Snippet<[Item]>;
+    selected?: Snippet<[Item]>;
   };
 
   let {
@@ -48,7 +57,14 @@
     class: className = "",
     inputClass = "",
     collapse = false,
+    limit = 100,
+    orderBy,
+    name = "",
+    required = false,
+    lookupKey,
     onSelect,
+    children,
+    selected,
   }: Props = $props();
 
   let isOpen = $state(false);
@@ -64,12 +80,14 @@
   function getLabel(opt: Item | null | undefined): string {
     if (!opt) return "";
     if (typeof opt === "string") return opt;
+    if (typeof labelKey === "function") return labelKey(opt);
     return (opt as any)[labelKey] ?? "";
   }
 
   function getValue(opt: Item | null | undefined): any {
     if (!opt) return null;
     if (typeof opt === "string") return opt;
+    if (typeof valueKey === "function") return valueKey(opt);
     return (opt as any)[valueKey] ?? opt;
   }
 
@@ -144,22 +162,82 @@
     }
   }
 
-  // Effect to sync object if value changes externally (experimental/basic)
+  // Effect to sync object if value changes externally
   $effect(() => {
-    if (!table || table === "local") {
-      untrack(() => {
-        if (multiple && Array.isArray(value)) {
-          // If objects aren't in sync, try to find them in options
-          const found = value
-            .map((v) => options.find((o) => getValue(o) === v))
+    // Read dependencies to track them
+    const currentTable = table;
+    const currentOptions = options;
+    const currentValue = value;
+    const currentMultiple = multiple;
+
+    untrack(async () => {
+      if (!currentTable || currentTable === "local") {
+        if (currentMultiple && Array.isArray(currentValue)) {
+          const found = currentValue
+            .map((v) => currentOptions.find((o) => getValue(o) === v))
             .filter(Boolean) as Item[];
-          if (found.length === value.length) object = found;
-        } else if (!multiple && value != null) {
-          const found = options.find((o) => getValue(o) === value);
+          if (found.length === currentValue.length) object = found;
+        } else if (!currentMultiple && currentValue != null) {
+          const found = currentOptions.find(
+            (o) => getValue(o) === currentValue,
+          );
           if (found) object = found;
         }
-      });
-    }
+      } else {
+        // Remote sync: if we have a value but no corresponding object (or wrong object)
+        if (!currentMultiple && currentValue != null) {
+          const currentBoundVal = object ? getValue(object as Item) : null;
+          if (currentBoundVal !== currentValue) {
+            // Check if it's already in our fetched options
+            const found = remoteOptions.find(
+              (o) => getValue(o) === currentValue,
+            );
+            if (found) {
+              object = found;
+            } else {
+              // Fetch from remote
+              isLoading = true;
+              try {
+                // Use lookupKey if provided, otherwise fallback to valueKey if it's a string
+                const queryKey =
+                  lookupKey || (typeof valueKey === "string" ? valueKey : "id");
+
+                const result = await getData({
+                  table: currentTable as TableName,
+                  where: { [queryKey]: currentValue },
+                  limit: 1,
+                  offset: 0,
+                  ...params,
+                });
+                if (result.data && result.data.length > 0) {
+                  const item = result.data[0] as Item;
+                  object = item;
+
+                  // After resolving, the value might need to be "upgraded" to the formatted version
+                  const resolvedValue = getValue(item);
+                  if (resolvedValue !== value) {
+                    value = resolvedValue;
+                  }
+
+                  // Add to remoteOptions so it's available in the list
+                  if (
+                    !remoteOptions.find((o) => getValue(o) === getValue(item))
+                  ) {
+                    remoteOptions = [...remoteOptions, item];
+                  }
+                }
+              } catch (error) {
+                console.error("Failed to sync remote Select value:", error);
+              } finally {
+                isLoading = false;
+              }
+            }
+          }
+        } else if (!currentMultiple && currentValue == null) {
+          object = null;
+        }
+      }
+    });
   });
 
   onMount(() => {
@@ -225,7 +303,8 @@
       const result = await getData({
         table: table as TableName,
         search,
-        limit: 10,
+        limit,
+        orderBy,
         offset: 0,
         ...params,
       });
@@ -241,11 +320,31 @@
   $effect(() => {
     if (table && table !== "local" && isOpen) {
       const query = searchQuery;
+      const currentParams = JSON.stringify({ params, limit, orderBy });
+
       clearTimeout(debounceTimer);
       const delay = query === "" ? 0 : 300;
       debounceTimer = setTimeout(() => {
-        untrack(() => fetchRemoteData(query));
+        // If params/limit/orderBy changed, we should force a re-fetch even if query is the same
+        const force =
+          currentParams !==
+          JSON.stringify(untrack(() => ({ params, limit, orderBy })));
+        untrack(() => fetchRemoteData(query, force));
       }, delay);
+    }
+  });
+
+  // Track params for remote data forced refresh
+  let lastFetchedParams = "";
+  $effect(() => {
+    if (isOpen && table && table !== "local") {
+      const currentParams = JSON.stringify({ params, limit, orderBy });
+      if (currentParams !== lastFetchedParams) {
+        untrack(() => {
+          fetchRemoteData(searchQuery, true);
+          lastFetchedParams = currentParams;
+        });
+      }
     }
   });
 
@@ -253,6 +352,7 @@
     if (!isOpen) {
       untrack(() => {
         activeIndex = -1;
+        searchQuery = "";
       });
     }
   });
@@ -292,13 +392,12 @@
 >
   <!-- Trigger -->
   <div
-    class="input input-bordered peer flex items-center gap-2 cursor-pointer w-full bg-base-100 transition-all duration-200 h-auto {inputClass.includes(
-      'input-sm',
-    )
-      ? 'min-h-8 py-1 px-2'
+    class="input input-bordered peer flex items-center gap-2 cursor-pointer w-full bg-base-100 transition-all duration-200 h-auto
+    {inputClass.includes('input-sm')
+      ? 'min-h-8'
       : inputClass.includes('input-lg')
-        ? 'min-h-14 py-3 px-4'
-        : 'min-h-10 py-1.5'} {inputClass}"
+        ? 'min-h-14'
+        : 'min-h-10'} {inputClass}"
     class:input-disabled={disabled}
     class:z-10={isOpen}
     role="button"
@@ -313,7 +412,7 @@
     <div class="flex-1 flex flex-wrap gap-1.5 min-w-0">
       {#if multiple && Array.isArray(object) && object.length > 0}
         {#if collapse}
-          <div class="flex items-center gap-2 px-1">
+          <div class="flex items-center gap-2 px-1 text-nowrap">
             <div class="badge badge-primary font-bold">
               {object.length}
             </div>
@@ -329,9 +428,13 @@
               onclick={(e) => e.stopPropagation()}
               onkeydown={(e) => e.stopPropagation()}
             >
-              <span class="text-xs font-semibold truncate max-w-[120px]"
-                >{getLabel(item)}</span
-              >
+              {#if selected}
+                {@render selected(item)}
+              {:else}
+                <span class="text-xs font-semibold truncate max-w-[120px]"
+                  >{getLabel(item)}</span
+                >
+              {/if}
               <button
                 type="button"
                 class="hover:bg-primary-focus rounded-full p-0.5 transition-colors"
@@ -343,10 +446,20 @@
             </div>
           {/each}
         {/if}
-      {:else if !multiple && object}
-        <span class="text-base-content font-medium px-1 truncate"
-          >{getLabel(object as Item)}</span
-        >
+      {:else if !multiple && (object || value != null)}
+        {#if selected && object}
+          {@render selected(object as Item)}
+        {:else if isLoading && !object}
+          <span
+            class="text-base-content/30 italic px-1 truncate animate-pulse text-xs"
+          >
+            Resolving {value}...
+          </span>
+        {:else}
+          <span class="text-base-content font-medium px-1 truncate">
+            {object ? getLabel(object as Item) : value}
+          </span>
+        {/if}
       {:else}
         <span class="text-base-content/40 px-1 truncate"
           >{label ? "" : placeholder}</span
@@ -360,12 +473,16 @@
       {#if hasValue}
         <button
           type="button"
-          class="btn btn-ghost btn-xs btn-circle text-base-content/20 hover:text-error h-8 w-8 min-h-0"
+          class="btn btn-ghost btn-xs btn-circle text-base-content/20 hover:text-error h-6 w-6 min-h-0"
           aria-label="Clear selection"
           onclick={(e) => {
             e.stopPropagation();
             value = multiple ? [] : null;
             object = multiple ? [] : null;
+            searchQuery = "";
+            if (table && table !== "local") {
+              fetchRemoteData("", true);
+            }
           }}
         >
           <iconify-icon icon="bx:x-circle" class="text-lg"></iconify-icon>
@@ -382,14 +499,7 @@
   <!-- Floating Label Label (After Trigger for Stacking) -->
   {#if label}
     <span
-      class="absolute left-3 transition-all duration-200 pointer-events-none z-20 bg-base-100 px-1 rounded"
-      class:top-1.5={!hasValue && !isOpen}
-      class:text-sm={!hasValue && !isOpen}
-      class:opacity-50={!hasValue && !isOpen}
-      class:-top-2.5={hasValue || isOpen}
-      class:text-xs={hasValue || isOpen}
-      class:text-primary={isOpen}
-      class:font-bold={hasValue || isOpen}
+      class="absolute left-3 transition-all duration-200 pointer-events-none z-20 bg-base-100 px-1 rounded text-[9px] -top-2.5"
     >
       {label}
     </span>
@@ -437,7 +547,7 @@
           {#each displayOptions as opt, i (getValue(opt))}
             <button
               type="button"
-              class="w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all duration-200 flex items-center justify-between group mb-0.5 last:mb-0"
+              class="w-full text-left px-3 py-1 rounded-lg text-sm transition-all duration-200 flex items-center justify-between group mb-0.5 last:mb-0"
               class:bg-primary={i === activeIndex}
               class:text-primary-content={i === activeIndex}
               class:bg-base-200={isSelected(opt) && i !== activeIndex}
@@ -455,7 +565,11 @@
                     tabindex="-1"
                   />
                 {/if}
-                <span class="truncate">{getLabel(opt)}</span>
+                {#if children}
+                  {@render children(opt)}
+                {:else}
+                  <span class="truncate">{getLabel(opt)}</span>
+                {/if}
               </div>
               {#if isSelected(opt)}
                 <iconify-icon icon="bx:check" class="text-lg"></iconify-icon>
@@ -468,6 +582,15 @@
         {/if}
       </div>
     </div>
+  {/if}
+
+  {#if name}
+    <input
+      type="hidden"
+      {name}
+      {required}
+      value={multiple ? JSON.stringify(value) : (value ?? "")}
+    />
   {/if}
 </div>
 

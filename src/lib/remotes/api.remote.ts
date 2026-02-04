@@ -7,41 +7,32 @@ export type Tables = typeof db.query;
 export type TableName = keyof Tables;
 export type TableRow<T extends TableName> = Awaited<ReturnType<Tables[T]['findFirst']>>;
 
+
+const searchable = (name: keyof Tables, search?: string) => {
+  if (!search) return [];
+  const table = (db._ as any).relations[name]?.table;
+  if (!table) return [];
+
+  return Object.entries(table)
+    .filter(([key, value]) => value && typeof value === 'object' && 'columnType' in (value as any))
+    .map(([key, value]: [string, any]) => {
+      if (value.columnType === 'PgText') {
+        return { [key]: { ilike: `%${search}%` } };
+      }
+
+      if (value.columnType === 'PgBoolean') {
+        if (search === 'true' || search === 'false') {
+          return { [key]: { eq: search === 'true' } };
+        }
+      }
+
+      return null;
+    }).filter(Boolean);
+}
 const getAuthGuard = (name: keyof Tables) => {
   const event = getRequestEvent()
   const user = event.locals.user
 
-  const searchable = (name: keyof Tables, search?: string) => {
-    return !search ? [] : Object.entries(db._.relations[name].table)
-      .filter(([key, value]) => typeof value === 'object')
-      .map(([key, value]) => {
-        // console.log(value.columnType)
-        if (value.columnType === 'PgText') {
-          return { [key]: { ilike: `%${search}%` } };
-        }
-
-        if (value.columnType === 'PgBoolean') {
-          if (search === 'true' || search === 'false') {
-            return { [key]: { eq: search === 'true' } };
-          }
-          return null;
-        }
-
-        if (
-          value.columnType === 'PgInteger' ||
-          value.columnType === 'PgFloat' ||
-          value.columnType === 'PgTimestampString' ||
-          value.columnType === 'PgArray' ||
-          value.columnType === 'PgJson'
-        ) {
-          // return {
-          //   RAW: (t: any) =>
-          //     sql`${t[key]}::text ILIKE ${'%' + search + '%'}`,
-          // };
-        }
-
-      }).filter(Boolean)
-  }
   const GUARD: Partial<Record<keyof Tables, any>> = {
     documents: {
       get: (search?: string) => {
@@ -53,24 +44,24 @@ const getAuthGuard = (name: keyof Tables) => {
                 { to: { arrayContains: [user?.role?.name] } },
               ]
             },
-            search ? { OR: searchable(name, search) } : {}
+            // search ? { OR: searchable(name, search) } : {}
           ]
         }
       }
     },
     users: {
       get: (search?: string) => {
-        return search ? { OR: searchable(name, search) } : {}
+        // return search ? { OR: searchable(name, search) } : {}
       }
     },
     roles: {
       get: (search?: string) => {
-        return search ? { OR: searchable(name, search) } : {}
+        // return search ? { OR: searchable(name, search) } : {}
       }
     },
     organizations: {
       get: (search?: string) => {
-        return search ? { OR: searchable(name, search) } : {}
+        // return search ? { OR: searchable(name, search) } : {}
       }
     }
   }
@@ -90,8 +81,25 @@ export const getData = query(
     Params extends GetParams<T>
   >({ table, ...params }: { table: T } & Params) => {
   const time = performance.now()
-  console.log(getAuthGuard(table)?.get(params.search))
-  params.where = Object.assign(params.where ?? {}, getAuthGuard(table)?.get(params.search) ?? {})
+  const conditions = [];
+
+  if (params.where) {
+    conditions.push(params.where);
+  }
+
+  const guard = getAuthGuard(table)?.get?.(params.search);
+  if (guard && Object.keys(guard).length > 0) {
+    conditions.push(guard);
+  }
+
+  const search = searchable(table, params.search);
+  if (search.length > 0) {
+    conditions.push({ OR: search });
+  }
+
+  if (conditions.length > 0) {
+    params.where = conditions.length === 1 ? conditions[0] : { AND: conditions };
+  }
 
   // await delay(3000)
   // @ts-expect-error Drizzle type inference is not working

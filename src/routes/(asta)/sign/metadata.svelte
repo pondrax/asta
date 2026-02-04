@@ -5,6 +5,7 @@
   import Signature from "./signature.svelte";
   import { type } from "arktype";
   import { getData } from "$lib/remotes/api.remote";
+  import { Select } from "$lib/components";
 
   let {
     children,
@@ -101,6 +102,8 @@
     hasSignature;
     getUserCity();
   });
+
+  // $inspect(form, form.instansi);
 </script>
 
 <form
@@ -313,41 +316,50 @@
       </label>
     </li>
     <li class="p-2">
-      <label class="floating-label p-0 bg-transparent">
-        <span>Nama Perangkat Daerah</span>
-        <select bind:value={form.instansi} class="select select-sm">
-          <option disabled selected>Pilih Opsi</option>
-          {#await getData( { table: "organizations", orderBy: { id: "asc" }, offset: 0, limit: 100 }, )}
-            <option disabled selected>Loading...</option>
-          {:then orgs}
-            {#each orgs?.data as org}
-              <option value={org.short_name}>{org.name}</option>
-            {/each}
-          {/await}
-        </select>
+      <div class="p-0 bg-transparent flex flex-col gap-0">
+        <Select
+          bind:value={form.instansi}
+          label="Pilih Perangkat Daerah"
+          table="organizations"
+          labelKey="name"
+          valueKey="short_name"
+          inputClass="input-sm"
+          limit={100}
+          orderBy={{ id: "asc" }}
+        />
         <div class="text-[10px] text-gray-400">
           Pilih Eksternal untuk intansi diluar pemerintah kota mojokerto
         </div>
-      </label>
+      </div>
     </li>
 
     <li class="p-2" class:hidden={form.instansi == "Eksternal"}>
-      <label class="floating-label p-0 bg-transparent">
-        <span>Pangkat / Golongan</span>
-        <select bind:value={form.pangkat} class="select select-sm">
-          <option disabled selected>Pilih Opsi</option>
-          {#await getData({ table: "ranks", offset: 0, limit: 100 })}
-            <option disabled selected>Loading...</option>
-          {:then ranks}
-            {#each ranks?.data as opt}
-              <option>
-                {opt.grade}
-                {opt.rank !== "-" ? `(${opt.rank})` : ""}
-              </option>
-            {/each}
-          {/await}
-        </select>
-      </label>
+      <div class="p-0 bg-transparent flex">
+        <Select
+          bind:value={form.pangkat}
+          label="Pilih Pangkat"
+          table="ranks"
+          labelKey={(prop) =>
+            `${prop.grade} ${prop.rank != "-" ? "(" + prop.rank + ")" : ""}`}
+          valueKey={(prop) =>
+            `${prop.grade} ${prop.rank != "-" ? "(" + prop.rank + ")" : ""}`}
+          limit={100}
+          orderBy={{ id: "asc" }}
+        >
+          <!-- {#snippet children(prop)}
+            <div class="flex justify-between w-full">
+              <span>{prop.grade}</span>
+              <span class="opacity-50 text-xs">{prop.rank}</span>
+            </div>
+          {/snippet}
+
+          {#snippet selected(prop)}
+            <div class="font-bold text-primary italic">
+              {prop.grade} <span class="text-xs opacity-50">[{prop.rank}]</span>
+            </div>
+          {/snippet} -->
+        </Select>
+      </div>
     </li>
     <li class="p-2">
       <label class="floating-label p-0 bg-transparent">

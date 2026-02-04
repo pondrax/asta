@@ -24,9 +24,12 @@
   let multiFruitObjs = $state<any[]>([]);
 
   // Remote State (Users)
-  let remoteUserId = $state<string | null>(null);
+  let remoteUserId = $state<string | null>();
   let remoteUserObj = $state<NonNullable<TableRow<"users">> | null>(null);
 
+  setTimeout(() => {
+    remoteUserId = "m39y1d8tbsqtngp";
+  }, 1000);
   // Remote State (Roles)
   let remoteRoleIds = $state<string[]>([]);
   let remoteRoleObjs = $state<NonNullable<TableRow<"roles">>[]>([]);

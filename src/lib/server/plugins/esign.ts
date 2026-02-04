@@ -67,7 +67,7 @@ export class Esign {
         }
     ];
 
-    console.log(props)
+    // console.log(props)
     return this.makeRequest(
       `${env.ESIGN_URL}/api/v2/sign/pdf`,
       {

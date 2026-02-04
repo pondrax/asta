@@ -485,7 +485,7 @@
     {@const total = Object.keys(item.documents).length}
     {@const completed = item.completed.length}
     <form
-      class="flex flex-col gap-4"
+      class="flex flex-col gap-4 px-1"
       autocomplete="off"
       onsubmit={async (e) => {
         e.preventDefault();
