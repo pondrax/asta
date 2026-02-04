@@ -51,7 +51,7 @@ export class Esign {
     location?: string,
     note?: string
   }) {
-    const { id, ...signature } = signatureProperties[0];
+    const { id, ...signature } = signatureProperties?.[0] || {};
     const props = [
       signatureProperties[0]
         ? { ...signature, location, reason: note }
