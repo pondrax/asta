@@ -35,23 +35,18 @@ const getAuthGuard = (name: keyof Tables) => {
 
   const GUARD: Partial<Record<keyof Tables, any>> = {
     documents: {
-      get: (search?: string) => {
+      get: (opt: any) => {
         return {
-          AND: [
-            {
-              OR: [
-                { owner: user?.email ?? '-', },
-                { to: { arrayContains: [user?.role?.name] } },
-              ]
-            },
-            // search ? { OR: searchable(name, search) } : {}
+          OR: [
+            { owner: user?.email ?? '-', },
+            { to: { arrayContains: [user?.role?.name] } },
           ]
         }
       }
     },
     users: {
       get: (search?: string) => {
-        // return search ? { OR: searchable(name, search) } : {}
+
       }
     },
     roles: {
@@ -101,6 +96,7 @@ export const getData = query(
     params.where = conditions.length === 1 ? conditions[0] : { AND: conditions };
   }
 
+  console.log(JSON.stringify(params.where, null, 2))
   // await delay(3000)
   // @ts-expect-error Drizzle type inference is not working
   const data = await db.query[table].findManyAndCount(params);

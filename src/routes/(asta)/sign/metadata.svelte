@@ -319,7 +319,7 @@
       <div class="p-0 bg-transparent flex flex-col gap-0">
         <Select
           bind:value={form.instansi}
-          label="Pilih Perangkat Daerah"
+          label="Perangkat Daerah"
           table="organizations"
           labelKey="name"
           valueKey="short_name"
@@ -337,7 +337,8 @@
       <div class="p-0 bg-transparent flex">
         <Select
           bind:value={form.pangkat}
-          label="Pilih Pangkat"
+          inputClass="input-sm"
+          label="Pangkat / Golongan"
           table="ranks"
           labelKey={(prop) =>
             `${prop.grade} ${prop.rank != "-" ? "(" + prop.rank + ")" : ""}`}
