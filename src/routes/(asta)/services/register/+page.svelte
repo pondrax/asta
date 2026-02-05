@@ -84,23 +84,33 @@
     },
   ];
   onMount(() => {
-    // Initialize Turnstile
-    // @ts-expect-error
-    turnstileId = window.turnstile.render("#turnstile-container", {
-      sitekey: env.PUBLIC_TURNSTILE_KEY,
-      size: "flexible",
-      callback: async function (token: string) {
-        const verify = await verifyTurnstile({ __token: token });
-        if (verify.success) {
-          turnstileSuccess = true;
-          errorMessage = "";
-          // Only auto-trigger if we are in the initial phase and have an identifier
-          if (isInitialAutoCheck && identifier) {
-            handleCheck();
+    // Initialize Turnstile with safety check for window.turnstile
+    function initTurnstile() {
+      // @ts-expect-error
+      if (!window.turnstile) {
+        setTimeout(initTurnstile, 100);
+        return;
+      }
+
+      // @ts-expect-error
+      turnstileId = window.turnstile.render("#turnstile-container", {
+        sitekey: env.PUBLIC_TURNSTILE_KEY,
+        size: "flexible",
+        callback: async function (token: string) {
+          const verify = await verifyTurnstile({ __token: token });
+          if (verify.success) {
+            turnstileSuccess = true;
+            errorMessage = "";
+            // Only auto-trigger if we are in the initial phase and have an identifier
+            if (isInitialAutoCheck && identifier) {
+              handleCheck();
+            }
           }
-        }
-      },
-    });
+        },
+      });
+    }
+
+    initTurnstile();
   });
 </script>
 
