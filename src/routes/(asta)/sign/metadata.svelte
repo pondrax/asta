@@ -167,7 +167,7 @@
               </div>
               <div>
                 <a
-                  href="/account/register"
+                  href={`/services/register?identity=${form.email}`}
                   class="btn btn-xs btn-error"
                   target="_blank"
                 >
