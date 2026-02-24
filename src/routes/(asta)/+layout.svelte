@@ -101,9 +101,19 @@
           class="dropdown-content menu bg-base-100 rounded-box z-1 w-48 mt-3 p-2 shadow-sm"
         >
           <li class="menu-title uppercase">{user.role?.name}</li>
+          {#if user.role?.name === "admin"}
+            <li>
+              <a href="/main">
+                <iconify-icon icon="bx:bxs-dashboard" class="mr-2"
+                ></iconify-icon>
+                Dashboard
+              </a>
+            </li>
+          {/if}
           <li>
             <a href="/me">
-              <iconify-icon icon="bx:bxs-dashboard" class="mr-2"></iconify-icon>
+              <iconify-icon icon="bx:bar-chart-square" class="mr-2"
+              ></iconify-icon>
               Overview
             </a>
           </li>
@@ -114,9 +124,15 @@
             </a>
           </li>
           <li>
-            <a href={`${data.baseURLSSO}/account`} target="_blank">
+            <a href="/profile">
               <iconify-icon icon="bx:user" class="mr-2"></iconify-icon>
               Profil
+            </a>
+          </li>
+          <li>
+            <a href={`${data.baseURLSSO}/account`} target="_blank">
+              <iconify-icon icon="bx:cog" class="mr-2"></iconify-icon>
+              Account
             </a>
           </li>
           <li></li>

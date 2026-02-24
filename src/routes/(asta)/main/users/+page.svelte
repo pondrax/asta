@@ -3,14 +3,13 @@
   import { Modal, Toolbar } from "$lib/components";
   import { d } from "$lib/utils";
 
-  const { data } = $props();
   const expand = {
     with: {
-      user: {},
+      role: {},
     },
   };
-  let query: GetParams<"documents"> = $state({
-    table: "documents",
+  let query: GetParams<"users"> = $state({
+    table: "users",
     limit: 20,
     offset: 0,
     where: {},
@@ -27,17 +26,6 @@
       query.offset = 0;
       lastCount = items.count;
       selections = [];
-    }
-  });
-
-  let administrative = $state(false);
-  $effect(() => {
-    if (administrative) {
-      query.where!.to = { arrayContains: [data.user?.role.name] };
-      delete query.where!.owner;
-    } else {
-      delete query.where!.to;
-      query.where!.owner = data.user?.email;
     }
   });
 </script>
@@ -61,7 +49,7 @@
       {@const item = items.data.find((i) => i.id === id)}
       <div>
         <input type="text" name="id[]" value={id} class="w-20" readonly />
-        - {item?.title}
+        - {item?.email}
       </div>
     {/each}
     <div class="sticky bottom-0 bg-base-100 pt-2">
@@ -124,35 +112,27 @@
     {#snippet extended()}
       <div class="filter">
         <input
-          bind:checked={administrative}
-          type="checkbox"
-          class="btn btn-sm"
-          aria-label="Administratif"
-        />
-      </div>
-      <div class="filter">
-        <input
-          bind:group={query.where!.status}
-          value="draft"
+          bind:group={query.where!.role}
+          value="admin"
           class="btn btn-sm"
           type="radio"
-          name="status"
-          aria-label="Draft"
+          name="role"
+          aria-label="Admin"
         />
         <input
-          bind:group={query.where!.status}
-          value="signed"
+          bind:group={query.where!.role}
+          value="user"
           class="btn btn-sm"
           type="radio"
-          name="status"
-          aria-label="Ditandatangani"
+          name="role"
+          aria-label="User"
         />
         <input
-          bind:group={query.where!.status}
+          bind:group={query.where!.role}
           value={{}}
           class="btn btn-sm filter-reset"
           type="radio"
-          name="status"
+          name="role"
           aria-label="x"
         />
       </div>
@@ -243,39 +223,14 @@
                   />
                 </div>
               </th>
-              <td>{item.title}</td>
-              <td>
-                <div class="space-y-2">
-                  {#each item.files as file}
-                    <a href={file} target="_blank" class="btn btn-xs btn-soft">
-                      <iconify-icon icon="bx:file"></iconify-icon>
-                      <span class="max-w-64 truncate text-left">
-                        {file?.split("/")?.pop()}
-                      </span>
-                    </a>
-                  {/each}
-                </div>
-              </td>
-              <td>
-                {#if item.esign}
-                  <span class="badge badge-sm badge-soft badge-success">
-                    ESign
-                  </span>
-                {:else}
-                  <span class="badge badge-sm badge-soft badge-warning">
-                    Manual
-                  </span>
-                {/if}
-              </td>
-              <td>{item.status}</td>
-              <td>{item.signer?.split("@")[0]}</td>
+              <td>{item.email}</td>
+              <td>{item.role?.name}</td>
               <td class="text-xs whitespace-nowrap">
                 {d(item.created).format("HH:mm, DD MMM YYYY")}
               </td>
               <td class="text-xs whitespace-nowrap">
                 {d(item.updated).format("HH:mm, DD MMM YYYY")}
               </td>
-              <td>{JSON.stringify(item.metadata)}</td>
               <th>
                 <div class="flex gap-1 -m-1">
                   <form action="/sign" method="POST" target="_blank">

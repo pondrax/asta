@@ -3,15 +3,14 @@
   import { Modal, Toolbar } from "$lib/components";
   import { d } from "$lib/utils";
 
-  const expand = {
-    with: {
-      role: {},
-    },
-  };
-  let query: GetParams<"users"> = $state({
-    table: "users",
+  const expand = {};
+  let query: GetParams<"__logs"> = $state({
+    table: "__logs",
     limit: 20,
     offset: 0,
+    orderBy: {
+      created: "desc",
+    },
     where: {},
     ...expand,
   });
@@ -30,7 +29,7 @@
   });
 </script>
 
-<Modal bind:data={forms.del} title="Delete Data">
+<!-- <Modal bind:data={forms.del} title="Delete Data">
   <form
     {...delData.enhance(async ({ form, data, submit }) => {
       try {
@@ -67,10 +66,10 @@
       </button>
     </div>
   </form>
-</Modal>
+</Modal> -->
 
-<div class="px-5 overflow-x-clip pt-2">
-  <h3 class="text-xl">Daftar Dokumen</h3>
+<div class="px-5 overflow-x-clip">
+  <h3 class="text-xl">Daftar Logs</h3>
 
   <Toolbar
     bind:query
@@ -104,39 +103,12 @@
         <iconify-icon icon="bx:pen" class="mr-2"></iconify-icon>
         Share
       </a> -->
-      <button class="btn btn-sm btn-error" onclick={() => (forms.del = true)}>
+      <!-- <button class="btn btn-sm btn-error" onclick={() => (forms.del = true)}>
         <iconify-icon icon="bx:trash" class="mr-2"></iconify-icon>
         Hapus
-      </button>
+      </button> -->
     {/if}
-    {#snippet extended()}
-      <div class="filter">
-        <input
-          bind:group={query.where!.role}
-          value="admin"
-          class="btn btn-sm"
-          type="radio"
-          name="role"
-          aria-label="Admin"
-        />
-        <input
-          bind:group={query.where!.role}
-          value="user"
-          class="btn btn-sm"
-          type="radio"
-          name="role"
-          aria-label="User"
-        />
-        <input
-          bind:group={query.where!.role}
-          value={{}}
-          class="btn btn-sm filter-reset"
-          type="radio"
-          name="role"
-          aria-label="x"
-        />
-      </div>
-    {/snippet}
+
     {#snippet filter(where)}
       <div>
         <span class="text-xs">Judul</span>
@@ -171,14 +143,12 @@
               />
             </div>
           </th>
-          <th class="min-w-64">Nama Dokumen</th>
-          <th class="w-64">File</th>
-          <th>Tipe</th>
-          <th>Status</th>
-          <th>Signer</th>
-          <th>Dibuat</th>
-          <th>Diperbarui</th>
+          <th class="w-1">Level</th>
+          <th>Message</th>
           <th>Metadata</th>
+          <th>URL</th>
+          <th>Method</th>
+          <th>Dibuat</th>
           <th class="w-1 text-center">#</th>
         </tr>
       </thead>
@@ -223,38 +193,20 @@
                   />
                 </div>
               </th>
-              <td>{item.email}</td>
-              <td>{item.role?.name}</td>
+              <td>{item.level}</td>
+              <td>{item.message}</td>
+              <td>
+                <pre class="text-xs">{JSON.stringify(
+                    item.metadata,
+                    null,
+                    2,
+                  )}</pre>
+              </td>
+              <td>{item.url}</td>
+              <td>{item.method}</td>
               <td class="text-xs whitespace-nowrap">
                 {d(item.created).format("HH:mm, DD MMM YYYY")}
               </td>
-              <td class="text-xs whitespace-nowrap">
-                {d(item.updated).format("HH:mm, DD MMM YYYY")}
-              </td>
-              <th>
-                <div class="flex gap-1 -m-1">
-                  <form action="/sign" method="POST" target="_blank">
-                    <input type="hidden" name="id" value={item.id} />
-                    <button
-                      type="submit"
-                      class="btn btn-sm btn-soft btn-primary tooltip tooltip-left"
-                      aria-label="sign"
-                      data-tip="Tanda Tangan"
-                    >
-                      <iconify-icon icon="bx:pen"></iconify-icon>
-                    </button>
-                  </form>
-                  <a
-                    href="/verify?id={item.id}"
-                    target="_blank"
-                    class="btn btn-sm btn-soft btn-accent tooltip tooltip-left"
-                    aria-label="Verifikasi"
-                    data-tip="Verifikasi Dokumen"
-                  >
-                    <iconify-icon icon="bx:search"></iconify-icon>
-                  </a>
-                </div>
-              </th>
             </tr>
           {/each}
         {/if}

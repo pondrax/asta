@@ -1,4 +1,4 @@
-import { redirect, type Handle } from '@sveltejs/kit';
+import { error, redirect, type Handle } from '@sveltejs/kit';
 import { paraglideMiddleware } from '$lib/paraglide/server';
 import { verifyJWT } from '$lib/server/plugins/jwt';
 import { sequence } from '@sveltejs/kit/hooks';
@@ -29,6 +29,10 @@ export const handleAuth: Handle = async ({ event, resolve }) => {
 			});
 		} catch {
 			event.cookies.delete('auth-token', { path: '/' });
+		}
+	} else {
+		if (event.url.pathname.startsWith('/main')) {
+			return error(403, 'Forbidden. Anda tidak memiliki akses ke halaman ini');
 		}
 	}
 
