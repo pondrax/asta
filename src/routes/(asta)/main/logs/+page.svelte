@@ -193,7 +193,16 @@
                   />
                 </div>
               </th>
-              <td>{item.level}</td>
+              <td>
+                <span
+                  class="badge badge-sm"
+                  class:badge-error={item.level === "error"}
+                  class:badge-warning={item.level === "warn"}
+                  class:badge-info={item.level === "info"}
+                >
+                  {item.level}
+                </span>
+              </td>
               <td>{item.message}</td>
               <td>
                 <pre class="text-xs">{JSON.stringify(

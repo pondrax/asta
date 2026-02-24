@@ -109,7 +109,7 @@
         Hapus
       </button>
     {/if}
-    {#snippet extended()}
+    <!-- {#snippet extended()}
       <div class="filter">
         <input
           bind:group={query.where!.role}
@@ -136,7 +136,7 @@
           aria-label="x"
         />
       </div>
-    {/snippet}
+    {/snippet} -->
     {#snippet filter(where)}
       <div>
         <span class="text-xs">Judul</span>
@@ -171,14 +171,10 @@
               />
             </div>
           </th>
-          <th class="min-w-64">Nama Dokumen</th>
-          <th class="w-64">File</th>
-          <th>Tipe</th>
-          <th>Status</th>
-          <th>Signer</th>
+          <th class="min-w-64">Email</th>
+          <th>Role</th>
           <th>Dibuat</th>
           <th>Diperbarui</th>
-          <th>Metadata</th>
           <th class="w-1 text-center">#</th>
         </tr>
       </thead>
@@ -232,7 +228,7 @@
                 {d(item.updated).format("HH:mm, DD MMM YYYY")}
               </td>
               <th>
-                <div class="flex gap-1 -m-1">
+                <!-- <div class="flex gap-1 -m-1">
                   <form action="/sign" method="POST" target="_blank">
                     <input type="hidden" name="id" value={item.id} />
                     <button
@@ -253,7 +249,7 @@
                   >
                     <iconify-icon icon="bx:search"></iconify-icon>
                   </a>
-                </div>
+                </div> -->
               </th>
             </tr>
           {/each}
