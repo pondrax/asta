@@ -32,6 +32,9 @@ export const handleAuth: Handle = async ({ event, resolve }) => {
 		}
 	} else {
 		if (event.url.pathname.startsWith('/main')) {
+			if (event.locals.user?.role.name === 'admin') {
+				return resolve(event);
+			}
 			return error(403, 'Forbidden. Anda tidak memiliki akses ke halaman ini');
 		}
 	}
