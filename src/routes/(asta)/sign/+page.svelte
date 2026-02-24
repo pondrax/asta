@@ -40,6 +40,7 @@
   let documents: Record<string, File> = $state({});
   let asTemplate = $state(false);
   let asDraft = $state(false);
+  let isDraft = $state(false);
   // let documents: File[] = $state([]);
   // let editedDocuments: File[] | null[] = $state([]);
   let status = $state("NOT_REGISTERED");
@@ -179,6 +180,7 @@
     const docId = createId(10);
     const id = data.id || page.url.searchParams.get("id");
     const templateId = page.url.searchParams.get("template");
+    isDraft = page.url.searchParams.get("draft") === "true";
 
     if (id) {
       const ids = id.split(",");
@@ -194,6 +196,7 @@
           if (!existing) return;
 
           for (const doc of existing) {
+            console.log(doc);
             const fileUrl = doc.files?.pop();
             if (!fileUrl) continue;
 
@@ -201,6 +204,7 @@
 
             const key = doc.id ?? docId;
 
+            signatures = (doc.signatureProperties || []) as SignatureType[];
             documents[key] = file;
 
             if (isFirst) {
@@ -290,6 +294,15 @@
           >
             Verifikasi
           </button>
+        </div>
+      {:else if isDraft}
+        <div
+          class="absolute top-0 alert py-1 px-5 alert-info left-0 right-0 z-5"
+        >
+          <iconify-icon icon="bx:error" class="text-xl"></iconify-icon>
+          <span>
+            <strong>Peringatan:</strong> Dokumen masih dalam bentuk draft.
+          </span>
         </div>
       {/if}
 
@@ -637,10 +650,12 @@
 
         if (completed.length > 0) {
           const notifyText = completed
-            .map(
-              (r, i) =>
-                `${i + 1}. *${r?.fileName}*\n${location.origin}/d?id=${r?.id}`,
-            )
+            .map((r, i) => {
+              if (isDraft) {
+                return `${i + 1}. *${r?.fileName}*\n${location.origin}/sign?draft=true&id=${r?.id}`;
+              }
+              return `${i + 1}. *${r?.fileName}*\n${location.origin}/d?id=${r?.id}`;
+            })
             .join("\n\n");
 
           try {
@@ -718,6 +733,15 @@
           </div>
 
           <div>
+            {#if asDraft}
+              <a
+                href={`/sign?draft=true&id=${item.completed.join(",")}`}
+                target="_blank"
+                class="btn btn-sm btn-primary"
+              >
+                Tandatangani
+              </a>
+            {/if}
             <a
               href={`/verify?id=${item.completed.join(",")}`}
               target="_blank"
@@ -725,13 +749,18 @@
             >
               Lihat Dokumen
             </a>
-            <button
-              type="button"
-              class="btn btn-sm btn-error"
-              onclick={() => (forms.confirm = true)}
-            >
-              Tutup
-            </button>
+            {#if !asDraft}
+              <button
+                type="button"
+                class="btn btn-sm btn-error"
+                onclick={() => {
+                  forms.confirm = true;
+                  location.search = "";
+                }}
+              >
+                Tutup
+              </button>
+            {/if}
           </div>
         {:else if item.completed.length == 0}
           {#if bsre}
