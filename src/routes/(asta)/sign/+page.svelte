@@ -64,6 +64,9 @@
     blob?: Blob;
   }[] = $state([]);
 
+  // svelte-ignore state_referenced_locally
+  let saveDocument = $state(!!data.user);
+
   let forms: {
     sign?: {
       nik: string;
@@ -139,9 +142,9 @@
 
       buffer = (
         await pdfLib.drawFooter(buffer, {
-          imageBase64: !data.user ? "" : (base64QR as string),
+          imageBase64: saveDocument ? (base64QR as string) : "",
           text: bsre
-            ? `Dokumen ini ditandatangani menggunakan sertifikat elektronik yang diterbitkan BSrE - BSSN\n${!data.user ? "" : "#" + id}`
+            ? `Dokumen ini ditandatangani menggunakan sertifikat elektronik yang diterbitkan BSrE - BSSN\n${saveDocument ? "#" + id : ""}`
             : `Dokumen ini ditandatangani menggunakan Aplikasi Tapak Astà\n#${id}`,
         })
       ).buffer as ArrayBuffer;
@@ -241,6 +244,7 @@
     form.footer = true;
     activeIndex = docId;
     forms.template = undefined;
+    saveDocument = true;
   }
 
   //@ts-expect-error
@@ -594,14 +598,16 @@
                     String(item.nama).replace(/\W/g, "_") +
                     ".pdf"
                   : file.name + ".pdf";
-                const signing = await signDocument({
+
+                const props = {
                   id,
                   __manual: !bsre,
                   __asDraft: asDraft,
+                  __saveDocument: saveDocument,
                   to: item.to,
-                  // email: item.email,
+                  email: item.email,
                   // nik: item.nik,
-                  ...(useEmail ? { email: item.email } : { nik: item.nik }),
+                  // ...(useEmail ? { email: item.email } : { nik: item.nik }),
                   nama: item.nama,
                   jabatan: item.jabatan || "-",
                   pangkat: item.pangkat || "-",
@@ -613,9 +619,16 @@
                   signatureProperties: item.signatureProperties,
                   fileName,
                   fileBase64,
-                });
+                };
+                const signing = await signDocument(props);
 
-                console.log(signing);
+                console.log({
+                  props,
+                  signing,
+                  fileBase64,
+                  before: fileBase64.length,
+                  after: signing?.file?.at(0)?.length,
+                });
 
                 if (signing?.retry) {
                   forms.sign!.__error = signing.message;
@@ -641,7 +654,7 @@
             },
           );
 
-          console.log(results, item);
+          // console.log(results, item);
 
           elapsedTime = performance.now() - startTime;
           clearInterval(interval);
@@ -664,7 +677,7 @@
         if (signResults.length > 0) {
           const notifyText = signResults
             .map((r, i) => {
-              if (!data.user) {
+              if (!saveDocument) {
                 return `${i + 1}. *${r?.fileName}*\n`;
               }
               if (isDraft) {
@@ -685,6 +698,7 @@
             });
             if (asDraft) return;
             signResults.forEach(async (r, i) => {
+              console.log(r);
               const payload = {
                 document: {
                   base64: r.base64,
@@ -740,7 +754,7 @@
                 <a
                   href={URL.createObjectURL(result?.blob)}
                   target="_blank"
-                  download={file.name}
+                  download={file.name + ".pdf"}
                   class="badge badge-sm badge-primary tooltip tooltip-left"
                   data-tip="Download"
                   aria-label="Download"
@@ -800,20 +814,22 @@
                 Tandatangani
               </a>
             {/if}
-            <a
-              href={`/verify?id=${item.completed.join(",")}`}
-              target="_blank"
-              class="btn btn-sm btn-success"
-            >
-              Lihat Dokumen
-            </a>
+            {#if saveDocument}
+              <a
+                href={`/verify?id=${item.completed.join(",")}`}
+                target="_blank"
+                class="btn btn-sm btn-success"
+              >
+                Lihat Dokumen
+              </a>
+            {/if}
             {#if !asDraft}
               <button
                 type="button"
                 class="btn btn-sm btn-error"
                 onclick={() => {
                   forms.confirm = true;
-                  location.search = "";
+                  // location.search = "";
                 }}
               >
                 Tutup
@@ -918,7 +934,7 @@
           </button>
         {/if}
       {/if}
-      {#if !data.user}
+      {#if !saveDocument}
         <div class="alert alert-warning alert-sm">
           Pengguna tidak login, dokumen tidak akan disimpan pada aplikasi
         </div>

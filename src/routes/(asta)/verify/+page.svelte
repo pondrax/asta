@@ -330,7 +330,7 @@
           class="tooltip tooltip-right before:-translate-x-10 after:-translate-x-10"
           data-tip="Ada Pertanyaan?"
         >
-          <div class="scale-80 -mt-15 -mb-10 overflow-clip">
+          <div class="scale-80 -mt-12 -mb-18 overflow-clip">
             <Char />
           </div>
         </div>

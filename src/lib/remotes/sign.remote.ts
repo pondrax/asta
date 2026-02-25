@@ -44,6 +44,7 @@ export const signDocument = command(type({
   // __token: 'string',
   __manual: 'boolean?',
   __asDraft: 'boolean?',
+  __saveDocument: 'boolean?',
   id: 'string',
   email: 'string?',
   nik: 'string?',
@@ -60,7 +61,6 @@ export const signDocument = command(type({
   fileName: 'string',
   to: 'string[]|undefined',
 }), async (props) => {
-  const event = getRequestEvent();
   try {
     let response: {
       status: number,
@@ -114,7 +114,8 @@ export const signDocument = command(type({
     }
 
     if (response.data.file && response.data.file.length > 0) {
-      if (event.locals.user) {
+      console.log('size', response.data.file[0].length);
+      if (props.__saveDocument) {
         const blob = base64ToBlob(response.data.file[0]);
         const buffer = Buffer.from(await blob.arrayBuffer());
         const checksum = await calculateFileChecksum(buffer);
