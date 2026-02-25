@@ -8,6 +8,7 @@
   import { Select } from "$lib/components";
 
   let {
+    data,
     children,
     loading = $bindable(false),
     status = $bindable("NOT_REGISTERED"),
@@ -142,7 +143,7 @@
       </div>
     </li>
     {#if bsre}
-      <li class="px-0 py-1">
+      <!-- <li class="px-0 py-1">
         <label class="label py-0 bg-transparent flex justify-between">
           <span class="btn btn-sm" class:btn-primary={!useEmail}> NIK</span>
           <input
@@ -153,7 +154,7 @@
           />
           <span class="btn btn-sm" class:btn-primary={useEmail}> EMAIL</span>
         </label>
-      </li>
+      </li> -->
       <li class="p-2 tooltip">
         {#if form.email?.split("@").at(0) !== ""}
           <div class="tooltip-content pointer-events-auto!">
@@ -182,60 +183,51 @@
           </div>
         {/if}
 
-        {#if useEmail}
+        <!-- {#if useEmail} -->
+        <label class="floating-label p-0 bg-transparent">
+          <span class="text-nowrap">Email Dinas Penandatangan ({status})</span>
+          <div class="input input-sm">
+            <input
+              bind:value={
+                () => form.email?.split("@")?.at(0),
+                (value) =>
+                  (form.email =
+                    String(value).toLowerCase() + "@mojokertokota.go.id")
+              }
+              required
+              type="text"
+              placeholder="Email Dinas"
+              oninput={debounceCheckEmail}
+            />
+            <span class="label">@mojokertokota.go.id</span>
+            {#if loading}
+              <span class="loading"></span>
+            {:else if status == "ISSUE"}
+              <iconify-icon icon="bx:check" class="text-success"></iconify-icon>
+            {:else}
+              <iconify-icon icon="bx:x" class="text-error"></iconify-icon>
+            {/if}
+          </div>
+          <div class="text-[10px] text-gray-400">
+            Contoh: mail@mojokertokota.go.id
+          </div>
+        </label>
+      </li>
+      {#if !data.user}
+        <li class="p-2">
           <label class="floating-label p-0 bg-transparent">
-            <span class="text-nowrap">Email Dinas Penandatangan ({status})</span
-            >
-            <div class="input input-sm">
-              <input
-                bind:value={
-                  () => form.email?.split("@")?.at(0),
-                  (value) =>
-                    (form.email =
-                      String(value).toLowerCase() + "@mojokertokota.go.id")
-                }
-                required
-                type="text"
-                placeholder="Email Dinas"
-                oninput={debounceCheckEmail}
-              />
-              <span class="label">@mojokertokota.go.id</span>
-              {#if loading}
-                <span class="loading"></span>
-              {:else if status == "ISSUE"}
-                <iconify-icon icon="bx:check" class="text-success"
-                ></iconify-icon>
-              {:else}
-                <iconify-icon icon="bx:x" class="text-error"></iconify-icon>
-              {/if}
-            </div>
-            <div class="text-[10px] text-gray-400">
-              Contoh: mail@mojokertokota.go.id
-            </div>
-          </label>
-        {:else}
-          <label class="floating-label p-0 bg-transparent">
-            <span class="text-nowrap">NIK Penandatangan ({status})</span>
+            <span class="text-nowrap">NIK Penandatangan</span>
             <div class="input input-sm">
               <input
                 bind:value={form.nik}
                 required
                 type="text"
                 placeholder="Nomor Induk Kependudukan"
-                oninput={debounceCheckEmail}
               />
-              {#if loading}
-                <span class="loading"></span>
-              {:else if status == "ISSUE"}
-                <iconify-icon icon="bx:check" class="text-success"
-                ></iconify-icon>
-              {:else}
-                <iconify-icon icon="bx:x" class="text-error"></iconify-icon>
-              {/if}
             </div>
           </label>
-        {/if}
-      </li>
+        </li>
+      {/if}
     {:else}
       <li class="p-2">
         <label class="floating-label p-0 bg-transparent">

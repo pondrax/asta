@@ -11,9 +11,6 @@
           {
             email: data.user?.email,
           },
-          {
-            nik: data.user?.nik,
-          },
         ],
       },
       limit: 1,
@@ -39,12 +36,14 @@
     </label>
     <label class="floating-label">
       <span>Nama</span>
-      <input
-        type="text"
-        class="input input-sm"
-        value={data.user?.name}
-        disabled
-      />
+      <input type="text" class="input input-sm" bind:value={data.user!.name} />
     </label>
+    <label class="floating-label">
+      <span>NIK</span>
+      <input type="text" class="input input-sm" bind:value={data.user!.nik} />
+    </label>
+    <div>
+      <button class="btn btn-sm btn-primary">Simpan</button>
+    </div>
   </div>
 </div>

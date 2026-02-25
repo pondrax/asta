@@ -90,6 +90,7 @@ export async function fillFormFields(
     }
   });
 
+  form.flatten();
   return pdfDoc.save();
 }
 

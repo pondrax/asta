@@ -17,6 +17,7 @@
     promisePool,
     generateQRCode,
     d,
+    base64ToBlob,
   } from "$lib/utils";
   import {
     getDocument,
@@ -56,6 +57,12 @@
   let turnstileId = $state("");
 
   let showPassphrase = $state(false);
+  let signResults: {
+    id: string;
+    fileName: string;
+    base64?: string;
+    blob?: Blob;
+  }[] = $state([]);
 
   let forms: {
     sign?: {
@@ -132,9 +139,9 @@
 
       buffer = (
         await pdfLib.drawFooter(buffer, {
-          imageBase64: base64QR as string,
+          imageBase64: !data.user ? "" : (base64QR as string),
           text: bsre
-            ? `Dokumen ini ditandatangani menggunakan sertifikat elektronik yang diterbitkan BSrE - BSSN\n#${id}`
+            ? `Dokumen ini ditandatangani menggunakan sertifikat elektronik yang diterbitkan BSrE - BSSN\n${!data.user ? "" : "#" + id}`
             : `Dokumen ini ditandatangani menggunakan Aplikasi Tapak Astà\n#${id}`,
         })
       ).buffer as ArrayBuffer;
@@ -389,6 +396,7 @@
         <div class="tab-content border-base-300">
           <!-- bind:footer -->
           <Metadata
+            {data}
             bind:status
             bind:bsre
             bind:form
@@ -408,7 +416,7 @@
         class="tooltip tooltip-right before:-translate-x-10 after:-translate-x-10"
         data-tip="Ada Pertanyaan?"
       >
-        <div class="scale-60 -mt-15 -mb-15 -ml-5 overflow-clip">
+        <div class="scale-60 -mt-12 -mb-18 -ml-5 overflow-clip">
           <Char closeeye={showPassphrase} />
         </div>
       </div>
@@ -524,16 +532,16 @@
         }, 1000);
 
         loading = true;
-
-        const completed: { id: string; fileName: string }[] = [];
+        let results: any[] = [];
+        // const completed: { id: string; fileName: string; base64?: string }[] =
+        //   [];
+        const docsx = Object.entries(item.documents);
         try {
-          const docsx = Object.entries(item.documents);
-
           // 🔴 GLOBAL ABORT FLAG
           let abortSigning = false;
 
           let index = -1;
-          const results = await promisePool(
+          results = await promisePool(
             docsx,
             Number(env.PUBLIC_MAX_CONCURRENT_REQUESTS) || 1,
             async ([id, file]) => {
@@ -585,7 +593,7 @@
                     "_" +
                     String(item.nama).replace(/\W/g, "_") +
                     ".pdf"
-                  : file.name;
+                  : file.name + ".pdf";
                 const signing = await signDocument({
                   id,
                   __manual: !bsre,
@@ -619,16 +627,21 @@
                   return null;
                 }
 
-                if (signing?.file) {
+                if (signing?.file?.at(0)) {
                   item.completed.push(id);
-                  completed.push({ id, fileName });
+                  signResults.push({
+                    id,
+                    fileName,
+                    base64: signing.file.at(0),
+                    blob: base64ToBlob(signing.file[0]),
+                  });
                   return signing;
                 }
               }
             },
           );
 
-          // console.log(results);
+          console.log(results, item);
 
           elapsedTime = performance.now() - startTime;
           clearInterval(interval);
@@ -648,9 +661,12 @@
           turnstileSuccess = false;
         }
 
-        if (completed.length > 0) {
-          const notifyText = completed
+        if (signResults.length > 0) {
+          const notifyText = signResults
             .map((r, i) => {
+              if (!data.user) {
+                return `${i + 1}. *${r?.fileName}*\n`;
+              }
               if (isDraft) {
                 return `${i + 1}. *${r?.fileName}*\n${location.origin}/sign?draft=true&id=${r?.id}`;
               }
@@ -667,6 +683,21 @@
                   : `*Dokumen berhasil ditandatangani*\n\n${notifyText}\n\nTerima kasih telah menggunakan layanan *Tapak Astà*.`,
               },
             });
+            if (asDraft) return;
+            signResults.forEach(async (r, i) => {
+              const payload = {
+                document: {
+                  base64: r.base64,
+                },
+                mimetype: "application/pdf",
+                fileName: "signed_" + r.fileName,
+              };
+
+              await sendMessage({
+                recipient: item.nomor_telepon,
+                payload,
+              });
+            });
           } catch {}
         }
       }}
@@ -675,12 +706,9 @@
         class=" w-full min-h-30 max-h-100 overflow-y-auto p-0 list-decimal pl-12"
       >
         {#each Object.entries(item.documents) as [id, file]}
+          {@const result = signResults.find((r) => r.id === id)}
           <li>
-            <a
-              href={item.completed.includes(id)
-                ? `/verify?id=${id}`
-                : undefined}
-              target="_blank"
+            <div
               class="flex justify-between w-full btn btn-sm btn-ghost gap-1 p-1"
             >
               <div class="text-sm text-base-content/80 truncate mr-auto">
@@ -690,6 +718,36 @@
               <span class="badge badge-sm badge-secondary text-nowrap">
                 {(file.size / 1024).toFixed(2)} KB
               </span>
+              <!-- 
+              {JSON.stringify(result, null, 2)} -->
+              {#if result?.blob}
+                <button
+                  type="button"
+                  class="badge badge-sm badge-info tooltip tooltip-left"
+                  data-tip="Verifikasi"
+                  aria-label="Verifikasi"
+                  onclick={() => {
+                    if (!result?.blob) return;
+                    const blob = result.blob;
+                    const blobURL = URL.createObjectURL(blob);
+                    const blobId = blobURL.split("/").pop();
+                    const url = `/verify?blob=${blobId}&fileName=${file.name}`;
+                    window.open(url, "_blank");
+                  }}
+                >
+                  <iconify-icon icon="bx:search"></iconify-icon>
+                </button>
+                <a
+                  href={URL.createObjectURL(result?.blob)}
+                  target="_blank"
+                  download={file.name}
+                  class="badge badge-sm badge-primary tooltip tooltip-left"
+                  data-tip="Download"
+                  aria-label="Download"
+                >
+                  <iconify-icon icon="bx:download"></iconify-icon>
+                </a>
+              {/if}
               <div>
                 {#if item.completed.includes(id)}
                   <iconify-icon icon="bx:check" class="text-success text-2xl"
@@ -701,7 +759,7 @@
                   ></iconify-icon>
                 {/if}
               </div>
-            </a>
+            </div>
           </li>
         {/each}
       </ul>
@@ -846,18 +904,24 @@
           Tanda Tangan {bsre ? "Elektronik" : "Non-Elektronik (Manual)"}
         </button>
 
-        <!-- <div class="divider">Atau</div> -->
-        <button
-          type="submit"
-          class="btn"
-          disabled={loading || !turnstileSuccess}
-          onclick={() => {
-            asDraft = true;
-          }}
-        >
-          <iconify-icon icon="bx:save" class="text-2xl"></iconify-icon>
-          Simpan Draft
-        </button>
+        {#if data.user}
+          <button
+            type="submit"
+            class="btn"
+            disabled={loading || !turnstileSuccess}
+            onclick={() => {
+              asDraft = true;
+            }}
+          >
+            <iconify-icon icon="bx:save" class="text-2xl"></iconify-icon>
+            Simpan Draft
+          </button>
+        {/if}
+      {/if}
+      {#if !data.user}
+        <div class="alert alert-warning alert-sm">
+          Pengguna tidak login, dokumen tidak akan disimpan pada aplikasi
+        </div>
       {/if}
     </form>
   {/snippet}

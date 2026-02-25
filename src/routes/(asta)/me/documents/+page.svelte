@@ -13,6 +13,9 @@
     table: "documents",
     limit: 20,
     offset: 0,
+    orderBy: {
+      updated: "desc",
+    },
     where: {},
     ...expand,
   });
@@ -81,7 +84,7 @@
   </form>
 </Modal>
 
-<div class="px-5 overflow-x-clip">
+<div class="px-5 overflow-x-clip pt-1">
   <h3 class="text-xl">Daftar Dokumen</h3>
 
   <Toolbar
@@ -258,16 +261,25 @@
               </td>
               <td>
                 {#if item.esign}
-                  <span class="badge badge-sm badge-soft badge-success">
-                    ESign
+                  <span class="badge badge-sm badge-soft badge-primary">
+                    esign
                   </span>
                 {:else}
-                  <span class="badge badge-sm badge-soft badge-warning">
-                    Manual
+                  <span class="badge badge-sm badge-soft badge-secondary">
+                    manual
                   </span>
                 {/if}
               </td>
-              <td>{item.status}</td>
+              <td>
+                <span
+                  class="badge badge-sm badge-soft badge-{item.status ===
+                  'draft'
+                    ? 'warning'
+                    : 'success'}"
+                >
+                  {item.status}
+                </span>
+              </td>
               <td>{item.signer?.split("@")[0]}</td>
               <td class="text-xs whitespace-nowrap">
                 {d(item.created).format("HH:mm, DD MMM YYYY")}

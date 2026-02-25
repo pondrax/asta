@@ -118,6 +118,17 @@ export const delData = form('unchecked', async ({ table, id }: { table: keyof Ta
   });
 })
 
+export const saveData = form('unchecked', async ({ table, id }: { table: keyof Tables, id: string[] }) => {
+  if (!id || !table) return;
+  const time = performance.now();
+  const schemaTable = db._.relations[table].table;
+  // await delay(10000)
+  const data = await db.update(schemaTable).set({}).where(inArray(schemaTable.id, id));
+
+  return Object.assign(data, {
+    time: (performance.now() - time).toFixed(2) + 'ms'
+  });
+})
 async function xx() {
 
   const x = getData({

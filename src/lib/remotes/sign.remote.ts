@@ -60,6 +60,7 @@ export const signDocument = command(type({
   fileName: 'string',
   to: 'string[]|undefined',
 }), async (props) => {
+  const event = getRequestEvent();
   try {
     let response: {
       status: number,
@@ -113,64 +114,65 @@ export const signDocument = command(type({
     }
 
     if (response.data.file && response.data.file.length > 0) {
-      const blob = base64ToBlob(response.data.file[0]);
-      const buffer = Buffer.from(await blob.arrayBuffer());
-      const checksum = await calculateFileChecksum(buffer);
-      const saved = await storage.save(`documents/${props.__asDraft ? 'draft_' : 'signed_'}${props.fileName}`, buffer);
-
-      if (saved.url) {
-        // const { fileBase64, fileName, ...metadata } = props
-        await db.query.signers.upsert({
-          data: {
-            nik: props.nik,
-            email: props.email,
-            name: props.nama,
-            rank: props.pangkat,
-            organizations: props.instansi,
-            position: props.jabatan,
-            phone: props.nomor_telepon,
-          }
-        })
-
-        await db.query.documents.upsert({
-          data: {
-            id: props.id,
-            owner: props.email,
-            signer: props.email,
-            title: props.fileName,
-            files: [saved.url],
-            checksums: [checksum],
-            status: props.__asDraft ? 'draft' : 'signed',
-            esign: !props.__manual,
-            to: props.to,
-            signatureProperties: props.__asDraft ? props.signatureProperties : null,
-          },
-          update: doc => ({
-            files: sql`array_append(${doc.files}, ${saved.url})`,
-            checksums: sql`array_append(${doc.checksums}, ${checksum})`,
+      if (event.locals.user) {
+        const blob = base64ToBlob(response.data.file[0]);
+        const buffer = Buffer.from(await blob.arrayBuffer());
+        const checksum = await calculateFileChecksum(buffer);
+        const saved = await storage.save(`documents/${props.__asDraft ? 'draft_' : 'signed_'}${props.fileName}`, buffer);
+        if (saved.url) {
+          await db.query.documents.upsert({
+            data: {
+              id: props.id,
+              owner: props.email,
+              signer: props.email,
+              title: props.fileName,
+              files: [saved.url],
+              checksums: [checksum],
+              status: props.__asDraft ? 'draft' : 'signed',
+              esign: !props.__manual,
+              to: props.to,
+              signatureProperties: props.__asDraft ? props.signatureProperties : null,
+            },
+            update: doc => ({
+              files: sql`array_append(${doc.files}, ${saved.url})`,
+              checksums: sql`array_append(${doc.checksums}, ${checksum})`,
+            })
           })
-        })
-
-        const id = (await db.query.documentStatistics.findFirst({
-          where: {
-            type: 'signed',
-            created: {
-              lt: dayjs().endOf('day').toString(),
-              gt: dayjs().startOf('day').toString(),
-            }
-          }
-        }))?.id || createId();
-        await db.query.documentStatistics.upsert({
-          data: {
-            id,
-            type: 'signed',
-            value: 1,
-          },
-          update: stat => ({
-            value: sql`${stat.value} + 1`,
-          })
-        })
+        }
       }
+
+      // const { fileBase64, fileName, ...metadata } = props
+      await db.query.signers.upsert({
+        data: {
+          nik: props.nik,
+          email: props.email,
+          name: props.nama,
+          rank: props.pangkat,
+          organizations: props.instansi,
+          position: props.jabatan,
+          phone: props.nomor_telepon,
+        }
+      })
+
+      const id = (await db.query.documentStatistics.findFirst({
+        where: {
+          type: 'signed',
+          created: {
+            lt: dayjs().endOf('day').toString(),
+            gt: dayjs().startOf('day').toString(),
+          }
+        }
+      }))?.id || createId();
+      await db.query.documentStatistics.upsert({
+        data: {
+          id,
+          type: 'signed',
+          value: 1,
+        },
+        update: stat => ({
+          value: sql`${stat.value} + 1`,
+        })
+      })
     }
 
     return response.data;

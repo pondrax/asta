@@ -68,7 +68,7 @@
   </form>
 </Modal> -->
 
-<div class="px-5 overflow-x-clip">
+<div class="px-5 pt-1 overflow-x-clip">
   <h3 class="text-xl">Daftar Logs</h3>
 
   <Toolbar
