@@ -221,11 +221,19 @@
               <input
                 bind:value={form.nik}
                 required
-                type="text"
+                type="number"
+                min={16}
+                max={16}
                 placeholder="Nomor Induk Kependudukan"
               />
-            </div>
-          </label>
+              {#if form.nik}
+                <iconify-icon icon="bx:check" class="text-success"
+                ></iconify-icon>
+              {:else}
+                <iconify-icon icon="bx:x" class="text-error"></iconify-icon>
+              {/if}
+            </div></label
+          >
         </li>
       {/if}
     {:else}

@@ -68,6 +68,7 @@
       <div class="text-sm text-base-content/60 my-2">
         Atau geser file ke area ini
       </div>
+      <div class="text-sm text-error my-2">File PDF. Maksimal 20 MB</div>
     {/if}
   </div>
 </div>

@@ -6,11 +6,17 @@
   import { calculateFileChecksum, fileToBase64 } from "$lib/utils";
   import Status from "./status.svelte";
   import type { SignatureVerificationResponse } from "./types";
-  import { env } from "$env/dynamic/public";
   import { version } from "$app/environment";
   import Char from "$lib/components/char.svelte";
 
+  let { data } = $props();
+
+  let guestEmail = $state("");
+  let tempEmail = $state("");
+  let emailError = $state("");
+
   const MODES = ["upload", "search", "scan"] as const;
+
   let mode: (typeof MODES)[number] = $state("upload");
   let previewFile: File | null = $state(null);
   let fileURL: string | undefined = $state();
@@ -28,21 +34,40 @@
     }),
   );
 
+  const docOwner = $derived(documents.current?.[0]?.owner);
+  const isAuthorized = $derived.by(() => {
+    if (data.user) return true;
+    if (!guestEmail) return false;
+    if (documents.current === undefined) return false;
+    if (docOwner && guestEmail !== docOwner) return false;
+    return true;
+  });
+
   onMount(async () => {
-    let fileName = "";
+    const urlOwner = page.url.searchParams.get("owner");
+    if (urlOwner) {
+      guestEmail = urlOwner;
+      tempEmail = urlOwner.split("@")[0];
+    }
+
+    let localFileName = "";
+
     if (page.url.searchParams.get("blob")) {
-      fileName = page.url.searchParams.get("fileName") || "default.pdf";
+      localFileName = page.url.searchParams.get("fileName") || "default.pdf";
       fileURL = `blob:${location.origin}/${page.url.searchParams.get("blob")}`;
     }
 
     const doc = (await documents)[0];
     if (doc) {
-      fileName = doc.title || "default.pdf";
+      localFileName = doc.title || "default.pdf";
       fileURL = doc.files?.[0] || "";
       if (!doc.esign) verifyUnsign = true;
     }
+
+    fileName = localFileName; // Sync to state
+
     if (fileURL) {
-      await previewURL(fileURL, fileName);
+      await previewURL(fileURL, localFileName);
     }
   });
 
@@ -101,11 +126,77 @@
     loading = false;
     console.log(result);
   }
+
+  function handleEmailSubmit(e: Event) {
+    e.preventDefault();
+
+    const fullEmail = tempEmail.includes("@")
+      ? tempEmail
+      : `${tempEmail}@mojokertokota.go.id`;
+
+    if (docOwner && fullEmail !== docOwner) {
+      emailError = "Email tidak sesuai dengan pemilik dokumen";
+      guestEmail = "";
+      return;
+    }
+
+    emailError = "";
+    guestEmail = fullEmail;
+    if (fileURL && !previewFile) {
+      previewURL(fileURL, fileName);
+    }
+  }
 </script>
 
 <div class="px-5 flex gap-5 h-[calc(100vh-100px)] flex-col md:flex-row">
   <div class="grow h-full min-h-200 md:order-2">
-    {#if previewFile}
+    {#if !isAuthorized && (previewFile || fileURL)}
+      <div class="flex flex-col items-center justify-center h-full">
+        <div
+          class="card bg-base-100 shadow-xl border border-base-300 w-full max-w-md"
+        >
+          <div class="card-body">
+            <h2 class="card-title text-2xl font-bold">Verifikasi Identitas</h2>
+            <p class="text-base-content/70">
+              Silakan masukkan email Anda untuk melanjutkan melihat dokumen.
+            </p>
+            <form onsubmit={handleEmailSubmit} class="mt-4">
+              <label class="form-control w-full">
+                <div class="label">
+                  <span class="label-text">Alamat Email</span>
+                </div>
+                <div class="join w-full">
+                  <input
+                    type="text"
+                    placeholder="nama"
+                    class="input input-bordered join-item w-full"
+                    class:input-error={emailError}
+                    bind:value={tempEmail}
+                    required
+                  />
+                  <div
+                    class="join-item bg-base-200 flex items-center px-4 border border-l-0 border-base-content/20 text-sm opacity-60"
+                  >
+                    @mojokertokota.go.id
+                  </div>
+                </div>
+                {#if emailError}
+                  <div class="label">
+                    <span class="label-text-alt text-error">{emailError}</span>
+                  </div>
+                {/if}
+              </label>
+
+              <div class="card-actions justify-end mt-6">
+                <button class="btn btn-primary w-full" type="submit">
+                  Buka Dokumen
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    {:else if previewFile}
       <Preview file={previewFile} />
     {:else}
       <div
@@ -118,6 +209,7 @@
       </div>
     {/if}
   </div>
+
   <div class="md:w-sm flex h-[calc(100vh-100px)] flex-col">
     <div class="shrink-0">
       <div class="text-xl font-bold text-base-content/60">
@@ -204,10 +296,11 @@
     </div>
 
     <div class="flex-1 min-h-0 overflow-y-auto">
-      {#if previewFile}
+      {#if isAuthorized && previewFile}
         <div class="font-bold text-base-content/60 mt-10">
           Informasi Dokumen ({documents.current?.length || 0})
         </div>
+
         {#if documents.current && documents.current.length > 0}
           <div>Dokumen tersimpan di Tapak Asta</div>
         {:else}
@@ -259,7 +352,7 @@
                           {/if}
                         </button>
 
-                        {#if ix == 0}
+                        <!-- {#if ix == 0}
                           <a
                             href={`/sign?id=${doc.id}`}
                             target="_blank"
@@ -270,18 +363,20 @@
                             <iconify-icon icon="bx:pen" class="w-5 h-5"
                             ></iconify-icon>
                           </a>
+                        {/if} -->
+                        {#if isAuthorized}
+                          <a
+                            href={file}
+                            target="_blank"
+                            class="btn btn-sm btn-primary join-item tooltip tooltip-left"
+                            download={file.split("/").pop()}
+                            aria-label="Download"
+                            data-tip="Download"
+                          >
+                            <iconify-icon icon="bx:download" class="w-5 h-5"
+                            ></iconify-icon>
+                          </a>
                         {/if}
-                        <a
-                          href={file}
-                          target="_blank"
-                          class="btn btn-sm btn-primary join-item tooltip tooltip-left"
-                          download={file.split("/").pop()}
-                          aria-label="Download"
-                          data-tip="Download"
-                        >
-                          <iconify-icon icon="bx:download" class="w-5 h-5"
-                          ></iconify-icon>
-                        </a>
                       </div>
                     </li>
                   {/each}

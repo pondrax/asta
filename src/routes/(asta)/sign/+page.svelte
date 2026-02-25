@@ -235,7 +235,7 @@
   async function initTemplate(item: any) {
     asTemplate = true;
     const docId = createId(10);
-    const file = await fetchFile(item.file, item.name);
+    const file = await fetchFile(item.file, item.name + ".pdf");
     documents = { [docId]: file };
 
     bsre = item.properties.type == "bsre";
@@ -683,7 +683,7 @@
               if (isDraft) {
                 return `${i + 1}. *${r?.fileName}*\n${location.origin}/sign?draft=true&id=${r?.id}`;
               }
-              return `${i + 1}. *${r?.fileName}*\n${location.origin}/d?id=${r?.id}`;
+              return `${i + 1}. *${r?.fileName}*\n${location.origin}/d?id=${r?.id}&owner=${item.email}`;
             })
             .join("\n\n");
 
@@ -737,7 +737,7 @@
               {#if result?.blob}
                 <button
                   type="button"
-                  class="badge badge-sm badge-info tooltip tooltip-left"
+                  class="badge badge-sm badge-info tooltip tooltip-left cursor-pointer"
                   data-tip="Verifikasi"
                   aria-label="Verifikasi"
                   onclick={() => {
@@ -950,10 +950,12 @@
 >
   <div class="my-5">
     <p>Semua data sesi ini yang belum disimpan akan hilang.</p>
-    <p>
-      Anda dapat mengakses semua dokumen yang sudah ditandatangani di halaman
-      dashboard setelah login.
-    </p>
+    {#if saveDocument}
+      <p>
+        Anda dapat mengakses semua dokumen yang sudah ditandatangani di halaman
+        dashboard setelah login.
+      </p>
+    {/if}
   </div>
   <div class="flex justify-center gap-2">
     <button
