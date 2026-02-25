@@ -111,6 +111,7 @@
     // true ||
     String(form.email).length > 0 &&
       String(form.nama).length > 0 &&
+      (!data.user ? String(form.nik).length === 16 : true) &&
       (bsre ? status === "ISSUE" : signatures.length > 0),
   );
   const allowSigning = $derived(hasDocuments && hasMetadata);
@@ -261,6 +262,7 @@
       documents = Object.fromEntries(files.map((file) => [createId(10), file]));
       activeIndex = Object.keys(documents)[0];
       files = [];
+      saveDocument = !!data.user;
     }
   });
 

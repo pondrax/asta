@@ -1,7 +1,30 @@
 import { promises as fs } from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { env } from '$env/dynamic/private';
 import { createId } from '$lib/utils';
+
+const ALGORITHM = 'aes-256-cbc';
+const IV_LENGTH = 16;
+const KEY = Buffer.from(env.APP_SECRET || 'secret-key').subarray(0, 32);
+
+function encrypt(buffer: Buffer): Buffer {
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv(ALGORITHM, KEY, iv);
+  const encrypted = Buffer.concat([cipher.update(buffer), cipher.final()]);
+  return Buffer.concat([iv, encrypted]);
+}
+
+function decrypt(buffer: Buffer): Buffer | null {
+  try {
+    const iv = buffer.subarray(0, IV_LENGTH);
+    const encrypted = buffer.subarray(IV_LENGTH);
+    const decipher = crypto.createDecipheriv(ALGORITHM, KEY, iv);
+    return Buffer.concat([decipher.update(encrypted), decipher.final()]);
+  } catch (e) {
+    return null;
+  }
+}
 
 // Type definitions
 export interface StorageConfig {
@@ -206,11 +229,28 @@ export class FileStorage {
   }
 
   async save(filename: string, content: Buffer | ArrayBuffer | string): Promise<StorageResult> {
-    return this.storage.save(filename, content as Buffer);
+    const buffer = Buffer.isBuffer(content)
+      ? content
+      : content instanceof ArrayBuffer
+        ? Buffer.from(content)
+        : Buffer.from(content);
+
+    const encrypted = encrypt(buffer);
+    return this.storage.save(filename + '.enc', encrypted);
   }
 
   async read(filename: string): Promise<ArrayBuffer> {
-    return this.storage.read(filename);
+    const content = await this.storage.read(filename);
+    const buffer = Buffer.from(content);
+    const decrypted = decrypt(buffer);
+
+    if (decrypted) {
+      const arrayBuffer = new ArrayBuffer(decrypted.length);
+      const view = new Uint8Array(arrayBuffer);
+      view.set(decrypted);
+      return arrayBuffer;
+    }
+    return content;
   }
 
   async delete(filename: string): Promise<StorageResult> {

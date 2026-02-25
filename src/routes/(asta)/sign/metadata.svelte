@@ -217,23 +217,32 @@
         <li class="p-2">
           <label class="floating-label p-0 bg-transparent">
             <span class="text-nowrap">NIK Penandatangan</span>
+
             <div class="input input-sm">
               <input
                 bind:value={form.nik}
                 required
-                type="number"
-                min={16}
-                max={16}
+                type="text"
+                maxlength="16"
+                inputmode="numeric"
+                pattern="\d{16}"
                 placeholder="Nomor Induk Kependudukan"
+                oninput={(e) => {
+                  // allow digits only + force max 16
+                  form.nik = (e.target as HTMLInputElement).value
+                    .replace(/\D/g, "")
+                    .slice(0, 16);
+                }}
               />
-              {#if form.nik}
+
+              {#if form.nik?.length === 16}
                 <iconify-icon icon="bx:check" class="text-success"
                 ></iconify-icon>
               {:else}
                 <iconify-icon icon="bx:x" class="text-error"></iconify-icon>
               {/if}
-            </div></label
-          >
+            </div>
+          </label>
         </li>
       {/if}
     {:else}
