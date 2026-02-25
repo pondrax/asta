@@ -67,13 +67,6 @@ export class Esign {
         }
     ];
 
-    console.log({
-      email,
-      nik,
-      passphrase,
-      signatureProperties: props,
-      file: [fileBase64]
-    })
     return this.makeRequest(
       `${env.ESIGN_URL}/api/v2/sign/pdf`,
       {

@@ -165,11 +165,12 @@
     init();
   });
   onMount(async () => {
+    const owner = page.url.searchParams.get("owner");
     form = {
       footer: true,
-      email: localStorage.getItem("email") || "",
+      email: owner || localStorage.getItem("email") || "",
       nik: "",
-      nama: "",
+      nama: owner ? owner.split("@")[0] : "",
       jabatan: "-",
       pangkat: "-",
       instansi: "-",
@@ -206,7 +207,7 @@
           if (!existing) return;
 
           for (const doc of existing) {
-            console.log(doc);
+            // console.log(doc);
             const fileUrl = doc.files?.pop();
             if (!fileUrl) continue;
 
@@ -235,7 +236,10 @@
   async function initTemplate(item: any) {
     asTemplate = true;
     const docId = createId(10);
-    const file = await fetchFile(item.file, item.name + ".pdf");
+    const file = await fetchFile(
+      item.file,
+      item.name.replace(/\.pdf$/i, "") + ".pdf",
+    );
     documents = { [docId]: file };
 
     bsre = item.properties.type == "bsre";
@@ -503,6 +507,7 @@
 <Modal
   bind:data={forms.sign}
   title={`Tanda Tangan Dokumen (${Object.keys(forms.sign?.documents || {}).length})`}
+  size="lg"
   closeable={!forms.sign?.completed?.length}
 >
   <!-- <h1>Tanda Tangan</h1> -->
@@ -593,11 +598,11 @@
                 }
 
                 const fileName = asTemplate
-                  ? file.name.replace(".pdf", "") +
+                  ? file.name.replace(/\.pdf$/i, "") +
                     "_" +
                     String(item.nama).replace(/\W/g, "_") +
                     ".pdf"
-                  : file.name + ".pdf";
+                  : file.name.replace(/\.pdf$/i, "") + ".pdf";
 
                 const props = {
                   id,
@@ -731,6 +736,10 @@
 
               <span class="badge badge-sm badge-secondary text-nowrap">
                 {(file.size / 1024).toFixed(2)} KB
+                {#if result?.blob}
+                  &rarr;
+                  {(result.blob.size / 1024).toFixed(2)} KB
+                {/if}
               </span>
               <!-- 
               {JSON.stringify(result, null, 2)} -->
@@ -754,7 +763,7 @@
                 <a
                   href={URL.createObjectURL(result?.blob)}
                   target="_blank"
-                  download={file.name + ".pdf"}
+                  download={file.name.replace(/\.pdf$/i, "") + ".pdf"}
                   class="badge badge-sm badge-primary tooltip tooltip-left"
                   data-tip="Download"
                   aria-label="Download"

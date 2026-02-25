@@ -57,7 +57,7 @@
       class="modal-box relative w-11/12 flex flex-col"
       class:max-w-md={size == "sm"}
       class:max-w-xl={size == "md"}
-      class:max-w-4xl={size == "lg"}
+      class:max-w-2xl={size == "lg"}
       class:max-w-7xl={size == "xl"}
     >
       {#if closeable}

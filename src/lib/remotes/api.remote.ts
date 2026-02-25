@@ -96,7 +96,7 @@ export const getData = query(
     params.where = conditions.length === 1 ? conditions[0] : { AND: conditions };
   }
 
-  console.log(JSON.stringify(params.where, null, 2))
+  // console.log(JSON.stringify(params.where, null, 2))
   // await delay(3000)
   // @ts-expect-error Drizzle type inference is not working
   const data = await db.query[table].findManyAndCount(params);
