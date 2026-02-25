@@ -960,12 +960,16 @@
   closeable={false}
 >
   <div class="my-5">
-    <p>Semua data sesi ini yang belum disimpan akan hilang.</p>
-    {#if saveDocument}
-      <p>
-        Anda dapat mengakses semua dokumen yang sudah ditandatangani di halaman
-        dashboard setelah login.
-      </p>
+    {#if data.user}
+      <p>Dokumen berhasil disimpan</p>
+    {:else}
+      <p>Semua data sesi ini yang belum disimpan akan hilang.</p>
+      {#if saveDocument}
+        <p>
+          Anda dapat mengakses semua dokumen yang sudah ditandatangani di
+          halaman dashboard setelah login.
+        </p>
+      {/if}
     {/if}
   </div>
   <div class="flex justify-center gap-2">
