@@ -1,10 +1,8 @@
 import { FileStorage } from '$lib/server/storage';
 import { json } from '@sveltejs/kit';
 
-const storage = new FileStorage;
 export async function GET({ params }) {
-  const buffer = await storage.read(params.uri);
-
+  console.log(params.uri);
   try {
 
     // Get your buffer from storage
@@ -14,6 +12,7 @@ export async function GET({ params }) {
     // Determine content type (you might want to store this info when saving)
     const extension = params.uri.split('.').pop()?.toLowerCase();
     const contentType = getContentType(extension);
+    console.log(extension, contentType);
 
     return new Response(arrayBuffer, {
       headers: {
@@ -38,6 +37,7 @@ function getContentType(extension?: string): string {
     'jpeg': 'image/jpeg',
     'gif': 'image/gif',
     'svg': 'image/svg+xml',
+    'enc': 'application/pdf',
     'pdf': 'application/pdf',
     'zip': 'application/zip',
     'mp4': 'video/mp4',

@@ -146,6 +146,34 @@
       previewURL(fileURL, fileName);
     }
   }
+
+  async function downloadFile(url: string) {
+    try {
+      const res = await fetch(url);
+
+      if (!res.ok) throw new Error("Failed to download");
+
+      const blob = await res.blob();
+
+      // Force PDF MIME type
+      const pdfBlob = new Blob([blob], { type: "application/pdf" });
+
+      const blobUrl = URL.createObjectURL(pdfBlob);
+
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download =
+        url.split("/").pop()?.replace(".enc", ".pdf") || "document.pdf";
+      document.body.appendChild(a);
+      a.click();
+
+      URL.revokeObjectURL(blobUrl);
+      a.remove();
+    } catch (err) {
+      console.error(err);
+      alert("Download failed");
+    }
+  }
 </script>
 
 <div class="px-5 flex gap-5 h-[calc(100vh-100px)] flex-col md:flex-row">
@@ -365,7 +393,16 @@
                           </a>
                         {/if} -->
                         {#if isAuthorized}
-                          <a
+                          <button
+                            onclick={() => downloadFile(file)}
+                            class="btn btn-sm btn-primary join-item tooltip tooltip-left"
+                            aria-label="Download"
+                            data-tip="Download"
+                          >
+                            <iconify-icon icon="bx:download" class="w-5 h-5"
+                            ></iconify-icon>
+                          </button>
+                          <!-- <a
                             href={file}
                             target="_blank"
                             class="btn btn-sm btn-primary join-item tooltip tooltip-left"
@@ -375,7 +412,7 @@
                           >
                             <iconify-icon icon="bx:download" class="w-5 h-5"
                             ></iconify-icon>
-                          </a>
+                          </a> -->
                         {/if}
                       </div>
                     </li>
