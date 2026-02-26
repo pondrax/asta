@@ -186,7 +186,8 @@
           <div class="card-body">
             <h2 class="card-title text-2xl font-bold">Verifikasi Identitas</h2>
             <p class="text-base-content/70">
-              Silakan masukkan email Anda untuk melanjutkan melihat dokumen.
+              Silakan masukkan email Penandatangan untuk melanjutkan melihat
+              dokumen.
             </p>
             <form onsubmit={handleEmailSubmit} class="mt-4">
               <label class="form-control w-full">
@@ -462,7 +463,7 @@
           class="tooltip tooltip-right before:-translate-x-10 after:-translate-x-10"
           data-tip="Ada Pertanyaan?"
         >
-          <div class="scale-80 -mt-12 -mb-18 overflow-clip">
+          <div class="scale-80 -mt-15 -mb-12 overflow-clip">
             <Char />
           </div>
         </div>

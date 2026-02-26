@@ -47,7 +47,8 @@
   let status = $state("NOT_REGISTERED");
   let bsre = $state(true);
   let form: Record<string, any> = $state({});
-  let useEmail = $state(true);
+  // svelte-ignore state_referenced_locally
+  let useEmail = $state(!!data.user);
   let fields: Record<string, any> = $state({});
   let hasSignature = $state(true);
   let previewFile: File | null = $state(null);
@@ -612,9 +613,9 @@
                   __asDraft: asDraft,
                   __saveDocument: saveDocument,
                   to: item.to,
-                  email: item.email,
+                  // email: item.email,
                   // nik: item.nik,
-                  // ...(useEmail ? { email: item.email } : { nik: item.nik }),
+                  ...(useEmail ? { email: item.email } : { nik: item.nik }),
                   nama: item.nama,
                   jabatan: item.jabatan || "-",
                   pangkat: item.pangkat || "-",
