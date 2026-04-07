@@ -1,6 +1,6 @@
 import { pgTable, integer, text, timestamp, json, customType } from 'drizzle-orm/pg-core';
 import { id, created, updated, encryptedJson } from './utils';
-import { boolean, index } from 'drizzle-orm/gel-core';
+import { boolean, index } from 'drizzle-orm/pg-core';
 
 
 export const roles = pgTable('roles', {
