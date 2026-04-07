@@ -71,6 +71,7 @@
   let searchQuery = $state("");
   let activeIndex = $state(-1);
   let containerRef = $state<HTMLDivElement>();
+  let optionsContainerRef = $state<HTMLDivElement>();
   let isLoading = $state(false);
   let remoteOptions = $state<Item[]>([]);
   let focusOpenedTime = 0;
@@ -361,6 +362,16 @@
     }
   });
 
+  // Auto-scroll to active option
+  $effect(() => {
+    if (isOpen && activeIndex >= 0 && optionsContainerRef) {
+      const activeEl = optionsContainerRef.children[activeIndex] as HTMLElement;
+      if (activeEl) {
+        activeEl.scrollIntoView({ block: "nearest" });
+      }
+    }
+  });
+
   const hasValue = $derived(
     multiple ? Array.isArray(value) && value.length > 0 : value != null,
   );
@@ -534,7 +545,12 @@
         </div>
       </div>
 
-      <div class="max-h-60 overflow-y-auto p-1 custom-scrollbar">
+      <div
+        class="max-h-60 overflow-y-auto p-1 custom-scrollbar"
+        bind:this={optionsContainerRef}
+        onmouseleave={() => (activeIndex = -1)}
+        role="presentation"
+      >
         {#if displayOptions.length === 0}
           <div class="px-3 py-8 text-center">
             <iconify-icon
@@ -557,6 +573,7 @@
               class:bg-base-200={isSelected(opt) && i !== activeIndex}
               role="option"
               aria-selected={isSelected(opt)}
+              onmouseenter={() => (activeIndex = i)}
               onclick={() => handleSelect(opt)}
             >
               <div class="flex items-center gap-2 min-w-0">
