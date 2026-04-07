@@ -107,7 +107,11 @@
         <iconify-icon icon="bx:data" class="text-primary"></iconify-icon>
         Collections
       </h2>
-      <p class="text-xs text-base-content/60">Manage Database Tables</p>
+      <p class="text-xs text-base-content/60 mb-2">Manage Database Tables</p>
+      <a href="/_/designer" class="btn btn-xs btn-outline btn-primary w-full gap-2">
+        <iconify-icon icon="bx:wrench"></iconify-icon>
+        Designer
+      </a>
     </div>
 
     <div class="flex-1 overflow-y-auto p-2 space-y-1">

@@ -1,7 +1,6 @@
 import { error } from '@sveltejs/kit';
-import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load = async ({ locals }) => {
     // Protect the collection management page - restricted to Admin role
     if (locals.user?.role?.name !== 'admin') {
         throw error(403, {
