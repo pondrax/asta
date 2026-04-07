@@ -2,10 +2,12 @@
   import {
     getCollections,
     upsertData,
+    batchUpdate,
+    deleteCollectionRows,
     getCollectionData,
     type CollectionSchema,
   } from "$lib/remotes/collections.remote";
-  import { delData, type GetParams } from "$lib/remotes/api.remote";
+  import { type GetParams } from "$lib/remotes/api.remote";
   import { Toolbar, Modal } from "$lib/components";
   import { d } from "$lib/utils";
   import { untrack } from "svelte";
@@ -19,6 +21,20 @@
     offset: 0,
     where: {},
   });
+
+  let editingRow = $state<any>(null);
+  let batchData = $state<Record<string, any>>({});
+  let inlineEdits = $state<Record<string, any>>({});
+  let selections = $state<string[]>([]);
+  let toasts = $state<{ id: number; msg: string; type: string }[]>([]);
+
+  function showToast(msg: string, type = "success") {
+    const id = Date.now();
+    toasts = [...toasts, { id, msg, type }];
+    setTimeout(() => {
+      toasts = toasts.filter((t) => t.id !== id);
+    }, 3000);
+  }
 
   $effect(() => {
     if (collections.current?.length && !selectedTable) {
@@ -54,11 +70,9 @@
   );
   const displayName = $derived(selectedTable.replace(/_/g, " "));
 
-  let editingRow = $state<any>(null);
-  // Modal states should be boolean or any T that is truthy... using boolean | undefined to match modal's Esc close behavior
+  // Modal states
   let showEditModal = $state<boolean | undefined>(false);
   let showDeleteModal = $state<boolean | undefined>(false);
-  let selections: string[] = $state([]);
 
   function startEdit(row: any) {
     editingRow = JSON.parse(JSON.stringify(row));
@@ -124,7 +138,7 @@
 
   <!-- Main Content -->
   <main class="flex-1 flex flex-col min-w-0">
-    <div class="flex-1 p-3 pb-0 space-y-4 overflow-hidden flex flex-col">
+    <div class="flex-1 p-3 space-y-4 overflow-hidden flex flex-col">
       <div class="flex justify-between items-center gap-4 px-1">
         <div class="flex items-center gap-3 whitespace-nowrap min-w-0">
           <h1
@@ -134,7 +148,52 @@
           </h1>
         </div>
 
-        <div class="flex gap-2">
+        <div class="flex gap-2 items-center">
+          {#if (selections.length > 0 && Object.keys(batchData).length > 0) || Object.keys(inlineEdits).length > 0}
+            <form
+              class="contents"
+              {...batchUpdate.enhance(async ({ submit }) => {
+                await submit();
+                const count = [
+                  ...new Set([...selections, ...Object.keys(inlineEdits)]),
+                ].length;
+                showToast(`Successfully updated ${count} rows`);
+                batchData = {};
+                inlineEdits = {};
+                selections = [];
+                records.refresh();
+              })}
+            >
+              <input type="hidden" name="table" value={selectedTable} />
+              <input
+                type="hidden"
+                name="ids"
+                value={JSON.stringify([
+                  ...new Set([...selections, ...Object.keys(inlineEdits)]),
+                ])}
+              />
+              <input
+                type="hidden"
+                name="data"
+                value={JSON.stringify(batchData)}
+              />
+              <input
+                type="hidden"
+                name="inlineData"
+                value={JSON.stringify(inlineEdits)}
+              />
+              <button type="submit" class="btn btn-warning btn-sm shadow-sm">
+                {#if batchUpdate.pending}
+                  <span class="loading loading-spinner loading-xs"></span>
+                {:else}
+                  <iconify-icon icon="bx:save"></iconify-icon>
+                {/if}
+                Save ({[
+                  ...new Set([...selections, ...Object.keys(inlineEdits)]),
+                ].length})
+              </button>
+            </form>
+          {/if}
           <button
             class="btn btn-primary btn-sm shadow-sm"
             onclick={startCreate}
@@ -145,31 +204,31 @@
         </div>
       </div>
 
-      <nav
-        class="text-[10px] uppercase tracking-widest font-bold breadcrumbs p-0 opacity-40 min-w-0"
-      >
-        <ul class="flex-nowrap">
-          <li>
-            <iconify-icon icon="bx:data" class="mr-1"></iconify-icon> Database
-          </li>
-          <li>
-            <a
-              href="/_/collections"
-              class="hover:text-primary transition-colors">Collections</a
-            >
-          </li>
-          <li
-            class="text-primary/80 font-mono tracking-normal lowercase truncate"
-          >
-            {selectedTable}
-          </li>
-        </ul>
-      </nav>
       <div
         class="bg-base-100 rounded-t-2xl shadow-2xl shadow-base-300/50 border border-base-300 border-b-0 flex-1 flex flex-col overflow-hidden"
       >
+        <nav
+          class="text-[10px] uppercase tracking-widest font-bold breadcrumbs px-4 pt-4 opacity-80 min-w-0"
+        >
+          <ul class="flex-nowrap">
+            <li>
+              <iconify-icon icon="bx:data" class="mr-1"></iconify-icon> Database
+            </li>
+            <li>
+              <a
+                href="/_/collections"
+                class="hover:text-primary transition-colors">Collections</a
+              >
+            </li>
+            <li
+              class="text-primary font-mono tracking-normal uppercase truncate"
+            >
+              {selectedTable}
+            </li>
+          </ul>
+        </nav>
         <div
-          class="p-4 border-b border-base-300 bg-base-100/80 backdrop-blur-md"
+          class="p-4 border-b border-base-300 bg-base-100/80 backdrop-blur-md z-100 -mt-3"
         >
           <Toolbar bind:query {records}>
             {#if selections.length}
@@ -183,7 +242,7 @@
             {/if}
 
             {#snippet filter(where)}
-              <div class="grid grid-cols-2 gap-4 p-4">
+              <div class="grid grid-cols-1 gap-4 py-4">
                 {#each schema?.columns || [] as col}
                   <div class="form-control w-full">
                     <label class="label pb-1" for={`filter_${col.key}`}>
@@ -231,6 +290,33 @@
                   >Actions</th
                 >
               </tr>
+
+              {#if selections.length > 0}
+                <tr class="bg-warning/5 border-b-2 border-warning/20">
+                  <th class="sticky left-0 z-20 bg-warning/5 px-2">
+                    <button
+                      class="btn btn-ghost btn-xs text-error"
+                      onclick={() => (batchData = {})}
+                      title="Clear batch edits"
+                    >
+                      <iconify-icon icon="bx:x"></iconify-icon>
+                    </button>
+                  </th>
+                  {#each schema?.columns || [] as col}
+                    <th class="p-1">
+                      {#if !col.isId}
+                        <input
+                          type="text"
+                          class="input input-bordered input-xs w-full bg-base-100"
+                          placeholder={`Bulk ${col.header}...`}
+                          bind:value={batchData[col.key]}
+                        />
+                      {/if}
+                    </th>
+                  {/each}
+                  <th class="sticky right-0 z-20 bg-warning/5"></th>
+                </tr>
+              {/if}
             </thead>
             <tbody>
               {#if records.loading}
@@ -284,16 +370,38 @@
                     </td>
                     {#each schema?.columns || [] as col}
                       <td
-                        class="max-w-xs truncate text-xs font-mono opacity-80"
+                        class="p-0 border-r border-base-200/50 last:border-r-0 min-w-50"
                       >
-                        {#if col.type === "PgTimestamp"}
-                          {d(row[col.key]).format("DD MMM YYYY, HH:mm")}
-                        {:else if typeof row[col.key] === "object"}
-                          <span class="text-[10px] opacity-60"
-                            >{JSON.stringify(row[col.key])}</span
+                        {#if col.isId || col.type === "PgTimestamp"}
+                          <div
+                            class="px-2 py-1 truncate text-xs font-mono opacity-40 select-none"
                           >
+                            {col.type === "PgTimestamp"
+                              ? d(row[col.key]).format("DD/MM/YY HH:mm")
+                              : (row[col.key] ?? "-")}
+                          </div>
                         {:else}
-                          {row[col.key] ?? "-"}
+                          <input
+                            type="text"
+                            class="input input-xs w-full h-8 bg-transparent border-none rounded-none font-mono text-[10px] focus:bg-base-100 focus:outline outline-primary/50 transition-all hover:bg-base-200/20 {inlineEdits[
+                              row.id
+                            ]?.[col.key] !== undefined ||
+                            (selections.includes(row.id) &&
+                              batchData[col.key] !== undefined)
+                              ? 'bg-warning/10 border-l-2 border-warning/50'
+                              : ''}"
+                            value={inlineEdits[row.id]?.[col.key] ??
+                              (typeof row[col.key] === "object"
+                                ? JSON.stringify(row[col.key])
+                                : row[col.key])}
+                            oninput={(e) => {
+                              if (!inlineEdits[row.id])
+                                inlineEdits[row.id] = {};
+                              inlineEdits[row.id][col.key] =
+                                e.currentTarget.value;
+                            }}
+                            ondblclick={() => startEdit(row)}
+                          />
                         {/if}
                       </td>
                     {/each}
@@ -329,6 +437,11 @@
   <form
     {...upsertData.enhance(async ({ submit }) => {
       await submit();
+      showToast(
+        editingRow?.id
+          ? "Row updated successfully"
+          : "New row created successfully",
+      );
       showEditModal = false;
       records.refresh();
     })}
@@ -435,8 +548,9 @@
 <!-- Delete Modal -->
 <Modal bind:data={showDeleteModal} title="Delete Confirmation">
   <form
-    {...delData.enhance(async ({ submit }) => {
+    {...deleteCollectionRows.enhance(async ({ submit }) => {
       await submit();
+      showToast(`Deleted ${selections.length} rows successfully`, "error");
       showDeleteModal = false;
       selections = [];
       records.refresh();
@@ -444,9 +558,7 @@
     class="space-y-4"
   >
     <input type="hidden" name="table" value={selectedTable} />
-    {#each selections as id}
-      <input type="hidden" name="id[]" value={id} />
-    {/each}
+    <input type="hidden" name="ids" value={JSON.stringify(selections)} />
 
     <div class="flex flex-col items-center gap-4 py-6">
       <div
@@ -471,16 +583,16 @@
         type="button"
         class="btn btn-sm btn-ghost"
         onclick={() => (showDeleteModal = false)}
-        disabled={!!delData.pending}
+        disabled={!!deleteCollectionRows.pending}
       >
         Cancel
       </button>
       <button
         type="submit"
         class="btn btn-sm btn-error"
-        disabled={!!delData.pending}
+        disabled={!!deleteCollectionRows.pending}
       >
-        {#if delData.pending}
+        {#if deleteCollectionRows.pending}
           <span class="loading loading-spinner loading-xs mr-2"></span>
           Deleting...
         {:else}
@@ -491,6 +603,21 @@
     </div>
   </form>
 </Modal>
+
+<div class="toast toast-end toast-bottom z-9999">
+  {#each toasts as toast (toast.id)}
+    <div
+      class="alert {toast.type === 'error'
+        ? 'alert-error'
+        : 'alert-success'} py-2 px-4 shadow-xl text-white text-xs font-semibold animate-in fade-in slide-in-from-bottom-5 duration-300"
+    >
+      <iconify-icon
+        icon={toast.type === "error" ? "bx:error-circle" : "bx:check-circle"}
+      ></iconify-icon>
+      <span>{toast.msg}</span>
+    </div>
+  {/each}
+</div>
 
 <style>
   :global(.table :where(th, td)) {

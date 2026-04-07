@@ -1,7 +1,8 @@
-import { form, query } from "$app/server";
+import { form, query, getRequestEvent } from "$app/server";
+import { error } from "@sveltejs/kit";
 import { db } from "$lib/server/db";
 import { type } from "arktype";
-import { getColumns } from "drizzle-orm";
+import { getColumns, inArray, eq } from "drizzle-orm";
 import type { TableName } from "./api.remote";
 
 export interface CollectionSchema {
@@ -22,7 +23,15 @@ export interface CollectionSchema {
 // Use a more standard ArkType union of literals
 const getTableNames = () => Object.keys(db.query) as [string, ...string[]];
 
+const checkAdmin = () => {
+    const event = getRequestEvent();
+    if (event?.locals?.user?.role?.name !== 'admin') {
+        throw error(403, 'Forbidden: Admin access only');
+    }
+}
+
 export const getCollections = query('unchecked', async (params: any): Promise<CollectionSchema[]> => {
+    checkAdmin();
     const tableNames = getTableNames() as TableName[];
     const result = tableNames.map(name => {
         const table = (db._ as any).relations[name]?.table;
@@ -51,6 +60,7 @@ export const getCollections = query('unchecked', async (params: any): Promise<Co
 // Avoid manual validation block for a moment to isolate the issue, but using 'untrack' on the client might have helped
 // Also using any for props to bypass any potential proxy/pojo issues before manual validation
 export const upsertData = form('unchecked', async (props: any) => {
+    checkAdmin();
     // console.log("[upsertData] props", props);
 
     // Fallback manual checks if ArkType is failing for unknown reasons
@@ -80,9 +90,11 @@ export const upsertData = form('unchecked', async (props: any) => {
     }));
 });
 // Unguarded data fetcher specifically for admin collections management
+// Note: It is now guarded by checkAdmin()
 export const getCollectionData = query('unchecked', async (params: any) => {
+    checkAdmin();
     const { table, ...rest } = params;
-    
+
     const queryBuilder = (db.query as any)[table];
     if (!queryBuilder) {
         return { data: [], count: 0, time: '0ms' };
@@ -93,6 +105,66 @@ export const getCollectionData = query('unchecked', async (params: any) => {
 
     return JSON.parse(JSON.stringify({
         ...result,
+        time: (performance.now() - time).toFixed(2) + 'ms'
+    }));
+});
+// Batch update functionality
+export const batchUpdate = form('unchecked', async (params: any) => {
+    checkAdmin();
+    const { table } = params;
+
+    // Support both direct object call and Form data stringification
+    const ids = typeof params['ids[]'] === 'string' ? JSON.parse(params['ids[]']) :
+        (typeof params.ids === 'string' ? JSON.parse(params.ids) : params.ids);
+    const data = typeof params.data === 'string' ? JSON.parse(params.data) : params.data;
+    const inlineData = typeof params.inlineData === 'string' ? JSON.parse(params.inlineData) : params.inlineData;
+
+    const qb = (db.query as any)[table];
+    if (!qb) throw new Error("Table not found");
+
+    const time = performance.now();
+    const schemaTable = qb.table;
+    const ops: any[] = [];
+
+    // Apply bulk data to all selected IDs
+    if (ids && ids.length > 0 && data && Object.keys(data).length > 0) {
+        ops.push(db.update(schemaTable).set(data).where(inArray(schemaTable.id, ids)));
+    }
+
+    // Apply individual inline edits (Per-row overrides)
+    for (const [id, rowData] of Object.entries(inlineData || {})) {
+        if (rowData && Object.keys(rowData).length > 0) {
+            ops.push(db.update(schemaTable).set(rowData).where(eq(schemaTable.id, id)));
+        }
+    }
+
+    if (ops.length > 0) {
+        await db.transaction(async (tx) => {
+            for (const op of ops) {
+                await op;
+            }
+        });
+    }
+
+    return JSON.parse(JSON.stringify({
+        count: ops.length,
+        time: (performance.now() - time).toFixed(2) + 'ms'
+    }));
+});
+
+// Guarded delete functionality
+export const deleteCollectionRows = form('unchecked', async ({ table, ids }: { table: string, ids: string[] }) => {
+    checkAdmin();
+    const qb = (db.query as any)[table];
+    if (!qb) throw new Error("Table not found");
+
+    const time = performance.now();
+    const schemaTable = qb.table;
+    const result = await db.delete(schemaTable)
+        .where(inArray(schemaTable.id, ids));
+
+    return JSON.parse(JSON.stringify({
+        count: result.length,
         time: (performance.now() - time).toFixed(2) + 'ms'
     }));
 });

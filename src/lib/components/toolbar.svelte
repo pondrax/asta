@@ -147,7 +147,7 @@
           <input
             bind:this={searchInput}
             type="search"
-            placeholder="Cari dokumen"
+            placeholder="Search"
             class="transition-all"
             onfocus={(e) => e.currentTarget.classList.add("w-64")}
             onblur={(e) => e.currentTarget.classList.remove("w-64")}
