@@ -92,11 +92,9 @@
   }
 
   let displayOptions = $derived(
-    table && table !== "local"
-      ? remoteOptions
-      : options.filter((opt) =>
-          getLabel(opt).toLowerCase().includes(searchQuery.toLowerCase()),
-        ),
+    (table && table !== "local" ? remoteOptions : options).filter((opt) =>
+      getLabel(opt).toLowerCase().includes(searchQuery.toLowerCase()),
+    ),
   );
 
   function isSelected(opt: Item): boolean {
@@ -354,6 +352,12 @@
         activeIndex = -1;
         searchQuery = "";
       });
+    } else {
+      // Reset active index when searching
+      const _ = searchQuery;
+      untrack(() => {
+        activeIndex = -1;
+      });
     }
   });
 
@@ -386,13 +390,13 @@
 </script>
 
 <div
-  class="relative w-full block {className}"
+  class="relative w-full max-w-full min-w-0 {className}"
   class:z-[100]={isOpen}
   bind:this={containerRef}
 >
   <!-- Trigger -->
   <div
-    class="input input-bordered peer flex items-center gap-2 cursor-pointer w-full bg-base-100 transition-all duration-200 h-auto
+    class="input input-bordered peer grid grid-cols-[1fr_auto] items-center gap-2 cursor-pointer w-full max-w-full overflow-hidden bg-base-100 transition-all duration-200 h-auto
     {inputClass.includes('input-sm')
       ? 'min-h-8'
       : inputClass.includes('input-lg')
@@ -409,7 +413,7 @@
     onfocusin={handleFocus}
     onkeydown={handleKeydown}
   >
-    <div class="flex-1 flex flex-wrap gap-1.5 min-w-0">
+    <div class="flex {multiple ? 'flex-wrap' : 'min-w-0 overflow-hidden'} gap-1.5 items-center">
       {#if multiple && Array.isArray(object) && object.length > 0}
         {#if collapse}
           <div class="flex items-center gap-2 px-1 text-nowrap">
@@ -456,12 +460,12 @@
             Resolving {value}...
           </span>
         {:else}
-          <span class="text-base-content font-medium px-1 truncate">
+          <span class="text-base-content font-medium px-1 truncate min-w-0">
             {object ? getLabel(object as Item) : value}
           </span>
         {/if}
       {:else}
-        <span class="text-base-content/40 px-1 truncate"
+        <span class="text-base-content/40 px-1 truncate min-w-0"
           >{label ? "" : placeholder}</span
         >
       {/if}
