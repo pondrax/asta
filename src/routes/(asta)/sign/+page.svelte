@@ -48,7 +48,7 @@
   let bsre = $state(true);
   let form: Record<string, any> = $state({});
   // svelte-ignore state_referenced_locally
-  let useEmail = $state(!!data.user);
+  let useEmail = $state(true);
   let fields: Record<string, any> = $state({});
   let hasSignature = $state(true);
   let previewFile: File | null = $state(null);
@@ -112,7 +112,6 @@
     // true ||
     String(form.email).length > 0 &&
       String(form.nama).length > 0 &&
-      (!data.user ? String(form.nik).length === 16 : true) &&
       (bsre ? status === "ISSUE" : signatures.length > 0),
   );
   const allowSigning = $derived(hasDocuments && hasMetadata);

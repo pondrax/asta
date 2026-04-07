@@ -213,64 +213,6 @@
           </div>
         </label>
       </li>
-
-      {#if !data.user}
-        <li class="p-2 tooltip">
-          {#if form.email?.split("@").at(0) !== ""}
-            <div class="tooltip-content pointer-events-auto!">
-              {#if status === "ISSUE"}
-                <div class="">
-                  Status Akun : {status}
-                </div>
-              {:else if status === "NOT_REGISTERED"}
-                <div class="">
-                  {status}
-                </div>
-                <div>
-                  <a
-                    href={`/services/register?identity=${form.email}`}
-                    class="btn btn-xs btn-error"
-                    target="_blank"
-                  >
-                    Daftar Sekarang
-                  </a>
-                </div>
-              {:else}
-                <div class="">
-                  {status}
-                </div>
-              {/if}
-            </div>
-          {/if}
-          <label class="floating-label p-0 bg-transparent">
-            <span class="text-nowrap">NIK Penandatangan ({status})</span>
-            <div class="input input-sm">
-              <input
-                bind:value={form.nik}
-                required
-                type="text"
-                maxlength="16"
-                inputmode="numeric"
-                pattern="\d{16}"
-                placeholder="Nomor Induk Kependudukan"
-                oninput={(e) => {
-                  form.nik = (e.target as HTMLInputElement).value
-                    .replace(/\D/g, "")
-                    .slice(0, 16);
-                  debounceCheckEmail(e);
-                }}
-              />
-
-              {#if form.nik?.length === 16}
-                <iconify-icon icon="bx:check" class="text-success"
-                ></iconify-icon>
-              {:else}
-                <iconify-icon icon="bx:x" class="text-error"></iconify-icon>
-              {/if}
-            </div>
-          </label>
-        </li>
-      {/if}
     {:else}
       <li class="p-2">
         <label class="floating-label p-0 bg-transparent">

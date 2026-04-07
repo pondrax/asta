@@ -1,8 +1,7 @@
-
 import { init } from '@paralleldrive/cuid2';
 import crypto from 'node:crypto';
 import { customType, text, timestamp } from 'drizzle-orm/pg-core';
-// import { env } from '$env/dynamic/private';
+// // import { env } from '$env/dynamic/private';
 // console.log(process.env.APP_SECRET)
 const algorithm = 'aes-256-cbc';
 const key = crypto.createHash('sha256').update(String(process.env.APP_SECRET)).digest(); // 32 bytes
