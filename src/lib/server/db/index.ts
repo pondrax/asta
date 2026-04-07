@@ -7,4 +7,4 @@ import { withPlus } from './plus';
 if (!env.DATABASE_URL) throw new Error('DATABASE_URL is not set');
 
 export const dbWithPlus = drizzle(env.DATABASE_URL, { schema, relations });
-export const db = withPlus(dbWithPlus);
+export const db = withPlus<typeof relations>()(dbWithPlus);

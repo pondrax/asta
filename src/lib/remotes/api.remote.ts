@@ -1,10 +1,12 @@
 import { form, getRequestEvent, query } from "$app/server";
 import { db } from "$lib/server/db";
 import { delay } from "$lib/utils";
-import { inArray } from "drizzle-orm";
+import { inArray, type BuildQueryResult, type DBQueryConfig } from "drizzle-orm";
+import type { relations } from "$lib/server/db/relations";
 
 export type Tables = typeof db.query;
 export type TableName = keyof Tables;
+export type TFullSchema = typeof relations;
 export type TableRow<T extends TableName> = Awaited<ReturnType<Tables[T]['findFirst']>>;
 
 
@@ -63,7 +65,7 @@ const getAuthGuard = (name: keyof Tables) => {
   return GUARD[name]
 }
 
-export type GetParams<T extends keyof Tables> = Parameters<Tables[T]['findMany']>[0] & {
+export type GetParams<T extends TableName> = DBQueryConfig<'many', TFullSchema, TFullSchema[T]> & {
   table: T;
   limit: number;
   offset: number;
@@ -72,14 +74,15 @@ export type GetParams<T extends keyof Tables> = Parameters<Tables[T]['findMany']
 
 export const getData = query(
   'unchecked', async <
-    T extends keyof Tables,
+    T extends TableName,
     Params extends GetParams<T>
   >({ table, ...params }: { table: T } & Params) => {
   const time = performance.now()
   const conditions = [];
 
-  if (params.where) {
-    conditions.push(params.where);
+  const _params = params as any;
+  if (_params.where) {
+    conditions.push(_params.where);
   }
 
   const guard = getAuthGuard(table)?.get?.(params.search);
@@ -93,17 +96,19 @@ export const getData = query(
   }
 
   if (conditions.length > 0) {
-    params.where = conditions.length === 1 ? conditions[0] : { AND: conditions };
+    _params.where = conditions.length === 1 ? conditions[0] : { AND: conditions };
   }
 
-  // console.log(JSON.stringify(params.where, null, 2))
-  // await delay(3000)
-  // @ts-expect-error Drizzle type inference is not working
-  const data = await db.query[table].findManyAndCount(params);
+  const queryBuilder = db.query[table] as any;
+  const data = await queryBuilder.findManyAndCount(params);
 
   return Object.assign(data, {
     time: (performance.now() - time).toFixed(2) + 'ms'
-  });
+  }) as {
+    data: BuildQueryResult<TFullSchema, TFullSchema[T], Params>[];
+    count: number;
+    time: string;
+  };
 });
 
 export const delData = form('unchecked', async ({ table, id }: { table: keyof Tables, id: string[] }) => {

@@ -1,25 +1,31 @@
-import { sql, type SQL, is, getTableColumns, relationsFilterToSQL } from 'drizzle-orm';
+import { sql, type SQL, is, getTableColumns, relationsFilterToSQL, type BuildQueryResult, type DBQueryConfig, type TablesRelationalConfig } from 'drizzle-orm';
 import { PgTable } from 'drizzle-orm/pg-core';
 // @ts-ignore
 import { RelationalQueryBuilder } from "drizzle-orm/pg-core/query-builders/query";
 
-export function withPlus<T extends { query: any }>(db: T): T & {
+export const withPlus = <TSchema extends TablesRelationalConfig>() => <T extends { query: any }>(db: T): T & {
   query: {
-    [K in keyof T['query']]: T['query'][K] & (
-      T['query'][K] extends { findMany(args: any): Promise<infer TMany> } 
-      ? (TMany extends (infer TRow)[] ? {
-          findManyAndCount(args?: any): Promise<{ data: TRow[], count: number }>;
-          updateMany(args: { data: any, where?: any }): Promise<TRow[]>;
-          upsert(args: { 
-            data: any, 
-            update?: (table: TRow) => any, 
-            conflict?: any, 
-            where?: any 
-          }): Promise<TRow>;
-        } : any) : any
-    )
+    [K in keyof T['query'] & keyof TSchema]: T['query'][K] & {
+      findManyAndCount<TConfig extends DBQueryConfig<'many', TSchema, TSchema[K]>>(
+        args?: TConfig
+      ): Promise<{
+        data: BuildQueryResult<TSchema, TSchema[K], TConfig>[];
+        count: number;
+      }>;
+      updateMany<TConfig extends DBQueryConfig<'many', TSchema, TSchema[K]>>(
+        args: { data: any, where?: TConfig['where'] }
+      ): Promise<BuildQueryResult<TSchema, TSchema[K], TConfig>[]>;
+      upsert<TConfig extends DBQueryConfig<'one', TSchema, TSchema[K]>>(
+        args: { 
+          data: any, 
+          update?: (table: BuildQueryResult<TSchema, TSchema[K], {}>) => any, 
+          conflict?: any, 
+          where?: TConfig['where'] 
+        }
+      ): Promise<BuildQueryResult<TSchema, TSchema[K], TConfig>>;
+    }
   }
-} {
+} => {
   const _db = db as any;
   // Use the RelationalQueryBuilder prototype to monkey-patch all RQB instances
   if (RelationalQueryBuilder.prototype) {
@@ -28,10 +34,23 @@ export function withPlus<T extends { query: any }>(db: T): T & {
     // findManyAndCount
     proto.findManyAndCount = async function (this: any, args: any = {}) {
       const dataPromise = this.findMany(args);
-      // RQB might have a native count() method in this beta
-      const countPromise = typeof this.count === 'function'
-        ? this.count(args.where)
-        : _db.select({ count: sql<number>`count(*)` }).from(this.table).execute().then((r: any) => r[0].count);
+
+      let countPromise;
+      if (typeof this.count === 'function') {
+        countPromise = this.count(args.where);
+      } else {
+        const query = _db.select({ count: sql<number>`count(*)` }).from(this.table);
+        const filter = args.where ? relationsFilterToSQL(
+          this.table,
+          args.where,
+          this.tableConfig.relations,
+          this.schema,
+          this.tableNamesMap,
+          this.dialect.casing
+        ) : undefined;
+        if (filter) query.where(filter);
+        countPromise = query.execute().then((r: any) => r[0].count);
+      }
 
       const [data, count] = await Promise.all([
         (dataPromise.then ? dataPromise : dataPromise.execute()),
