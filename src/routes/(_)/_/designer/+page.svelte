@@ -5,7 +5,10 @@
 
   // Data fetching - following the project's reactive pattern
   const schema = $derived(getSchema({}));
-  
+  const businessSchema = $derived(
+    (schema.current || []).filter((t: any) => !t.name.startsWith("__")),
+  );
+
   // Local state
   let toasts = $state<{ id: number; msg: string; type: string }[]>([]);
   let showAddTableModal = $state(false);
@@ -28,11 +31,11 @@
   let dragOffset = { x: 0, y: 0 };
 
   let uniqueConnections = $derived.by(() => {
-    if (!schema.current) return [];
+    if (!businessSchema.length) return [];
     const lines: Array<{source: string, target: string}> = [];
     const seen = new Set<string>();
     
-    for (const table of schema.current) {
+    for (const table of businessSchema) {
       if (!table.relations) continue;
       for (const rel of table.relations) {
         if (!positions[table.name] || !positions[rel.targetTable]) continue;
@@ -48,18 +51,18 @@
   });
 
   $effect(() => {
-    if (schema.current && Object.keys(positions).length === 0) {
+    if (businessSchema.length && Object.keys(positions).length === 0) {
       autoLayout();
     }
   });
 
   function autoLayout() {
-    if (!schema.current) return;
+    if (!businessSchema.length) return;
     const padding = 60;
     const cardWidth = 260; // Narrower cards
-    let cols = Math.ceil(Math.sqrt(schema.current.length));
+    let cols = Math.ceil(Math.sqrt(businessSchema.length));
     
-    schema.current.forEach((table: any, i: number) => {
+    businessSchema.forEach((table: any, i: number) => {
       const col = i % cols;
       const row = Math.floor(i / cols);
       positions[table.name] = {
@@ -224,7 +227,7 @@
 
       <!-- Draggable Nodes (Cards) -->
       {#if !schema.loading || schema.current}
-        {#each schema.current || [] as table}
+        {#each businessSchema as table (table.name)}
           {#if positions[table.name]}
             <div 
               class="absolute rounded-xl shadow-2xl border border-base-300 bg-base-100 flex flex-col group transition-shadow hover:shadow-primary/20 hover:border-primary/40"

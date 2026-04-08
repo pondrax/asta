@@ -117,3 +117,13 @@ export const __logs = pgTable('__logs', {
 	created,
 	updated,
 })
+
+export const __setting = pgTable('__setting', {
+
+	id,
+	key: text('key').unique(),
+	value: text('value'),
+	description: text('description'),
+	created,
+	updated,
+})

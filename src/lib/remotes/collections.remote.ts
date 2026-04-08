@@ -1,170 +1,247 @@
-import { form, query, getRequestEvent } from "$app/server";
-import { error } from "@sveltejs/kit";
-import { db } from "$lib/server/db";
-import { type } from "arktype";
-import { getColumns, inArray, eq } from "drizzle-orm";
-import type { TableName } from "./api.remote";
+import { query, form } from "$app/server";
+import { db } from '$lib/server/db';
+import { checkAdmin } from '$lib/utils/server';
+import { and, ilike, eq, sql, inArray, getColumns } from 'drizzle-orm';
 
 export interface CollectionSchema {
     name: string;
-    columns: {
-        key: string;
-        name: string;
+    columns: { 
+        key: string; 
+        name: string; 
         type: string;
-        header: string;
         isId: boolean;
         isNullable: boolean;
         isArray: boolean;
         defaultValue: any;
-        enumValues: string[] | null;
     }[];
 }
 
-// Use a more standard ArkType union of literals
-const getTableNames = () => Object.keys(db.query) as [string, ...string[]];
-
-const checkAdmin = () => {
-    const event = getRequestEvent();
-    if (event?.locals?.user?.role?.name !== 'admin') {
-        throw error(403, 'Forbidden: Admin access only');
-    }
-}
-
-export const getCollections = query('unchecked', async (params: any): Promise<CollectionSchema[]> => {
+export const getCollections = query('unchecked', async () => {
     checkAdmin();
-    const tableNames = getTableNames() as TableName[];
+    // In Drizzle RQB, db.query keys are our tables
+    const tableNames = Object.keys(db.query);
     const result = tableNames.map(name => {
-        const table = (db._ as any).relations[name]?.table;
-        const columns = table ? getColumns(table) : {};
+      // Find the table object from the schema
+      // In this setup, it's usually at db._.fullSchema[name]
+      const table = (db._ as any).fullSchema[name];
+      const columns = table ? getColumns(table) : {};
+      
+      return {
+        name,
+        columns: Object.entries(columns).map(([key, col]: [string, any]) => ({
+          key,
+          name: col.name,
+          header: key.replace(/_/g, ' '),
+          type: col.columnType,
+          isId: col.primary || key === 'id',
+          isNullable: !col.notNull,
+          isArray: (col as any).array === true || col.columnType.includes('Array'),
+          defaultValue: col.default,
+        }))
 
-        return {
-            name,
-            columns: Object.entries(columns).map(([key, col]: [string, any]) => ({
-                key,
-                name: col.name,
-                type: col.columnType,
-                header: key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' '),
-                isId: col.primary || key === 'id',
-                isNullable: !col.notNull,
-                isArray: (col as any).array === true || col.columnType.includes('Array'),
-                // Ensure defaultValue is a plain primitive for serialization
-                defaultValue: typeof col.default === 'function' ? null : col.default,
-                enumValues: col.enumValues && Array.isArray(col.enumValues) ? col.enumValues : null,
-            }))
-        };
+      };
     });
-    // Final defensive serialization test via JSON stringify/parse to avoid non-POJO errors
+    
     return JSON.parse(JSON.stringify(result));
 });
 
-// Avoid manual validation block for a moment to isolate the issue, but using 'untrack' on the client might have helped
-// Also using any for props to bypass any potential proxy/pojo issues before manual validation
-export const upsertData = form('unchecked', async (props: any) => {
+export const getCollectionData = query('unchecked', async (params: { 
+    table: string;
+    limit: number;
+    offset: number;
+    where?: Record<string, any>;
+    orderBy?: any;
+    search?: string;
+}) => {
+
     checkAdmin();
-    // console.log("[upsertData] props", props);
+    const { table, limit, offset, where = {}, orderBy = {}, search } = params;
+    
+    // @ts-ignore
+    const qb = db.query[table];
+    if (!qb) return { data: [], count: 0 };
 
-    // Fallback manual checks if ArkType is failing for unknown reasons
-    const table = props.table as string;
-    if (!table) throw new Error("Table name is required");
+    const filter = buildWhere(where);
 
-    const payload = { ...props };
-    delete payload.table;
-
-    const time = performance.now();
-
-    // cast db.query as any to allow dynamic indexing
-    const queryBuilder = (db.query as any)[table];
-    if (!queryBuilder || !queryBuilder.upsert) {
-        throw new Error(`Table ${table} not found or doesn't support upsert`);
-    }
-
-    const result = await queryBuilder.upsert({
-        data: payload,
-        update: () => payload, // Update with the same data
+    // Drizzle Plus supports findManyAndCount
+    const result = await qb.findManyAndCount({
+        limit,
+        offset,
+        where: filter ? (t: any, ops: any) => filter(t, ops) : undefined,
+        orderBy: (t: any, { asc, desc }: any) => {
+            return Object.entries(orderBy).map(([k, v]) => v === 'desc' ? desc(t[k]) : asc(t[k]));
+        }
     });
 
-    // Strip out non-POJO elements from Drizzle results for serialization
-    return JSON.parse(JSON.stringify({
-        data: result,
-        time: (performance.now() - time).toFixed(2) + 'ms'
+    return JSON.parse(JSON.stringify({ 
+        data: result.data, 
+        count: result.count,
+        time: result.time || '0ms'
     }));
 });
-// Unguarded data fetcher specifically for admin collections management
-// Note: It is now guarded by checkAdmin()
-export const getCollectionData = query('unchecked', async (params: any) => {
-    checkAdmin();
-    const { table, ...rest } = params;
 
-    const queryBuilder = (db.query as any)[table];
-    if (!queryBuilder) {
-        return { data: [], count: 0, time: '0ms' };
+export const upsertData = form('unchecked', async (params: { table: string, data: any }) => {
+    checkAdmin();
+    const { table, data } = params;
+    
+    // @ts-ignore
+    const tableObj = db._.fullSchema[table];
+    if (!tableObj) throw new Error('Table not found');
+    
+    if (data.id) {
+        // @ts-ignore
+        await db.update(tableObj).set(data).where(eq(tableObj.id, data.id));
+    } else {
+        // @ts-ignore
+        await db.insert(tableObj).values(data);
     }
-
-    const time = performance.now();
-    const result = await queryBuilder.findManyAndCount(rest);
-
-    return JSON.parse(JSON.stringify({
-        ...result,
-        time: (performance.now() - time).toFixed(2) + 'ms'
-    }));
+    
+    return { success: true };
 });
-// Batch update functionality
-export const batchUpdate = form('unchecked', async (params: any) => {
+
+export const batchUpdate = form('unchecked', async (params: { table: string, ids: string[], data: any }) => {
     checkAdmin();
-    const { table } = params;
+    const { table, ids, data } = params;
+    // @ts-ignore
+    const tableObj = db._.fullSchema[table];
+    if (!tableObj) throw new Error('Table not found');
 
-    // Support both direct object call and Form data stringification
-    const ids = typeof params['ids[]'] === 'string' ? JSON.parse(params['ids[]']) :
-        (typeof params.ids === 'string' ? JSON.parse(params.ids) : params.ids);
-    const data = typeof params.data === 'string' ? JSON.parse(params.data) : params.data;
-    const inlineData = typeof params.inlineData === 'string' ? JSON.parse(params.inlineData) : params.inlineData;
+    // @ts-ignore
+    await db.update(tableObj).set(data).where(inArray(tableObj.id, ids));
+    return { success: true };
+});
 
+export const deleteCollectionRows = form('unchecked', async (params: { table: string, ids: string[] }) => {
+    checkAdmin();
+    const { table, ids } = params;
+    // @ts-ignore
+    const tableObj = db._.fullSchema[table];
+    if (!tableObj) throw new Error('Table not found');
+    
+    // @ts-ignore
+    await db.delete(tableObj).where(inArray(tableObj.id, ids));
+    return { success: true };
+});
+
+export const getTableStats = query('unchecked', async (params: { table: string, where?: Record<string, any> }) => {
+    checkAdmin();
+    const { table, where = {} } = params;
+    const time = performance.now();
+    
     const qb = (db.query as any)[table];
-    if (!qb) throw new Error("Table not found");
+    if (!qb) return { series: [], time: '0ms' };
 
-    const time = performance.now();
-    const schemaTable = qb.table;
-    const ops: any[] = [];
+    const filter = buildWhere(where);
 
-    // Apply bulk data to all selected IDs
-    if (ids && ids.length > 0 && data && Object.keys(data).length > 0) {
-        ops.push(db.update(schemaTable).set(data).where(inArray(schemaTable.id, ids)));
+    const latest = await qb.findFirst({
+        where: filter ? (t: any, ops: any) => filter(t, ops) : undefined,
+        orderBy: (t: any, { desc }: any) => [desc(t.created)]
+    });
+
+    const anchor = latest?.created ? new Date(latest.created) : new Date();
+
+    const records = await qb.findMany({
+        where: filter ? (t: any, ops: any) => filter(t, ops) : undefined,
+        columns: { created: true },
+        limit: 5000,
+        orderBy: (t: any, { desc }: any) => [desc(t.created)]
+    });
+
+    const series: Record<string, number> = {};
+    for (let i = 0; i < 30; i++) {
+        const d = new Date(anchor.getTime());
+        d.setDate(d.getDate() - i);
+        series[d.toISOString().split('T')[0]] = 0;
     }
 
-    // Apply individual inline edits (Per-row overrides)
-    for (const [id, rowData] of Object.entries(inlineData || {})) {
-        if (rowData && Object.keys(rowData).length > 0) {
-            ops.push(db.update(schemaTable).set(rowData).where(eq(schemaTable.id, id)));
+    records.forEach((r: any) => {
+        if (r.created) {
+            const date = new Date(r.created).toISOString().split('T')[0];
+            if (series[date] !== undefined) series[date]++;
         }
-    }
-
-    if (ops.length > 0) {
-        await db.transaction(async (tx) => {
-            for (const op of ops) {
-                await op;
-            }
-        });
-    }
+    });
 
     return JSON.parse(JSON.stringify({
-        count: ops.length,
+        series: Object.entries(series).map(([date, count]) => {
+            const [y, m, d] = date.split('-');
+            return { label: `${d}/${m}`, count };
+        }).reverse(),
+        total: records.length,
         time: (performance.now() - time).toFixed(2) + 'ms'
     }));
 });
 
-// Guarded delete functionality
-export const deleteCollectionRows = form('unchecked', async ({ table, ids }: { table: string, ids: string[] }) => {
+export const getLogStats = query('unchecked', async (params: { where?: Record<string, any> } = {}) => {
     checkAdmin();
-    const qb = (db.query as any)[table];
-    if (!qb) throw new Error("Table not found");
-
+    const { where = {} } = params;
     const time = performance.now();
-    const schemaTable = qb.table;
-    const result = await db.delete(schemaTable)
-        .where(inArray(schemaTable.id, ids));
+    
+    const qb = db.query.__logs as any;
+    const filter = buildWhere(where);
+
+    const latest = await qb.findFirst({
+        where: filter ? (t: any, ops: any) => filter(t, ops) : undefined,
+        orderBy: (l: any, { desc }: any) => [desc(l.created)]
+    });
+
+    const anchor = latest?.created ? new Date(latest.created) : new Date();
+
+    const logs = await qb.findMany({
+        where: filter ? (t: any, ops: any) => filter(t, ops) : undefined,
+        limit: 5000,
+        orderBy: (l: any, { desc }: any) => [desc(l.created)]
+    });
+
+    type LevelCounts = { info: number; warn: number; error: number };
+    const series: Record<string, LevelCounts> = {};
+    
+    for (let i = 0; i < 30; i++) {
+        const d = new Date(anchor.getTime());
+        d.setDate(d.getDate() - i);
+        const dayKey = d.toISOString().split('T')[0];
+        series[dayKey] = { info: 0, warn: 0, error: 0 };
+    }
+
+    logs.forEach((l: any) => {
+        const dayKey = new Date(l.created!).toISOString().split('T')[0];
+        if (series[dayKey] !== undefined) {
+            const level = (l.level?.toLowerCase() || 'info') as keyof LevelCounts;
+            if (series[dayKey][level] !== undefined) {
+                series[dayKey][level]++;
+            } else {
+                series[dayKey].info++;
+            }
+        }
+    });
 
     return JSON.parse(JSON.stringify({
-        count: result.length,
+        series: Object.entries(series).map(([day, counts]) => {
+            const [y, m, d] = day.split('-');
+            return { 
+                label: `${d}/${m}`, 
+                ...counts 
+            };
+        }).reverse(),
+        total: logs.length,
         time: (performance.now() - time).toFixed(2) + 'ms'
     }));
 });
+
+
+function buildWhere(where: Record<string, any>) {
+    if (!where || Object.keys(where).length === 0) return null;
+    
+    return (t: any, { and, ilike, eq }: any) => {
+        const conds = Object.entries(where)
+            .filter(([_, v]) => v != null && v !== '')
+            .map(([k, v]) => {
+                const col = t[k];
+                if (!col) return null;
+                if (typeof v === 'string') return ilike(col, `%${v}%`);
+                return eq(col, v);
+            })
+            .filter((c): c is any => c !== null);
+            
+        return conds.length > 0 ? and(...conds) : undefined;
+    };
+}

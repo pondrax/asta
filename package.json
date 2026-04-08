@@ -44,6 +44,7 @@
 	},
 	"dependencies": {
 		"@node-rs/argon2": "^2.0.2",
+		"apexcharts": "^5.10.5",
 		"arktype": "^2.2.0",
 		"dayjs": "^1.11.20",
 		"jose": "^6.2.2",

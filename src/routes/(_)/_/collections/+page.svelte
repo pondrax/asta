@@ -5,10 +5,11 @@
     batchUpdate,
     deleteCollectionRows,
     getCollectionData,
+    getTableStats,
     type CollectionSchema,
   } from "$lib/remotes/collections.remote";
   import { type GetParams } from "$lib/remotes/api.remote";
-  import { Toolbar, Modal } from "$lib/components";
+  import { Toolbar, Modal, Chart } from "$lib/components";
   import { d } from "$lib/utils";
   import { untrack } from "svelte";
 
@@ -62,6 +63,13 @@
           refresh: () => {},
         } as any),
   );
+
+  const stats = $derived(
+    selectedTable
+      ? getTableStats({ table: selectedTable, where: query.where })
+      : ({ current: null, loading: false } as any),
+  );
+
   const items = $derived(records.current ?? { data: [], count: 0 });
   const schema = $derived(
     collections.current?.find(
@@ -97,43 +105,51 @@
   }
 </script>
 
-<div class="flex h-screen overflow-hidden bg-base-200/50">
+<div class="flex h-screen w-full overflow-hidden bg-base-200/50">
   <!-- Sidebar -->
-  <aside class="w-64 bg-base-100 border-r border-base-300 flex flex-col">
-    <div
-      class="p-4 border-b border-base-300 bg-base-100/50 backdrop-blur-sm sticky top-0 z-10"
-    >
-      <h2 class="text-lg font-bold flex items-center gap-2">
+  <aside
+    class="w-64 bg-base-100 border-r border-base-300 flex flex-col pt-2 shadow-sm"
+  >
+    <div class="p-4 border-b border-white!/5 bg-base-100 sticky top-0 z-10">
+      <h2 class="text-xl font-black flex items-center gap-2">
         <iconify-icon icon="bx:data" class="text-primary"></iconify-icon>
         Collections
       </h2>
-      <p class="text-xs text-base-content/60 mb-2">Manage Database Tables</p>
-      <a href="/_/designer" class="btn btn-xs btn-outline btn-primary w-full gap-2">
+      <p
+        class="text-[10px] uppercase tracking-widest font-bold opacity-30 mb-4"
+      >
+        Database Explorer
+      </p>
+      <a
+        href="/_/designer"
+        class="btn btn-xs btn-outline btn-primary w-full gap-2 rounded-lg"
+      >
         <iconify-icon icon="bx:wrench"></iconify-icon>
         Designer
       </a>
     </div>
 
-    <div class="flex-1 overflow-y-auto p-2 space-y-1">
+    <div class="flex-1 overflow-y-auto p-3 space-y-1">
       {#if collections.loading && !collections.current}
         <div class="flex flex-col gap-2 p-2">
           {#each Array(8) as _}
-            <div class="h-10 w-full bg-base-300 animate-pulse rounded-lg"></div>
+            <div
+              class="h-10 w-full bg-base-300 animate-pulse rounded-lg opacity-40"
+            ></div>
           {/each}
         </div>
       {:else}
-        {#each collections.current || [] as coll}
+        {#each (collections.current || []).filter((c: any) => !c.name.startsWith("__")) as coll}
           <button
-            class="btn btn-ghost btn-sm w-full justify-start gap-3 normal-case {selectedTable ===
+            class="btn btn-ghost btn-sm w-full justify-start gap-4 normal-case rounded-xl font-medium {selectedTable ===
             coll.name
               ? 'btn-active bg-primary/10 text-primary hover:bg-primary/20'
-              : ''}"
+              : 'opacity-60 hover:opacity-100'}"
             onclick={() => selectCollection(coll.name)}
           >
-            <iconify-icon icon="bx:table" class="text-lg opacity-70"
+            <iconify-icon icon="bx:table" class="text-lg opacity-40"
             ></iconify-icon>
             <span class="truncate">{coll.name}</span>
-            <span class="ml-auto opacity-40 text-[10px]">CQL</span>
           </button>
         {/each}
       {/if}
@@ -142,11 +158,11 @@
 
   <!-- Main Content -->
   <main class="flex-1 flex flex-col min-w-0">
-    <div class="flex-1 p-3 space-y-4 overflow-hidden flex flex-col">
-      <div class="flex justify-between items-center gap-4 px-1">
+    <div class="flex-1 p-4 space-y-4 overflow-hidden flex flex-col">
+      <div class="flex justify-between items-center gap-4 px-2 pt-2">
         <div class="flex items-center gap-3 whitespace-nowrap min-w-0">
           <h1
-            class="text-2xl font-black tracking-tight capitalize text-base-content shrink-0"
+            class="text-3xl font-black tracking-tight capitalize text-base-content shrink-0"
           >
             {displayName}
           </h1>
@@ -156,7 +172,7 @@
           {#if (selections.length > 0 && Object.keys(batchData).length > 0) || Object.keys(inlineEdits).length > 0}
             <form
               class="contents"
-              {...batchUpdate.enhance(async ({ submit }) => {
+              {...batchUpdate.enhance(async ({ submit }: any) => {
                 await submit();
                 const count = [
                   ...new Set([...selections, ...Object.keys(inlineEdits)]),
@@ -199,20 +215,20 @@
             </form>
           {/if}
           <button
-            class="btn btn-primary btn-sm shadow-sm"
+            class="btn btn-primary btn-sm shadow-sm shadow-primary/20 rounded-lg px-4"
             onclick={startCreate}
           >
-            <iconify-icon icon="bx:plus"></iconify-icon>
+            <iconify-icon icon="bx:plus" class="text-lg"></iconify-icon>
             New Row
           </button>
         </div>
       </div>
 
       <div
-        class="bg-base-100 rounded-t-2xl shadow-2xl shadow-base-300/50 border border-base-300 border-b-0 flex-1 flex flex-col overflow-hidden"
+        class="bg-base-100 rounded-t-3xl shadow-2xl shadow-base-300/50 border border-base-300 border-b-0 flex-1 flex flex-col overflow-hidden"
       >
         <nav
-          class="text-[10px] uppercase tracking-widest font-bold breadcrumbs px-4 pt-4 opacity-80 min-w-0"
+          class="text-[10px] uppercase tracking-widest font-bold breadcrumbs px-6 pt-5 opacity-80 min-w-0"
         >
           <ul class="flex-nowrap">
             <li>
@@ -231,12 +247,29 @@
             </li>
           </ul>
         </nav>
+
+        <!-- Reusable Chart Component -->
+        <div class="px-6 py-2 mt-2 bg-base-100">
+          <Chart
+            data={stats.current?.series || []}
+            loading={stats.loading}
+            isCollapsed={true}
+            title={items.count.toString()}
+            subtitle="Archive Growth (30d)"
+            height={180}
+            categories={[
+              { key: "count", color: "var(--color-primary)", label: "Rows" },
+            ]}
+          />
+        </div>
+
         <div
-          class="p-4 border-b border-base-300 bg-base-100/80 backdrop-blur-md z-100 -mt-3"
+          class="p-4 border-b border-base-300 bg-white!/5 backdrop-blur-md z-100"
         >
           <Toolbar bind:query {records}>
             {#if selections.length}
               <button
+                aria-label="Delete Selections"
                 class="btn btn-sm btn-error btn-soft"
                 onclick={startDelete}
               >
@@ -246,7 +279,7 @@
             {/if}
 
             {#snippet filter(where)}
-              <div class="grid grid-cols-1 gap-4 py-4">
+              <div class="grid grid-cols-1 gap-4 py-4 min-w-[300px]">
                 {#each schema?.columns || [] as col}
                   <div class="form-control w-full">
                     <label class="label pb-1" for={`filter_${col.key}`}>
@@ -287,10 +320,13 @@
                   />
                 </th>
                 {#each schema?.columns || [] as col}
-                  <th class="whitespace-nowrap py-3">{col.header}</th>
+                  <th
+                    class="whitespace-nowrap py-4 text-[10px] uppercase tracking-widest font-black opacity-60"
+                    >{col.header}</th
+                  >
                 {/each}
                 <th
-                  class="w-20 text-center sticky right-0 z-20 bg-base-100/90 backdrop-blur-sm border-l border-base-200"
+                  class="w-20 text-center sticky right-0 z-20 bg-base-100/90 backdrop-blur-sm border-l border-base-200 text-[10px] uppercase font-black opacity-60"
                   >Actions</th
                 >
               </tr>
@@ -310,6 +346,7 @@
                     <th class="p-1">
                       {#if !col.isId}
                         <input
+                          aria-label={`Bulk edit ${col.header}`}
                           type="text"
                           class="input input-bordered input-xs w-full bg-base-100"
                           placeholder={`Bulk ${col.header}...`}
@@ -325,22 +362,14 @@
             <tbody>
               {#if records.loading}
                 {#each Array(5) as _}
-                  <tr>
-                    <td
-                      ><div
-                        class="h-4 w-4 bg-base-300 animate-pulse rounded"
-                      ></div></td
-                    >
+                  <tr class="animate-pulse">
+                    <td><div class="h-4 w-4 bg-base-300 rounded"></div></td>
                     {#each schema?.columns || [] as _}
-                      <td
-                        ><div
-                          class="h-4 w-24 bg-base-300 animate-pulse rounded"
-                        ></div></td
-                      >
+                      <td><div class="h-4 w-24 bg-base-300 rounded"></div></td>
                     {/each}
                     <td
                       ><div
-                        class="h-8 w-16 bg-base-300 animate-pulse rounded mx-auto"
+                        class="h-8 w-16 bg-base-300 rounded mx-auto"
                       ></div></td
                     >
                   </tr>
@@ -374,11 +403,11 @@
                     </td>
                     {#each schema?.columns || [] as col}
                       <td
-                        class="p-0 border-r border-base-200/50 last:border-r-0 min-w-50"
+                        class="p-0 border-r border-base-200/30 last:border-r-0 min-w-50"
                       >
                         {#if col.isId || col.type === "PgTimestamp"}
                           <div
-                            class="px-2 py-1 truncate text-xs font-mono opacity-40 select-none"
+                            class="px-4 py-3 truncate text-[10px] font-mono opacity-40 select-none"
                           >
                             {col.type === "PgTimestamp"
                               ? d(row[col.key]).format("DD/MM/YY HH:mm")
@@ -386,8 +415,9 @@
                           </div>
                         {:else}
                           <input
+                            aria-label={`Edit ${col.header}`}
                             type="text"
-                            class="input input-xs w-full h-8 bg-transparent border-none rounded-none font-mono text-[10px] focus:bg-base-100 focus:outline outline-primary/50 transition-all hover:bg-base-200/20 {inlineEdits[
+                            class="input input-xs w-full h-10 bg-transparent border-none rounded-none font-mono text-[10px] focus:bg-base-100 focus:outline outline-primary/50 transition-all hover:bg-base-200/20 {inlineEdits[
                               row.id
                             ]?.[col.key] !== undefined ||
                             (selections.includes(row.id) &&
@@ -398,7 +428,7 @@
                               (typeof row[col.key] === "object"
                                 ? JSON.stringify(row[col.key])
                                 : row[col.key])}
-                            oninput={(e) => {
+                            oninput={(e: any) => {
                               if (!inlineEdits[row.id])
                                 inlineEdits[row.id] = {};
                               inlineEdits[row.id][col.key] =
@@ -415,10 +445,10 @@
                       <button
                         title="Edit"
                         aria-label="Edit Baris"
-                        class="btn btn-square btn-ghost btn-sm transition-all"
+                        class="btn btn-square btn-ghost btn-sm transition-all text-base-content/30 group-hover:text-primary"
                         onclick={() => startEdit(row)}
                       >
-                        <iconify-icon icon="bx:edit-alt" class="text-lg"
+                        <iconify-icon icon="bx:edit-alt" class="text-xl"
                         ></iconify-icon>
                       </button>
                     </td>
@@ -439,7 +469,7 @@
   title={editingRow?.id ? `Edit Row: ${editingRow.id}` : "Create New Row"}
 >
   <form
-    {...upsertData.enhance(async ({ submit }) => {
+    {...upsertData.enhance(async ({ submit }: any) => {
       await submit();
       showToast(
         editingRow?.id
@@ -448,6 +478,7 @@
       );
       showEditModal = false;
       records.refresh();
+      if (stats.refresh) stats.refresh();
     })}
     class="space-y-4"
   >
@@ -552,12 +583,13 @@
 <!-- Delete Modal -->
 <Modal bind:data={showDeleteModal} title="Delete Confirmation">
   <form
-    {...deleteCollectionRows.enhance(async ({ submit }) => {
+    {...deleteCollectionRows.enhance(async ({ submit }: any) => {
       await submit();
       showToast(`Deleted ${selections.length} rows successfully`, "error");
       showDeleteModal = false;
       selections = [];
       records.refresh();
+      if (stats.refresh) stats.refresh();
     })}
     class="space-y-4"
   >
