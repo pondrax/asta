@@ -331,8 +331,8 @@
 </svelte:head>
 
 <!-- <div class="px-5"> -->
-<div class="h-[calc(100vh-100px)] flex gap-5 flex-col md:flex-row">
-  <div class="rounded-2xl grow min-h-150 sm:order-1">
+<div class="px-5 flex gap-5 h-full flex-col md:flex-row">
+  <div class="rounded-2xl grow min-h-150 md:order-2">
     <div class:hidden={!documents[activeIndex]} class="h-full relative">
       {#if hasSignature}
         <div
@@ -418,12 +418,12 @@
     </div>
 
     <div class:hidden={hasDocuments} class="h-full">
-      <Upload bind:fileInput bind:files />
+      <Upload bind:fileInput bind:files title="Pilih File PDF" />
     </div>
   </div>
-  <div class="flex flex-col">
+  <div class="flex flex-col md:w-sm shrink-0">
     <div class="grow flex min-h-0">
-      <div class="tabs tabs-lift md:w-sm h-150 md:h-auto">
+      <div class="tabs tabs-lift h-150 md:h-auto w-full">
         <label class="tab bg-base-100">
           <input
             type="radio"
@@ -480,7 +480,7 @@
         class="tooltip tooltip-right before:-translate-x-10 after:-translate-x-10"
         data-tip="Ada Pertanyaan?"
       >
-        <div class="scale-60 -mt-12 -mb-18 -ml-5 overflow-clip">
+        <div class="scale-75 -mt-12 -ml-5">
           <Char closeeye={showPassphrase} />
         </div>
       </div>

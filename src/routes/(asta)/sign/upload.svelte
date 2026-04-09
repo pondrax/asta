@@ -5,10 +5,12 @@
     children,
     files = $bindable([]),
     fileInput = $bindable(null),
+    title = "Pilih File PDF",
   }: {
     children?: Snippet;
     files?: File[];
     fileInput: HTMLInputElement | null;
+    title?: string;
   } = $props();
   // let fileInput: HTMLInputElement | null = null;
   let dragging = $state(false);
@@ -63,7 +65,7 @@
       {@render children?.()}
     {:else}
       <button id="tour-upload-btn" class="btn btn-primary btn-lg">
-        Pilih File PDF
+        {title}
         <iconify-icon icon="bx:upload" class="ml-2"></iconify-icon>
       </button>
       <div class="text-sm text-base-content/60 my-2">

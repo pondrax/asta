@@ -56,7 +56,7 @@
           </div>
 
           <div
-            class="w-72 h-80 rounded-[4rem] bg-white border-8 border-accent shadow-[24px_24px_0_0_rgba(0,0,0,0.05)] relative flex flex-col items-center justify-center p-10 group overflow-hidden"
+            class="w-72 h-80 rounded-[4rem] bg-white border-8 border-accent shadow-[24px_24px_0_0_rgba(0,0,0,0.05)] relative flex flex-col items-center justify-center p-0 group overflow-hidden"
           >
             <!-- <div
               class="w-full h-1/2 bg-accent/90 rounded-2xl border-4 border-accent/50 flex items-center justify-center overflow-hidden relative"
@@ -76,7 +76,7 @@
             <img src="/robot.gif" alt="robot" />
             <!-- </div>
             </div> -->
-            <div class="mt-8 w-full flex justify-between items-center px-2">
+            <div class="w-full flex justify-between items-center px-10 py-2">
               <div class="flex gap-3">
                 <div
                   class="w-6 h-6 rounded-full bg-accent flex items-center justify-center border-2 border-accent/50"
@@ -108,21 +108,26 @@
         <h1
           class="text-7xl font-black leading-none text-base-content tracking-tighter drop-shadow-sm"
         >
-          Oh No<span class="text-[#ff3f34]">!</span>
+          <span class="text-error">Oh No!</span>
         </h1>
         <div class="h-4 w-48 bg-accent/5 rounded-full mt-2"></div>
       </div>
 
       <p
-        class="text-2xl md:text-4xl text-base-content-content/80 max-w-xl leading-tight font-bold tracking-tight"
+        class="text-2xl md:text-4xl text-base-content/80 max-w-xl leading-tight font-bold tracking-tight"
       >
         {#if page.status === 404}
-          Maybe Robot has broken this page. Try again later.
+          Maybe Robot has broken this page.
+          <br />
+          Try again later.
         {:else if page.status === 403}
-          Access Restricted. This section is strictly for authorized admins
-          only.
+          Access Restricted.
+          <br />
+          This section is strictly for authorized admins only.
         {:else}
-          Critical failure detected. Our repair bots are on the way.
+          Critical failure detected.
+          <br />
+          Our repair bots are on the way.
         {/if}
       </p>
 

@@ -5,6 +5,7 @@
   import { getDocument, verifyDocument } from "$lib/remotes/sign.remote";
   import { calculateFileChecksum, fileToBase64 } from "$lib/utils";
   import Status from "./status.svelte";
+  import Upload from "../sign/upload.svelte";
   import type { SignatureVerificationResponse } from "./types";
   import { version } from "$app/environment";
   import Char from "$lib/components/char.svelte";
@@ -29,6 +30,15 @@
   let verifyUnsign = $state(false);
 
   let fileName = $state("");
+  let uploaderFiles: File[] = $state([]);
+  let uploaderInput: HTMLInputElement | null = $state(null);
+
+  $effect(() => {
+    if (uploaderFiles.length > 0) {
+      previewFile = uploaderFiles[0];
+      verify();
+    }
+  });
   const tourSteps = [
     {
       target: "#tour-verify-mode",
@@ -211,9 +221,9 @@
   }
 </script>
 
-<div class="px-5 flex gap-5 h-[calc(100vh-100px)] flex-col md:flex-row">
+<div class="px-5 flex gap-5 h-full flex-col md:flex-row">
   <div id="tour-verify-preview" class="grow h-full min-h-200 md:order-2">
-    {#if !isAuthorized && (previewFile || fileURL)}
+    {#if !isAuthorized && fileURL && !previewFile}
       <div class="flex flex-col items-center justify-center h-full">
         <div
           class="card bg-base-100 shadow-xl border border-base-300 w-full max-w-md"
@@ -260,253 +270,236 @@
           </div>
         </div>
       </div>
-    {:else if previewFile}
+    {:else if previewFile || fileURL}
       <Preview file={previewFile} />
     {:else}
-      <div
-        class="flex flex-col items-center justify-center h-full bg-base-200 rounded-2xl border-dashed border border-base-300"
-      >
-        <h3 class="text-lg">Dokumen tidak ditemukan</h3>
-        <p class="text-sm text-base-content/60">
-          Silahkan pilih dokumen terlebih dahulu.
-        </p>
-      </div>
+      <Upload
+        bind:files={uploaderFiles}
+        bind:fileInput={uploaderInput}
+        title="Pilih File untuk Verifikasi"
+      />
     {/if}
   </div>
 
-  <div class="md:w-sm flex h-[calc(100vh-100px)] flex-col">
-    <div class="shrink-0">
-      <div class="text-xl font-bold text-base-content/60">
-        Verifikasi Dokumen PDF!
-      </div>
-      <div id="tour-verify-mode" class="join w-full mb-2">
-        <button
-          class="btn btn-sm join-item grow"
-          onclick={() => (mode = "upload")}
-          class:btn-primary={mode === "upload"}
-        >
-          Pilih Dokumen
-        </button>
-        <button
-          class="btn btn-sm join-item grow"
-          onclick={() => (mode = "search")}
-          class:btn-primary={mode === "search"}
-        >
-          Cari ID
-        </button>
-        <button
-          class="btn btn-sm join-item grow"
-          onclick={() => (mode = "scan")}
-          class:btn-primary={mode === "scan"}
-        >
-          Scan QR
-        </button>
-      </div>
-      <div class="text-sm">
+  <div class="flex flex-col md:w-sm shrink-0 h-full">
+    <!-- Tabs Navigation (Now outside for cleaner border) -->
+    <div
+      id="tour-verify-mode"
+      class="tabs tabs-lift w-full shrink-0 h-150 md:h-auto"
+    >
+      <label
+        class="tab flex-1 {mode === 'upload' ? 'tab-active' : ''} bg-base-100"
+      >
+        <input
+          type="radio"
+          name="verify-nav"
+          value="upload"
+          bind:group={mode}
+          class="hidden"
+        />
+        <iconify-icon icon="bx:upload"></iconify-icon>
+        <span class="mx-2">Unggah</span>
+      </label>
+      <label
+        class="tab flex-1 {mode === 'search' ? 'tab-active' : ''} bg-base-100"
+      >
+        <input
+          type="radio"
+          name="verify-nav"
+          value="search"
+          bind:group={mode}
+          class="hidden"
+        />
+        <iconify-icon icon="bx:search"></iconify-icon>
+        <span class="mx-2">Cari</span>
+      </label>
+      <label
+        class="tab flex-1 {mode === 'scan' ? 'tab-active' : ''} bg-base-100"
+      >
+        <input
+          type="radio"
+          name="verify-nav"
+          value="scan"
+          bind:group={mode}
+          class="hidden"
+        />
+        <iconify-icon icon="bx:qr-scan"></iconify-icon>
+        <span class="mx-2">Scan</span>
+      </label>
+    </div>
+
+    <!-- Everything below wrapped in a container -->
+    <div
+      class="grow flex flex-col min-h-0 bg-base-100/50 rounded-b-xl border-x border-b border-base-300 overflow-hidden"
+    >
+      <!-- Tab Contents (Input Area) -->
+      <div class="shrink-0 p-4">
         {#if mode === "upload"}
-          <div class="alert">Unggah untuk memverifikasi dokumen PDF.</div>
-          <label id="tour-verify-input" class="floating-label mt-5">
-            <span>Pilih Dokumen</span>
-            <input
-              type="file"
-              accept="application/pdf"
-              class="file-input file-input-sm w-full"
-              onchange={async (e) => {
-                const target = e.target as HTMLInputElement;
-                previewFile = target.files![0];
-                verify();
-                checksum = await calculateFileChecksum(previewFile);
-              }}
-            />
-          </label>
-          <!-- {#if checksum}
-            <div class="text-base-content/60 mt-3">SHA-256 Digest</div>
-            <div class="wrap-anywhere">{checksum}</div>
-          {/if} -->
+          <div class="space-y-4">
+            <div class="alert alert-info text-xs py-2 shadow-sm">
+              <iconify-icon icon="bx:info-circle" class="text-xl"
+              ></iconify-icon>
+              <span>Unggah dokumen PDF untuk verifikasi.</span>
+            </div>
+            <label id="tour-verify-input" class="floating-label w-full">
+              <span>Pilih Dokumen PDF</span>
+              <input
+                type="file"
+                accept="application/pdf"
+                class="file-input file-input-bordered w-full"
+                onchange={async (e) => {
+                  const target = e.target as HTMLInputElement;
+                  if (target.files) previewFile = target.files[0];
+                  verify();
+                  if (previewFile)
+                    checksum = await calculateFileChecksum(previewFile);
+                }}
+              />
+            </label>
+          </div>
         {:else if mode === "search"}
-          <div class="alert">Cari Dokumen tertandatangan di Tapak Asta</div>
-          <label class="floating-label mt-5">
-            <span>Masukkan ID dokumen</span>
-            <div class="join w-full">
+          <div class="space-y-4">
+            <div class="alert alert-info text-xs py-2 shadow-sm">
+              <iconify-icon icon="bx:search" class="text-xl"></iconify-icon>
+              <span>Cari dokumen berdasarkan ID unik.</span>
+            </div>
+            <label class="floating-label w-full">
+              <span>ID Dokumen</span>
               <input
                 type="text"
+                placeholder="Ex: 12345678"
+                class="input input-bordered w-full"
                 bind:value={idDocument}
-                class="input input-sm join-item"
-                placeholder="Masukkan ID Dokumen"
               />
-              <button
-                class="btn btn-sm join-item"
-                onclick={() => (location.href = `/verify?id=${idDocument}`)}
-              >
-                Cari
-              </button>
-            </div>
-          </label>
+            </label>
+            <button
+              class="btn btn-primary w-full"
+              onclick={() => (location.href = `/verify?id=${idDocument}`)}
+              disabled={!idDocument}
+            >
+              Cari Dokumen
+            </button>
+          </div>
         {:else if mode === "scan"}
-          <div class="alert">
-            <div>
-              <div class="font-bold">Scan QR Code</div>
-              <div class="">Fitur dalam pengembangan</div>
+          <div class="space-y-4">
+            <div class="alert alert-info text-xs py-2 shadow-sm">
+              <iconify-icon icon="bx:qr-scan" class="text-xl"></iconify-icon>
+              <span>Gunakan kamera untuk memindai QR Code.</span>
             </div>
+            <div
+              class="aspect-square bg-base-200 rounded-xl flex flex-col items-center justify-center border-2 border-dashed border-base-content/10 gap-3"
+            >
+              <iconify-icon icon="bx:camera" class="text-5xl opacity-20"
+              ></iconify-icon>
+              <span class="text-xs opacity-40">Kamera tidak aktif</span>
+            </div>
+            <button class="btn btn-primary w-full" disabled>Buka Kamera</button>
           </div>
         {/if}
       </div>
-      <!-- 
-      <div
-        class="cf-turnstile mt-3"
-        data-sitekey={env.PUBLIC_TURNSTILE_KEY}
-        data-size="flexible"
-      ></div> -->
-    </div>
 
-    <div class="flex-1 min-h-0 overflow-y-auto">
-      {#if isAuthorized && previewFile}
-        <div class="font-bold text-base-content/60 mt-10">
-          Informasi Dokumen ({documents.current?.length || 0})
-        </div>
-
-        {#if documents.current && documents.current.length > 0}
-          <div>Dokumen tersimpan di Tapak Asta</div>
-        {:else}
-          <div>Dokumen tidak ditemukan di Tapak Asta</div>
-        {/if}
-      {/if}
-      <div class="h-[calc(100vh-500px)] overflow-y-auto overflow-x-clip">
-        <ul class="menu w-full p-0">
-          {#each documents.current as doc, i}
-            <li class="">
-              <details open={doc.files?.includes(fileURL || "-")}>
-                <summary
-                  class="my-1"
-                  class:menu-active={doc.files?.includes(fileURL || "-")}
+      <!-- Verification Results below -->
+      <div class="divider divider-dashed mx-4 my-0 opacity-20"></div>
+      <div class="flex-1 overflow-y-auto p-4 flex flex-col justify-end">
+        <div id="tour-verify-status" class="space-y-6">
+          <section>
+            <h3
+              class="font-bold text-base-content/60 mb-3 text-sm flex items-center gap-2"
+            >
+              <iconify-icon icon="bx:check-shield" class="text-lg"
+              ></iconify-icon>
+              Status Dokumen
+            </h3>
+            <div
+              class="bg-base-200 rounded-xl p-3 border-2 border-dashed border-base-300"
+            >
+              {#if loading}
+                <div
+                  class="flex items-center gap-3 text-sm py-4 justify-center"
                 >
-                  <button
-                    class="truncate"
-                    title={doc.title}
-                    onclick={() => {
-                      if (doc.files)
-                        previewURL(doc.files[0], doc.title || "default.pdf");
-                    }}
-                  >
-                    {i + 1} - {doc.title}
-                  </button>
-                </summary>
-                <ul class="menu p-0 w-full">
-                  {#each doc.files?.reverse() as file, ix}
-                    <li class="w-[calc(100%-16px)] pb-0.5">
-                      <div
-                        class="flex p-0 gap-1"
-                        title={file.split("/").pop()}
-                        class:bg-base-300={file === fileURL}
-                      >
-                        <button
-                          class="btn btn-sm btn-ghost join-item flex-1 justify-start w-60 mr-auto"
-                          title={file.split("/").pop()}
-                          onclick={() =>
-                            previewURL(file, doc.title || "default.pdf")}
-                        >
-                          <span class="truncate">
-                            {file.split("/").pop()}
-                          </span>
-
-                          {#if ix == 0}
-                            <span class="badge badge-xs badge-primary">
-                              latest
-                            </span>
-                          {/if}
-                        </button>
-
-                        <!-- {#if ix == 0}
-                          <a
-                            href={`/sign?id=${doc.id}`}
-                            target="_blank"
-                            class="btn btn-sm btn-secondary join-item tooltip tooltip-left"
-                            aria-label="Tanda Tangan"
-                            data-tip="Tanda Tangan Lanjutan"
-                          >
-                            <iconify-icon icon="bx:pen" class="w-5 h-5"
-                            ></iconify-icon>
-                          </a>
-                        {/if} -->
-                        {#if isAuthorized}
-                          <button
-                            onclick={() => downloadFile(file)}
-                            class="btn btn-sm btn-primary join-item tooltip tooltip-left"
-                            aria-label="Download"
-                            data-tip="Download"
-                          >
-                            <iconify-icon icon="bx:download" class="w-5 h-5"
-                            ></iconify-icon>
-                          </button>
-                          <!-- <a
-                            href={file}
-                            target="_blank"
-                            class="btn btn-sm btn-primary join-item tooltip tooltip-left"
-                            download={file.split("/").pop()}
-                            aria-label="Download"
-                            data-tip="Download"
-                          >
-                            <iconify-icon icon="bx:download" class="w-5 h-5"
-                            ></iconify-icon>
-                          </a> -->
-                        {/if}
-                      </div>
-                    </li>
-                  {/each}
-                </ul>
-              </details>
-            </li>
-          {/each}
-        </ul>
-      </div>
-    </div>
-
-    <div id="tour-verify-status" class="shrink-0">
-      <div class="font-bold text-base-content/60 mt-10">Status Dokumen</div>
-      <div class="">
-        {#if loading}
-          <div class="text-sm">
-            <div class="loading"></div>
-            Melakukan verifikasi ...
-          </div>
-        {:else if verifyUnsign}
-          <div class="space-y-2">
-            <div class="-mb-1">
-              <button class="btn btn-sm w-full tooltip btn-warning">
-                VALID &middot; NO_SIGNATURE
-              </button>
-              <div class="inline-flex gap-2 pt-2">
-                <iconify-icon icon="bx:check"></iconify-icon>
-                <div class="text-xs">
-                  Dokumen hanya valid di aplikasi Tapak Asta
+                  <span class="loading loading-spinner text-primary"></span>
+                  Verifikasi...
                 </div>
-              </div>
+              {:else if verifyUnsign}
+                <div class="alert alert-warning text-xs">
+                  <span>DOKUMEN VALID - TANPA E-SIGN</span>
+                </div>
+              {:else if verifyStatus}
+                <Status {verifyStatus} {verify} />
+              {:else}
+                <div class="text-center py-8 text-sm opacity-40 italic">
+                  Belum ada data verifikasi
+                </div>
+              {/if}
             </div>
-          </div>
-        {:else if verifyStatus}
-          <Status {verifyStatus} {verify} />
-        {:else}
-          <div class="text-sm text-base-content/60">
-            Belum ada dokumen untuk diperiksa
-          </div>
-        {/if}
+          </section>
+
+          {#if isAuthorized && previewFile}
+            <section class="w-full">
+              <h3
+                class="font-bold text-base-content/60 mb-3 text-sm flex items-center gap-2"
+              >
+                <iconify-icon icon="bx:history" class="text-lg"></iconify-icon>
+                Informasi Dokumen
+              </h3>
+              <ul
+                class="menu menu-xs bg-base-200/50 rounded-xl p-2 border border-base-content/5"
+              >
+                {#each documents.current as doc, i}
+                  <li>
+                    <details open={doc.files?.includes(fileURL || "-")}>
+                      <summary class="font-medium truncate">
+                        {doc.title}
+                      </summary>
+                      <ul class="before:opacity-10">
+                        {#each doc.files?.reverse() as file, ix}
+                          <li class="flex-row items-center gap-1 mt-1">
+                            <button
+                              class="flex-1 text-left truncate py-1"
+                              class:active={file === fileURL}
+                              onclick={() =>
+                                previewURL(file, doc.title || "default.pdf")}
+                            >
+                              {file.split("/").pop()}
+                              {#if ix == 0}
+                                <span class="badge badge-primary badge-xs ml-1"
+                                  >latest</span
+                                >
+                              {/if}
+                            </button>
+                            <!-- svelte-ignore a11y_consider_explicit_label -->
+                            <button
+                              onclick={() => downloadFile(file)}
+                              class="btn btn-square btn-ghost btn-xs text-primary"
+                            >
+                              <iconify-icon icon="bx:download"></iconify-icon>
+                            </button>
+                          </li>
+                        {/each}
+                      </ul>
+                    </details>
+                  </li>
+                {/each}
+              </ul>
+            </section>
+          {/if}
+        </div>
       </div>
     </div>
-    <div class="shrink-0 mt-5">
-      <div class="text-sm flex items-end relative z-10">
-        <div
-          class="tooltip tooltip-right before:-translate-x-10 after:-translate-x-10"
-          data-tip="Ada Pertanyaan?"
-        >
-          <div class="scale-80 -mt-15 -mb-12 overflow-clip">
-            <Char />
-          </div>
+
+    <!-- Sidebar Footer -->
+    <div class="text-sm flex items-end relative z-10 shrink-0 mt-5">
+      <div
+        class="tooltip tooltip-right before:-translate-x-10 after:-translate-x-10"
+        data-tip="Ada Pertanyaan?"
+      >
+        <div class="scale-75 -mt-12 -ml-5">
+          <Char />
         </div>
-        <div class="mr-auto">Tapak Astà v2.0.1 #{version.slice(0, 7)}</div>
       </div>
-      <!-- <div class="text-sm">
-        <div class="mr-auto">Tapak Astà v2.0.1 #{version.slice(0, 7)}</div>
-      </div> -->
+      <div class="mr-auto flex items-center gap-2">
+        Tapak Astà v2.0.1 #{version.slice(0, 7)}
+      </div>
     </div>
   </div>
 </div>
