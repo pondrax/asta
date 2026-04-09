@@ -66,18 +66,25 @@
         "Hasil verifikasi akan muncul di sini, menunjukkan apakah tanda tangan elektronik pada dokumen tersebut valid.",
     },
   ];
-  const documents = $derived(
-    getDocument({
-      id: page.url.searchParams.get("id") || "",
-      checksum,
-    }),
-  );
+  let queryParams = $state({
+    id: page.url.searchParams.get("id") || "",
+    checksum: "",
+  });
 
-  const docOwner = $derived(documents.current?.[0]?.owner);
+  $effect(() => {
+    queryParams.id = page.url.searchParams.get("id") || "";
+    queryParams.checksum = checksum;
+  });
+
+  const documents = getDocument(queryParams);
+
+  const docsData = $derived(documents.current || []);
+
+  const docOwner = $derived(docsData[0]?.owner);
   const isAuthorized = $derived.by(() => {
     if (data.user) return true;
     if (!guestEmail) return false;
-    if (documents.current === undefined) return false;
+    if (docsData.length === 0) return false;
     if (docOwner && guestEmail !== docOwner) return false;
     return true;
   });
@@ -126,29 +133,47 @@
     }
   });
 
+  let lastFetchedURL = "";
   $effect(() => {
-    documents;
-    (async () => {
-      const doc = (await documents)[0];
-      if (doc) {
+    // Sync data from search results
+    const doc = docsData[0];
+    if (doc) {
+      if (!fileURL) {
         fileName = doc.title || "default.pdf";
         fileURL = doc.files?.[0] || "";
-        if (!doc.esign) verifyUnsign = true;
       }
-    })();
+      if (!doc.esign) verifyUnsign = true;
+    }
+
+    // Trigger preview fetch if authorized and file details are known
+    if (isAuthorized && fileURL && (!previewFile || lastFetchedURL !== fileURL)) {
+      previewURL(fileURL, fileName);
+    }
   });
 
   async function previewURL(fileUri: string, fileName: string) {
+    if (!fileUri || fileUri === lastFetchedURL) return;
+    lastFetchedURL = fileUri;
+
+    console.log("Fetching preview for:", fileUri, fileName);
     try {
       fileURL = fileUri;
       const response = await fetch(fileUri);
+      if (!response.ok) {
+        throw new Error(
+          `Failed to fetch file: ${response.status} ${response.statusText}`,
+        );
+      }
       const blob = await response.blob();
+      console.log("Blob fetched, size:", blob.size, "type:", blob.type);
       previewFile = new File([blob], fileName, {
-        type: blob.type,
+        type: "application/pdf", // Force PDF type
       });
+      console.log("previewFile created:", previewFile.name);
       verify();
     } catch (error) {
-      console.error("Error fetching blob:", error);
+      console.error("Error fetching preview:", error);
+      lastFetchedURL = ""; // Reset on error to allow retry
     }
   }
   function clearSearchParams() {
@@ -410,9 +435,7 @@
               ></iconify-icon>
               Status Dokumen
             </h3>
-            <div
-              class="bg-base-200 rounded-xl p-3 border-2 border-dashed border-base-300"
-            >
+            <div class="bg-base-200 rounded-xl p-3 border border-base-300">
               {#if loading}
                 <div
                   class="flex items-center gap-3 text-sm py-4 justify-center"
@@ -445,35 +468,44 @@
               <ul
                 class="menu menu-xs bg-base-200/50 rounded-xl p-2 border border-base-content/5"
               >
-                {#each documents.current as doc, i}
-                  <li>
+                {#each docsData as doc, i}
+                  <li class="">
                     <details open={doc.files?.includes(fileURL || "-")}>
-                      <summary class="font-medium truncate">
-                        {doc.title}
+                      <summary>
+                        <div class="truncate">{doc.title}</div>
                       </summary>
                       <ul class="before:opacity-10">
-                        {#each doc.files?.reverse() as file, ix}
-                          <li class="flex-row items-center gap-1 mt-1">
-                            <button
-                              class="flex-1 text-left truncate py-1"
-                              class:active={file === fileURL}
-                              onclick={() =>
-                                previewURL(file, doc.title || "default.pdf")}
-                            >
-                              {file.split("/").pop()}
+                        {#each [...(doc.files || [])].reverse() as file, ix}
+                          <li>
+                            <div class="flex gap-1">
+                              <button
+                                title={file.split("/").pop()}
+                                type="button"
+                                class="grow min-w-0"
+                                class:active={file === fileURL}
+                                onclick={() =>
+                                  previewURL(file, doc.title || "default.pdf")}
+                              >
+                                <div class="truncate block w-50">
+                                  {file.split("/").pop()}
+                                </div>
+                              </button>
+
                               {#if ix == 0}
-                                <span class="badge badge-primary badge-xs ml-1"
+                                <span
+                                  class="badge badge-primary badge-xs shrink-0"
                                   >latest</span
                                 >
                               {/if}
-                            </button>
-                            <!-- svelte-ignore a11y_consider_explicit_label -->
-                            <button
-                              onclick={() => downloadFile(file)}
-                              class="btn btn-square btn-ghost btn-xs text-primary"
-                            >
-                              <iconify-icon icon="bx:download"></iconify-icon>
-                            </button>
+                              <button
+                                aria-label="unduh"
+                                type="button"
+                                onclick={() => downloadFile(file)}
+                                class="btn btn-square btn-outline btn-xs btn-primary shrink-0"
+                              >
+                                <iconify-icon icon="bx:download"></iconify-icon>
+                              </button>
+                            </div>
                           </li>
                         {/each}
                       </ul>
