@@ -1,9 +1,10 @@
 <script lang="ts">
   import { version } from "$app/environment";
   import { env } from "$env/dynamic/public";
+  import { app } from "$lib/app/index.svelte";
   import type { SignatureType } from "./types";
   import * as pdfLib from "$lib/utils/pdf";
-  import { Modal } from "$lib/components";
+  import { Modal, Tour } from "$lib/components";
   import Documents from "./documents.svelte";
   import Metadata from "./metadata.svelte";
   import Preview from "$lib/components/preview.svelte";
@@ -58,6 +59,43 @@
   let turnstileId = $state("");
 
   let showPassphrase = $state(false);
+  let activeTab = $state("metadata");
+  const tourSteps = [
+    {
+      target: "#tour-upload-btn",
+      title: "Unggah Dokumen",
+      content:
+        "Mulai dengan mengunggah file PDF yang ingin Anda tanda tangani di sini. Anda bisa menyeret file langsung ke area ini.",
+      placement: "bottom" as const,
+    },
+    {
+      target: "#tour-documents",
+      title: "Daftar Dokumen",
+      content:
+        "Semua dokumen yang Anda unggah akan muncul di sini. Anda bisa beralih antar dokumen dengan mengkliknya.",
+      onShow: () => (activeTab = "documents"),
+    },
+    {
+      target: "#tour-metadata",
+      title: "Informasi Penandatangan",
+      content:
+        "Lengkapi data identitas Anda. Pastikan Email atau NIK sesuai dengan sertifikat elektronik Anda.",
+      onShow: () => (activeTab = "metadata"),
+    },
+    {
+      target: "#tour-signature",
+      title: "Visualisasi Tanda Tangan",
+      content:
+        "Pilih bagaimana tanda tangan Anda akan ditampilkan di dokumen: QR Code, Gambar, atau Nama.",
+      onShow: () => (activeTab = "metadata"),
+    },
+    {
+      target: "#tour-sign-button",
+      title: "Proses Tanda Tangan",
+      content:
+        "Setelah semua siap, klik tombol ini untuk memulai proses penandatanganan secara elektronik.",
+    },
+  ];
   let signResults: {
     id: string;
     fileName: string;
@@ -179,6 +217,12 @@
       location: "",
       note: "Tanda Tangan Elektronik",
     };
+
+    const lastShown = localStorage.getItem("tour-sign-last-shown");
+    const now = Date.now();
+    if (!lastShown || now - Number(lastShown) > 3600000) {
+      setTimeout(() => (app.showTour = true), 1000);
+    }
   });
 
   async function fetchFile(url: string, fileName?: string) {
@@ -381,7 +425,12 @@
     <div class="grow flex min-h-0">
       <div class="tabs tabs-lift md:w-sm h-150 md:h-auto">
         <label class="tab bg-base-100">
-          <input type="radio" name="sign-nav" checked />
+          <input
+            type="radio"
+            name="sign-nav"
+            value="documents"
+            bind:group={activeTab}
+          />
           <iconify-icon icon="bx:file"></iconify-icon>
           <span class="mx-2"> Dokumen ({Object.keys(documents).length})</span>
           {#if hasDocuments}
@@ -394,7 +443,12 @@
           <Documents bind:documents bind:activeIndex {fileInput} />
         </div>
         <label class="tab bg-base-100">
-          <input type="radio" name="sign-nav" checked />
+          <input
+            type="radio"
+            name="sign-nav"
+            value="metadata"
+            bind:group={activeTab}
+          />
           <iconify-icon icon="bx:detail"></iconify-icon>
           <span class="mx-2"> Meta Data ({bsre ? "TTE" : "Manual"})</span>
           {#if hasMetadata}
@@ -430,7 +484,9 @@
           <Char closeeye={showPassphrase} />
         </div>
       </div>
-      <div class="mr-auto">Tapak Astà v2.0.1 #{version.slice(0, 7)}</div>
+      <div class="mr-auto flex items-center gap-2">
+        Tapak Astà v2.0.1 #{version.slice(0, 7)}
+      </div>
     </div>
   </div>
 </div>
@@ -468,6 +524,7 @@
 </div>
 <div class="fab right-18">
   <button
+    id="tour-sign-button"
     bind:this={signButton}
     class="btn btn-lg btn-secondary tooltip rounded-full font-normal
     {allowSigning && forms.sign == undefined
@@ -505,6 +562,20 @@
     Tanda Tangan
   </button>
 </div>
+
+{#if app.showTour}
+  <Tour
+    steps={tourSteps}
+    onComplete={() => {
+      app.showTour = false;
+      localStorage.setItem("tour-sign-last-shown", Date.now().toString());
+    }}
+    onSkip={() => {
+      app.showTour = false;
+      localStorage.setItem("tour-sign-last-shown", Date.now().toString());
+    }}
+  />
+{/if}
 
 <Modal
   bind:data={forms.sign}

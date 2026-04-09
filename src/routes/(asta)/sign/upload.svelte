@@ -39,6 +39,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <div
+  id="tour-upload"
   class="h-full w-full flex justify-center items-center border-2 border-dashed rounded-2xl
     {dragging
     ? 'bg-primary/10 border-primary shadow-lg'
@@ -61,7 +62,7 @@
     {#if children}
       {@render children?.()}
     {:else}
-      <button class="btn btn-primary btn-lg">
+      <button id="tour-upload-btn" class="btn btn-primary btn-lg">
         Pilih File PDF
         <iconify-icon icon="bx:upload" class="ml-2"></iconify-icon>
       </button>

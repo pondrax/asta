@@ -14,7 +14,7 @@
   const listDocuments = $derived(Object.entries(documents));
 </script>
 
-<ul class="menu h-full overflow-auto flex-nowrap rounded-xl w-full">
+<ul id="tour-documents" class="menu h-full overflow-auto flex-nowrap rounded-xl w-full">
   <li class="menu-title sticky -top-2 bg-base-100 z-1">
     <div class="flex gap-5 justify-between items-center">
       <div>File Dokumen ({listDocuments.length})</div>

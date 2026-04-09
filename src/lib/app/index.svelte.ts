@@ -1,4 +1,5 @@
 export const app = $state({
-  theme: 'light'
-})
+  theme: "light",
+  showTour: false,
+});
 

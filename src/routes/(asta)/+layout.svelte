@@ -74,6 +74,15 @@
     </ul>
   </div>
   <div class="navbar-end gap-5">
+    {#if ["/sign", "/verify"].includes(page.url.pathname)}
+      <button
+        class="btn btn-ghost btn-sm gap-1 relative animate-pulse"
+        onclick={() => (app.showTour = true)}
+      >
+        <iconify-icon icon="bx:help-circle" class="text-xl"></iconify-icon>
+        <span>Panduan</span>
+      </button>
+    {/if}
     <label class="swap swap-rotate">
       <input
         type="checkbox"

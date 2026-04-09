@@ -115,7 +115,7 @@
   }}
   class="h-full relative"
 >
-  <ul class="menu h-full overflow-auto flex-nowrap rounded-xl w-full relative">
+  <ul id="tour-metadata" class="menu h-full overflow-auto flex-nowrap rounded-xl w-full relative">
     <li class="menu-title bg-base-100 sticky -top-2 z-5">
       <div class="flex gap-5 justify-between items-center">
         <div>Meta Data</div>
@@ -432,7 +432,7 @@
   </ul>
 
   {#if signaturePanel}
-    <div class="absolute bottom-0 z-5 px-3">
+    <div id="tour-signature" class="absolute bottom-0 z-5 px-3">
       <Signature
         {form}
         {setSignature}

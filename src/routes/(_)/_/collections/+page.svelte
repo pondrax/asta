@@ -29,6 +29,15 @@
   let selections = $state<string[]>([]);
   let toasts = $state<{ id: number; msg: string; type: string }[]>([]);
 
+  let editingCell = $state<{
+    id: any;
+    key: string;
+    value: any;
+    type: string;
+    header: string;
+    multiline: boolean;
+  } | null>(null);
+
   function showToast(msg: string, type = "success") {
     const id = Date.now();
     toasts = [...toasts, { id, msg, type }];
@@ -38,11 +47,26 @@
   }
 
   $effect(() => {
-    if (collections.current?.length && !selectedTable) {
+    let hash = window.location.hash.slice(1);
+    if (hash.startsWith("!/")) hash = hash.slice(2);
+
+    if (hash && collections.current?.some((c: any) => c.name === hash)) {
+      if (selectedTable !== hash) {
+        untrack(() => selectCollection(hash));
+      }
+    } else if (collections.current?.length && !selectedTable) {
       selectedTable = collections.current[0].name;
       untrack(() => {
         query.table = selectedTable;
       });
+    }
+  });
+
+  $effect(() => {
+    const currentHash = window.location.hash.slice(1);
+    const targetHash = "!/" + selectedTable;
+    if (selectedTable && currentHash !== targetHash) {
+      window.location.hash = targetHash;
     }
   });
 
@@ -103,6 +127,53 @@
   function startDelete() {
     showDeleteModal = true;
   }
+
+  function startInlineEdit(row: any, col: any, multiline = false) {
+    if (col.isId || col.type === "PgTimestamp") return;
+    if (
+      editingCell &&
+      editingCell.id === row.id &&
+      editingCell.key === col.key &&
+      editingCell.multiline === multiline
+    )
+      return;
+
+    editingCell = {
+      id: row.id,
+      key: col.key,
+      value:
+        inlineEdits[row.id]?.[col.key] ??
+        (typeof row[col.key] === "object"
+          ? JSON.stringify(row[col.key], null, 2)
+          : row[col.key]),
+      type: col.type,
+      header: col.header,
+      multiline: multiline,
+    };
+  }
+
+  function saveInlineEdit() {
+    if (!editingCell) return;
+    const { id, key, value, type, multiline } = editingCell;
+
+    if (!inlineEdits[id]) inlineEdits[id] = {};
+
+    let val = value;
+    if (
+      (type === "PgJson" || type.includes("[]")) &&
+      typeof val === "string" &&
+      val.trim()
+    ) {
+      try {
+        val = JSON.parse(val);
+      } catch (e) {
+        // keep as string if not valid json
+      }
+    }
+
+    inlineEdits[id][key] = val;
+    editingCell = null;
+  }
 </script>
 
 <div class="flex h-screen w-full overflow-hidden bg-base-200/50">
@@ -140,7 +211,8 @@
         </div>
       {:else}
         {#each (collections.current || []).filter((c: any) => !c.name.startsWith("__")) as coll}
-          <button
+          <a
+            href="#!/{coll.name}"
             class="btn btn-ghost btn-sm w-full justify-start gap-4 normal-case rounded-xl font-medium {selectedTable ===
             coll.name
               ? 'btn-active bg-primary/10 text-primary hover:bg-primary/20'
@@ -150,7 +222,7 @@
             <iconify-icon icon="bx:table" class="text-lg opacity-40"
             ></iconify-icon>
             <span class="truncate">{coll.name}</span>
-          </button>
+          </a>
         {/each}
       {/if}
     </div>
@@ -300,8 +372,8 @@
           </Toolbar>
         </div>
 
-        <div class="flex-1 overflow-auto relative">
-          <table class="table table-sm table-pin-rows table-pin-cols">
+        <div class="flex-1 overflow-auto relative pt-0.5">
+          <table class="table table-xs table-pin-rows table-pin-cols">
             <thead>
               <tr class="bg-base-100/90 backdrop-blur-sm">
                 <th
@@ -391,15 +463,17 @@
                 {#each items.data as row}
                   <tr class="hover:bg-base-200/50 transition-colors group">
                     <td
-                      class="sticky left-0 z-10 bg-base-100 group-hover:bg-base-200 transition-colors border-r border-base-200/50"
+                      class="sticky left-0 z-10 bg-base-100 group-hover:bg-base-200 transition-colors border-r border-base-200/50 p-0 h-7"
                     >
-                      <input
-                        aria-label="Pilih Baris"
-                        type="checkbox"
-                        class="checkbox checkbox-sm"
-                        bind:group={selections}
-                        value={row.id}
-                      />
+                      <div class="flex items-center justify-center h-full px-2">
+                        <input
+                          aria-label="Pilih Baris"
+                          type="checkbox"
+                          class="checkbox checkbox-xs"
+                          bind:group={selections}
+                          value={row.id}
+                        />
+                      </div>
                     </td>
                     {#each schema?.columns || [] as col}
                       <td
@@ -407,50 +481,132 @@
                       >
                         {#if col.isId || col.type === "PgTimestamp"}
                           <div
-                            class="px-4 py-3 truncate text-[10px] font-mono opacity-40 select-none"
+                            class="px-4 h-7 flex items-center truncate text-[10px] font-mono opacity-40 select-none"
                           >
                             {col.type === "PgTimestamp"
                               ? d(row[col.key]).format("DD/MM/YY HH:mm")
                               : (row[col.key] ?? "-")}
                           </div>
                         {:else}
-                          <input
-                            aria-label={`Edit ${col.header}`}
-                            type="text"
-                            class="input input-xs w-full h-10 bg-transparent border-none rounded-none font-mono text-[10px] focus:bg-base-100 focus:outline outline-primary/50 transition-all hover:bg-base-200/20 {inlineEdits[
-                              row.id
-                            ]?.[col.key] !== undefined ||
-                            (selections.includes(row.id) &&
-                              batchData[col.key] !== undefined)
-                              ? 'bg-warning/10 border-l-2 border-warning/50'
-                              : ''}"
-                            value={inlineEdits[row.id]?.[col.key] ??
-                              (typeof row[col.key] === "object"
-                                ? JSON.stringify(row[col.key])
-                                : row[col.key])}
-                            oninput={(e: any) => {
-                              if (!inlineEdits[row.id])
-                                inlineEdits[row.id] = {};
-                              inlineEdits[row.id][col.key] =
-                                e.currentTarget.value;
-                            }}
-                            ondblclick={() => startEdit(row)}
-                          />
+                          {@const hasEdit =
+                            inlineEdits[row.id]?.[col.key] !== undefined}
+                          {@const hasBatch =
+                            selections.includes(row.id) &&
+                            batchData[col.key] !== undefined}
+                          {@const val = hasEdit
+                            ? inlineEdits[row.id][col.key]
+                            : hasBatch
+                              ? batchData[col.key]
+                              : row[col.key]}
+                          {@const isEditingMultiline =
+                            editingCell?.id === row.id &&
+                            editingCell?.key === col.key &&
+                            editingCell?.multiline}
+
+                          <div class="relative w-full h-7 group/cell">
+                            <input
+                              aria-label={`Edit ${col.header}`}
+                              type="text"
+                              class="input input-xs w-full h-full bg-transparent border-none rounded-none font-mono text-[10px] px-4 focus:bg-base-100 focus:outline outline-primary/50 transition-all hover:bg-base-200/20 focus:z-30 relative {hasEdit ||
+                              hasBatch
+                                ? 'bg-warning/10 border-l-2 border-warning/50'
+                                : ''} {val === null ? 'opacity-20 italic' : ''}"
+                              value={typeof val === "object"
+                                ? JSON.stringify(val)
+                                : (val ?? "NULL")}
+                              oninput={(e: any) => {
+                                if (!inlineEdits[row.id])
+                                  inlineEdits[row.id] = {};
+                                inlineEdits[row.id][col.key] =
+                                  e.currentTarget.value;
+                              }}
+                              ondblclick={() => startInlineEdit(row, col, true)}
+                            />
+
+                            <button
+                              aria-label="Edit cell"
+                              class="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover/cell:opacity-100 btn btn-square btn-ghost btn-xs text-primary transition-all"
+                              onclick={(e) => {
+                                e.stopPropagation();
+                                startInlineEdit(row, col, true);
+                              }}
+                            >
+                              <iconify-icon icon="bx:edit-alt"></iconify-icon>
+                            </button>
+
+                            {#if isEditingMultiline}
+                              {@const cell = editingCell!}
+                              <!-- svelte-ignore a11y_click_events_have_key_events -->
+                              <!-- svelte-ignore a11y_no_static_element_interactions -->
+                              <div
+                                class="absolute top-0 left-0 z-500 bg-base-100 shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-primary/30 overflow-hidden flex flex-col w-sm h-30"
+                                onclick={(e) => e.stopPropagation()}
+                                onmousedown={(e) => e.stopPropagation()}
+                              >
+                                <textarea
+                                  class="textarea textarea-ghost flex-1 font-mono text-[10px] px-3 leading-relaxed resize-none focus:outline-none bg-transparent"
+                                  bind:value={cell.value}
+                                  onkeydown={(e) => {
+                                    if (
+                                      e.key === "Enter" &&
+                                      (e.ctrlKey || e.metaKey)
+                                    )
+                                      saveInlineEdit();
+                                    if (e.key === "Escape") editingCell = null;
+                                  }}
+                                ></textarea>
+
+                                <div
+                                  class="bg-base-200/80 backdrop-blur-sm p-2 flex justify-between items-center border-t border-base-300"
+                                >
+                                  <div class="flex gap-1">
+                                    <button
+                                      class="btn btn-xs btn-ghost text-[9px] font-bold opacity-50 hover:opacity-100"
+                                      onclick={() => {
+                                        cell.value = null;
+                                        saveInlineEdit();
+                                      }}
+                                    >
+                                      SET NULL
+                                    </button>
+                                  </div>
+                                  <div class="flex gap-2">
+                                    <button
+                                      class="btn btn-xs btn-ghost text-[9px]"
+                                      onclick={() => (editingCell = null)}
+                                    >
+                                      CANCEL
+                                    </button>
+                                    <button
+                                      class="btn btn-xs btn-primary text-[9px] px-3 font-bold"
+                                      onclick={saveInlineEdit}
+                                    >
+                                      SAVE ⌃↵
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            {/if}
+                          </div>
                         {/if}
                       </td>
                     {/each}
                     <td
-                      class="text-center p-0.5 sticky right-0 z-10 bg-base-100 group-hover:bg-base-200 transition-colors border-l border-base-200/50"
+                      class="text-center p-0 sticky right-0 z-10 bg-base-100 group-hover:bg-base-200 transition-colors border-l border-base-200/50 h-7"
                     >
-                      <button
-                        title="Edit"
-                        aria-label="Edit Baris"
-                        class="btn btn-square btn-ghost btn-sm transition-all text-base-content/30 group-hover:text-primary"
-                        onclick={() => startEdit(row)}
+                      <div
+                        class="flex items-center justify-center h-full gap-1"
                       >
-                        <iconify-icon icon="bx:edit-alt" class="text-xl"
-                        ></iconify-icon>
-                      </button>
+                        <button
+                          title="Edit"
+                          aria-label="Edit Baris"
+                          class="btn btn-square btn-ghost btn-xs transition-all text-base-content/30 group-hover:text-primary scale-75"
+                          onclick={() => startEdit(row)}
+                        >
+                          <iconify-icon icon="bx:edit-alt" class="text-xl"
+                          ></iconify-icon>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 {/each}
@@ -654,6 +810,21 @@
     </div>
   {/each}
 </div>
+
+<svelte:window
+  onhashchange={() => {
+    let hash = window.location.hash.slice(1);
+    if (hash.startsWith("!/")) hash = hash.slice(2);
+    if (hash && hash !== selectedTable) {
+      selectCollection(hash);
+    }
+  }}
+  onmousedown={(e) => {
+    if (editingCell && !(e.target as HTMLElement).closest(".relative.z-100")) {
+      editingCell = null;
+    }
+  }}
+/>
 
 <style>
   :global(.table :where(th, td)) {

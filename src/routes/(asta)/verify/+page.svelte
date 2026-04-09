@@ -8,6 +8,8 @@
   import type { SignatureVerificationResponse } from "./types";
   import { version } from "$app/environment";
   import Char from "$lib/components/char.svelte";
+  import { Tour } from "$lib/components";
+  import { app } from "$lib/app/index.svelte";
 
   let { data } = $props();
 
@@ -27,6 +29,33 @@
   let verifyUnsign = $state(false);
 
   let fileName = $state("");
+  const tourSteps = [
+    {
+      target: "#tour-verify-mode",
+      title: "Metode Verifikasi",
+      content:
+        "Pilih cara Anda memverifikasi dokumen: Unggah File, Cari berdasarkan ID, atau Scan QR Code.",
+    },
+    {
+      target: "#tour-verify-input",
+      title: "Input Verifikasi",
+      content:
+        "Unggah dokumen PDF Anda di sini untuk memulai proses pemeriksaan keaslian secara otomatis.",
+      placement: "bottom" as const,
+    },
+    {
+      target: "#tour-verify-preview",
+      title: "Pratinjau Dokumen",
+      content:
+        "Anda dapat melihat isi dokumen yang diunggah di area pratinjau ini sebelum atau sesudah diverifikasi.",
+    },
+    {
+      target: "#tour-verify-status",
+      title: "Status Keaslian",
+      content:
+        "Hasil verifikasi akan muncul di sini, menunjukkan apakah tanda tangan elektronik pada dokumen tersebut valid.",
+    },
+  ];
   const documents = $derived(
     getDocument({
       id: page.url.searchParams.get("id") || "",
@@ -68,6 +97,12 @@
 
     if (fileURL) {
       await previewURL(fileURL, localFileName);
+    }
+
+    const lastShown = localStorage.getItem("tour-verify-last-shown");
+    const now = Date.now();
+    if (!lastShown || now - Number(lastShown) > 3600000) {
+      setTimeout(() => (app.showTour = true), 1000);
     }
   });
 
@@ -177,7 +212,7 @@
 </script>
 
 <div class="px-5 flex gap-5 h-[calc(100vh-100px)] flex-col md:flex-row">
-  <div class="grow h-full min-h-200 md:order-2">
+  <div id="tour-verify-preview" class="grow h-full min-h-200 md:order-2">
     {#if !isAuthorized && (previewFile || fileURL)}
       <div class="flex flex-col items-center justify-center h-full">
         <div
@@ -244,7 +279,7 @@
       <div class="text-xl font-bold text-base-content/60">
         Verifikasi Dokumen PDF!
       </div>
-      <div class="join w-full mb-2">
+      <div id="tour-verify-mode" class="join w-full mb-2">
         <button
           class="btn btn-sm join-item grow"
           onclick={() => (mode = "upload")}
@@ -270,7 +305,7 @@
       <div class="text-sm">
         {#if mode === "upload"}
           <div class="alert">Unggah untuk memverifikasi dokumen PDF.</div>
-          <label class="floating-label mt-5">
+          <label id="tour-verify-input" class="floating-label mt-5">
             <span>Pilih Dokumen</span>
             <input
               type="file"
@@ -426,7 +461,7 @@
       </div>
     </div>
 
-    <div class="shrink-0">
+    <div id="tour-verify-status" class="shrink-0">
       <div class="font-bold text-base-content/60 mt-10">Status Dokumen</div>
       <div class="">
         {#if loading}
@@ -475,3 +510,17 @@
     </div>
   </div>
 </div>
+
+{#if app.showTour}
+  <Tour
+    steps={tourSteps}
+    onComplete={() => {
+      app.showTour = false;
+      localStorage.setItem("tour-verify-last-shown", Date.now().toString());
+    }}
+    onSkip={() => {
+      app.showTour = false;
+      localStorage.setItem("tour-verify-last-shown", Date.now().toString());
+    }}
+  />
+{/if}
