@@ -120,6 +120,7 @@
       signatureProperties: SignatureType[];
       documents: Record<string, File>;
       nomor_telepon: string;
+      send_file?: boolean;
       // files: File[];
       to?: string[];
       completed: string[];
@@ -204,7 +205,16 @@
     init();
   });
   onMount(async () => {
-    const owner = page.url.searchParams.get("owner");
+    let owner = page.url.searchParams.get("owner") || "";
+    if (owner) {
+      try {
+        if (!owner.includes("@")) {
+          owner = atob(owner);
+        }
+      } catch (e) {
+        console.error("Failed to decode owner param", e);
+      }
+    }
     form = {
       footer: true,
       email: owner || localStorage.getItem("email") || "",
@@ -216,6 +226,7 @@
       tanggal: d().format("DD MMMM YYYY"),
       location: "",
       note: "Tanda Tangan Elektronik",
+      send_file: true,
     };
 
     const lastShown = localStorage.getItem("tour-sign-last-shown");
@@ -534,6 +545,7 @@
     data-tip="Sign Document"
     disabled={!(allowSigning && forms.sign == undefined)}
     onclick={async () => {
+      signResults = [];
       forms.sign = {
         ...form,
         passphrase: "",
@@ -761,7 +773,7 @@
               if (isDraft) {
                 return `${i + 1}. *${r?.fileName}*\n${location.origin}/sign?draft=true&id=${r?.id}`;
               }
-              return `${i + 1}. *${r?.fileName}*\n${location.origin}/d?id=${r?.id}&owner=${item.email}`;
+              return `${i + 1}. *${r?.fileName}*\n${location.origin}/d?id=${r?.id}&owner=${btoa(item.email)}`;
             })
             .join("\n\n");
 
@@ -775,21 +787,23 @@
               },
             });
             if (asDraft) return;
-            signResults.forEach(async (r, i) => {
-              console.log(r);
-              const payload = {
-                document: {
-                  base64: r.base64,
-                },
-                mimetype: "application/pdf",
-                fileName: "signed_" + r.fileName,
-              };
+            if (item.send_file !== false) {
+              for (const r of signResults) {
+                console.log(r);
+                const payload = {
+                  document: {
+                    base64: r.base64,
+                  },
+                  mimetype: "application/pdf",
+                  fileName: "signed_" + r.fileName,
+                };
 
-              await sendMessage({
-                recipient: item.nomor_telepon,
-                payload,
-              });
-            });
+                await sendMessage({
+                  recipient: item.nomor_telepon,
+                  payload,
+                });
+              }
+            }
           } catch {}
         }
       }}

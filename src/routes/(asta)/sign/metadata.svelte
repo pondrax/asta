@@ -115,7 +115,10 @@
   }}
   class="h-full relative"
 >
-  <ul id="tour-metadata" class="menu h-full overflow-auto flex-nowrap rounded-xl w-full relative">
+  <ul
+    id="tour-metadata"
+    class="menu h-full overflow-auto flex-nowrap rounded-xl w-full relative"
+  >
     <li class="menu-title bg-base-100 sticky -top-2 z-5">
       <div class="flex gap-5 justify-between items-center">
         <div>Meta Data</div>
@@ -259,25 +262,38 @@
     <li class="p-2">
       <label class="floating-label p-0 bg-transparent">
         <span>Nomor Telepon (Whatsapp)</span>
-        <div class="input input-sm">
-          <span class="label">+62</span>
-          <input
-            bind:value={
-              () => String(form.nomor_telepon ?? "").replace(/^62/, ""),
-              (value) =>
-                (form.nomor_telepon =
-                  "62" +
-                  String(value)
-                    .replace(/[^0-9]/g, "")
-                    .replace(/^0+/, "")
-                    .replace(/^62/, ""))
-            }
-            required
-            type="text"
-            placeholder="Nomor Telepon WA"
-          />
+        <div class="flex gap-2 items-center w-full mt-1">
+          <div class="input input-sm grow flex items-center">
+            <span class="text-gray-500 mr-1">+62</span>
+            <input
+              bind:value={
+                () => String(form.nomor_telepon ?? "").replace(/^62/, ""),
+                (value) =>
+                  (form.nomor_telepon =
+                    "62" +
+                    String(value)
+                      .replace(/[^0-9]/g, "")
+                      .replace(/^0+/, "")
+                      .replace(/^62/, ""))
+              }
+              required
+              type="text"
+              placeholder="Nomor Telepon WA"
+              class="w-full bg-transparent outline-none"
+            />
+          </div>
+          <label
+            class="btn btn-sm tooltip tooltip-left flex gap-2 items-center"
+            data-tip="Kirim File PDF ke Whatsapp"
+          >
+            <input
+              type="checkbox"
+              class="checkbox checkbox-xs"
+              bind:checked={form.send_file}
+            />
+            Kirim File
+          </label>
         </div>
-        <div class="text-[10px] text-gray-400"></div>
       </label>
     </li>
     <li class="p-2">

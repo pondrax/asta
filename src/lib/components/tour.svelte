@@ -220,11 +220,11 @@
         {#if cardPos.placement === "bottom"}
           <div
             class="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-base-100 rotate-45 border-l border-t border-primary/20"
-          />
+          ></div>
         {:else if cardPos.placement === "top"}
           <div
             class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-base-100 rotate-45 border-r border-b border-primary/20"
-          />
+          ></div>
         {/if}
       </div>
     </div>

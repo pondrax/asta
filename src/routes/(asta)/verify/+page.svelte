@@ -90,8 +90,15 @@
   });
 
   onMount(async () => {
-    const urlOwner = page.url.searchParams.get("owner");
+    let urlOwner = page.url.searchParams.get("owner");
     if (urlOwner) {
+      try {
+        if (!urlOwner.includes("@")) {
+          urlOwner = atob(urlOwner);
+        }
+      } catch (e) {
+        console.error("Failed to decode owner param", e);
+      }
       guestEmail = urlOwner;
       tempEmail = urlOwner.split("@")[0];
     }
