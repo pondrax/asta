@@ -33,6 +33,54 @@
   let uploaderFiles: File[] = $state([]);
   let uploaderInput: HTMLInputElement | null = $state(null);
 
+  let qrScanner: any;
+  let videoEl: HTMLVideoElement | null = $state(null);
+  let isScanning = $state(false);
+
+  $effect(() => {
+    if (mode !== "scan") {
+      stopScan();
+    }
+  });
+
+  async function startScan() {
+    if (!videoEl) return;
+    const QrScanner = (await import("qr-scanner")).default;
+    qrScanner = new QrScanner(
+      videoEl,
+      (result) => {
+        const data = result.data;
+        if (data) {
+          stopScan();
+          if (data.startsWith("http://") || data.startsWith("https://")) {
+            location.href = data;
+          } else {
+            location.href = `/verify?id=${data}`;
+          }
+        }
+      },
+      {
+        highlightScanRegion: true,
+        highlightCodeOutline: true,
+      }
+    );
+    try {
+      await qrScanner.start();
+      isScanning = true;
+    } catch (err) {
+      console.error(err);
+      alert("Gagal mengakses kamera. Pastikan izin kamera telah diberikan.");
+    }
+  }
+
+  function stopScan() {
+    if (qrScanner) {
+      qrScanner.destroy();
+      qrScanner = null;
+    }
+    isScanning = false;
+  }
+
   $effect(() => {
     if (uploaderFiles.length > 0) {
       previewFile = uploaderFiles[0];
@@ -131,6 +179,7 @@
   });
 
   onDestroy(() => {
+    stopScan();
     if (fileURL) {
       URL.revokeObjectURL(fileURL);
 
@@ -419,13 +468,22 @@
               <span>Gunakan kamera untuk memindai QR Code.</span>
             </div>
             <div
-              class="aspect-square bg-base-200 rounded-xl flex flex-col items-center justify-center border-2 border-dashed border-base-content/10 gap-3"
+              class="aspect-square bg-base-200 rounded-xl overflow-hidden flex flex-col items-center justify-center border-2 border-dashed border-base-content/10 gap-3 relative"
             >
-              <iconify-icon icon="bx:camera" class="text-5xl opacity-20"
-              ></iconify-icon>
-              <span class="text-xs opacity-40">Kamera tidak aktif</span>
+              <video bind:this={videoEl} playsinline muted class="w-full h-full object-cover absolute inset-0 z-10"></video>
+              {#if !isScanning}
+                <div class="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-base-200 z-20">
+                  <iconify-icon icon="bx:camera" class="text-5xl opacity-20"
+                  ></iconify-icon>
+                  <span class="text-xs opacity-40">Kamera tidak aktif</span>
+                </div>
+              {/if}
             </div>
-            <button class="btn btn-primary w-full" disabled>Buka Kamera</button>
+            {#if isScanning}
+              <button class="btn btn-error w-full" onclick={stopScan}>Hentikan Kamera</button>
+            {:else}
+              <button class="btn btn-primary w-full" onclick={startScan}>Buka Kamera</button>
+            {/if}
           </div>
         {/if}
       </div>

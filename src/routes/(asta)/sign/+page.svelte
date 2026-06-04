@@ -121,6 +121,7 @@
       documents: Record<string, File>;
       nomor_telepon: string;
       send_file?: boolean;
+      footer?: boolean;
       // files: File[];
       to?: string[];
       completed: string[];
@@ -163,7 +164,12 @@
     await pdfLib.fillFormFields(buffer, form);
   }
 
-  async function fillFormFields(file: File, signing = false, id?: string) {
+  async function fillFormFields(
+    file: File,
+    signing = false,
+    id?: string,
+    useFooter = form.footer,
+  ) {
     let buffer: ArrayBuffer = await file.arrayBuffer();
 
     if (!id) id = activeIndex;
@@ -175,7 +181,7 @@
       return file;
     }
 
-    if (form.footer) {
+    if (useFooter) {
       const base64QR = await generateQRCode({
         data: `${location.origin}/d?id=${id}`,
       });
@@ -663,7 +669,12 @@
 
                 attempt++;
 
-                const fileSign = await fillFormFields(file, true, id);
+                const fileSign = await fillFormFields(
+                  file,
+                  true,
+                  id,
+                  item.footer,
+                );
 
                 let fileBase64 = await fileToBase64(fileSign);
                 if (!bsre) {
@@ -1004,6 +1015,35 @@
             autocomplete="new-password"
           /> -->
           </label>
+          <label class="label cursor-pointer justify-between -my-1 p-0">
+            <span class="label-text text-sm"
+              >Visualisasi Footer BSrE - BSSN</span
+            >
+            <input
+              type="checkbox"
+              class="toggle toggle-primary toggle-sm shrink-0"
+              bind:checked={item.footer}
+              onchange={() => (form.footer = item.footer)}
+            />
+          </label>
+
+          {#if !hasSignature && !item.footer}
+            <div
+              class="alert alert-warning text-xs py-1.5 px-3 flex gap-2 items-start justify-between -mt-2"
+            >
+              <div class="flex gap-2 items-start grow min-w-0">
+                <iconify-icon icon="bx:error" class="text-2xl shrink-0 mt-0.5"
+                ></iconify-icon>
+                <div class="leading-normal grow min-w-0">
+                  Pastikan dokumen memiliki footer <br />
+                  <span class="opacity-80 italic text-xs block mt-0.5"
+                    >"Dokumen ini ditandatangani menggunakan sertifikat
+                    elektronik yang diterbitkan BSrE - BSSN"</span
+                  >
+                </div>
+              </div>
+            </div>
+          {/if}
         {/if}
         <div id="turnstile-container"></div>
 
