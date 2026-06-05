@@ -86,7 +86,7 @@
       target: "#tour-signature",
       title: "Visualisasi Tanda Tangan",
       content:
-        "Pilih bagaimana tanda tangan Anda akan ditampilkan di dokumen: QR Code, Gambar, atau Nama.",
+        "Pilih bagaimana tanda tangan Anda akan ditampilkan di dokumen: QR Code, Gambar, atau Nama. Jika tidak ingin menambahkan visualisasi, abaikan fitur ini.",
       onShow: () => (activeTab = "metadata"),
     },
     {

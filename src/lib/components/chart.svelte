@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy, untrack } from "svelte";
+  import { onDestroy, untrack } from "svelte";
   import type { ApexOptions } from "apexcharts";
   import { browser } from "$app/environment";
 
@@ -11,6 +11,8 @@
     loading = false,
     collapsible = true,
     isCollapsed = $bindable(false),
+    type = "area",
+    card = true,
     categories = [
       { key: "info", color: "var(--color-primary)", label: "Info" },
       { key: "warn", color: "var(--color-warning)", label: "Warning" },
@@ -25,6 +27,21 @@
   const getOptions = (chartData: any[]): ApexOptions => {
     if (!Array.isArray(chartData)) chartData = [];
 
+    if (type === "donut") {
+      const vals = chartData.map((d) => d.value ?? 0);
+      const lbls = chartData.map((d) => d.label || "");
+      return {
+        series: vals,
+        labels: lbls,
+        chart: { type: "donut", height: height || 200 },
+        colors: categories.length ? categories.map((c) => c.color) : undefined,
+        dataLabels: { enabled: true, style: { fontSize: "10px", fontWeight: 800 } },
+        legend: { show: true, position: "bottom", fontSize: "10px", fontWeight: 800 },
+        plotOptions: { pie: { donut: { size: "60%" } } },
+        tooltip: { theme: "light", style: { fontSize: "12px" } },
+      };
+    }
+
     const series = categories.map((cat) => ({
       name: cat.label,
       data: chartData.map((s) => {
@@ -38,7 +55,7 @@
     return {
       series,
       chart: {
-        type: "area",
+        type: type as any,
         height: height || 200,
         toolbar: { show: false },
         animations: { enabled: true, speed: 400 },
@@ -47,7 +64,7 @@
         fontFamily: "inherit",
       },
       colors: categories.map((cat) => cat.color),
-      fill: {
+      fill: type === "bar" ? {} : {
         type: "gradient",
         gradient: {
           shadeIntensity: 1,
@@ -56,7 +73,7 @@
           stops: [0, 100],
         },
       },
-      stroke: {
+      stroke: type === "bar" ? { show: true, width: 0, colors: categories.map((c) => c.color) } : {
         curve: "smooth",
         width: 3,
       },
@@ -67,6 +84,13 @@
         padding: { left: 10, right: 10, top: 0, bottom: 0 },
       },
       dataLabels: { enabled: false },
+      plotOptions: type === "bar" ? {
+        bar: {
+          columnWidth: "60%",
+          borderRadius: 4,
+          borderRadiusApplication: "end",
+        },
+      } : {},
       xaxis: {
         categories: labels,
         tickAmount: 8,
@@ -121,12 +145,6 @@
     }
   }
 
-  onMount(() => {
-    if (!isCollapsed && (data.length || !loading)) {
-      initChart();
-    }
-  });
-
   onDestroy(() => {
     if (chartInstance) {
       chartInstance.destroy();
@@ -149,7 +167,7 @@
         chartInstance.destroy();
         chartInstance = null;
         isReady = false;
-      } else {
+      } else if (isReady) {
         const opts = getOptions(data);
         untrack(() => {
           chartInstance.updateOptions(opts);
@@ -164,61 +182,31 @@
     ? 'max-h-[80px]!'
     : 'max-h-[1000px]'}"
 >
-  <div
-    class="flex justify-between items-start {isCollapsed
-      ? 'mb-0'
-      : 'mb-0.5'} relative z-10 transition-all"
-  >
-    <div class="flex flex-col">
-      <span class="text-[8px] font-black uppercase tracking-[0.2em] opacity-30"
-        >{subtitle}</span
-      >
-      <div class="flex items-baseline gap-3 mt-0">
-        <span
-          class="text-2xl font-black font-mono tracking-tighter text-primary"
+  <div class="flex justify-between items-center mb-3">
+    <div>
+      {#if subtitle}
+        <span class="text-[8px] font-black uppercase tracking-[0.2em] opacity-30"
+          >{subtitle}</span
         >
-          {title}
-        </span>
-        {#if !isCollapsed}
-          <div class="flex gap-3">
-            {#each categories as cat}
-              <div class="flex items-center gap-1.5 transition-all">
-                <div
-                  class="w-1.5 h-1.5 rounded-full"
-                  style="background-color: {cat.color}"
-                ></div>
-                <span
-                  class="text-[8px] font-black uppercase tracking-[0.15em] opacity-40"
-                  >{cat.label}</span
-                >
-              </div>
-            {/each}
-          </div>
-        {/if}
-      </div>
-    </div>
-
-    <div class="flex items-center gap-4">
-      <div
-        class="flex items-center gap-1.5 opacity-20 group-hover/chart:opacity-60 transition-all"
-      >
-        <div class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></div>
-        <span class="text-[9px] font-black uppercase tracking-widest"
-          >Live Engine</span
-        >
-      </div>
-
-      {#if collapsible}
-        <button
-          aria-label={isCollapsed ? "Expand Chart" : "Collapse Chart"}
-          class="btn btn-circle btn-xs btn-ghost opacity-20 group-hover/chart:opacity-100 transition-all"
-          onclick={() => (isCollapsed = !isCollapsed)}
-        >
-          <iconify-icon icon="bx:{isCollapsed ? 'chevron-down' : 'chevron-up'}"
-          ></iconify-icon>
-        </button>
+      {/if}
+      {#if title}
+        <div class="flex items-baseline gap-3">
+          <span class="text-lg font-black font-mono tracking-tighter"
+            >{title}</span
+          >
+        </div>
       {/if}
     </div>
+    {#if collapsible}
+      <button
+        aria-label={isCollapsed ? "Expand Chart" : "Collapse Chart"}
+        class="btn btn-circle btn-xs btn-ghost opacity-40"
+        onclick={() => (isCollapsed = !isCollapsed)}
+      >
+        <iconify-icon icon="bx:{isCollapsed ? 'chevron-down' : 'chevron-up'}"
+        ></iconify-icon>
+      </button>
+    {/if}
   </div>
 
   <div
