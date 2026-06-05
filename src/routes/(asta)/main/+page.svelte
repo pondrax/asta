@@ -430,7 +430,7 @@
       {/if}
     </div>
 
-    <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <a
         href="/sign"
         class="bg-base-100/50 p-4 rounded-2xl border border-base-300 hover:bg-base-200/50 transition-all flex flex-col gap-1.5"
@@ -499,26 +499,6 @@
           >Kelola informasi akun dan preferensi</span
         >
       </a>
-      <button
-        type="button"
-        class="bg-base-100/50 p-4 rounded-2xl border border-base-300 hover:bg-base-200/50 transition-all flex flex-col gap-1.5 cursor-pointer text-left"
-        onclick={() => (app.showTour = true)}
-      >
-        <div class="flex items-center gap-3">
-          <div
-            class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0"
-          >
-            <iconify-icon icon="bx:book-open" class="text-lg text-primary"
-            ></iconify-icon>
-          </div>
-          <div class="flex flex-col gap-0.5">
-            <span class="font-bold text-sm">Panduan</span>
-            <span class="text-[9px] opacity-40 leading-tight"
-              >Pelajari cara menggunakan aplikasi</span
-            >
-          </div>
-        </div>
-      </button>
     </div>
 
     {#if app.showTour}

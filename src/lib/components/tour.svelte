@@ -40,10 +40,6 @@
       const r = el.getBoundingClientRect();
       rect = { top: r.top, left: r.left, width: r.width, height: r.height };
 
-      if (currentStep > 0) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-
       const gap = 28;
       const cardWidth = 320;
       let top = 0;
@@ -115,14 +111,35 @@
     }
   }
 
-  $effect(() => {
-    if (isVisible) updateRect();
-  });
+  /**
+   * Collect all scrollable ancestor elements for a given element.
+   * We need to listen to scroll events on each so the tooltip repositions.
+   */
+  function getScrollParents(el: Element): Element[] {
+    const parents: Element[] = [];
+    let cur: Element | null = el.parentElement;
+    while (cur && cur !== document.documentElement) {
+      const style = window.getComputedStyle(cur);
+      const overflow = style.overflow + style.overflowY + style.overflowX;
+      if (/auto|scroll/.test(overflow)) parents.push(cur);
+      cur = cur.parentElement;
+    }
+    // always add window scroll too
+    return parents;
+  }
 
   $effect(() => {
     const target = activeStep?.target;
     if (!target) return;
     if (activeStep?.onShow) activeStep.onShow();
+
+    let scrollListeners: { el: Element | Window; fn: () => void }[] = [];
+    const removeScrollListeners = () => {
+      for (const { el, fn } of scrollListeners) {
+        el.removeEventListener("scroll", fn);
+      }
+      scrollListeners = [];
+    };
 
     const observer = new ResizeObserver(() => updateRect());
     const check = setInterval(() => {
@@ -130,11 +147,36 @@
       if (el) {
         observer.observe(el);
         clearInterval(check);
+
+        // Scroll into view, then re-run updateRect once scroll animation settles
+        if (currentStep > 0) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          // Wait for smooth scroll to finish (typically ~500ms) then recalculate
+          setTimeout(() => updateRect(), 550);
+        }
+
+        // Listen on all scrollable parents
+        removeScrollListeners();
+        const parents = getScrollParents(el);
+        for (const parent of parents) {
+          const fn = () => updateRect();
+          parent.addEventListener("scroll", fn, { passive: true });
+          scrollListeners.push({ el: parent, fn });
+        }
+        // Also window scroll
+        const winFn = () => updateRect();
+        window.addEventListener("scroll", winFn, { passive: true });
+        scrollListeners.push({ el: window, fn: winFn });
+
         updateRect();
       }
     }, 50);
     tick().then(updateRect);
-    return () => { observer.disconnect(); clearInterval(check); };
+    return () => {
+      observer.disconnect();
+      clearInterval(check);
+      removeScrollListeners();
+    };
   });
 
   onMount(() => {

@@ -14,9 +14,12 @@ export async function GET({ params }) {
     const contentType = getContentType(extension);
     // console.log(extension, contentType);
 
+    const cleanName = params.uri.split('/').pop()?.replace(/\.[a-z0-9]{4}\.enc$/, '').replace(/\.enc$/, '') || 'document.pdf';
+
     return new Response(arrayBuffer, {
       headers: {
         'Content-Type': contentType,
+        'Content-Disposition': `inline; filename="${cleanName}"`,
         'Cache-Control': 'public, max-age=3600',
       },
     });
