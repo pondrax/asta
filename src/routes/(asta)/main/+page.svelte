@@ -18,5 +18,11 @@
         <p>Menu administrasi logs</p>
       </div>
     </a>
+    <a href="/main/portal-bsre" class="card bg-base-100 shadow-sm">
+      <div class="card-body">
+        <h2 class="card-title font-bold">Portal BSrE</h2>
+        <p>Buka portal BSrE BSSN dengan login otomatis</p>
+      </div>
+    </a>
   </div>
 </div>
