@@ -98,9 +98,13 @@
     <p>Memuat data dashboard...</p>
   </div>
 {:else}
-  <div class="px-5 overflow-x-clip pt-2 pb-10 space-y-6 max-w-7xl mx-auto">
+  <div class="px-6 py-4 space-y-4 max-w-7xl mx-auto">
     <div>
-      <h3 class="text-xl font-bold">Dashboard Admin</h3>
+      <h1
+        class="text-2xl font-bold bg-linear-to-r from-primary to-secondary bg-clip-text text-transparent"
+      >
+        Dashboard Admin
+      </h1>
       <p class="text-xs opacity-40 font-mono">
         {d().format("dddd, DD MMMM YYYY")}
       </p>

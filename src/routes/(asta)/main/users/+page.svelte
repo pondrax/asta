@@ -69,97 +69,70 @@
   </form>
 </Modal>
 
-<div class="px-5 pt-1 overflow-x-clip">
-  <h3 class="text-xl">Daftar Dokumen</h3>
-
-  <Toolbar
-    bind:query
-    {records}
-    mapper={{
-      export: (item) => ({
-        coba: item.id,
-        ...item,
-      }),
-    }}
-  >
-    <div class="fab">
-      <a
-        href="/sign"
-        class="btn btn-lg btn-circle btn-primary tooltip"
-        data-tip="Unggah"
-        aria-label="Unggah"
+<div class="px-6 py-4 space-y-3 max-w-7xl mx-auto">
+  <div class="flex items-center justify-between gap-4">
+    <div>
+      <h1
+        class="text-2xl font-bold bg-linear-to-r from-primary to-secondary bg-clip-text text-transparent"
       >
-        <iconify-icon icon="bx:plus"></iconify-icon>
-      </a>
+        Daftar Pengguna
+      </h1>
+      <p class="text-sm opacity-60">Kelola akun dan hak akses pengguna sistem</p>
     </div>
-    {#if selections.length}
-      <form action="/sign" method="POST">
-        <input type="hidden" name="id" value={selections} />
-        <button type="submit" class="btn btn-sm btn-primary whitespace-nowrap">
-          <iconify-icon icon="bx:pen"></iconify-icon>
-          Tanda Tangan
-        </button>
-      </form>
-      <!-- <a href="/sign?id={selections}" class="btn btn-sm btn-primary">
-        <iconify-icon icon="bx:pen" class="mr-2"></iconify-icon>
-        Share
-      </a> -->
-      <button class="btn btn-sm btn-error" onclick={() => (forms.del = true)}>
-        <iconify-icon icon="bx:trash" class="mr-2"></iconify-icon>
-        Hapus
-      </button>
-    {/if}
-    <!-- {#snippet extended()}
-      <div class="filter">
-        <input
-          bind:group={query.where!.role}
-          value="admin"
-          class="btn btn-sm"
-          type="radio"
-          name="role"
-          aria-label="Admin"
-        />
-        <input
-          bind:group={query.where!.role}
-          value="user"
-          class="btn btn-sm"
-          type="radio"
-          name="role"
-          aria-label="User"
-        />
-        <input
-          bind:group={query.where!.role}
-          value={{}}
-          class="btn btn-sm filter-reset"
-          type="radio"
-          name="role"
-          aria-label="x"
-        />
-      </div>
-    {/snippet} -->
-    {#snippet filter(where)}
-      <div>
-        <span class="text-xs">Judul</span>
-        <input bind:value={where.title} class="input input-sm" />
-      </div>
-    {/snippet}
-  </Toolbar>
+  </div>
 
-  <div class="overflow-x-auto h-[calc(100vh-12rem)] w-full z-0 relative">
-    <table class="table table-sm table-pin-rows table-pin-cols">
-      <thead>
-        <tr>
-          <th class="w-1 z-1">
-            <div
-              class="tooltip tooltip-right"
-              class:tooltip-open={!!selections.length}
-              data-tip={selections.length
-                ? selections.length + " Terpilih"
-                : "Pilih Semua"}
-            >
+  <div
+    class="bg-base-100/40 border border-base-200/60 rounded-2xl p-4 shadow-sm backdrop-blur space-y-4"
+  >
+    <Toolbar
+      bind:query
+      {records}
+      mapper={{
+        export: (item) => ({
+          coba: item.id,
+          ...item,
+        }),
+      }}
+    >
+      {#if selections.length}
+        <div class="flex items-center gap-2 animate-fade-in">
+          <button
+            class="btn btn-sm btn-error btn-outline gap-1.5"
+            onclick={() => (forms.del = true)}
+          >
+            <iconify-icon icon="bx:trash" class="text-sm"></iconify-icon>
+            Hapus ({selections.length})
+          </button>
+        </div>
+      {/if}
+      {#snippet filter(where)}
+        <div class="form-control w-full max-w-xs">
+          <!-- svelte-ignore a11y_label_has_associated_control -->
+          <label class="label py-1">
+            <span class="label-text font-bold text-xs opacity-75">Cari Email</span>
+          </label>
+          <input
+            bind:value={where.email}
+            class="input input-sm input-bordered"
+            placeholder="Masukkan email..."
+          />
+        </div>
+      {/snippet}
+    </Toolbar>
+
+    <!-- Table Container -->
+    <div
+      class="overflow-x-auto border border-base-300/60 rounded-xl bg-base-100/50 backdrop-blur-md h-[calc(100vh-17.5rem)] relative shadow-inner"
+    >
+      <table class="table table-md table-pin-rows table-pin-cols">
+        <thead>
+          <tr
+            class="bg-base-200/50 text-base-content/80 font-bold border-b border-base-300"
+          >
+            <th class="w-12 text-center bg-base-200/50 z-20">
               <input
                 type="checkbox"
-                class="checkbox"
+                class="checkbox checkbox-sm checkbox-primary"
                 bind:checked={
                   () =>
                     !!selections.length &&
@@ -169,92 +142,77 @@
                   }
                 }
               />
-            </div>
-          </th>
-          <th class="min-w-64">Email</th>
-          <th>Role</th>
-          <th>Dibuat</th>
-          <th>Diperbarui</th>
-          <th class="w-1 text-center">#</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#if records.loading}
-          <tr>
-            <th></th>
-            <th colspan="10">
-              <span class="loading loading-spinner loading-xs mr-2"></span>
-              Memuat data...
             </th>
+            <th class="min-w-64">Email</th>
+            <th class="w-32">Role</th>
+            <th class="w-44">Dibuat</th>
+            <th class="w-44">Diperbarui</th>
           </tr>
-        {:else if records.error}
-          <tr>
-            <th></th>
-            <th colspan="10" class="text-error">
-              <iconify-icon icon="bx:error-circle" class="mr-2"></iconify-icon>
-              Gagal memuat data: {records.error.message}
-              <button
-                class="btn btn-xs btn-error btn-outline ml-2"
-                onclick={() => records.refresh()}
-              >
-                Coba Lagi
-              </button>
-            </th>
-          </tr>
-        {:else if !items.data?.length}
-          <tr>
-            <th></th>
-            <th colspan="10">No data</th>
-          </tr>
-        {:else}
-          {#each items.data as item, i}
+        </thead>
+        <tbody>
+          {#if records.loading}
             <tr>
-              <th>
-                <div class="flex gap-1">
+              <td colspan="5" class="py-12 text-center">
+                <div class="flex flex-col items-center justify-center gap-2">
+                  <span class="loading loading-spinner loading-md text-primary"></span>
+                  <span class="text-sm opacity-55 font-medium">Memuat data pengguna...</span>
+                </div>
+              </td>
+            </tr>
+          {:else if records.error}
+            <tr>
+              <td colspan="5" class="py-12 text-center">
+                <div class="flex flex-col items-center justify-center gap-3 text-error">
+                  <iconify-icon icon="bx:error-circle" class="text-3xl"></iconify-icon>
+                  <div class="text-sm font-semibold">
+                    Gagal memuat data: {records.error.message}
+                  </div>
+                  <button
+                    class="btn btn-sm btn-error btn-outline"
+                    onclick={() => records.refresh()}
+                  >
+                    Coba Lagi
+                  </button>
+                </div>
+              </td>
+            </tr>
+          {:else if !items.data?.length}
+            <tr>
+              <td colspan="5" class="py-12 text-center">
+                <div class="flex flex-col items-center justify-center gap-2 opacity-40">
+                  <iconify-icon icon="bx:user-x" class="text-3xl"></iconify-icon>
+                  <span class="text-sm font-medium">Tidak ada data pengguna</span>
+                </div>
+              </td>
+            </tr>
+          {:else}
+            {#each items.data as item}
+              <tr class="hover:bg-base-200/30 transition-colors">
+                <td class="text-center">
                   <input
                     type="checkbox"
-                    class="checkbox"
+                    class="checkbox checkbox-sm checkbox-primary"
                     bind:group={selections}
                     value={item.id}
                   />
-                </div>
-              </th>
-              <td>{item.email}</td>
-              <td>{item.role?.name}</td>
-              <td class="text-xs whitespace-nowrap">
-                {d(item.created).format("HH:mm, DD MMM YYYY")}
-              </td>
-              <td class="text-xs whitespace-nowrap">
-                {d(item.updated).format("HH:mm, DD MMM YYYY")}
-              </td>
-              <th>
-                <!-- <div class="flex gap-1 -m-1">
-                  <form action="/sign" method="POST" target="_blank">
-                    <input type="hidden" name="id" value={item.id} />
-                    <button
-                      type="submit"
-                      class="btn btn-sm btn-soft btn-primary tooltip tooltip-left"
-                      aria-label="sign"
-                      data-tip="Tanda Tangan"
-                    >
-                      <iconify-icon icon="bx:pen"></iconify-icon>
-                    </button>
-                  </form>
-                  <a
-                    href="/verify?id={item.id}"
-                    target="_blank"
-                    class="btn btn-sm btn-soft btn-accent tooltip tooltip-left"
-                    aria-label="Verifikasi"
-                    data-tip="Verifikasi Dokumen"
-                  >
-                    <iconify-icon icon="bx:search"></iconify-icon>
-                  </a>
-                </div> -->
-              </th>
-            </tr>
-          {/each}
-        {/if}
-      </tbody>
-    </table>
+                </td>
+                <td class="font-medium">{item.email}</td>
+                <td>
+                  <span class="badge badge-sm {item.role?.name === 'admin' ? 'badge-primary' : 'badge-ghost'}">
+                    {item.role?.name ?? '-'}
+                  </span>
+                </td>
+                <td class="text-xs opacity-60 whitespace-nowrap">
+                  {d(item.created).format("HH:mm, DD MMM YYYY")}
+                </td>
+                <td class="text-xs opacity-60 whitespace-nowrap">
+                  {d(item.updated).format("HH:mm, DD MMM YYYY")}
+                </td>
+              </tr>
+            {/each}
+          {/if}
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>

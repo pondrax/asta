@@ -87,12 +87,32 @@
             onmouseenter={() => showMenu("beranda")}
             onmouseleave={scheduleHide}
           >
-            <a href="/" class:menu-active={page.url.pathname === "/"}>
+            <a
+              href="/"
+              class="rounded-lg text-xs font-medium transition-all"
+              class:bg-primary={page.url.pathname === "/"}
+              class:text-primary-content={page.url.pathname === "/"}
+              class:shadow-sm={page.url.pathname === "/"}
+              class:bg-base-200={activeMenu === "beranda" &&
+                page.url.pathname !== "/"}
+              class:text-base-content={activeMenu === "beranda" &&
+                page.url.pathname !== "/"}
+            >
               Beranda
             </a>
           </li>
           <li onmouseenter={() => showMenu("sign")} onmouseleave={scheduleHide}>
-            <a href="/sign" class:menu-active={page.url.pathname === "/sign"}>
+            <a
+              href="/sign"
+              class="rounded-lg text-xs font-medium transition-all"
+              class:bg-primary={page.url.pathname === "/sign"}
+              class:text-primary-content={page.url.pathname === "/sign"}
+              class:shadow-sm={page.url.pathname === "/sign"}
+              class:bg-base-200={activeMenu === "sign" &&
+                page.url.pathname !== "/sign"}
+              class:text-base-content={activeMenu === "sign" &&
+                page.url.pathname !== "/sign"}
+            >
               Tanda Tangan
             </a>
           </li>
@@ -102,14 +122,31 @@
           >
             <a
               href="/verify"
-              class:menu-active={page.url.pathname === "/verify"}
+              class="rounded-lg text-xs font-medium transition-all"
+              class:bg-primary={page.url.pathname === "/verify"}
+              class:text-primary-content={page.url.pathname === "/verify"}
+              class:shadow-sm={page.url.pathname === "/verify"}
+              class:bg-base-200={activeMenu === "verify" &&
+                page.url.pathname !== "/verify"}
+              class:text-base-content={activeMenu === "verify" &&
+                page.url.pathname !== "/verify"}
             >
               Verifikasi
             </a>
           </li>
           {#if user}
             <li onmouseenter={() => showMenu("me")} onmouseleave={scheduleHide}>
-              <a href="/me" class:menu-active={isMeActive}> Overview </a>
+              <a
+                href="/me"
+                class="rounded-lg text-xs font-medium transition-all"
+                class:bg-primary={isMeActive}
+                class:text-primary-content={isMeActive}
+                class:shadow-sm={isMeActive}
+                class:bg-base-200={activeMenu === "me" && !isMeActive}
+                class:text-base-content={activeMenu === "me" && !isMeActive}
+              >
+                Overview
+              </a>
             </li>
           {/if}
           {#if user?.role?.name === "admin"}
@@ -117,7 +154,16 @@
               onmouseenter={() => showMenu("manage")}
               onmouseleave={scheduleHide}
             >
-              <a href="/main" class:menu-active={isManageActive}>
+              <a
+                href="/main"
+                class="rounded-lg text-xs font-medium transition-all"
+                class:bg-primary={isManageActive}
+                class:text-primary-content={isManageActive}
+                class:shadow-sm={isManageActive}
+                class:bg-base-200={activeMenu === "manage" && !isManageActive}
+                class:text-base-content={activeMenu === "manage" &&
+                  !isManageActive}
+              >
                 Administration
               </a>
             </li>
@@ -215,138 +261,574 @@
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div
         transition:fly={{ y: -8, duration: 150, opacity: 0 }}
-        class="absolute left-0 right-0 bg-base-100 shadow-lg z-20"
+        class="absolute left-0 right-0 bg-base-100 border-b border-base-200 shadow-xl z-20"
         onmouseenter={() => {
           if (activeMenu) showMenu(activeMenu);
         }}
         onmouseleave={scheduleHide}
       >
         {#if activeMenu === "beranda"}
-          <div class="max-w-screen-xl mx-auto px-4 lg:px-8 py-6">
-            <div class="flex gap-8 items-start">
-              <div class="flex-1">
-                <h3 class="font-bold text-lg">Selamat Datang di Tapak Astà</h3>
-                <p class="text-sm opacity-70 mt-1">
-                  Platform tanda tangan elektronik terpercaya
+          <div class="max-w-screen-xl mx-auto px-6 lg:px-12 py-8">
+            <div class="grid grid-cols-3 gap-8 items-start">
+              <div>
+                <h3
+                  class="font-bold text-lg text-primary flex items-center gap-2"
+                >
+                  <iconify-icon icon="bx:home-alt" class="text-xl"
+                  ></iconify-icon>
+                  Tapak Astà
+                </h3>
+                <p class="text-xs opacity-70 mt-2 leading-relaxed">
+                  Platform tanda tangan elektronik terpercaya, aman, dan sah
+                  secara hukum untuk seluruh dokumen digital Anda.
                 </p>
-                <a href="/" class="btn btn-primary btn-sm mt-4">Ke Beranda</a>
+                <a href="/" class="btn btn-primary btn-sm mt-4 gap-1">
+                  <span>Ke Beranda</span>
+                  <iconify-icon icon="bx:right-arrow-alt"></iconify-icon>
+                </a>
               </div>
-              <div class="flex-1">
-                <h4 class="font-semibold mb-2">Menu Utama</h4>
+              <div>
+                <h4
+                  class="font-semibold mb-3 text-sm opacity-80 uppercase tracking-wider"
+                >
+                  Navigasi Utama
+                </h4>
                 <ul class="space-y-1">
-                  <li><a href="/" class="link link-hover">Beranda</a></li>
                   <li>
-                    <a href="/user-guide" class="link link-hover">Panduan</a>
+                    <a
+                      href="/"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
+                        .url.pathname === '/'
+                        ? 'text-primary font-bold bg-primary/5'
+                        : 'text-base-content/75'}"
+                    >
+                      <iconify-icon
+                        icon="bx:chevron-right"
+                        class="text-xs transition-all {page.url.pathname === '/'
+                          ? 'text-primary opacity-100'
+                          : 'opacity-40 group-hover:opacity-100'}"
+                      ></iconify-icon>
+                      <span>Beranda Utama</span>
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href="/user-guide"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
+                        .url.pathname === '/user-guide'
+                        ? 'text-primary font-bold bg-primary/5'
+                        : 'text-base-content/75'}"
+                    >
+                      <iconify-icon
+                        icon="bx:chevron-right"
+                        class="text-xs transition-all {page.url.pathname ===
+                        '/user-guide'
+                          ? 'text-primary opacity-100'
+                          : 'opacity-40 group-hover:opacity-100'}"
+                      ></iconify-icon>
+                      <span>Panduan Pengguna</span>
+                    </a>
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <h4
+                  class="font-semibold mb-3 text-sm opacity-80 uppercase tracking-wider"
+                >
+                  Bantuan & Legalitas
+                </h4>
+                <ul class="space-y-1">
+                  <li>
+                    <a
+                      href="/user-guide#faq"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page.url.pathname.includes(
+                        '#faq',
+                      )
+                        ? 'text-primary font-bold bg-primary/5'
+                        : 'text-base-content/75'}"
+                    >
+                      <iconify-icon
+                        icon="bx:chevron-right"
+                        class="text-xs transition-all {page.url.pathname.includes(
+                          '#faq',
+                        )
+                          ? 'text-primary opacity-100'
+                          : 'opacity-40 group-hover:opacity-100'}"
+                      ></iconify-icon>
+                      <span>Pertanyaan Umum (FAQ)</span>
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href="/user-guide#legal"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page.url.pathname.includes(
+                        '#legal',
+                      )
+                        ? 'text-primary font-bold bg-primary/5'
+                        : 'text-base-content/75'}"
+                    >
+                      <iconify-icon
+                        icon="bx:chevron-right"
+                        class="text-xs transition-all {page.url.pathname.includes(
+                          '#legal',
+                        )
+                          ? 'text-primary opacity-100'
+                          : 'opacity-40 group-hover:opacity-100'}"
+                      ></iconify-icon>
+                      <span>Legalitas Hukum TTE</span>
+                    </a>
                   </li>
                 </ul>
               </div>
             </div>
           </div>
         {:else if activeMenu === "sign"}
-          <div class="max-w-screen-xl mx-auto px-4 lg:px-8 py-6">
-            <div class="flex gap-8 items-start">
-              <div class="flex-1">
-                <h3 class="font-bold text-lg">Tanda Tangan Elektronik</h3>
-                <p class="text-sm opacity-70 mt-1">
-                  Tanda tangani dokumen Anda secara digital dengan aman dan sah.
-                </p>
-                <a href="/sign" class="btn btn-primary btn-sm mt-4"
-                  >Mulai Tanda Tangan</a
+          <div class="max-w-screen-xl mx-auto px-6 lg:px-12 py-8">
+            <div class="grid grid-cols-3 gap-8 items-start">
+              <div>
+                <h3
+                  class="font-bold text-lg text-primary flex items-center gap-2"
                 >
+                  <iconify-icon icon="bx:pen" class="text-xl"></iconify-icon>
+                  Tanda Tangan TTE
+                </h3>
+                <p class="text-xs opacity-70 mt-2 leading-relaxed">
+                  Lakukan penandatanganan dokumen secara elektronik yang
+                  terintegrasi langsung dengan BSrE BSSN.
+                </p>
+                <a href="/sign" class="btn btn-primary btn-sm mt-4 gap-1">
+                  <span>Mulai Tanda Tangan</span>
+                  <iconify-icon icon="bx:pencil"></iconify-icon>
+                </a>
               </div>
-              <div class="flex-1">
-                <h4 class="font-semibold mb-2">Fitur</h4>
+              <div>
+                <h4
+                  class="font-semibold mb-3 text-sm opacity-80 uppercase tracking-wider"
+                >
+                  Fitur TTE
+                </h4>
                 <ul class="space-y-1">
                   <li>
-                    <a href="/sign" class="link link-hover"
-                      >Upload & Tanda Tangan</a
+                    <a
+                      href="/sign"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
+                        .url.pathname === '/sign'
+                        ? 'text-primary font-bold bg-primary/5'
+                        : 'text-base-content/75'}"
                     >
+                      <iconify-icon
+                        icon="bx:chevron-right"
+                        class="text-xs transition-all {page.url.pathname ===
+                        '/sign'
+                          ? 'text-primary opacity-100'
+                          : 'opacity-40 group-hover:opacity-100'}"
+                      ></iconify-icon>
+                      <span>Upload & Tanda Tangan</span>
+                    </a>
                   </li>
                   <li>
-                    <a href="/services/register" class="link link-hover"
-                      >Registrasi Layanan</a
+                    <a
+                      href="/me/documents"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
+                        .url.pathname === '/me/documents'
+                        ? 'text-primary font-bold bg-primary/5'
+                        : 'text-base-content/75'}"
                     >
+                      <iconify-icon
+                        icon="bx:chevron-right"
+                        class="text-xs transition-all {page.url.pathname ===
+                        '/me/documents'
+                          ? 'text-primary opacity-100'
+                          : 'opacity-40 group-hover:opacity-100'}"
+                      ></iconify-icon>
+                      <span>Draft & Antrean TTE</span>
+                    </a>
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <h4
+                  class="font-semibold mb-3 text-sm opacity-80 uppercase tracking-wider"
+                >
+                  Layanan Mandiri
+                </h4>
+                <ul class="space-y-1">
+                  <li>
+                    <a
+                      href="/services/register"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
+                        .url.pathname === '/services/register'
+                        ? 'text-primary font-bold bg-primary/5'
+                        : 'text-base-content/75'}"
+                    >
+                      <iconify-icon
+                        icon="bx:chevron-right"
+                        class="text-xs transition-all {page.url.pathname ===
+                        '/services/register'
+                          ? 'text-primary opacity-100'
+                          : 'opacity-40 group-hover:opacity-100'}"
+                      ></iconify-icon>
+                      <span>Registrasi Layanan TTE</span>
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href="/services/status"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
+                        .url.pathname === '/services/status'
+                        ? 'text-primary font-bold bg-primary/5'
+                        : 'text-base-content/75'}"
+                    >
+                      <iconify-icon
+                        icon="bx:chevron-right"
+                        class="text-xs transition-all {page.url.pathname ===
+                        '/services/status'
+                          ? 'text-primary opacity-100'
+                          : 'opacity-40 group-hover:opacity-100'}"
+                      ></iconify-icon>
+                      <span>Cek Status Penerbitan</span>
+                    </a>
                   </li>
                 </ul>
               </div>
             </div>
           </div>
         {:else if activeMenu === "verify"}
-          <div class="max-w-screen-xl mx-auto px-4 lg:px-8 py-6">
-            <div class="flex gap-8 items-start">
-              <div class="flex-1">
-                <h3 class="font-bold text-lg">Verifikasi Dokumen</h3>
-                <p class="text-sm opacity-70 mt-1">
-                  Verifikasi keaslian dan validitas dokumen elektronik Anda.
-                </p>
-                <a href="/verify" class="btn btn-primary btn-sm mt-4"
-                  >Mulai Verifikasi</a
+          <div class="max-w-screen-xl mx-auto px-6 lg:px-12 py-8">
+            <div class="grid grid-cols-3 gap-8 items-start">
+              <div>
+                <h3
+                  class="font-bold text-lg text-primary flex items-center gap-2"
                 >
+                  <iconify-icon icon="bx:check-shield" class="text-xl"
+                  ></iconify-icon>
+                  Verifikasi Sah
+                </h3>
+                <p class="text-xs opacity-70 mt-2 leading-relaxed">
+                  Periksa keaslian dokumen PDF dan sertifikat digital tanda
+                  tangan elektronik BSSN Anda.
+                </p>
+                <a href="/verify" class="btn btn-primary btn-sm mt-4 gap-1">
+                  <span>Mulai Verifikasi</span>
+                  <iconify-icon icon="bx:search"></iconify-icon>
+                </a>
               </div>
-              <div class="flex-1">
-                <h4 class="font-semibold mb-2">Fitur</h4>
+              <div>
+                <h4
+                  class="font-semibold mb-3 text-sm opacity-80 uppercase tracking-wider"
+                >
+                  Metode Pemeriksaan
+                </h4>
                 <ul class="space-y-1">
                   <li>
-                    <a href="/verify" class="link link-hover"
-                      >Verifikasi Dokumen</a
+                    <a
+                      href="/verify"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
+                        .url.pathname === '/verify' && !page.url.search
+                        ? 'text-primary font-bold bg-primary/5'
+                        : 'text-base-content/75'}"
                     >
+                      <iconify-icon
+                        icon="bx:chevron-right"
+                        class="text-xs transition-all {page.url.pathname ===
+                          '/verify' && !page.url.search
+                          ? 'text-primary opacity-100'
+                          : 'opacity-40 group-hover:opacity-100'}"
+                      ></iconify-icon>
+                      <span>Unggah File PDF</span>
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href="/verify?mode=id"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page.url.search.includes(
+                        'mode=id',
+                      )
+                        ? 'text-primary font-bold bg-primary/5'
+                        : 'text-base-content/75'}"
+                    >
+                      <iconify-icon
+                        icon="bx:chevron-right"
+                        class="text-xs transition-all {page.url.search.includes(
+                          'mode=id',
+                        )
+                          ? 'text-primary opacity-100'
+                          : 'opacity-40 group-hover:opacity-100'}"
+                      ></iconify-icon>
+                      <span>Cari Berdasarkan ID</span>
+                    </a>
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <h4
+                  class="font-semibold mb-3 text-sm opacity-80 uppercase tracking-wider"
+                >
+                  Validitas Sertifikat
+                </h4>
+                <ul class="space-y-1">
+                  <li>
+                    <a
+                      href="/verify?mode=scan"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page.url.search.includes(
+                        'mode=scan',
+                      )
+                        ? 'text-primary font-bold bg-primary/5'
+                        : 'text-base-content/75'}"
+                    >
+                      <iconify-icon
+                        icon="bx:chevron-right"
+                        class="text-xs transition-all {page.url.search.includes(
+                          'mode=scan',
+                        )
+                          ? 'text-primary opacity-100'
+                          : 'opacity-40 group-hover:opacity-100'}"
+                      ></iconify-icon>
+                      <span>Pindai QR Code TTE</span>
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href="/user-guide#verify-info"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page.url.pathname.includes(
+                        '#verify-info',
+                      )
+                        ? 'text-primary font-bold bg-primary/5'
+                        : 'text-base-content/75'}"
+                    >
+                      <iconify-icon
+                        icon="bx:chevron-right"
+                        class="text-xs transition-all {page.url.pathname.includes(
+                          '#verify-info',
+                        )
+                          ? 'text-primary opacity-100'
+                          : 'opacity-40 group-hover:opacity-100'}"
+                      ></iconify-icon>
+                      <span>Cara Cek Validitas</span>
+                    </a>
                   </li>
                 </ul>
               </div>
             </div>
           </div>
         {:else if activeMenu === "me"}
-          <div class="max-w-screen-xl mx-auto px-4 lg:px-8 py-6">
-            <div class="flex gap-8 items-start">
-              <div class="flex-1">
-                <h3 class="font-bold text-lg">Akun Saya</h3>
-                <p class="text-sm opacity-70 mt-1">
-                  Kelola akun dan dokumen Anda.
+          <div class="max-w-screen-xl mx-auto px-6 lg:px-12 py-8">
+            <div class="grid grid-cols-3 gap-8 items-start">
+              <div>
+                <h3
+                  class="font-bold text-lg text-primary flex items-center gap-2"
+                >
+                  <iconify-icon icon="bx:user-circle" class="text-xl"
+                  ></iconify-icon>
+                  Akun & Berkas
+                </h3>
+                <p class="text-xs opacity-70 mt-2 leading-relaxed">
+                  Kelola profil pengguna, histori dokumen yang Anda buat, dan
+                  templates surat Anda.
                 </p>
+                <a href="/me" class="btn btn-primary btn-sm mt-4 gap-1">
+                  <span>Ke Overview</span>
+                  <iconify-icon icon="bx:layout"></iconify-icon>
+                </a>
               </div>
-              <div class="flex-1">
-                <h4 class="font-semibold mb-2">Menu</h4>
+              <div>
+                <h4
+                  class="font-semibold mb-3 text-sm opacity-80 uppercase tracking-wider"
+                >
+                  Dokumen
+                </h4>
                 <ul class="space-y-1">
-                  <li><a href="/me" class="link link-hover">Overview</a></li>
                   <li>
-                    <a href="/me/documents" class="link link-hover"
-                      >Dokumen Saya</a
+                    <a
+                      href="/me"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
+                        .url.pathname === '/me'
+                        ? 'text-primary font-bold bg-primary/5'
+                        : 'text-base-content/75'}"
                     >
+                      <iconify-icon
+                        icon="bx:chevron-right"
+                        class="text-xs transition-all {page.url.pathname ===
+                        '/me'
+                          ? 'text-primary opacity-100'
+                          : 'opacity-40 group-hover:opacity-100'}"
+                      ></iconify-icon>
+                      <span>Overview Akun</span>
+                    </a>
                   </li>
-                  <li><a href="/profile" class="link link-hover">Profil</a></li>
                   <li>
-                    <a href="/templates" class="link link-hover">Templates</a>
+                    <a
+                      href="/me/documents"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
+                        .url.pathname === '/me/documents'
+                        ? 'text-primary font-bold bg-primary/5'
+                        : 'text-base-content/75'}"
+                    >
+                      <iconify-icon
+                        icon="bx:chevron-right"
+                        class="text-xs transition-all {page.url.pathname ===
+                        '/me/documents'
+                          ? 'text-primary opacity-100'
+                          : 'opacity-40 group-hover:opacity-100'}"
+                      ></iconify-icon>
+                      <span>Dokumen Saya</span>
+                    </a>
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <h4
+                  class="font-semibold mb-3 text-sm opacity-80 uppercase tracking-wider"
+                >
+                  Konfigurasi
+                </h4>
+                <ul class="space-y-1">
+                  <li>
+                    <a
+                      href="/profile"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
+                        .url.pathname === '/profile'
+                        ? 'text-primary font-bold bg-primary/5'
+                        : 'text-base-content/75'}"
+                    >
+                      <iconify-icon
+                        icon="bx:chevron-right"
+                        class="text-xs transition-all {page.url.pathname ===
+                        '/profile'
+                          ? 'text-primary opacity-100'
+                          : 'opacity-40 group-hover:opacity-100'}"
+                      ></iconify-icon>
+                      <span>Profil Saya</span>
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href="/templates"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
+                        .url.pathname === '/templates'
+                        ? 'text-primary font-bold bg-primary/5'
+                        : 'text-base-content/75'}"
+                    >
+                      <iconify-icon
+                        icon="bx:chevron-right"
+                        class="text-xs transition-all {page.url.pathname ===
+                        '/templates'
+                          ? 'text-primary opacity-100'
+                          : 'opacity-40 group-hover:opacity-100'}"
+                      ></iconify-icon>
+                      <span>Dokumen Templates</span>
+                    </a>
                   </li>
                 </ul>
               </div>
             </div>
           </div>
         {:else if activeMenu === "manage"}
-          <div class="max-w-screen-xl mx-auto px-4 lg:px-8 py-6">
-            <div class="flex gap-8 items-start">
-              <div class="flex-1">
-                <h3 class="font-bold text-lg">Manajemen Sistem</h3>
-                <p class="text-sm opacity-70 mt-1">
-                  Panel administrasi untuk mengelola sistem.
+          <div class="max-w-screen-xl mx-auto px-6 lg:px-12 py-8">
+            <div class="grid grid-cols-3 gap-8 items-start">
+              <div>
+                <h3
+                  class="font-bold text-lg text-primary flex items-center gap-2"
+                >
+                  <iconify-icon icon="bx:cog" class="text-xl"></iconify-icon>
+                  Administrasi
+                </h3>
+                <p class="text-xs opacity-70 mt-2 leading-relaxed">
+                  Akses panel administrator untuk mengelola hak akses pengguna,
+                  integrasi sistem, and log audit.
                 </p>
+                <a href="/main" class="btn btn-primary btn-sm mt-4 gap-1">
+                  <span>Ke Dashboard Admin</span>
+                  <iconify-icon icon="bx:server"></iconify-icon>
+                </a>
               </div>
-              <div class="flex-1">
-                <h4 class="font-semibold mb-2">Menu</h4>
+              <div>
+                <h4
+                  class="font-semibold mb-3 text-sm opacity-80 uppercase tracking-wider"
+                >
+                  Sistem & User
+                </h4>
                 <ul class="space-y-1">
-                  <li><a href="/main" class="link link-hover">Dashboard</a></li>
                   <li>
-                    <a href="/main/users" class="link link-hover">Users</a>
+                    <a
+                      href="/main"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
+                        .url.pathname === '/main'
+                        ? 'text-primary font-bold bg-primary/5'
+                        : 'text-base-content/75'}"
+                    >
+                      <iconify-icon
+                        icon="bx:chevron-right"
+                        class="text-xs transition-all {page.url.pathname ===
+                        '/main'
+                          ? 'text-primary opacity-100'
+                          : 'opacity-40 group-hover:opacity-100'}"
+                      ></iconify-icon>
+                      <span>Dashboard Utama</span>
+                    </a>
                   </li>
-                  <li><a href="/main/logs" class="link link-hover">Logs</a></li>
+                  <li>
+                    <a
+                      href="/main/users"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
+                        .url.pathname === '/main/users'
+                        ? 'text-primary font-bold bg-primary/5'
+                        : 'text-base-content/75'}"
+                    >
+                      <iconify-icon
+                        icon="bx:chevron-right"
+                        class="text-xs transition-all {page.url.pathname ===
+                        '/main/users'
+                          ? 'text-primary opacity-100'
+                          : 'opacity-40 group-hover:opacity-100'}"
+                      ></iconify-icon>
+                      <span>Daftar Pengguna</span>
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href="/main/logs"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
+                        .url.pathname === '/main/logs'
+                        ? 'text-primary font-bold bg-primary/5'
+                        : 'text-base-content/75'}"
+                    >
+                      <iconify-icon
+                        icon="bx:chevron-right"
+                        class="text-xs transition-all {page.url.pathname ===
+                        '/main/logs'
+                          ? 'text-primary opacity-100'
+                          : 'opacity-40 group-hover:opacity-100'}"
+                      ></iconify-icon>
+                      <span>Log Aktivitas</span>
+                    </a>
+                  </li>
                 </ul>
               </div>
-              <div class="flex-1">
-                <h4 class="font-semibold mb-2">Lainnya</h4>
+              <div>
+                <h4
+                  class="font-semibold mb-3 text-sm opacity-80 uppercase tracking-wider"
+                >
+                  Integrasi
+                </h4>
                 <ul class="space-y-1">
                   <li>
-                    <a href="/main/portal-bsre" class="link link-hover"
-                      >BSrE Portal</a
+                    <a
+                      href="/main/portal-bsre"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
+                        .url.pathname === '/main/portal-bsre'
+                        ? 'text-primary font-bold bg-primary/5'
+                        : 'text-base-content/75'}"
                     >
+                      <iconify-icon
+                        icon="bx:chevron-right"
+                        class="text-xs transition-all {page.url.pathname ===
+                        '/main/portal-bsre'
+                          ? 'text-primary opacity-100'
+                          : 'opacity-40 group-hover:opacity-100'}"
+                      ></iconify-icon>
+                      <span>Portal BSrE Portal</span>
+                    </a>
                   </li>
                 </ul>
               </div>
