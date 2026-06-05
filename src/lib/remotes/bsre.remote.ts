@@ -202,6 +202,15 @@ export const fetchBsreUsers = command(
                     ...detailData,
                   };
 
+                  // Derive certificate status from the latest sertifikat entry (by notAfterDate desc)
+                  const sertifikat: any[] = detailData?.data?.sertifikat ?? [];
+                  const latestCert = sertifikat.length > 0
+                    ? [...sertifikat].sort(
+                        (a, b) => new Date(b.notAfterDate).getTime() - new Date(a.notAfterDate).getTime()
+                      )[0]
+                    : null;
+                  const certificateStatus = latestCert?.status ?? merged.certificateStatus ?? null;
+
                   const record = {
                     nama: merged.nama ?? null,
                     emailAddress: merged.emailAddress ?? null,
@@ -214,7 +223,7 @@ export const fetchBsreUsers = command(
                     phone: merged.phone ?? merged.no_wa ?? null,
                     status: merged.status ?? null,
                     aktif: merged.aktif ?? null,
-                    certificateStatus: merged.certificateStatus ?? null,
+                    certificateStatus,
                     products: merged.products ?? null,
                     createdDate: merged.createdDate ?? null,
                     registeredOrigin: merged.registeredOrigin ?? null,

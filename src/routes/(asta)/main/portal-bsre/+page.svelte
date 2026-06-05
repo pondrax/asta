@@ -34,6 +34,37 @@
   let syncing = $state(false);
   let selectedUser = $state<any>(null);
 
+  // PII masking
+  let showPii = $state(false);
+
+  function latestCert(user: any) {
+    const certs: any[] = user?.details?.data?.sertifikat ?? [];
+    if (!certs.length) return null;
+    return [...certs].sort(
+      (a, b) => new Date(b.notAfterDate).getTime() - new Date(a.notAfterDate).getTime()
+    )[0];
+  }
+
+  function maskPii(value: string | null | undefined, type: "nik" | "nip" | "username" | "phone"): string {
+    if (!value) return "-";
+    if (showPii) return value;
+    if (type === "nik" || type === "nip") {
+      const clean = value.replace(/\s/g, "");
+      if (clean.length <= 4) return clean;
+      return "••••••" + clean.slice(-4);
+    }
+    if (type === "phone") {
+      const clean = value.replace(/\s/g, "");
+      if (clean.length <= 4) return clean;
+      return "••••••" + clean.slice(-4);
+    }
+    if (type === "username") {
+      if (value.length <= 1) return value;
+      return value[0] + "••••";
+    }
+    return value;
+  }
+
   // Debug state
   let debugData = $state<any>(null);
   let debugLoading = $state(false);
@@ -82,6 +113,11 @@
     }
   }
 
+  function portal(node: HTMLElement) {
+    document.body.appendChild(node);
+    return { destroy() { node.remove(); } };
+  }
+
   function showToast(type: "success" | "error", message: string) {
     toast = { type, message };
     setTimeout(() => (toast = null), 4000);
@@ -109,23 +145,50 @@
 </script>
 
 <div class="px-6 py-4 space-y-4 max-w-7xl mx-auto">
-  <div>
-    <h1
-      class="text-2xl font-bold bg-linear-to-r from-primary to-secondary bg-clip-text text-transparent"
-    >Portal BSrE</h1>
-    <p class="text-sm opacity-60">Buka Portal BSrE BSSN — login otomatis via BeID + TOTP</p>
+  <div class="flex items-start justify-between gap-4">
+    <div>
+      <h1
+        class="text-2xl font-bold bg-linear-to-r from-primary to-secondary bg-clip-text text-transparent"
+      >Portal BSrE</h1>
+      <p class="text-sm opacity-60">Buka Portal BSrE BSSN — login otomatis via BeID + TOTP</p>
+    </div>
+    <div class="flex items-center gap-2 shrink-0">
+      <a
+        href="https://portal-bsre.bssn.go.id/"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="btn btn-sm gap-1"
+      >
+        <iconify-icon icon="bx:link-external" class="text-sm"></iconify-icon>
+        Buka Portal
+      </a>
+      <button
+        class="btn btn-sm btn-primary gap-1"
+        onclick={syncFromBsre}
+        disabled={(!status.current?.active && !status.current?.hasToken) || syncing}
+      >
+        {#if syncing}
+          <span class="loading loading-spinner loading-xs"></span>
+        {:else}
+          <iconify-icon icon="bx:sync"></iconify-icon>
+        {/if}
+        Sync
+      </button>
+    </div>
   </div>
 
-  {#if toast}
-    <div class="alert {toast.type === 'success' ? 'alert-success' : 'alert-error'} mb-4">
-      <iconify-icon icon={toast.type === 'success' ? 'bx:check-circle' : 'bx:error-circle'} class="text-xl"></iconify-icon>
-      <span>{toast.message}</span>
-    </div>
-  {/if}
+  <div class="toast toast-end toast-bottom z-[9999]">
+    {#if toast}
+      <div class="alert {toast.type === 'success' ? 'alert-success' : 'alert-error'} py-2 px-4 shadow-xl text-xs font-semibold">
+        <iconify-icon icon={toast.type === 'success' ? 'bx:check-circle' : 'bx:error-circle'}></iconify-icon>
+        <span>{toast.message}</span>
+      </div>
+    {/if}
+  </div>
 
   <!-- Session Status -->
-  <div class="bg-base-100/40 border border-base-200/60 rounded-2xl p-4 shadow-sm backdrop-blur">
-    <div class="flex items-center gap-3 mb-3">
+  <div class="bg-base-100/40 border border-base-200/60 rounded-2xl py-2 px-4 shadow-sm backdrop-blur">
+    <div class="flex items-center gap-3">
       <iconify-icon icon="bx:wifi" class="text-lg text-primary"></iconify-icon>
       <span class="font-semibold text-sm">Status Sesi</span>
       <div class="flex items-center gap-2 ml-2">
@@ -137,10 +200,8 @@
           <iconify-icon icon={status.current?.hasToken ? 'bx:key' : 'bx:lock'}></iconify-icon>
           {status.current?.hasToken ? "Token OK" : "No Token"}
         </div>
-        {#if status.current?.active}
-          <span class="text-xs opacity-60">
-            {status.current.mode?.startsWith("remote") ? "🌐 Remote" : "💻 Lokal"}
-          </span>
+        {#if status.current?.active && status.current.mode?.startsWith("remote")}
+          <span class="text-xs opacity-60">🌐 Remote</span>
         {/if}
       </div>
       <div class="flex gap-2 ml-auto">
@@ -148,9 +209,9 @@
           {#if launchBsre.pending}
             <span class="loading loading-spinner loading-xs"></span>
           {:else}
-            <iconify-icon icon="bx:play"></iconify-icon>
+            <iconify-icon icon="bx:key"></iconify-icon>
           {/if}
-          Buka
+          Update Token
         </button>
         <button class="btn btn-warning btn-sm gap-1" onclick={runDebug} disabled={!status.current?.active}>
           {#if debugLoading}
@@ -170,6 +231,16 @@
         </button>
       </div>
     </div>
+
+    {#if debugData}
+      <div class="border-t border-base-content/10 mt-2 pt-2">
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-[11px] font-semibold opacity-60">Info Debug Sesi</span>
+          <button class="btn btn-ghost btn-xs" onclick={() => debugData = null}>Tutup</button>
+        </div>
+        <pre class="bg-base-200/80 p-2 rounded text-[10px] overflow-auto max-h-40">{JSON.stringify(debugData, null, 2)}</pre>
+      </div>
+    {/if}
   </div>
 
   <!-- Users Table -->
@@ -201,33 +272,30 @@
           />
         </div>
       {/snippet}
-      <div class="flex items-center gap-2">
-        <button
-          class="btn btn-sm btn-primary gap-1"
-          onclick={syncFromBsre}
-          disabled={(!status.current?.active && !status.current?.hasToken) || syncing}
-        >
-          {#if syncing}
-            <span class="loading loading-spinner loading-xs"></span>
-          {:else}
-            <iconify-icon icon="bx:sync"></iconify-icon>
-          {/if}
-          Sync
-        </button>
-      </div>
+      {#snippet actions()}
+        <li>
+          <button onclick={() => showPii = !showPii}>
+            <iconify-icon icon={showPii ? "bx:show" : "bx:hide"}></iconify-icon>
+            {showPii ? "Tampilkan PII" : "Masking PII"}
+          </button>
+        </li>
+      {/snippet}
     </Toolbar>
 
     <div
-      class="overflow-x-auto border border-base-300/60 rounded-xl bg-base-100/50 backdrop-blur-md h-[calc(100vh-24rem)] relative shadow-inner"
+      class="overflow-x-auto border border-base-300/60 rounded-xl bg-base-100/50 backdrop-blur-md h-[calc(100vh-20rem)] relative shadow-inner"
     >
       <table class="table table-md table-pin-rows table-pin-cols">
         <thead>
           <tr class="bg-base-200/50 text-base-content/80 font-bold border-b border-base-300">
-            <th class="w-10 text-center bg-base-200/50">#</th>
-            <th class="min-w-[180px]">Nama</th>
-            <th class="w-36">Username</th>
+            <th class="w-10 text-center bg-base-200/50 sticky left-0 z-2">#</th>
+            <th class="min-w-[180px] bg-base-200/50 sticky left-10 z-2">Nama</th>
             <th class="w-56">Email</th>
-            <th class="w-40">NIK / NIP</th>
+            <th class="w-36">NIK</th>
+            <th class="w-36">NIP</th>
+            <th class="w-24 text-center">Sertifikat</th>
+            <th class="w-28">Mulai</th>
+            <th class="w-28">Berakhir</th>
             <th class="w-48">Jabatan</th>
             <th class="w-28 text-center">Status</th>
             <th class="w-20 text-center bg-base-200/50">Aksi</th>
@@ -236,7 +304,7 @@
         <tbody>
           {#if records.loading && !items.data.length}
             <tr>
-              <td colspan="8" class="py-12 text-center">
+              <td colspan="11" class="py-12 text-center">
                 <div class="flex flex-col items-center justify-center gap-2">
                   <span class="loading loading-spinner loading-md text-primary"></span>
                   <span class="text-sm opacity-55 font-medium">Memuat data pengguna BSrE...</span>
@@ -245,7 +313,7 @@
             </tr>
           {:else if !status.current?.active && !status.current?.hasToken && !items.data.length}
             <tr>
-              <td colspan="8" class="py-12 text-center">
+              <td colspan="11" class="py-12 text-center">
                 <div class="flex flex-col items-center justify-center gap-2 opacity-50">
                   <iconify-icon icon="bx:globe" class="text-3xl"></iconify-icon>
                   <p class="text-sm font-medium">Buka sesi BSrE terlebih dahulu</p>
@@ -255,7 +323,7 @@
             </tr>
           {:else if records.error}
             <tr>
-              <td colspan="8" class="py-12 text-center">
+              <td colspan="11" class="py-12 text-center">
                 <div class="flex flex-col items-center justify-center gap-3 text-error">
                   <iconify-icon icon="bx:error-circle" class="text-3xl"></iconify-icon>
                   <div class="text-sm font-semibold">{records.error.message}</div>
@@ -267,7 +335,7 @@
             </tr>
           {:else if !items.data.length}
             <tr>
-              <td colspan="8" class="py-12 text-center">
+              <td colspan="11" class="py-12 text-center">
                 <div class="flex flex-col items-center justify-center gap-2 opacity-40">
                   <iconify-icon icon="bx:group" class="text-3xl"></iconify-icon>
                   <span class="text-sm font-medium">Belum ada data. Klik "Sync" untuk mengambil data dari BSrE.</span>
@@ -277,22 +345,26 @@
           {:else}
             {#each items.data as user, i}
               {#if user}
-                <tr
-                  class="hover:bg-base-200/30 cursor-pointer transition-colors"
-                  onclick={() => selectedUser = user}
-                >
-                  <td class="text-center text-xs opacity-60">{query.offset + i + 1}</td>
-                  <td class="font-semibold">{user?.nama ?? "-"}</td>
-                  <td class="font-mono text-xs opacity-80">{user?.emailAddress?.split('@')[0] ?? "-"}</td>
+                <tr class="hover:bg-base-200/30 transition-colors">
+                  <td class="text-center text-xs opacity-60 bg-base-100 sticky left-0 z-1">{query.offset + i + 1}</td>
+                  <td class="font-semibold bg-base-100 sticky left-10 z-1">{user?.nama ?? "-"}</td>
                   <td class="text-xs">{user?.emailAddress ?? "-"}</td>
-                  <td class="text-xs font-mono">{[user?.nik, user?.nip].filter(Boolean).join(' / ') || "-"}</td>
+                  <td class="text-xs font-mono">{maskPii(user?.nik ?? "-", "nik")}</td>
+                  <td class="text-xs font-mono">{maskPii(user?.nip ?? "-", "nip")}</td>
+                  <td class="text-center">
+                    <span class="badge badge-sm {latestCert(user)?.status === 'ISSUE' ? 'badge-success' : latestCert(user)?.status === 'REVOKE' ? 'badge-error' : 'badge-ghost'} font-semibold">
+                      {latestCert(user)?.status ?? "-"}
+                    </span>
+                  </td>
+                  <td class="text-xs">{latestCert(user)?.notBeforeDate?.split(" ")[0] ?? "-"}</td>
+                  <td class="text-xs">{latestCert(user)?.notAfterDate?.split(" ")[0] ?? "-"}</td>
                   <td class="text-xs">{user?.jabatanOrganisasi ?? "-"}</td>
                   <td class="text-center">
                     <span class="badge badge-sm {user?.status === 'VERIFIED' || user?.status === 'ACTIVE' || user?.aktif ? 'badge-success' : 'badge-ghost'} font-semibold">
                       {user?.status || (user?.aktif ? "Aktif" : "Nonaktif") || "-"}
                     </span>
                   </td>
-                  <td class="text-center">
+                  <td class="text-center sticky right-0 z-1 bg-base-100">
                     <div class="flex items-center justify-center gap-1">
                       <button
                         class="btn btn-ghost btn-xs text-primary tooltip tooltip-left"
@@ -324,20 +396,9 @@
     </div>
   </div>
 
-  {#if debugData}
-    <div class="card bg-base-100 shadow-sm mt-4">
-      <div class="card-body">
-        <h2 class="card-title text-sm flex items-center justify-between">
-          <span>Info Debug Sesi</span>
-          <button class="btn btn-ghost btn-xs" onclick={() => debugData = null}>Tutup</button>
-        </h2>
-        <pre class="bg-base-200 p-3 rounded text-xs overflow-auto max-h-96">{JSON.stringify(debugData, null, 2)}</pre>
-      </div>
-    </div>
-  {/if}
-
   <!-- User Detail Modal -->
   {#if selectedUser}
+    <div use:portal>
     <dialog class="modal modal-open">
       <div class="modal-box max-w-2xl bg-base-100 border border-base-content/10 shadow-2xl rounded-2xl">
         <div class="flex items-center justify-between border-b border-base-content/10 pb-3 mb-4">
@@ -363,8 +424,12 @@
             </h4>
             <div class="space-y-2">
               <div>
-                <span class="text-xs opacity-60">NIK / NIP</span>
-                <p class="font-semibold font-mono">{[selectedUser.nik, selectedUser.nip].filter(Boolean).join(' / ') || "-"}</p>
+                <span class="text-xs opacity-60">NIK</span>
+                <p class="font-semibold font-mono">{maskPii(selectedUser.nik ?? "-", "nik")}</p>
+              </div>
+              <div>
+                <span class="text-xs opacity-60">NIP</span>
+                <p class="font-semibold font-mono">{maskPii(selectedUser.nip ?? "-", "nip")}</p>
               </div>
               <div>
                 <span class="text-xs opacity-60">Email</span>
@@ -372,7 +437,7 @@
               </div>
               <div>
                 <span class="text-xs opacity-60">Nomor HP</span>
-                <p class="font-semibold">{selectedUser.phone || selectedUser.no_wa || "-"}</p>
+                <p class="font-semibold">{maskPii(selectedUser.phone || selectedUser.no_wa || "-", "phone")}</p>
               </div>
             </div>
           </div>
@@ -403,7 +468,7 @@
             <h4 class="font-bold text-xs opacity-60 uppercase mb-3 flex items-center gap-1">
               <iconify-icon icon="bx:certification"></iconify-icon> Sertifikat & Layanan
             </h4>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
                 <span class="text-xs opacity-60">Status Sertifikat</span>
                 <div>
@@ -425,6 +490,31 @@
                 <p class="font-semibold font-mono">{selectedUser.registeredOrigin ?? "-"}</p>
               </div>
             </div>
+
+            {#if selectedUser.details?.data?.sertifikat?.length}
+              <div class="border-t border-base-content/10 pt-3">
+                <span class="text-xs opacity-60 uppercase font-bold block mb-2">Riwayat Sertifikat</span>
+                <div class="space-y-2">
+                  {#each [...selectedUser.details.data.sertifikat].sort((a, b) => new Date(b.notAfterDate).getTime() - new Date(a.notAfterDate).getTime()) as cert, ci}
+                    <div class="bg-base-100 p-3 rounded-lg border border-base-content/5">
+                      <div class="flex items-center justify-between gap-2 mb-1">
+                        <div class="flex items-center gap-2">
+                          <span class="badge badge-sm {cert.status === 'ISSUE' ? 'badge-success' : cert.status === 'REVOKE' ? 'badge-error' : 'badge-warning'}">
+                            {cert.status}
+                          </span>
+                          <span class="text-xs font-semibold">{cert.product ?? "-"}</span>
+                        </div>
+                        <span class="text-[10px] opacity-50 font-mono">{cert.serialNumber?.slice(-8) ?? ""}</span>
+                      </div>
+                      <div class="flex items-center gap-3 text-[11px] opacity-70">
+                        <span>Berlaku: {cert.notBeforeDate?.split(" ")[0] ?? "?"} — {cert.notAfterDate?.split(" ")[0] ?? "?"}</span>
+                        <span class="badge badge-ghost badge-xs">{cert.jenisSertifikat ?? "-"}</span>
+                      </div>
+                    </div>
+                  {/each}
+                </div>
+              </div>
+            {/if}
           </div>
 
           <!-- Status Verifikasi -->
@@ -467,5 +557,6 @@
       </div>
       <div class="modal-backdrop bg-black/40 backdrop-blur-xs" onclick={() => selectedUser = null}></div>
     </dialog>
+    </div>
   {/if}
 </div>

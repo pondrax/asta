@@ -26,6 +26,9 @@ importers:
       lottie-web:
         specifier: ^5.13.0
         version: 5.13.0
+      node-cron:
+        specifier: ^4.2.1
+        version: 4.2.1
       otpauth:
         specifier: ^9.5.1
         version: 9.5.1
@@ -72,6 +75,9 @@ importers:
       '@tailwindcss/vite':
         specifier: ^4.2.2
         version: 4.2.2(vite@8.0.5(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2)(@types/node@22.19.3)(jiti@2.6.1))
+      '@types/node-cron':
+        specifier: ^3.0.11
+        version: 3.0.11
       daisyui:
         specifier: ^5.5.19
         version: 5.5.19
@@ -1002,6 +1008,9 @@ packages:
   '@types/mssql@9.1.11':
     resolution: {integrity: sha512-vcujgrDbDezCxNDO4KY6gjwduLYOKfrexpRUwhoysRvcXZ3+IgZ/PMYFDgh8c3cQIxZ6skAwYo+H6ibMrBWPjQ==}
 
+  '@types/node-cron@3.0.11':
+    resolution: {integrity: sha512-0ikrnug3/IyneSHqCBeslAhlK2aBfYek1fGo4bP4QnZPmiqSGRK+Oy7ZMisLWkesffJvQ1cqAcBnJC+8+nxIAg==}
+
   '@types/node@22.19.3':
     resolution: {integrity: sha512-1N9SBnWYOJTrNZCdh/yJE+t910Y128BoyY+zBLWhL3r0TYzlTmFdXrPwHL9DyFZmlEXNQQolTZh3KHV31QDhyA==}
 
@@ -1610,6 +1619,10 @@ packages:
 
   native-duplexpair@1.0.0:
     resolution: {integrity: sha512-E7QQoM+3jvNtlmyfqRZ0/U75VFgCls+fSkbml2MpgWkWyz3ox8Y58gNhfuziuQYGNNQAbFZJQck55LHCnCK6CA==}
+
+  node-cron@4.2.1:
+    resolution: {integrity: sha512-lgimEHPE/QDgFlywTd8yTR61ptugX3Qer29efeyWw2rv259HtGBNn1vZVmp8lB9uo9wC0t/AT4iGqXxia+CJFg==}
+    engines: {node: '>=6.0.0'}
 
   node-readable-to-web-readable-stream@0.4.2:
     resolution: {integrity: sha512-/cMZNI34v//jUTrI+UIo4ieHAB5EZRY/+7OmXZgBxaWBMcW2tGdceIw06RFxWxrKZ5Jp3sI2i5TsRo+CBhtVLQ==}
@@ -2725,6 +2738,8 @@ snapshots:
       - '@azure/core-client'
       - supports-color
 
+  '@types/node-cron@3.0.11': {}
+
   '@types/node@22.19.3':
     dependencies:
       undici-types: 6.21.0
@@ -3180,6 +3195,8 @@ snapshots:
   nanoid@3.3.11: {}
 
   native-duplexpair@1.0.0: {}
+
+  node-cron@4.2.1: {}
 
   node-readable-to-web-readable-stream@0.4.2:
     optional: true

@@ -862,7 +862,7 @@
     <span></span>
   </div>
 
-  <div class="flex-1 min-h-0 relative z-1 overflow-y-auto">
+  <div class="flex-1 min-h-0 relative z-1 overflow-y-auto bg-base-100">
     {@render children()}
   </div>
 </div>

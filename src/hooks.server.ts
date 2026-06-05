@@ -60,6 +60,9 @@ export const handleRedirect: Handle = ({ event, resolve }) => {
 export const handle: Handle = sequence(handleParaglide, handleAuth, handleRedirect);
 
 
+import { startCron } from '$lib/server/cron';
+startCron();
+
 import type { HandleValidationError } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 

@@ -23,6 +23,7 @@
     records: T;
     children?: () => any;
     extended?: () => any;
+    actions?: () => any;
     filter?: (query: Where) => any;
     mapper?: {
       import?: (item: Item, data: Item[]) => void;
@@ -41,6 +42,7 @@
     records,
     children,
     extended,
+    actions,
     filter,
     mapper,
     pageList = $bindable([5, 10, 20, 30, 50, 100, 250, 500, 1000]),
@@ -317,6 +319,7 @@
                 Refresh
               </button>
             </li>
+            {@render actions?.()}
             <li></li>
             <li class="menu-title text-xs">
               <label class="flex justify-between">
