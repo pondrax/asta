@@ -1,4 +1,4 @@
-import { pgTable, integer, text, timestamp, json, customType } from 'drizzle-orm/pg-core';
+import { pgTable, integer, text, timestamp, json, jsonb, customType } from 'drizzle-orm/pg-core';
 import { id, created, updated, encryptedJson } from './utils';
 import { boolean, index } from 'drizzle-orm/pg-core';
 
@@ -126,4 +126,29 @@ export const __setting = pgTable('__setting', {
 	description: text('description'),
 	created,
 	updated,
+})
+
+export const bsreUsers = pgTable('bsre_users', {
+	id: text('id').primaryKey(),
+	nama: text('nama'),
+	emailAddress: text('email_address'),
+	username: text('username'),
+	nik: text('nik'),
+	nip: text('nip'),
+	jabatanOrganisasi: text('jabatan_organisasi'),
+	organisasiUnit: text('organisasi_unit'),
+	organisasi: text('organisasi'),
+	phone: text('phone'),
+	status: text('status'),
+	aktif: boolean('aktif'),
+	certificateStatus: text('certificate_status'),
+	products: text('products'),
+	createdDate: text('created_date'),
+	registeredOrigin: text('registered_origin'),
+	verifiedDukcapil: boolean('verified_dukcapil'),
+	verifiedLiveness: boolean('verified_liveness'),
+	phoneVerified: boolean('phone_verified'),
+	verifiedVerifikator: boolean('verified_verifikator'),
+	details: jsonb('details'),
+	fetchedAt: timestamp('fetched_at', { mode: 'string', withTimezone: true }).defaultNow(),
 })

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { page } from "$app/state";
+  import { Toolbar } from "$lib/components";
   import {
     closeBsre,
     fetchBsreUsers,
@@ -7,27 +9,61 @@
     navigateBsre,
     debugBsreSession,
   } from "$lib/remotes/bsre.remote";
+  import { getData, type GetParams } from "$lib/remotes/api.remote";
 
-  let { data } = $props();
-  const userId = $derived(data.user?.id ?? data.user?.email ?? "");
+  const userId = $derived(page.data.user?.id ?? page.data.user?.email ?? "");
   const status = $derived(getSessionStatus({ userId }));
 
   let customUrl = $state("https://portal-bsre.bssn.go.id/");
   let toast = $state<{ type: "success" | "error"; message: string } | null>(null);
 
-  // Users table state
-  let users = $state<any[]>([]);
-  let usersTotal = $state(0);
-  let usersSearch = $state("");
-  let usersStart = $state(0);
-  let usersLength = $state(10);
-  let usersLoading = $state(false);
-  let usersError = $state("");
+  // Toolbar query state
+  let query: GetParams<"bsreUsers"> = $state({
+    table: "bsreUsers",
+    limit: 10,
+    offset: 0,
+    search: "",
+    where: {},
+  });
+
+  // Reactive records from local DB
+  const records = $derived(getData({ ...query }));
+  const items = $derived(records.current ?? { data: [], count: 0 });
+
+  // Sync state
+  let syncing = $state(false);
   let selectedUser = $state<any>(null);
 
   // Debug state
   let debugData = $state<any>(null);
   let debugLoading = $state(false);
+
+  // Reset offset when count changes (like users page)
+  let lastCount = $state(0);
+  $effect(() => {
+    if (records.current && lastCount !== items.count) {
+      query.offset = 0;
+      lastCount = items.count;
+    }
+  });
+
+  async function syncFromBsre() {
+    if (syncing) return;
+    syncing = true;
+    try {
+      const res = await fetchBsreUsers({ userId });
+      if (res?.success) {
+        showToast("success", `Data BSrE tersinkronisasi (${res.total} pengguna).`);
+        records.refresh();
+      } else {
+        showToast("error", res?.message ?? "Gagal sinkronisasi.");
+      }
+    } catch (e: any) {
+      showToast("error", e?.message ?? "Gagal sinkronisasi.");
+    } finally {
+      syncing = false;
+    }
+  }
 
   async function runDebug() {
     debugLoading = true;
@@ -55,55 +91,20 @@
     const res = await launchBsre({ userId });
     if (res?.success) showToast("success", res.message ?? "Browser dibuka.");
     else showToast("error", "Gagal membuka browser.");
+    status.refresh();
   }
 
   async function close() {
     const res = await closeBsre({ userId });
     showToast("success", res?.message ?? "Sesi ditutup.");
-    users = [];
-    usersTotal = 0;
+    status.refresh();
   }
 
   async function navigate() {
     const res = await navigateBsre({ userId, url: customUrl });
     if (res?.success) showToast("success", res.message ?? "Navigasi berhasil.");
     else showToast("error", res?.message ?? "Gagal navigasi.");
-  }
-
-  async function loadUsers() {
-    usersLoading = true;
-    usersError = "";
-    try {
-      const res = await fetchBsreUsers({
-        userId,
-        search: usersSearch,
-        start: usersStart,
-        length: usersLength,
-      });
-      if (res?.success && res.data) {
-        const rawList = res.data?.data?.aaData ?? res.data?.data ?? res.data?.list ?? res.data;
-        users = (Array.isArray(rawList) ? rawList : []).filter((u: any) => u != null);
-        usersTotal = res.total ?? users.length;
-      } else {
-        usersError = res?.message ?? "Gagal memuat data.";
-        showToast("error", usersError);
-      }
-    } catch (e: any) {
-      usersError = e?.message ?? "Gagal memuat data.";
-      showToast("error", usersError);
-    } finally {
-      usersLoading = false;
-    }
-  }
-
-  const totalPages = $derived(Math.ceil(usersTotal / usersLength));
-  const currentPage = $derived(Math.floor(usersStart / usersLength) + 1);
-
-  function prevPage() {
-    if (usersStart > 0) { usersStart = Math.max(0, usersStart - usersLength); loadUsers(); }
-  }
-  function nextPage() {
-    if (usersStart + usersLength < usersTotal) { usersStart += usersLength; loadUsers(); }
+    status.refresh();
   }
 </script>
 
@@ -175,35 +176,49 @@
   <div
     class="bg-base-100/40 border border-base-200/60 rounded-2xl p-4 shadow-sm backdrop-blur space-y-4"
   >
-    <div class="flex items-center justify-between gap-4">
-      <div>
-        <h2 class="text-lg font-bold">Daftar Pengguna BSrE</h2>
-        <p class="text-xs opacity-60">Data pengguna dari Portal BSrE BSSN</p>
-      </div>
-      <div class="join">
-        <input
-          class="input input-bordered input-sm join-item w-52"
-          placeholder="Cari pengguna..."
-          bind:value={usersSearch}
-          onkeydown={(e) => e.key === 'Enter' && (usersStart = 0, loadUsers())}
-        />
+    <Toolbar bind:query {records}>
+      {#snippet filter(where)}
+        <div class="form-control w-full max-w-xs">
+          <label class="label py-1" for="filter-cert-status">
+            <span class="label-text font-bold text-xs opacity-75">Status Sertifikat</span>
+          </label>
+          <input
+            id="filter-cert-status"
+            bind:value={where.certificateStatus}
+            class="input input-sm input-bordered"
+            placeholder="ISSUE, REVOKED..."
+          />
+        </div>
+        <div class="form-control w-full max-w-xs">
+          <label class="label py-1" for="filter-nik">
+            <span class="label-text font-bold text-xs opacity-75">NIK</span>
+          </label>
+          <input
+            id="filter-nik"
+            bind:value={where.nik}
+            class="input input-sm input-bordered"
+            placeholder="Cari NIK..."
+          />
+        </div>
+      {/snippet}
+      <div class="flex items-center gap-2">
         <button
-          class="btn btn-sm btn-primary join-item gap-1"
-          onclick={() => { usersStart = 0; loadUsers(); }}
-          disabled={(!status.current?.active && !status.current?.hasToken) || usersLoading}
+          class="btn btn-sm btn-primary gap-1"
+          onclick={syncFromBsre}
+          disabled={(!status.current?.active && !status.current?.hasToken) || syncing}
         >
-          {#if usersLoading}
+          {#if syncing}
             <span class="loading loading-spinner loading-xs"></span>
           {:else}
-            <iconify-icon icon="bx:search"></iconify-icon>
+            <iconify-icon icon="bx:sync"></iconify-icon>
           {/if}
-          Muat
+          Sync
         </button>
       </div>
-    </div>
+    </Toolbar>
 
     <div
-      class="overflow-x-auto border border-base-300/60 rounded-xl bg-base-100/50 backdrop-blur-md h-[calc(100vh-22rem)] relative shadow-inner"
+      class="overflow-x-auto border border-base-300/60 rounded-xl bg-base-100/50 backdrop-blur-md h-[calc(100vh-24rem)] relative shadow-inner"
     >
       <table class="table table-md table-pin-rows table-pin-cols">
         <thead>
@@ -219,7 +234,7 @@
           </tr>
         </thead>
         <tbody>
-          {#if usersLoading}
+          {#if records.loading && !items.data.length}
             <tr>
               <td colspan="8" class="py-12 text-center">
                 <div class="flex flex-col items-center justify-center gap-2">
@@ -228,7 +243,7 @@
                 </div>
               </td>
             </tr>
-          {:else if !status.current?.active && !status.current?.hasToken && !users.length}
+          {:else if !status.current?.active && !status.current?.hasToken && !items.data.length}
             <tr>
               <td colspan="8" class="py-12 text-center">
                 <div class="flex flex-col items-center justify-center gap-2 opacity-50">
@@ -238,38 +253,35 @@
                 </div>
               </td>
             </tr>
-          {:else if usersError && !users.length}
+          {:else if records.error}
             <tr>
               <td colspan="8" class="py-12 text-center">
                 <div class="flex flex-col items-center justify-center gap-3 text-error">
                   <iconify-icon icon="bx:error-circle" class="text-3xl"></iconify-icon>
-                  <div class="text-sm font-semibold">{usersError}</div>
-                  <button
-                    class="btn btn-sm btn-error btn-outline"
-                    onclick={() => { usersStart = 0; loadUsers(); }}
-                  >
+                  <div class="text-sm font-semibold">{records.error.message}</div>
+                  <button class="btn btn-sm btn-error btn-outline" onclick={() => records.refresh()}>
                     Coba Lagi
                   </button>
                 </div>
               </td>
             </tr>
-          {:else if !users.length}
+          {:else if !items.data.length}
             <tr>
               <td colspan="8" class="py-12 text-center">
                 <div class="flex flex-col items-center justify-center gap-2 opacity-40">
                   <iconify-icon icon="bx:group" class="text-3xl"></iconify-icon>
-                  <span class="text-sm font-medium">Belum ada data. Klik "Muat" untuk mengambil data.</span>
+                  <span class="text-sm font-medium">Belum ada data. Klik "Sync" untuk mengambil data dari BSrE.</span>
                 </div>
               </td>
             </tr>
           {:else}
-            {#each users as user, i}
+            {#each items.data as user, i}
               {#if user}
                 <tr
                   class="hover:bg-base-200/30 cursor-pointer transition-colors"
                   onclick={() => selectedUser = user}
                 >
-                  <td class="text-center text-xs opacity-60">{usersStart + i + 1}</td>
+                  <td class="text-center text-xs opacity-60">{query.offset + i + 1}</td>
                   <td class="font-semibold">{user?.nama ?? "-"}</td>
                   <td class="font-mono text-xs opacity-80">{user?.emailAddress?.split('@')[0] ?? "-"}</td>
                   <td class="text-xs">{user?.emailAddress ?? "-"}</td>
@@ -310,20 +322,6 @@
         </tbody>
       </table>
     </div>
-
-    <!-- Pagination -->
-    {#if usersTotal > usersLength}
-      <div class="flex items-center justify-between">
-        <span class="text-xs opacity-60">
-          {usersStart + 1}–{Math.min(usersStart + usersLength, usersTotal)} dari {usersTotal} pengguna
-        </span>
-        <div class="join">
-          <button class="join-item btn btn-xs" onclick={prevPage} disabled={usersStart === 0}>«</button>
-          <button class="join-item btn btn-xs btn-active">{currentPage} / {totalPages}</button>
-          <button class="join-item btn btn-xs" onclick={nextPage} disabled={usersStart + usersLength >= usersTotal}>»</button>
-        </div>
-      </div>
-    {/if}
   </div>
 
   {#if debugData}
