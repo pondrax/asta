@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from "$app/state";
-  import { Toolbar } from "$lib/components";
+  import { Toolbar, Chart } from "$lib/components";
   import {
     closeBsre,
     fetchBsreUsers,
@@ -10,12 +10,13 @@
     debugBsreSession,
   } from "$lib/remotes/bsre.remote";
   import { getData, type GetParams } from "$lib/remotes/api.remote";
+  import { d } from "$lib/utils";
+  import { app } from "$lib/app/index.svelte";
 
   const userId = $derived(page.data.user?.id ?? page.data.user?.email ?? "");
   const status = $derived(getSessionStatus({ userId }));
 
   let customUrl = $state("https://portal-bsre.bssn.go.id/");
-  let toast = $state<{ type: "success" | "error"; message: string } | null>(null);
 
   // Toolbar query state
   let query: GetParams<"bsreUsers"> = $state({
@@ -37,15 +38,118 @@
   // PII masking
   let showPii = $state(false);
 
+  // Chart state
+  let chartStartDate = $state("");
+  let chartEndDate = $state("");
+  let chartCollapsed = $state(false);
+
+  const allBsreUsers = $derived(
+    getData({ table: "bsreUsers" as any, limit: 100000, offset: 0 }),
+  );
+  const allUsersData = $derived(allBsreUsers.current?.data ?? []);
+
+  const chartData = $derived.by(() => {
+    const byDate: Record<string, { start: number; end: number }> = {};
+    for (const u of allUsersData as any[]) {
+      const certs: any[] = u?.details?.data?.sertifikat ?? [];
+      for (const cert of certs) {
+        const startRaw = (cert.notBeforeDate as string) ?? "";
+        const startDate = startRaw.split(" ")[0];
+        if (startDate) {
+          if (
+            (!chartStartDate || startDate >= chartStartDate) &&
+            (!chartEndDate || startDate <= chartEndDate)
+          ) {
+            if (!byDate[startDate]) byDate[startDate] = { start: 0, end: 0 };
+            byDate[startDate].start++;
+          }
+        }
+        const endRaw = (cert.notAfterDate as string) ?? "";
+        const endDate = endRaw.split(" ")[0];
+        if (endDate) {
+          if (
+            (!chartStartDate || endDate >= chartStartDate) &&
+            (!chartEndDate || endDate <= chartEndDate)
+          ) {
+            if (!byDate[endDate]) byDate[endDate] = { start: 0, end: 0 };
+            byDate[endDate].end++;
+          }
+        }
+      }
+    }
+    return Object.entries(byDate)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, counts]) => ({
+        date,
+        label: d(date).format("DD MMM YYYY"),
+        ...counts,
+      }));
+  });
+
+  function statusBg(label: string) {
+    const map: Record<string, string> = {
+      Total: "bg-primary/10",
+      VERIFIED: "bg-success/10",
+      ACTIVE: "bg-info/10",
+      INACTIVE: "bg-neutral/10",
+      PENDING: "bg-warning/10",
+      ISSUE: "bg-success/10",
+      REVOKE: "bg-error/10",
+      EXPIRED: "bg-warning/10",
+    };
+    return map[label] ?? "bg-base-200/50";
+  }
+
+  function resetChartDate() {
+    chartStartDate = "";
+    chartEndDate = "";
+  }
+
+  function selectFilter(field: string, value: string) {
+    if (field === "reset") {
+      query.where = {};
+    } else {
+      query.where = { [field]: value };
+    }
+  }
+
+  const totalUsers = $derived(allUsersData.length);
+
+  const userStatusChartData = $derived.by(() => {
+    const counts: Record<string, number> = {};
+    for (const u of allUsersData as any[]) {
+      const s = u.status || "unknown";
+      counts[s] = (counts[s] ?? 0) + 1;
+    }
+    return Object.entries(counts)
+      .sort(([, a], [, b]) => b - a)
+      .map(([label, value]) => ({ label, value }));
+  });
+
+  const certStatusChartData = $derived.by(() => {
+    const counts: Record<string, number> = {};
+    for (const u of allUsersData as any[]) {
+      const s = u.certificateStatus || "none";
+      counts[s] = (counts[s] ?? 0) + 1;
+    }
+    return Object.entries(counts)
+      .sort(([, a], [, b]) => b - a)
+      .map(([label, value]) => ({ label, value }));
+  });
+
   function latestCert(user: any) {
     const certs: any[] = user?.details?.data?.sertifikat ?? [];
     if (!certs.length) return null;
     return [...certs].sort(
-      (a, b) => new Date(b.notAfterDate).getTime() - new Date(a.notAfterDate).getTime()
+      (a, b) =>
+        new Date(b.notAfterDate).getTime() - new Date(a.notAfterDate).getTime(),
     )[0];
   }
 
-  function maskPii(value: string | null | undefined, type: "nik" | "nip" | "username" | "phone"): string {
+  function maskPii(
+    value: string | null | undefined,
+    type: "nik" | "nip" | "username" | "phone",
+  ): string {
     if (!value) return "-";
     if (showPii) return value;
     if (type === "nik" || type === "nip") {
@@ -84,13 +188,16 @@
     try {
       const res = await fetchBsreUsers({ userId });
       if (res?.success) {
-        showToast("success", `Data BSrE tersinkronisasi (${res.total} pengguna).`);
+        app.showToast(
+          "success",
+          `Data BSrE tersinkronisasi (${res.total} pengguna).`,
+        );
         records.refresh();
       } else {
-        showToast("error", res?.message ?? "Gagal sinkronisasi.");
+        app.showToast("error", res?.message ?? "Gagal sinkronisasi.");
       }
     } catch (e: any) {
-      showToast("error", e?.message ?? "Gagal sinkronisasi.");
+      app.showToast("error", e?.message ?? "Gagal sinkronisasi.");
     } finally {
       syncing = false;
     }
@@ -102,12 +209,12 @@
       const res = await debugBsreSession({ userId });
       if (res?.success) {
         debugData = res;
-        showToast("success", "Data debug berhasil diambil.");
+        app.showToast("success", "Data debug berhasil diambil.");
       } else {
-        showToast("error", res?.message ?? "Gagal mengambil data debug.");
+        app.showToast("error", res?.message ?? "Gagal mengambil data debug.");
       }
     } catch (e: any) {
-      showToast("error", e?.message ?? "Gagal.");
+      app.showToast("error", e?.message ?? "Gagal.");
     } finally {
       debugLoading = false;
     }
@@ -115,31 +222,32 @@
 
   function portal(node: HTMLElement) {
     document.body.appendChild(node);
-    return { destroy() { node.remove(); } };
-  }
-
-  function showToast(type: "success" | "error", message: string) {
-    toast = { type, message };
-    setTimeout(() => (toast = null), 4000);
+    return {
+      destroy() {
+        node.remove();
+      },
+    };
   }
 
   async function launch() {
     const res = await launchBsre({ userId });
-    if (res?.success) showToast("success", res.message ?? "Browser dibuka.");
-    else showToast("error", "Gagal membuka browser.");
+    if (res?.success)
+      app.showToast("success", res.message ?? "Browser dibuka.");
+    else app.showToast("error", "Gagal membuka browser.");
     status.refresh();
   }
 
   async function close() {
     const res = await closeBsre({ userId });
-    showToast("success", res?.message ?? "Sesi ditutup.");
+    app.showToast("success", res?.message ?? "Sesi ditutup.");
     status.refresh();
   }
 
   async function navigate() {
     const res = await navigateBsre({ userId, url: customUrl });
-    if (res?.success) showToast("success", res.message ?? "Navigasi berhasil.");
-    else showToast("error", res?.message ?? "Gagal navigasi.");
+    if (res?.success)
+      app.showToast("success", res.message ?? "Navigasi berhasil.");
+    else app.showToast("error", res?.message ?? "Gagal navigasi.");
     status.refresh();
   }
 </script>
@@ -149,23 +257,38 @@
     <div>
       <h1
         class="text-2xl font-bold bg-linear-to-r from-primary to-secondary bg-clip-text text-transparent"
-      >Portal BSrE</h1>
-      <p class="text-sm opacity-60">Buka Portal BSrE BSSN — login otomatis via BeID + TOTP</p>
+      >
+        Portal BSrE
+      </h1>
+      <p class="text-sm opacity-60">
+        Buka Portal BSrE BSSN — login otomatis via BeID + TOTP
+      </p>
     </div>
     <div class="flex items-center gap-2 shrink-0">
       <a
         href="https://portal-bsre.bssn.go.id/"
         target="_blank"
         rel="noopener noreferrer"
-        class="btn btn-sm gap-1"
+        class="btn btn-sm btn-ghost gap-1"
       >
         <iconify-icon icon="bx:link-external" class="text-sm"></iconify-icon>
         Buka Portal
       </a>
+
+      <button
+        aria-label={chartCollapsed ? "Expand" : "Collapse"}
+        class="btn btn-sm btn-ghost gap-1"
+        onclick={() => (chartCollapsed = !chartCollapsed)}
+      >
+        <iconify-icon icon="bx:chart"></iconify-icon>
+        {chartCollapsed ? "Expand" : "Collapse"}
+      </button>
+
       <button
         class="btn btn-sm btn-primary gap-1"
         onclick={syncFromBsre}
-        disabled={(!status.current?.active && !status.current?.hasToken) || syncing}
+        disabled={(!status.current?.active && !status.current?.hasToken) ||
+          syncing}
       >
         {#if syncing}
           <span class="loading loading-spinner loading-xs"></span>
@@ -177,29 +300,168 @@
     </div>
   </div>
 
-  <div class="toast toast-end toast-bottom z-[9999]">
-    {#if toast}
-      <div class="alert {toast.type === 'success' ? 'alert-success' : 'alert-error'} py-2 px-4 shadow-xl text-xs font-semibold">
-        <iconify-icon icon={toast.type === 'success' ? 'bx:check-circle' : 'bx:error-circle'}></iconify-icon>
-        <span>{toast.message}</span>
+  <!-- Charts -->
+  {#if !chartCollapsed}
+    <div
+      class="bg-base-100/40 border border-base-200/60 rounded-2xl shadow-sm backdrop-blur transition-all duration-500 {chartCollapsed
+        ? 'max-h-0 overflow-hidden p-0'
+        : 'p-4'}"
+    >
+      <div class="flex flex-wrap items-end gap-3 mb-2">
+        <label class="form-control">
+          <span
+            class="label-text text-[10px] uppercase tracking-widest opacity-40 font-black"
+            >Dari</span
+          >
+          <input
+            type="date"
+            class="input input-bordered input-xs w-36"
+            bind:value={chartStartDate}
+          />
+        </label>
+        <label class="form-control">
+          <span
+            class="label-text text-[10px] uppercase tracking-widest opacity-40 font-black"
+            >Sampai</span
+          >
+          <input
+            type="date"
+            class="input input-bordered input-xs w-36"
+            bind:value={chartEndDate}
+          />
+        </label>
+        <button class="btn btn-ghost btn-xs" onclick={resetChartDate}
+          >Reset</button
+        >
       </div>
-    {/if}
-  </div>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div class="lg:col-span-2">
+          <Chart
+            title="Status Sertifikat"
+            subtitle=""
+            data={chartData}
+            height={250}
+            type="line"
+            categories={[
+              {
+                key: "start",
+                color: "var(--color-success)",
+                label: "Sertifikat Mulai",
+              },
+              {
+                key: "end",
+                color: "var(--color-error)",
+                label: "Sertifikat Berakhir",
+              },
+            ]}
+          />
+        </div>
+        <div class="flex flex-col gap-3">
+          <div>
+            <span
+              class="label-text text-[10px] uppercase tracking-widest opacity-40 font-black block mb-1">Status User</span>
+            <div class="grid grid-cols-2 gap-1.5">
+              <div
+                class="rounded-lg px-2 py-1.5 text-center cursor-pointer hover:ring-2 hover:ring-base-content/30 transition-all {statusBg('Total')} {!query.where?.status && !query.where?.certificateStatus ? 'ring-2 ring-primary/60' : ''}"
+                onclick={() => selectFilter("reset", "")}
+                onkeydown={(e) => e.key === 'Enter' && selectFilter("reset", "")}
+                role="button"
+                tabindex="0"
+              >
+                <div class="text-base font-black font-mono tracking-tighter">
+                  {totalUsers}
+                </div>
+                <div
+                  class="text-[9px] font-bold opacity-50 uppercase tracking-wider"
+                >
+                  Total
+                </div>
+              </div>
+              {#each userStatusChartData as d}
+                <div
+                  class="rounded-lg px-2 py-1 text-center cursor-pointer hover:ring-2 hover:ring-base-content/30 transition-all {statusBg(d.label)} {query.where?.status === d.label ? 'ring-2 ring-primary/60' : ''}"
+                  onclick={() => selectFilter("status", d.label)}
+                  onkeydown={(e) => e.key === 'Enter' && selectFilter("status", d.label)}
+                  role="button"
+                  tabindex="0"
+                >
+                  <div class="text-sm font-black font-mono tracking-tighter">
+                    {d.value}
+                  </div>
+                  <div
+                    class="text-[9px] font-bold opacity-50 uppercase tracking-wider truncate"
+                  >
+                    {d.label}
+                  </div>
+                </div>
+              {/each}
+            </div>
+          </div>
+          <div>
+            <span
+              class="label-text text-[10px] uppercase tracking-widest opacity-40 font-black block mb-1"
+              >Status Sertifikat</span
+            >
+            <div class="grid grid-cols-2 gap-1.5">
+              {#each certStatusChartData as d}
+                <div
+                  class="rounded-lg px-2 py-1 text-center cursor-pointer hover:ring-2 hover:ring-base-content/30 transition-all {statusBg(d.label)} {query.where?.certificateStatus === d.label ? 'ring-2 ring-primary/60' : ''}"
+                  onclick={() => selectFilter("certificateStatus", d.label)}
+                  onkeydown={(e) => e.key === 'Enter' && selectFilter("certificateStatus", d.label)}
+                  role="button"
+                  tabindex="0"
+                >
+                  <div class="text-sm font-black font-mono tracking-tighter">
+                    {d.value}
+                  </div>
+                  <div
+                    class="text-[9px] font-bold opacity-50 uppercase tracking-wider truncate"
+                  >
+                    {d.label}
+                  </div>
+                </div>
+              {/each}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  {/if}
 
   <!-- Session Status -->
-  <div class="bg-base-100/40 border border-base-200/60 rounded-2xl py-2 px-4 shadow-sm backdrop-blur">
+  <div
+    class="bg-base-100/40 border border-base-200/60 rounded-2xl py-1 px-4 -mt-1 shadow-sm backdrop-blur"
+  >
     <div class="flex items-center gap-3">
-      <iconify-icon icon="bx:wifi" class="text-lg text-primary"></iconify-icon>
-      <span class="font-semibold text-sm">Status Sesi</span>
       <div class="flex items-center gap-2 ml-2">
-        <div class="badge badge-sm {status.current?.active ? 'badge-success' : 'badge-neutral'} gap-1">
-          <iconify-icon icon={status.current?.active ? 'bx:radio-circle-marked' : 'bx:radio-circle'}></iconify-icon>
-          {status.current?.active ? "Aktif" : "Tidak Aktif"}
+        <div
+          class="badge badge-sm {status.current?.active
+            ? 'badge-success'
+            : 'badge-neutral'} gap-1"
+        >
+          <iconify-icon
+            icon={status.current?.active
+              ? "bx:radio-circle-marked"
+              : "bx:radio-circle"}
+          ></iconify-icon>
+          {status.current?.active ? "Sesi Aktif" : "Sesi Tidak Aktif"}
         </div>
-        <div class="badge badge-sm {status.current?.hasToken ? 'badge-info' : 'badge-ghost'} gap-1">
-          <iconify-icon icon={status.current?.hasToken ? 'bx:key' : 'bx:lock'}></iconify-icon>
+        <div
+          class="badge badge-sm {status.current?.hasToken
+            ? 'badge-info'
+            : 'badge-ghost'} gap-1"
+        >
+          <iconify-icon icon={status.current?.hasToken ? "bx:key" : "bx:lock"}
+          ></iconify-icon>
           {status.current?.hasToken ? "Token OK" : "No Token"}
         </div>
+        {#if status.current?.lastSync}
+          <div class="badge badge-sm badge-ghost gap-1">
+            <iconify-icon icon="bx:time-five"></iconify-icon>
+            Sync: {d(status.current.lastSync).format("DD MMM YYYY, HH:mm")}
+          </div>
+        {/if}
+
         {#if status.current?.active && status.current.mode?.startsWith("remote")}
           <span class="text-xs opacity-60">🌐 Remote</span>
         {/if}
@@ -213,7 +475,11 @@
           {/if}
           Update Token
         </button>
-        <button class="btn btn-warning btn-sm gap-1" onclick={runDebug} disabled={!status.current?.active}>
+        <button
+          class="btn btn-warning btn-sm gap-1"
+          onclick={runDebug}
+          disabled={!status.current?.active}
+        >
           {#if debugLoading}
             <span class="loading loading-spinner loading-xs"></span>
           {:else}
@@ -221,7 +487,11 @@
           {/if}
           Debug
         </button>
-        <button class="btn btn-error btn-outline btn-sm gap-1" onclick={close} disabled={!status.current?.active}>
+        <button
+          class="btn btn-error btn-outline btn-sm gap-1"
+          onclick={close}
+          disabled={!status.current?.active}
+        >
           {#if closeBsre.pending}
             <span class="loading loading-spinner loading-xs"></span>
           {:else}
@@ -235,10 +505,20 @@
     {#if debugData}
       <div class="border-t border-base-content/10 mt-2 pt-2">
         <div class="flex items-center justify-between mb-1">
-          <span class="text-[11px] font-semibold opacity-60">Info Debug Sesi</span>
-          <button class="btn btn-ghost btn-xs" onclick={() => debugData = null}>Tutup</button>
+          <span class="text-[11px] font-semibold opacity-60"
+            >Info Debug Sesi</span
+          >
+          <button
+            class="btn btn-ghost btn-xs"
+            onclick={() => (debugData = null)}>Tutup</button
+          >
         </div>
-        <pre class="bg-base-200/80 p-2 rounded text-[10px] overflow-auto max-h-40">{JSON.stringify(debugData, null, 2)}</pre>
+        <pre
+          class="bg-base-200/80 p-2 rounded text-[10px] overflow-auto max-h-40">{JSON.stringify(
+            debugData,
+            null,
+            2,
+          )}</pre>
       </div>
     {/if}
   </div>
@@ -251,7 +531,9 @@
       {#snippet filter(where)}
         <div class="form-control w-full max-w-xs">
           <label class="label py-1" for="filter-cert-status">
-            <span class="label-text font-bold text-xs opacity-75">Status Sertifikat</span>
+            <span class="label-text font-bold text-xs opacity-75"
+              >Status Sertifikat</span
+            >
           </label>
           <input
             id="filter-cert-status"
@@ -274,7 +556,7 @@
       {/snippet}
       {#snippet actions()}
         <li>
-          <button onclick={() => showPii = !showPii}>
+          <button onclick={() => (showPii = !showPii)}>
             <iconify-icon icon={showPii ? "bx:show" : "bx:hide"}></iconify-icon>
             {showPii ? "Tampilkan PII" : "Masking PII"}
           </button>
@@ -287,9 +569,12 @@
     >
       <table class="table table-md table-pin-rows table-pin-cols">
         <thead>
-          <tr class="bg-base-200/50 text-base-content/80 font-bold border-b border-base-300">
+          <tr
+            class="bg-base-200/50 text-base-content/80 font-bold border-b border-base-300"
+          >
             <th class="w-10 text-center bg-base-200/50 sticky left-0 z-2">#</th>
-            <th class="min-w-[180px] bg-base-200/50 sticky left-10 z-2">Nama</th>
+            <th class="min-w-[180px] bg-base-200/50 sticky left-10 z-2">Nama</th
+            >
             <th class="w-56">Email</th>
             <th class="w-36">NIK</th>
             <th class="w-36">NIP</th>
@@ -306,28 +591,45 @@
             <tr>
               <td colspan="11" class="py-12 text-center">
                 <div class="flex flex-col items-center justify-center gap-2">
-                  <span class="loading loading-spinner loading-md text-primary"></span>
-                  <span class="text-sm opacity-55 font-medium">Memuat data pengguna BSrE...</span>
+                  <span class="loading loading-spinner loading-md text-primary"
+                  ></span>
+                  <span class="text-sm opacity-55 font-medium"
+                    >Memuat data pengguna BSrE...</span
+                  >
                 </div>
               </td>
             </tr>
           {:else if !status.current?.active && !status.current?.hasToken && !items.data.length}
             <tr>
               <td colspan="11" class="py-12 text-center">
-                <div class="flex flex-col items-center justify-center gap-2 opacity-50">
+                <div
+                  class="flex flex-col items-center justify-center gap-2 opacity-50"
+                >
                   <iconify-icon icon="bx:globe" class="text-3xl"></iconify-icon>
-                  <p class="text-sm font-medium">Buka sesi BSrE terlebih dahulu</p>
-                  <p class="text-xs">Pastikan token tersimpan untuk memuat data pengguna.</p>
+                  <p class="text-sm font-medium">
+                    Buka sesi BSrE terlebih dahulu
+                  </p>
+                  <p class="text-xs">
+                    Pastikan token tersimpan untuk memuat data pengguna.
+                  </p>
                 </div>
               </td>
             </tr>
           {:else if records.error}
             <tr>
               <td colspan="11" class="py-12 text-center">
-                <div class="flex flex-col items-center justify-center gap-3 text-error">
-                  <iconify-icon icon="bx:error-circle" class="text-3xl"></iconify-icon>
-                  <div class="text-sm font-semibold">{records.error.message}</div>
-                  <button class="btn btn-sm btn-error btn-outline" onclick={() => records.refresh()}>
+                <div
+                  class="flex flex-col items-center justify-center gap-3 text-error"
+                >
+                  <iconify-icon icon="bx:error-circle" class="text-3xl"
+                  ></iconify-icon>
+                  <div class="text-sm font-semibold">
+                    {records.error.message}
+                  </div>
+                  <button
+                    class="btn btn-sm btn-error btn-outline"
+                    onclick={() => records.refresh()}
+                  >
                     Coba Lagi
                   </button>
                 </div>
@@ -336,9 +638,13 @@
           {:else if !items.data.length}
             <tr>
               <td colspan="11" class="py-12 text-center">
-                <div class="flex flex-col items-center justify-center gap-2 opacity-40">
+                <div
+                  class="flex flex-col items-center justify-center gap-2 opacity-40"
+                >
                   <iconify-icon icon="bx:group" class="text-3xl"></iconify-icon>
-                  <span class="text-sm font-medium">Belum ada data. Klik "Sync" untuk mengambil data dari BSrE.</span>
+                  <span class="text-sm font-medium"
+                    >Belum ada data. Klik "Sync" untuk mengambil data dari BSrE.</span
+                  >
                 </div>
               </td>
             </tr>
@@ -346,22 +652,50 @@
             {#each items.data as user, i}
               {#if user}
                 <tr class="hover:bg-base-200/30 transition-colors">
-                  <td class="text-center text-xs opacity-60 bg-base-100 sticky left-0 z-1">{query.offset + i + 1}</td>
-                  <td class="font-semibold bg-base-100 sticky left-10 z-1">{user?.nama ?? "-"}</td>
+                  <td
+                    class="text-center text-xs opacity-60 bg-base-100 sticky left-0 z-1"
+                    >{query.offset + i + 1}</td
+                  >
+                  <td class="font-semibold bg-base-100 sticky left-10 z-1"
+                    >{user?.nama ?? "-"}</td
+                  >
                   <td class="text-xs">{user?.emailAddress ?? "-"}</td>
-                  <td class="text-xs font-mono">{maskPii(user?.nik ?? "-", "nik")}</td>
-                  <td class="text-xs font-mono">{maskPii(user?.nip ?? "-", "nip")}</td>
+                  <td class="text-xs font-mono"
+                    >{maskPii(user?.nik ?? "-", "nik")}</td
+                  >
+                  <td class="text-xs font-mono"
+                    >{maskPii(user?.nip ?? "-", "nip")}</td
+                  >
                   <td class="text-center">
-                    <span class="badge badge-sm {latestCert(user)?.status === 'ISSUE' ? 'badge-success' : latestCert(user)?.status === 'REVOKE' ? 'badge-error' : 'badge-ghost'} font-semibold">
+                    <span
+                      class="badge badge-sm {latestCert(user)?.status ===
+                      'ISSUE'
+                        ? 'badge-success'
+                        : latestCert(user)?.status === 'REVOKE'
+                          ? 'badge-error'
+                          : 'badge-ghost'} font-semibold"
+                    >
                       {latestCert(user)?.status ?? "-"}
                     </span>
                   </td>
-                  <td class="text-xs">{latestCert(user)?.notBeforeDate?.split(" ")[0] ?? "-"}</td>
-                  <td class="text-xs">{latestCert(user)?.notAfterDate?.split(" ")[0] ?? "-"}</td>
+                  <td class="text-xs"
+                    >{latestCert(user)?.notBeforeDate?.split(" ")[0] ?? "-"}</td
+                  >
+                  <td class="text-xs"
+                    >{latestCert(user)?.notAfterDate?.split(" ")[0] ?? "-"}</td
+                  >
                   <td class="text-xs">{user?.jabatanOrganisasi ?? "-"}</td>
                   <td class="text-center">
-                    <span class="badge badge-sm {user?.status === 'VERIFIED' || user?.status === 'ACTIVE' || user?.aktif ? 'badge-success' : 'badge-ghost'} font-semibold">
-                      {user?.status || (user?.aktif ? "Aktif" : "Nonaktif") || "-"}
+                    <span
+                      class="badge badge-sm {user?.status === 'VERIFIED' ||
+                      user?.status === 'ACTIVE' ||
+                      user?.aktif
+                        ? 'badge-success'
+                        : 'badge-ghost'} font-semibold"
+                    >
+                      {user?.status ||
+                        (user?.aktif ? "Aktif" : "Nonaktif") ||
+                        "-"}
                     </span>
                   </td>
                   <td class="text-center sticky right-0 z-1 bg-base-100">
@@ -369,9 +703,13 @@
                       <button
                         class="btn btn-ghost btn-xs text-primary tooltip tooltip-left"
                         data-tip="Lihat Detail"
-                        onclick={(e) => { e.stopPropagation(); selectedUser = user; }}
+                        onclick={(e) => {
+                          e.stopPropagation();
+                          selectedUser = user;
+                        }}
                       >
-                        <iconify-icon icon="bx:show" class="text-sm"></iconify-icon>
+                        <iconify-icon icon="bx:show" class="text-sm"
+                        ></iconify-icon>
                       </button>
                       {#if user?.id}
                         <a
@@ -382,7 +720,8 @@
                           data-tip="Buka Profil BSrE"
                           onclick={(e) => e.stopPropagation()}
                         >
-                          <iconify-icon icon="bx:link-external" class="text-sm"></iconify-icon>
+                          <iconify-icon icon="bx:link-external" class="text-sm"
+                          ></iconify-icon>
                         </a>
                       {/if}
                     </div>
@@ -399,164 +738,275 @@
   <!-- User Detail Modal -->
   {#if selectedUser}
     <div use:portal>
-    <dialog class="modal modal-open">
-      <div class="modal-box max-w-2xl bg-base-100 border border-base-content/10 shadow-2xl rounded-2xl">
-        <div class="flex items-center justify-between border-b border-base-content/10 pb-3 mb-4">
-          <div class="flex items-center gap-3">
-            <div class="avatar placeholder">
-              <div class="bg-primary text-primary-content rounded-full w-10">
-                <span class="text-sm font-semibold">{selectedUser.nama?.charAt(0) || "U"}</span>
+      <dialog class="modal modal-open">
+        <div
+          class="modal-box max-w-2xl bg-base-100 border border-base-content/10 shadow-2xl rounded-2xl"
+        >
+          <div
+            class="flex items-center justify-between border-b border-base-content/10 pb-3 mb-4"
+          >
+            <div class="flex items-center gap-3">
+              <div class="avatar placeholder">
+                <div class="bg-primary text-primary-content rounded-full w-10">
+                  <span class="text-sm font-semibold"
+                    >{selectedUser.nama?.charAt(0) || "U"}</span
+                  >
+                </div>
+              </div>
+              <div>
+                <h3 class="font-bold text-lg">{selectedUser.nama ?? "-"}</h3>
+                <p class="text-xs opacity-60 font-mono">
+                  {selectedUser.id ?? "-"}
+                </p>
               </div>
             </div>
-            <div>
-              <h3 class="font-bold text-lg">{selectedUser.nama ?? "-"}</h3>
-              <p class="text-xs opacity-60 font-mono">{selectedUser.id ?? "-"}</p>
-            </div>
-          </div>
-          <button class="btn btn-ghost btn-circle btn-sm" onclick={() => selectedUser = null}>✕</button>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <!-- Personal Info Card -->
-          <div class="card bg-base-200/50 p-4 rounded-xl border border-base-content/5">
-            <h4 class="font-bold text-xs opacity-60 uppercase mb-3 flex items-center gap-1">
-              <iconify-icon icon="bx:user"></iconify-icon> Informasi Personal
-            </h4>
-            <div class="space-y-2">
-              <div>
-                <span class="text-xs opacity-60">NIK</span>
-                <p class="font-semibold font-mono">{maskPii(selectedUser.nik ?? "-", "nik")}</p>
-              </div>
-              <div>
-                <span class="text-xs opacity-60">NIP</span>
-                <p class="font-semibold font-mono">{maskPii(selectedUser.nip ?? "-", "nip")}</p>
-              </div>
-              <div>
-                <span class="text-xs opacity-60">Email</span>
-                <p class="font-semibold select-all">{selectedUser.emailAddress ?? "-"}</p>
-              </div>
-              <div>
-                <span class="text-xs opacity-60">Nomor HP</span>
-                <p class="font-semibold">{maskPii(selectedUser.phone || selectedUser.no_wa || "-", "phone")}</p>
-              </div>
-            </div>
+            <button
+              class="btn btn-ghost btn-circle btn-sm"
+              onclick={() => (selectedUser = null)}>✕</button
+            >
           </div>
 
-          <!-- Job Info Card -->
-          <div class="card bg-base-200/50 p-4 rounded-xl border border-base-content/5">
-            <h4 class="font-bold text-xs opacity-60 uppercase mb-3 flex items-center gap-1">
-              <iconify-icon icon="bx:briefcase"></iconify-icon> Jabatan & Organisasi
-            </h4>
-            <div class="space-y-2">
-              <div>
-                <span class="text-xs opacity-60">Jabatan</span>
-                <p class="font-semibold">{selectedUser.jabatanOrganisasi ?? "-"}</p>
-              </div>
-              <div>
-                <span class="text-xs opacity-60">Unit Kerja</span>
-                <p class="font-semibold">{selectedUser.organisasiUnit ?? "-"}</p>
-              </div>
-              <div>
-                <span class="text-xs opacity-60">Organisasi</span>
-                <p class="font-semibold">{selectedUser.organisasi ?? "-"}</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Certificate & Products -->
-          <div class="card bg-base-200/50 p-4 rounded-xl border border-base-content/5 md:col-span-2">
-            <h4 class="font-bold text-xs opacity-60 uppercase mb-3 flex items-center gap-1">
-              <iconify-icon icon="bx:certification"></iconify-icon> Sertifikat & Layanan
-            </h4>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div>
-                <span class="text-xs opacity-60">Status Sertifikat</span>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <!-- Personal Info Card -->
+            <div
+              class="card bg-base-200/50 p-4 rounded-xl border border-base-content/5"
+            >
+              <h4
+                class="font-bold text-xs opacity-60 uppercase mb-3 flex items-center gap-1"
+              >
+                <iconify-icon icon="bx:user"></iconify-icon> Informasi Personal
+              </h4>
+              <div class="space-y-2">
                 <div>
-                  <span class="badge {selectedUser.certificateStatus === 'ISSUE' ? 'badge-success' : 'badge-warning'} font-semibold badge-sm mt-1">
-                    {selectedUser.certificateStatus ?? "-"}
+                  <span class="text-xs opacity-60">NIK</span>
+                  <p class="font-semibold font-mono">
+                    {maskPii(selectedUser.nik ?? "-", "nik")}
+                  </p>
+                </div>
+                <div>
+                  <span class="text-xs opacity-60">NIP</span>
+                  <p class="font-semibold font-mono">
+                    {maskPii(selectedUser.nip ?? "-", "nip")}
+                  </p>
+                </div>
+                <div>
+                  <span class="text-xs opacity-60">Email</span>
+                  <p class="font-semibold select-all">
+                    {selectedUser.emailAddress ?? "-"}
+                  </p>
+                </div>
+                <div>
+                  <span class="text-xs opacity-60">Nomor HP</span>
+                  <p class="font-semibold">
+                    {maskPii(
+                      selectedUser.phone || selectedUser.no_wa || "-",
+                      "phone",
+                    )}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Job Info Card -->
+            <div
+              class="card bg-base-200/50 p-4 rounded-xl border border-base-content/5"
+            >
+              <h4
+                class="font-bold text-xs opacity-60 uppercase mb-3 flex items-center gap-1"
+              >
+                <iconify-icon icon="bx:briefcase"></iconify-icon> Jabatan & Organisasi
+              </h4>
+              <div class="space-y-2">
+                <div>
+                  <span class="text-xs opacity-60">Jabatan</span>
+                  <p class="font-semibold">
+                    {selectedUser.jabatanOrganisasi ?? "-"}
+                  </p>
+                </div>
+                <div>
+                  <span class="text-xs opacity-60">Unit Kerja</span>
+                  <p class="font-semibold">
+                    {selectedUser.organisasiUnit ?? "-"}
+                  </p>
+                </div>
+                <div>
+                  <span class="text-xs opacity-60">Organisasi</span>
+                  <p class="font-semibold">{selectedUser.organisasi ?? "-"}</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Certificate & Products -->
+            <div
+              class="card bg-base-200/50 p-4 rounded-xl border border-base-content/5 md:col-span-2"
+            >
+              <h4
+                class="font-bold text-xs opacity-60 uppercase mb-3 flex items-center gap-1"
+              >
+                <iconify-icon icon="bx:certification"></iconify-icon> Sertifikat
+                & Layanan
+              </h4>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <span class="text-xs opacity-60">Status Sertifikat</span>
+                  <div>
+                    <span
+                      class="badge {selectedUser.certificateStatus === 'ISSUE'
+                        ? 'badge-success'
+                        : 'badge-warning'} font-semibold badge-sm mt-1"
+                    >
+                      {selectedUser.certificateStatus ?? "-"}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <span class="text-xs opacity-60">Layanan Produk</span>
+                  <p class="font-semibold text-xs mt-1">
+                    {selectedUser.products ?? "-"}
+                  </p>
+                </div>
+                <div>
+                  <span class="text-xs opacity-60">Tanggal Pendaftaran</span>
+                  <p class="font-semibold">{selectedUser.createdDate ?? "-"}</p>
+                </div>
+                <div>
+                  <span class="text-xs opacity-60">Asal Registrasi</span>
+                  <p class="font-semibold font-mono">
+                    {selectedUser.registeredOrigin ?? "-"}
+                  </p>
+                </div>
+              </div>
+
+              {#if selectedUser.details?.data?.sertifikat?.length}
+                <div class="border-t border-base-content/10 pt-3">
+                  <span
+                    class="text-xs opacity-60 uppercase font-bold block mb-2"
+                    >Riwayat Sertifikat</span
+                  >
+                  <div class="space-y-2">
+                    {#each [...selectedUser.details.data.sertifikat].sort((a, b) => new Date(b.notAfterDate).getTime() - new Date(a.notAfterDate).getTime()) as cert, ci}
+                      <div
+                        class="bg-base-100 p-3 rounded-lg border border-base-content/5"
+                      >
+                        <div
+                          class="flex items-center justify-between gap-2 mb-1"
+                        >
+                          <div class="flex items-center gap-2">
+                            <span
+                              class="badge badge-sm {cert.status === 'ISSUE'
+                                ? 'badge-success'
+                                : cert.status === 'REVOKE'
+                                  ? 'badge-error'
+                                  : 'badge-warning'}"
+                            >
+                              {cert.status}
+                            </span>
+                            <span class="text-xs font-semibold"
+                              >{cert.product ?? "-"}</span
+                            >
+                          </div>
+                          <span class="text-[10px] opacity-50 font-mono"
+                            >{cert.serialNumber?.slice(-8) ?? ""}</span
+                          >
+                        </div>
+                        <div
+                          class="flex items-center gap-3 text-[11px] opacity-70"
+                        >
+                          <span
+                            >Berlaku: {cert.notBeforeDate?.split(" ")[0] ?? "?"}
+                            — {cert.notAfterDate?.split(" ")[0] ?? "?"}</span
+                          >
+                          <span class="badge badge-ghost badge-xs"
+                            >{cert.jenisSertifikat ?? "-"}</span
+                          >
+                        </div>
+                      </div>
+                    {/each}
+                  </div>
+                </div>
+              {/if}
+            </div>
+
+            <!-- Status Verifikasi -->
+            <div
+              class="card bg-base-200/50 p-4 rounded-xl border border-base-content/5 md:col-span-2"
+            >
+              <h4
+                class="font-bold text-xs opacity-60 uppercase mb-3 flex items-center gap-1"
+              >
+                <iconify-icon icon="bx:check-shield"></iconify-icon> Status Verifikasi
+              </h4>
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
+                <div
+                  class="bg-base-100 p-2 rounded-lg border border-base-content/5"
+                >
+                  <span class="text-[10px] opacity-60 block">Dukcapil</span>
+                  <span
+                    class="badge badge-sm {selectedUser.verifiedDukcapil
+                      ? 'badge-success'
+                      : 'badge-neutral'} mt-1"
+                  >
+                    {selectedUser.verifiedDukcapil
+                      ? "✓ Terverifikasi"
+                      : "✗ Belum"}
+                  </span>
+                </div>
+                <div
+                  class="bg-base-100 p-2 rounded-lg border border-base-content/5"
+                >
+                  <span class="text-[10px] opacity-60 block">Liveness</span>
+                  <span
+                    class="badge badge-sm {selectedUser.verfifiedLiveness
+                      ? 'badge-success'
+                      : 'badge-neutral'} mt-1"
+                  >
+                    {selectedUser.verfifiedLiveness
+                      ? "✓ Terverifikasi"
+                      : "✗ Belum"}
+                  </span>
+                </div>
+                <div
+                  class="bg-base-100 p-2 rounded-lg border border-base-content/5"
+                >
+                  <span class="text-[10px] opacity-60 block">WhatsApp</span>
+                  <span
+                    class="badge badge-sm {selectedUser.phoneVerified
+                      ? 'badge-success'
+                      : 'badge-neutral'} mt-1"
+                  >
+                    {selectedUser.phoneVerified ? "✓ Terverifikasi" : "✗ Belum"}
+                  </span>
+                </div>
+                <div
+                  class="bg-base-100 p-2 rounded-lg border border-base-content/5"
+                >
+                  <span class="text-[10px] opacity-60 block">Verifikator</span>
+                  <span
+                    class="badge badge-sm {selectedUser.verifiedVerifikator
+                      ? 'badge-success'
+                      : 'badge-neutral'} mt-1"
+                  >
+                    {selectedUser.verifiedVerifikator
+                      ? "✓ Terverifikasi"
+                      : "✗ Belum"}
                   </span>
                 </div>
               </div>
-              <div>
-                <span class="text-xs opacity-60">Layanan Produk</span>
-                <p class="font-semibold text-xs mt-1">{selectedUser.products ?? "-"}</p>
-              </div>
-              <div>
-                <span class="text-xs opacity-60">Tanggal Pendaftaran</span>
-                <p class="font-semibold">{selectedUser.createdDate ?? "-"}</p>
-              </div>
-              <div>
-                <span class="text-xs opacity-60">Asal Registrasi</span>
-                <p class="font-semibold font-mono">{selectedUser.registeredOrigin ?? "-"}</p>
-              </div>
-            </div>
-
-            {#if selectedUser.details?.data?.sertifikat?.length}
-              <div class="border-t border-base-content/10 pt-3">
-                <span class="text-xs opacity-60 uppercase font-bold block mb-2">Riwayat Sertifikat</span>
-                <div class="space-y-2">
-                  {#each [...selectedUser.details.data.sertifikat].sort((a, b) => new Date(b.notAfterDate).getTime() - new Date(a.notAfterDate).getTime()) as cert, ci}
-                    <div class="bg-base-100 p-3 rounded-lg border border-base-content/5">
-                      <div class="flex items-center justify-between gap-2 mb-1">
-                        <div class="flex items-center gap-2">
-                          <span class="badge badge-sm {cert.status === 'ISSUE' ? 'badge-success' : cert.status === 'REVOKE' ? 'badge-error' : 'badge-warning'}">
-                            {cert.status}
-                          </span>
-                          <span class="text-xs font-semibold">{cert.product ?? "-"}</span>
-                        </div>
-                        <span class="text-[10px] opacity-50 font-mono">{cert.serialNumber?.slice(-8) ?? ""}</span>
-                      </div>
-                      <div class="flex items-center gap-3 text-[11px] opacity-70">
-                        <span>Berlaku: {cert.notBeforeDate?.split(" ")[0] ?? "?"} — {cert.notAfterDate?.split(" ")[0] ?? "?"}</span>
-                        <span class="badge badge-ghost badge-xs">{cert.jenisSertifikat ?? "-"}</span>
-                      </div>
-                    </div>
-                  {/each}
-                </div>
-              </div>
-            {/if}
-          </div>
-
-          <!-- Status Verifikasi -->
-          <div class="card bg-base-200/50 p-4 rounded-xl border border-base-content/5 md:col-span-2">
-            <h4 class="font-bold text-xs opacity-60 uppercase mb-3 flex items-center gap-1">
-              <iconify-icon icon="bx:check-shield"></iconify-icon> Status Verifikasi
-            </h4>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
-              <div class="bg-base-100 p-2 rounded-lg border border-base-content/5">
-                <span class="text-[10px] opacity-60 block">Dukcapil</span>
-                <span class="badge badge-sm {selectedUser.verifiedDukcapil ? 'badge-success' : 'badge-neutral'} mt-1">
-                  {selectedUser.verifiedDukcapil ? "✓ Terverifikasi" : "✗ Belum"}
-                </span>
-              </div>
-              <div class="bg-base-100 p-2 rounded-lg border border-base-content/5">
-                <span class="text-[10px] opacity-60 block">Liveness</span>
-                <span class="badge badge-sm {selectedUser.verfifiedLiveness ? 'badge-success' : 'badge-neutral'} mt-1">
-                  {selectedUser.verfifiedLiveness ? "✓ Terverifikasi" : "✗ Belum"}
-                </span>
-              </div>
-              <div class="bg-base-100 p-2 rounded-lg border border-base-content/5">
-                <span class="text-[10px] opacity-60 block">WhatsApp</span>
-                <span class="badge badge-sm {selectedUser.phoneVerified ? 'badge-success' : 'badge-neutral'} mt-1">
-                  {selectedUser.phoneVerified ? "✓ Terverifikasi" : "✗ Belum"}
-                </span>
-              </div>
-              <div class="bg-base-100 p-2 rounded-lg border border-base-content/5">
-                <span class="text-[10px] opacity-60 block">Verifikator</span>
-                <span class="badge badge-sm {selectedUser.verifiedVerifikator ? 'badge-success' : 'badge-neutral'} mt-1">
-                  {selectedUser.verifiedVerifikator ? "✓ Terverifikasi" : "✗ Belum"}
-                </span>
-              </div>
             </div>
           </div>
-        </div>
 
-        <div class="modal-action mt-6">
-          <button class="btn btn-neutral btn-sm" onclick={() => selectedUser = null}>Tutup</button>
+          <div class="modal-action mt-6">
+            <button
+              class="btn btn-neutral btn-sm"
+              onclick={() => (selectedUser = null)}>Tutup</button
+            >
+          </div>
         </div>
-      </div>
-      <div class="modal-backdrop bg-black/40 backdrop-blur-xs" onclick={() => selectedUser = null}></div>
-    </dialog>
+        <div
+          class="modal-backdrop bg-black/40 backdrop-blur-xs"
+          onclick={() => (selectedUser = null)}
+        ></div>
+      </dialog>
     </div>
   {/if}
 </div>

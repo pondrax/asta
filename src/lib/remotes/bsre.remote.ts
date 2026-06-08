@@ -74,10 +74,17 @@ export const navigateBsre = command(
 
 export const getSessionStatus = query(
   type({ userId: "string" }),
-  async ({ userId }) => ({
-    ...sessionInfo(userId),
-    hasToken: tokenStore.has(userId),
-  })
+  async ({ userId }) => {
+    const latestUser = await db.query.bsreUsers.findFirst({
+      orderBy: (t, { desc }) => [desc(t.fetchedAt)],
+      columns: { fetchedAt: true },
+    });
+    return {
+      ...sessionInfo(userId),
+      hasToken: tokenStore.has(userId),
+      lastSync: latestUser?.fetchedAt ?? null,
+    };
+  }
 );
 
 export const debugBsreSession = command(

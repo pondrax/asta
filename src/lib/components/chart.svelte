@@ -64,15 +64,7 @@
         fontFamily: "inherit",
       },
       colors: categories.map((cat) => cat.color),
-      fill: type === "bar" ? {} : {
-        type: "gradient",
-        gradient: {
-          shadeIntensity: 1,
-          opacityFrom: 0.4,
-          opacityTo: 0.0,
-          stops: [0, 100],
-        },
-      },
+      fill: {},
       stroke: type === "bar" ? { show: true, width: 0, colors: categories.map((c) => c.color) } : {
         curve: "smooth",
         width: 3,

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { getSchema, modifySchema } from "$lib/remotes/designer.remote";
   import { Modal } from "$lib/components";
+  import { app } from "$lib/app/index.svelte";
   import { untrack } from "svelte";
 
   // Data fetching - following the project's reactive pattern
@@ -10,7 +11,6 @@
   );
 
   // Local state
-  let toasts = $state<{ id: number; msg: string; type: string }[]>([]);
   let showAddTableModal = $state(false);
   let showAddColumnModal = $state(false);
   let showAlterColumnModal = $state(false);
@@ -138,14 +138,6 @@
     { label: "Timestamp", value: "timestamp", color: "badge-secondary" },
     { label: "JSON", value: "json", color: "badge-ghost" },
   ];
-
-  function showToast(msg: string, type = "success") {
-    const id = Date.now();
-    toasts = [...toasts, { id, msg, type }];
-    setTimeout(() => {
-      toasts = toasts.filter((t) => t.id !== id);
-    }, 3000);
-  }
 
   function openAddColumn(tableName: string) {
     selectedTableName = tableName;
@@ -333,7 +325,7 @@
 <Modal bind:data={showAddTableModal} title="Create New Table">
   <form {...modifySchema.enhance(async ({ submit }) => {
     await submit();
-    showToast("Table created! Server is reloading...");
+    app.showToast("success", "Table created! Server is reloading...");
     showAddTableModal = false;
     setTimeout(() => schema.refresh(), 1000);
   })} class="space-y-4">
@@ -359,7 +351,7 @@
 <Modal bind:data={showAddColumnModal} title={`Add Column to ${selectedTableName}`}>
   <form {...modifySchema.enhance(async ({ submit }) => {
     await submit();
-    showToast(`Added ${newColumn.name}!`);
+    app.showToast("success", `Added ${newColumn.name}!`);
     showAddColumnModal = false;
     setTimeout(() => schema.refresh(), 1000);
   })} class="space-y-6">
@@ -411,7 +403,7 @@
 <Modal bind:data={showAlterColumnModal} title={`Edit Column: ${selectedColumn?.key} in ${selectedTableName}`}>
   <form {...modifySchema.enhance(async ({ submit }) => {
     await submit();
-    showToast(`Altered ${newColumn.name}!`);
+    app.showToast("success", `Altered ${newColumn.name}!`);
     showAlterColumnModal = false;
     setTimeout(() => schema.refresh(), 1000);
   })} class="space-y-6">
@@ -461,16 +453,6 @@
     </div>
   </form>
 </Modal>
-
-<!-- Toast -->
-<div class="toast toast-end toast-bottom z-9999">
-  {#each toasts as toast (toast.id)}
-    <div class="alert {toast.type === 'error' ? 'alert-error' : 'alert-success'} py-2 px-4 shadow-xl text-white text-xs font-semibold animate-in fade-in slide-in-from-bottom-5 duration-300">
-      <iconify-icon icon={toast.type === "error" ? "bx:error-circle" : "bx:check-circle"}></iconify-icon>
-      <span>{toast.msg}</span>
-    </div>
-  {/each}
-</div>
 
 <style>
   :global(.card) {

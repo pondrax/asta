@@ -48,3 +48,20 @@
 </svelte:head>
 
 {@render children()}
+
+<div id="main-toast" class="toast toast-end toast-bottom z-9999">
+  {#each app.toasts as toast (toast.id)}
+    <div
+      class="alert {toast.type === 'success'
+        ? 'alert-success'
+        : 'alert-error'} py-2 px-4 shadow-xl text-xs font-semibold"
+    >
+      <iconify-icon
+        icon={toast.type === "success"
+          ? "bx:check-circle"
+          : "bx:error-circle"}
+      ></iconify-icon>
+      <span>{toast.message}</span>
+    </div>
+  {/each}
+</div>

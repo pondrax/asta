@@ -11,6 +11,7 @@
   import { type GetParams } from "$lib/remotes/api.remote";
   import { Toolbar, Modal, Chart } from "$lib/components";
   import { d } from "$lib/utils";
+  import { app } from "$lib/app/index.svelte";
   import { untrack } from "svelte";
 
   const collections = $derived(getCollections({}));
@@ -27,7 +28,6 @@
   let batchData = $state<Record<string, any>>({});
   let inlineEdits = $state<Record<string, any>>({});
   let selections = $state<string[]>([]);
-  let toasts = $state<{ id: number; msg: string; type: string }[]>([]);
 
   let editingCell = $state<{
     id: any;
@@ -37,14 +37,6 @@
     header: string;
     multiline: boolean;
   } | null>(null);
-
-  function showToast(msg: string, type = "success") {
-    const id = Date.now();
-    toasts = [...toasts, { id, msg, type }];
-    setTimeout(() => {
-      toasts = toasts.filter((t) => t.id !== id);
-    }, 3000);
-  }
 
   $effect(() => {
     let hash = window.location.hash.slice(1);
@@ -249,7 +241,7 @@
                 const count = [
                   ...new Set([...selections, ...Object.keys(inlineEdits)]),
                 ].length;
-                showToast(`Successfully updated ${count} rows`);
+                app.showToast("success", `Successfully updated ${count} rows`);
                 batchData = {};
                 inlineEdits = {};
                 selections = [];
@@ -627,7 +619,7 @@
   <form
     {...upsertData.enhance(async ({ submit }: any) => {
       await submit();
-      showToast(
+      app.showToast("success",
         editingRow?.id
           ? "Row updated successfully"
           : "New row created successfully",
@@ -741,7 +733,7 @@
   <form
     {...deleteCollectionRows.enhance(async ({ submit }: any) => {
       await submit();
-      showToast(`Deleted ${selections.length} rows successfully`, "error");
+      app.showToast("error", `Deleted ${selections.length} rows successfully`);
       showDeleteModal = false;
       selections = [];
       records.refresh();
@@ -795,21 +787,6 @@
     </div>
   </form>
 </Modal>
-
-<div class="toast toast-end toast-bottom z-9999">
-  {#each toasts as toast (toast.id)}
-    <div
-      class="alert {toast.type === 'error'
-        ? 'alert-error'
-        : 'alert-success'} py-2 px-4 shadow-xl text-white text-xs font-semibold animate-in fade-in slide-in-from-bottom-5 duration-300"
-    >
-      <iconify-icon
-        icon={toast.type === "error" ? "bx:error-circle" : "bx:check-circle"}
-      ></iconify-icon>
-      <span>{toast.msg}</span>
-    </div>
-  {/each}
-</div>
 
 <svelte:window
   onhashchange={() => {
