@@ -71,7 +71,7 @@ export async function getBrowser(): Promise<{ browser: Browser; mode: string }> 
 export async function closeSession(userId: string): Promise<void> {
   const session = sessions.get(userId);
   if (!session) return;
-  try { await session.browser.close(); } catch (_) {}
+  try { await session.browser.close(); } catch (_) { }
   sessions.delete(userId);
 }
 
@@ -98,7 +98,7 @@ export async function openSession(userId: string): Promise<BrowserSession> {
         tokenStore.set(userId, auth);
         console.log(`[browser] Intercepted token from request headers for ${userId}`);
       }
-    } catch (_) {}
+    } catch (_) { }
   });
 
   // Watch for mid-session BeID redirects
@@ -106,10 +106,10 @@ export async function openSession(userId: string): Promise<BrowserSession> {
     if (frame !== page.mainFrame()) return;
     try {
       if (new URL(frame.url()).hostname.includes(BEID_HOST) && userId === "auto-sync") {
-        await page.waitForLoadState("domcontentloaded").catch(() => {});
+        await page.waitForLoadState("domcontentloaded").catch(() => { });
         await handleBeIDLogin(page);
       }
-    } catch (_) {}
+    } catch (_) { }
   });
 
   const session: BrowserSession = { browser, page, startedAt: new Date(), mode };
@@ -158,40 +158,49 @@ export async function handleBeIDLogin(page: Page): Promise<void> {
 // Misc helpers
 // ---------------------------------------------------------------------------
 
-/** Read access_token from the page's localStorage or sessionStorage */
+/** Intercept API requests to capture Bearer token from Authorization header */
+export async function captureApiToken(page: Page): Promise<string | null> {
+  let captured: string | null = null;
+  const handler = (req: any) => {
+    const auth = req.headers()?.["authorization"];
+    if (auth && auth.startsWith("Bearer ") && !captured) {
+      captured = auth;
+    }
+  };
+  page.on("request", handler);
+  await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => { });
+  // Give SPA a moment to fire authenticated requests
+  await new Promise((r) => setTimeout(r, 2000));
+  page.off("request", handler);
+  return captured;
+}
+
+/** Read access_token from the page's localStorage, cookies, or API request headers */
 export async function getAccessToken(page: Page): Promise<string | null> {
   try {
-    const result = await page.evaluate(() => {
-      const keys = Object.keys(localStorage);
-      const sKeys = Object.keys(sessionStorage);
-      console.log('[bsre] localStorage keys:', keys);
-      console.log('[bsre] sessionStorage keys:', sKeys);
+    // 1. Check cookies
+    const cookies = await page.context().cookies();
+    for (const c of cookies) {
+      if (c.name.toLowerCase().includes("token") || c.name.toLowerCase().includes("bearer")) {
+        return c.value;
+      }
+    }
 
-      // Try common key names
-      const candidates = ['access_token', 'token', 'auth_token', 'bearer_token', 'kc-access-token'];
+    // 2. Check localStorage/sessionStorage (without logging every time)
+    const result = await page.evaluate(() => {
+      const candidates = ["access_token", "token", "auth_token", "bearer_token", "kc-access-token"];
       for (const key of candidates) {
         const val = localStorage.getItem(key) || sessionStorage.getItem(key);
         if (val) return val;
       }
-      // Fallback: any key containing 'token' with a long value (likely a JWT) in localStorage
-      for (const key of keys) {
-        if (key.toLowerCase().includes('token')) {
-          const val = localStorage.getItem(key);
-          if (val && val.length > 100) return val;
-        }
-      }
-      // Fallback: sessionStorage
-      for (const key of sKeys) {
-        if (key.toLowerCase().includes('token')) {
-          const val = sessionStorage.getItem(key);
-          if (val && val.length > 100) return val;
-        }
-      }
       return null;
     });
-    return result as string | null;
+    if (result) return result as string;
+
+    // 3. Capture from API request headers
+    return await captureApiToken(page);
   } catch (e) {
-    console.error('[bsre] getAccessToken error:', e);
+    console.error("[bsre] getAccessToken error:", e);
     return null;
   }
 }

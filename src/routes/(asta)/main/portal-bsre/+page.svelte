@@ -8,6 +8,7 @@
     launchBsre,
     navigateBsre,
     debugBsreSession,
+    getBsreStats,
   } from "$lib/remotes/bsre.remote";
   import { getData, type GetParams } from "$lib/remotes/api.remote";
   import { d } from "$lib/utils";
@@ -42,48 +43,44 @@
   let chartStartDate = $state("");
   let chartEndDate = $state("");
   let chartCollapsed = $state(false);
+  let sessionCollapsed = $state(true);
 
-  const allBsreUsers = $derived(
-    getData({ table: "bsreUsers" as any, limit: 100000, offset: 0 }),
+  const ALL_USER_STATUSES = ["VERIFIED", "NEW", "UPDATE"];
+  const ALL_CERT_STATUSES = ["ISSUE", "NEW", "REVOKE", "EXPIRED"];
+
+  const stats = $derived(
+    getBsreStats({
+      ...((query.where as any)?.status
+        ? { status: (query.where as any).status }
+        : {}),
+      ...((query.where as any)?.certificateStatus
+        ? { certificateStatus: (query.where as any).certificateStatus }
+        : {}),
+      ...(chartStartDate ? { chartStartDate } : {}),
+      ...(chartEndDate ? { chartEndDate } : {}),
+    }),
   );
-  const allUsersData = $derived(allBsreUsers.current?.data ?? []);
+  const statsData = $derived(stats.current);
 
-  const chartData = $derived.by(() => {
-    const byDate: Record<string, { start: number; end: number }> = {};
-    for (const u of allUsersData as any[]) {
-      const certs: any[] = u?.details?.data?.sertifikat ?? [];
-      for (const cert of certs) {
-        const startRaw = (cert.notBeforeDate as string) ?? "";
-        const startDate = startRaw.split(" ")[0];
-        if (startDate) {
-          if (
-            (!chartStartDate || startDate >= chartStartDate) &&
-            (!chartEndDate || startDate <= chartEndDate)
-          ) {
-            if (!byDate[startDate]) byDate[startDate] = { start: 0, end: 0 };
-            byDate[startDate].start++;
-          }
-        }
-        const endRaw = (cert.notAfterDate as string) ?? "";
-        const endDate = endRaw.split(" ")[0];
-        if (endDate) {
-          if (
-            (!chartStartDate || endDate >= chartStartDate) &&
-            (!chartEndDate || endDate <= chartEndDate)
-          ) {
-            if (!byDate[endDate]) byDate[endDate] = { start: 0, end: 0 };
-            byDate[endDate].end++;
-          }
-        }
-      }
+  const totalUsers = $derived(statsData?.total ?? 0);
+  const chartData = $derived(statsData?.chartData ?? []);
+
+  const userStatusChartData = $derived.by(() => {
+    const counts = { ...((statsData as any)?.userStatusCounts ?? {}) };
+    for (const s of ALL_USER_STATUSES) {
+      if (!(s in counts)) counts[s] = 0;
     }
-    return Object.entries(byDate)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, counts]) => ({
-        date,
-        label: d(date).format("DD MMM YYYY"),
-        ...counts,
-      }));
+    return Object.entries(counts)
+      .sort(([, a], [, b]) => (b as number) - (a as number))
+      .map(([label, value]) => ({ label, value }));
+  });
+
+  const certStatusChartData = $derived.by(() => {
+    const counts = { ...((statsData as any)?.certStatusCounts ?? {}) };
+    for (const s of ALL_CERT_STATUSES) {
+      if (!(s in counts)) counts[s] = 0;
+    }
+    return ALL_CERT_STATUSES.map((label) => ({ label, value: counts[label] }));
   });
 
   function statusBg(label: string) {
@@ -95,6 +92,7 @@
       PENDING: "bg-warning/10",
       ISSUE: "bg-success/10",
       REVOKE: "bg-error/10",
+      NEW: "bg-info/10",
       EXPIRED: "bg-warning/10",
     };
     return map[label] ?? "bg-base-200/50";
@@ -106,36 +104,17 @@
   }
 
   function selectFilter(field: string, value: string) {
+    const w = query.where as Record<string, any>;
     if (field === "reset") {
       query.where = {};
+    } else if (w[field] === value) {
+      const next = { ...w };
+      delete next[field];
+      query.where = next;
     } else {
-      query.where = { [field]: value };
+      query.where = { ...w, [field]: value };
     }
   }
-
-  const totalUsers = $derived(allUsersData.length);
-
-  const userStatusChartData = $derived.by(() => {
-    const counts: Record<string, number> = {};
-    for (const u of allUsersData as any[]) {
-      const s = u.status || "unknown";
-      counts[s] = (counts[s] ?? 0) + 1;
-    }
-    return Object.entries(counts)
-      .sort(([, a], [, b]) => b - a)
-      .map(([label, value]) => ({ label, value }));
-  });
-
-  const certStatusChartData = $derived.by(() => {
-    const counts: Record<string, number> = {};
-    for (const u of allUsersData as any[]) {
-      const s = u.certificateStatus || "none";
-      counts[s] = (counts[s] ?? 0) + 1;
-    }
-    return Object.entries(counts)
-      .sort(([, a], [, b]) => b - a)
-      .map(([label, value]) => ({ label, value }));
-  });
 
   function latestCert(user: any) {
     const certs: any[] = user?.details?.data?.sertifikat ?? [];
@@ -281,21 +260,16 @@
         onclick={() => (chartCollapsed = !chartCollapsed)}
       >
         <iconify-icon icon="bx:chart"></iconify-icon>
-        {chartCollapsed ? "Expand" : "Collapse"}
+        Grafik
       </button>
 
       <button
-        class="btn btn-sm btn-primary gap-1"
-        onclick={syncFromBsre}
-        disabled={(!status.current?.active && !status.current?.hasToken) ||
-          syncing}
+        aria-label={sessionCollapsed ? "Expand" : "Collapse"}
+        class="btn btn-sm btn-ghost gap-1"
+        onclick={() => (sessionCollapsed = !sessionCollapsed)}
       >
-        {#if syncing}
-          <span class="loading loading-spinner loading-xs"></span>
-        {:else}
-          <iconify-icon icon="bx:sync"></iconify-icon>
-        {/if}
-        Sync
+        <iconify-icon icon="bx:cog"></iconify-icon>
+        Konfig
       </button>
     </div>
   </div>
@@ -307,33 +281,6 @@
         ? 'max-h-0 overflow-hidden p-0'
         : 'p-4'}"
     >
-      <div class="flex flex-wrap items-end gap-3 mb-2">
-        <label class="form-control">
-          <span
-            class="label-text text-[10px] uppercase tracking-widest opacity-40 font-black"
-            >Dari</span
-          >
-          <input
-            type="date"
-            class="input input-bordered input-xs w-36"
-            bind:value={chartStartDate}
-          />
-        </label>
-        <label class="form-control">
-          <span
-            class="label-text text-[10px] uppercase tracking-widest opacity-40 font-black"
-            >Sampai</span
-          >
-          <input
-            type="date"
-            class="input input-bordered input-xs w-36"
-            bind:value={chartEndDate}
-          />
-        </label>
-        <button class="btn btn-ghost btn-xs" onclick={resetChartDate}
-          >Reset</button
-        >
-      </div>
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div class="lg:col-span-2">
           <Chart
@@ -355,20 +302,60 @@
               },
             ]}
           />
+          {#if status.current?.lastSync}
+            <div class="flex gap-1 items-center mt-1 text-[10px] font-bold opacity-40">
+              <iconify-icon icon="bx:time-five"></iconify-icon>
+              Sync: {d(status.current.lastSync).format("DD MMM YYYY, HH:mm")}
+            </div>
+          {/if}
         </div>
         <div class="flex flex-col gap-3">
           <div>
+            <div class="flex flex-wrap items-end gap-2 mb-2">
+              <label class="form-control">
+                <span
+                  class="label-text text-[10px] uppercase tracking-widest opacity-40 font-black"
+                  >Dari</span
+                >
+                <input
+                  type="date"
+                  class="input input-bordered input-xs w-28"
+                  bind:value={chartStartDate}
+                />
+              </label>
+              <label class="form-control">
+                <span
+                  class="label-text text-[10px] uppercase tracking-widest opacity-40 font-black"
+                  >Sampai</span
+                >
+                <input
+                  type="date"
+                  class="input input-bordered input-xs w-28"
+                  bind:value={chartEndDate}
+                />
+              </label>
+              <button class="btn btn-ghost btn-xs" onclick={resetChartDate}
+                >Reset</button
+              >
+            </div>
             <span
-              class="label-text text-[10px] uppercase tracking-widest opacity-40 font-black block mb-1">Status User</span>
+              class="label-text text-[10px] uppercase tracking-widest opacity-40 font-black block mb-1"
+              >Status User</span
+            >
             <div class="grid grid-cols-2 gap-1.5">
               <div
-                class="rounded-lg px-2 py-1.5 text-center cursor-pointer hover:ring-2 hover:ring-base-content/30 transition-all {statusBg('Total')} {!query.where?.status && !query.where?.certificateStatus ? 'ring-2 ring-primary/60' : ''}"
+                class="rounded-lg px-2 py-1 text-center cursor-pointer hover:ring-2 hover:ring-base-content/30 transition-all {statusBg(
+                  'Total',
+                )} {!query.where?.status && !query.where?.certificateStatus
+                  ? 'ring-2 ring-primary/60'
+                  : ''}"
                 onclick={() => selectFilter("reset", "")}
-                onkeydown={(e) => e.key === 'Enter' && selectFilter("reset", "")}
+                onkeydown={(e) =>
+                  e.key === "Enter" && selectFilter("reset", "")}
                 role="button"
                 tabindex="0"
               >
-                <div class="text-base font-black font-mono tracking-tighter">
+                <div class="text-sm font-black font-mono tracking-tighter">
                   {totalUsers}
                 </div>
                 <div
@@ -379,9 +366,14 @@
               </div>
               {#each userStatusChartData as d}
                 <div
-                  class="rounded-lg px-2 py-1 text-center cursor-pointer hover:ring-2 hover:ring-base-content/30 transition-all {statusBg(d.label)} {query.where?.status === d.label ? 'ring-2 ring-primary/60' : ''}"
+                  class="rounded-lg px-2 py-1 text-center cursor-pointer hover:ring-2 hover:ring-base-content/30 transition-all {statusBg(
+                    d.label,
+                  )} {query.where?.status === d.label
+                    ? 'ring-2 ring-primary/60'
+                    : ''}"
                   onclick={() => selectFilter("status", d.label)}
-                  onkeydown={(e) => e.key === 'Enter' && selectFilter("status", d.label)}
+                  onkeydown={(e) =>
+                    e.key === "Enter" && selectFilter("status", d.label)}
                   role="button"
                   tabindex="0"
                 >
@@ -405,9 +397,15 @@
             <div class="grid grid-cols-2 gap-1.5">
               {#each certStatusChartData as d}
                 <div
-                  class="rounded-lg px-2 py-1 text-center cursor-pointer hover:ring-2 hover:ring-base-content/30 transition-all {statusBg(d.label)} {query.where?.certificateStatus === d.label ? 'ring-2 ring-primary/60' : ''}"
+                  class="rounded-lg px-2 py-1 text-center cursor-pointer hover:ring-2 hover:ring-base-content/30 transition-all {statusBg(
+                    d.label,
+                  )} {query.where?.certificateStatus === d.label
+                    ? 'ring-2 ring-primary/60'
+                    : ''}"
                   onclick={() => selectFilter("certificateStatus", d.label)}
-                  onkeydown={(e) => e.key === 'Enter' && selectFilter("certificateStatus", d.label)}
+                  onkeydown={(e) =>
+                    e.key === "Enter" &&
+                    selectFilter("certificateStatus", d.label)}
                   role="button"
                   tabindex="0"
                 >
@@ -429,9 +427,10 @@
   {/if}
 
   <!-- Session Status -->
-  <div
-    class="bg-base-100/40 border border-base-200/60 rounded-2xl py-1 px-4 -mt-1 shadow-sm backdrop-blur"
-  >
+  {#if !sessionCollapsed}
+    <div
+      class="bg-base-100/40 border border-base-200/60 rounded-2xl py-1 px-4 shadow-sm backdrop-blur transition-all duration-500"
+    >
     <div class="flex items-center gap-3">
       <div class="flex items-center gap-2 ml-2">
         <div
@@ -455,18 +454,24 @@
           ></iconify-icon>
           {status.current?.hasToken ? "Token OK" : "No Token"}
         </div>
-        {#if status.current?.lastSync}
-          <div class="badge badge-sm badge-ghost gap-1">
-            <iconify-icon icon="bx:time-five"></iconify-icon>
-            Sync: {d(status.current.lastSync).format("DD MMM YYYY, HH:mm")}
-          </div>
-        {/if}
-
         {#if status.current?.active && status.current.mode?.startsWith("remote")}
           <span class="text-xs opacity-60">🌐 Remote</span>
         {/if}
       </div>
       <div class="flex gap-2 ml-auto">
+        <button
+          class="btn btn-sm btn-primary gap-1"
+          onclick={syncFromBsre}
+          disabled={(!status.current?.active && !status.current?.hasToken) ||
+            syncing}
+        >
+          {#if syncing}
+            <span class="loading loading-spinner loading-xs"></span>
+          {:else}
+            <iconify-icon icon="bx:sync"></iconify-icon>
+          {/if}
+          Sync
+        </button>
         <button class="btn btn-primary btn-sm gap-1" onclick={launch}>
           {#if launchBsre.pending}
             <span class="loading loading-spinner loading-xs"></span>
@@ -522,6 +527,7 @@
       </div>
     {/if}
   </div>
+{/if}
 
   <!-- Users Table -->
   <div

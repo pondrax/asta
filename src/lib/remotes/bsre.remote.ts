@@ -1,6 +1,9 @@
 import { command, query } from "$app/server";
 import { type } from "arktype";
+import type { Page } from "playwright-core";
+import { and, eq } from "drizzle-orm";
 import { db } from "$lib/server/db";
+import { bsreUsers } from "$lib/server/db/schema";
 import {
   cacheToken,
   closeSession,
@@ -22,16 +25,33 @@ export const launchBsre = command(
     const session = await openSession(userId);
     await session.page.goto(BSRE_URL, { waitUntil: "domcontentloaded", timeout: 30_000 });
 
-    // Handle immediate BeID redirect
-    if (new URL(session.page.url()).hostname.includes(BEID_HOST) && userId === "auto-sync") {
+    let token = await getAccessToken(session.page);
+    console.log("[bsre] token after launch:", token ? "found ✓" : "NOT found ✗");
+
+    // If no token and on BEID login, handle it
+    if (!token && new URL(session.page.url()).hostname.includes(BEID_HOST)) {
       await handleBeIDLogin(session.page);
-      // Wait for redirect back to portal
       await session.page.waitForLoadState("networkidle", { timeout: 20_000 }).catch(() => { });
+      token = await getAccessToken(session.page);
+      console.log("[bsre] token after BEID login:", token ? "found ✓" : "NOT found ✗");
     }
 
-    // Cache token after successful login
-    const token = await cacheToken(userId, session.page);
-    console.log("[bsre] token after launch:", token ? "found ✓" : "NOT found ✗");
+    // If no token and not on BEID, force a redirect to trigger login
+    if (!token) {
+      console.log("[bsre] no token found, re-navigating to force login redirect");
+      await session.page.goto(BSRE_URL, { waitUntil: "networkidle", timeout: 30_000 });
+      if (new URL(session.page.url()).hostname.includes(BEID_HOST)) {
+        await handleBeIDLogin(session.page);
+        await session.page.waitForLoadState("networkidle", { timeout: 20_000 }).catch(() => { });
+        token = await getAccessToken(session.page);
+        console.log("[bsre] token after re-login:", token ? "found ✓" : "NOT found ✗");
+      }
+    }
+
+    // Cache token for the user
+    if (token) {
+      tokenStore.set(userId, token.startsWith("Bearer ") ? token : `Bearer ${token}`);
+    }
 
     const modeLabel = session.mode.startsWith("remote") ? "remote CDP" : "browser lokal";
     return {
@@ -262,5 +282,96 @@ export const fetchBsreUsers = command(
     } catch (err: any) {
       return { success: false, message: err?.message ?? "Gagal fetch API.", data: null };
     }
+  }
+);
+
+type StatsFilter = {
+  status?: string;
+  certificateStatus?: string;
+  chartStartDate?: string;
+  chartEndDate?: string;
+};
+
+const selectCols = { status: bsreUsers.status, certificateStatus: bsreUsers.certificateStatus, details: bsreUsers.details } as const;
+
+function aggregateStats(users: { status: string | null; certificateStatus: string | null; details: unknown }[]) {
+  const userStatusCounts: Record<string, number> = {};
+  const certStatusCounts: Record<string, number> = {};
+  for (const u of users) {
+    const us = u.status || "unknown";
+    userStatusCounts[us] = (userStatusCounts[us] ?? 0) + 1;
+    const cs = u.certificateStatus || "none";
+    certStatusCounts[cs] = (certStatusCounts[cs] ?? 0) + 1;
+  }
+  return { userStatusCounts, certStatusCounts, total: users.length };
+}
+
+function buildChartData(users: { details: unknown }[], chartStartDate?: string, chartEndDate?: string) {
+  const byDate: Record<string, { start: number; end: number }> = {};
+  for (const u of users) {
+    const certs: any[] = (u.details as any)?.data?.sertifikat ?? [];
+    for (const cert of certs) {
+      const startRaw = (cert.notBeforeDate as string) ?? "";
+      const startDate = startRaw.split(" ")[0];
+      if (startDate) {
+        if (
+          (!chartStartDate || startDate >= chartStartDate) &&
+          (!chartEndDate || startDate <= chartEndDate)
+        ) {
+          if (!byDate[startDate]) byDate[startDate] = { start: 0, end: 0 };
+          byDate[startDate].start++;
+        }
+      }
+      const endRaw = (cert.notAfterDate as string) ?? "";
+      const endDate = endRaw.split(" ")[0];
+      if (endDate) {
+        if (
+          (!chartStartDate || endDate >= chartStartDate) &&
+          (!chartEndDate || endDate <= chartEndDate)
+        ) {
+          if (!byDate[endDate]) byDate[endDate] = { start: 0, end: 0 };
+          byDate[endDate].end++;
+        }
+      }
+    }
+  }
+  return Object.entries(byDate)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, counts]) => ({
+      date,
+      label: new Date(date).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }),
+      ...counts,
+    }));
+}
+
+export const getBsreStats = query(
+  type({ status: "string?", certificateStatus: "string?", chartStartDate: "string?", chartEndDate: "string?" }),
+  async ({ status, certificateStatus, chartStartDate, chartEndDate }: StatsFilter) => {
+    const conditions: ReturnType<typeof eq>[] = [];
+    if (status) conditions.push(eq(bsreUsers.status, status));
+    if (certificateStatus) conditions.push(eq(bsreUsers.certificateStatus, certificateStatus));
+
+    // All users — for total and user status counts
+    const allUsers = await db.select(selectCols).from(bsreUsers);
+    const all = aggregateStats(allUsers);
+
+    // Users filtered by status only — for cert status counts
+    let certQuery = db.select(selectCols).from(bsreUsers);
+    if (status) certQuery = certQuery.where(eq(bsreUsers.status, status)) as any;
+    const certUsers = await certQuery;
+    const certStats = aggregateStats(certUsers);
+
+    // Users filtered by both status and certificateStatus — for chart only
+    let chartQuery = db.select(selectCols).from(bsreUsers);
+    if (conditions.length > 0) chartQuery = chartQuery.where(and(...conditions)) as any;
+    const chartFiltered = await chartQuery;
+    const chartData = buildChartData(chartFiltered, chartStartDate, chartEndDate);
+
+    return {
+      total: all.total,
+      userStatusCounts: all.userStatusCounts,
+      certStatusCounts: certStats.certStatusCounts,
+      chartData,
+    };
   }
 );

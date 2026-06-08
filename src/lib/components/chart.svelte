@@ -101,7 +101,17 @@
         tooltip: { enabled: false },
       },
       yaxis: {
-        show: false,
+        show: true,
+        labels: {
+          style: {
+            colors: "rgba(128,128,128,0.4)",
+            fontSize: "9px",
+            fontWeight: 800,
+          },
+          offsetX: -4,
+        },
+        axisBorder: { show: false },
+        axisTicks: { show: false },
       },
       tooltip: {
         theme: "light",
