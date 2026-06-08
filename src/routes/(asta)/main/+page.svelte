@@ -3,6 +3,7 @@
   import { app } from "$lib/app/index.svelte";
   import { d } from "$lib/utils";
   import { getAdminDashboard } from "$lib/remotes/stats.remote";
+  import { getBsreStats } from "$lib/remotes/bsre.remote";
 
   const dashData = getAdminDashboard({});
   const dash = $derived(dashData.current);
@@ -90,6 +91,75 @@
   function resetDateFilter() {
     startDate = d().subtract(1, "month").format("YYYY-MM-DD");
     endDate = new Date().toISOString().split("T")[0];
+  }
+
+  // BSrE chart state (no table filter — chart-only)
+  let bsreChartCollapsed = $state(false);
+  let bsreStatusFilter = $state("");
+  let bsreCertFilter = $state("");
+  let bsreChartStart = $state("");
+  let bsreChartEnd = $state("");
+
+  const ALL_USER_STATUSES = ["VERIFIED", "NEW", "UPDATE"];
+  const ALL_CERT_STATUSES = ["ISSUE", "NEW", "REVOKE", "EXPIRED"];
+
+  const bsreStats = $derived(
+    getBsreStats({
+      ...(bsreStatusFilter ? { status: bsreStatusFilter } : {}),
+      ...(bsreCertFilter ? { certificateStatus: bsreCertFilter } : {}),
+      ...(bsreChartStart ? { chartStartDate: bsreChartStart } : {}),
+      ...(bsreChartEnd ? { chartEndDate: bsreChartEnd } : {}),
+    }),
+  );
+  const bsreStatsData = $derived(bsreStats.current);
+
+  const bsreTotalUsers = $derived(bsreStatsData?.total ?? 0);
+  const bsreChartData = $derived(bsreStatsData?.chartData ?? []);
+
+  const bsreUserStatusData = $derived.by(() => {
+    const counts = { ...((bsreStatsData as any)?.userStatusCounts ?? {}) };
+    for (const s of ALL_USER_STATUSES) {
+      if (!(s in counts)) counts[s] = 0;
+    }
+    return Object.entries(counts)
+      .sort(([, a], [, b]) => (b as number) - (a as number))
+      .map(([label, value]) => ({ label, value }));
+  });
+
+  const bsreCertStatusData = $derived.by(() => {
+    const counts = { ...((bsreStatsData as any)?.certStatusCounts ?? {}) };
+    for (const s of ALL_CERT_STATUSES) {
+      if (!(s in counts)) counts[s] = 0;
+    }
+    return ALL_CERT_STATUSES.map((label) => ({ label, value: counts[label] }));
+  });
+
+  function bsreStatusBg(label: string) {
+    const map: Record<string, string> = {
+      Total: "bg-primary/10",
+      VERIFIED: "bg-success/10",
+      NEW: "bg-info/10",
+      ISSUE: "bg-success/10",
+      REVOKE: "bg-error/10",
+      EXPIRED: "bg-warning/10",
+    };
+    return map[label] ?? "bg-base-200/50";
+  }
+
+  function toggleBsreFilter(type: "status" | "cert" | "reset", value: string) {
+    if (type === "reset") {
+      bsreStatusFilter = "";
+      bsreCertFilter = "";
+    } else if (type === "status") {
+      bsreStatusFilter = bsreStatusFilter === value ? "" : value;
+    } else {
+      bsreCertFilter = bsreCertFilter === value ? "" : value;
+    }
+  }
+
+  function resetBsreChartDate() {
+    bsreChartStart = "";
+    bsreChartEnd = "";
   }
 </script>
 
@@ -274,6 +344,169 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- BSrE Chart -->
+    <div
+      class="bg-base-100/40 border border-base-200/60 rounded-2xl shadow-sm backdrop-blur transition-all duration-500 {bsreChartCollapsed
+        ? 'max-h-0 overflow-hidden p-0'
+        : 'p-4'}"
+    >
+      <div class="flex items-center justify-between mb-2">
+        <h2
+          class="text-sm font-bold bg-linear-to-r from-primary to-secondary bg-clip-text text-transparent"
+        >
+          BSrE — Status Sertifikat
+        </h2>
+        <button
+          aria-label="Toggle"
+          class="btn btn-circle btn-xs btn-ghost opacity-40"
+          onclick={() => (bsreChartCollapsed = !bsreChartCollapsed)}
+        >
+          <iconify-icon
+            icon="bx:{bsreChartCollapsed ? 'chevron-down' : 'chevron-up'}"
+          ></iconify-icon>
+        </button>
+      </div>
+      {#if !bsreChartCollapsed}
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div class="lg:col-span-2">
+            <Chart
+              title=""
+              subtitle=""
+              data={bsreChartData}
+              height={250}
+              type="line"
+              categories={[
+                {
+                  key: "start",
+                  color: "var(--color-success)",
+                  label: "Sertifikat Mulai",
+                },
+                {
+                  key: "end",
+                  color: "var(--color-error)",
+                  label: "Sertifikat Berakhir",
+                },
+              ]}
+            />
+          </div>
+          <div class="flex flex-col gap-3">
+            <div>
+              <div class="flex flex-wrap items-end gap-2 mb-2">
+                <label class="form-control">
+                  <span
+                    class="label-text text-[10px] uppercase tracking-widest opacity-40 font-black"
+                    >Dari</span
+                  >
+                  <input
+                    type="date"
+                    class="input input-bordered input-xs w-28"
+                    bind:value={bsreChartStart}
+                  />
+                </label>
+                <label class="form-control">
+                  <span
+                    class="label-text text-[10px] uppercase tracking-widest opacity-40 font-black"
+                    >Sampai</span
+                  >
+                  <input
+                    type="date"
+                    class="input input-bordered input-xs w-28"
+                    bind:value={bsreChartEnd}
+                  />
+                </label>
+                <button
+                  class="btn btn-ghost btn-xs"
+                  onclick={resetBsreChartDate}>Reset</button
+                >
+              </div>
+              <span
+                class="label-text text-[10px] uppercase tracking-widest opacity-40 font-black block mb-1"
+                >Status User</span
+              >
+              <div class="grid grid-cols-2 gap-1.5">
+                <div
+                  class="rounded-lg px-2 py-1 text-center cursor-pointer hover:ring-2 hover:ring-base-content/30 transition-all {bsreStatusBg(
+                    'Total',
+                  )} {!bsreStatusFilter && !bsreCertFilter
+                    ? 'ring-2 ring-primary/60'
+                    : ''}"
+                  onclick={() => toggleBsreFilter("reset", "")}
+                  onkeydown={(e) =>
+                    e.key === "Enter" && toggleBsreFilter("reset", "")}
+                  role="button"
+                  tabindex="0"
+                >
+                  <div class="text-sm font-black font-mono tracking-tighter">
+                    {bsreTotalUsers}
+                  </div>
+                  <div
+                    class="text-[9px] font-bold opacity-50 uppercase tracking-wider"
+                  >
+                    Total
+                  </div>
+                </div>
+                {#each bsreUserStatusData as d}
+                  <div
+                    class="rounded-lg px-2 py-1 text-center cursor-pointer hover:ring-2 hover:ring-base-content/30 transition-all {bsreStatusBg(
+                      d.label,
+                    )} {bsreStatusFilter === d.label
+                      ? 'ring-2 ring-primary/60'
+                      : ''}"
+                    onclick={() => toggleBsreFilter("status", d.label)}
+                    onkeydown={(e) =>
+                      e.key === "Enter" &&
+                      toggleBsreFilter("status", d.label)}
+                    role="button"
+                    tabindex="0"
+                  >
+                    <div class="text-sm font-black font-mono tracking-tighter">
+                      {d.value}
+                    </div>
+                    <div
+                      class="text-[9px] font-bold opacity-50 uppercase tracking-wider truncate"
+                    >
+                      {d.label}
+                    </div>
+                  </div>
+                {/each}
+              </div>
+            </div>
+            <div>
+              <span
+                class="label-text text-[10px] uppercase tracking-widest opacity-40 font-black block mb-1"
+                >Status Sertifikat</span
+              >
+              <div class="grid grid-cols-2 gap-1.5">
+                {#each bsreCertStatusData as d}
+                  <div
+                    class="rounded-lg px-2 py-1 text-center cursor-pointer hover:ring-2 hover:ring-base-content/30 transition-all {bsreStatusBg(
+                      d.label,
+                    )} {bsreCertFilter === d.label
+                      ? 'ring-2 ring-primary/60'
+                      : ''}"
+                    onclick={() => toggleBsreFilter("cert", d.label)}
+                    onkeydown={(e) =>
+                      e.key === "Enter" && toggleBsreFilter("cert", d.label)}
+                    role="button"
+                    tabindex="0"
+                  >
+                    <div class="text-sm font-black font-mono tracking-tighter">
+                      {d.value}
+                    </div>
+                    <div
+                      class="text-[9px] font-bold opacity-50 uppercase tracking-wider truncate"
+                    >
+                      {d.label}
+                    </div>
+                  </div>
+                {/each}
+              </div>
+            </div>
+          </div>
+        </div>
+      {/if}
     </div>
 
     <div
