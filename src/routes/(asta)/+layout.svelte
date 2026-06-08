@@ -473,16 +473,16 @@
                   </li>
                   <li>
                     <a
-                      href="/services/status"
+                      href="/services/register"
                       class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
-                        .url.pathname === '/services/status'
+                        .url.pathname === '/services/register'
                         ? 'text-primary font-bold bg-primary/5'
                         : 'text-base-content/75'}"
                     >
                       <iconify-icon
                         icon="bx:chevron-right"
                         class="text-xs transition-all {page.url.pathname ===
-                        '/services/status'
+                        '/services/register'
                           ? 'text-primary opacity-100'
                           : 'opacity-40 group-hover:opacity-100'}"
                       ></iconify-icon>

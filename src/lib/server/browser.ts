@@ -105,7 +105,7 @@ export async function openSession(userId: string): Promise<BrowserSession> {
   page.on("framenavigated", async (frame: any) => {
     if (frame !== page.mainFrame()) return;
     try {
-      if (new URL(frame.url()).hostname.includes(BEID_HOST)) {
+      if (new URL(frame.url()).hostname.includes(BEID_HOST) && userId === "auto-sync") {
         await page.waitForLoadState("domcontentloaded").catch(() => {});
         await handleBeIDLogin(page);
       }

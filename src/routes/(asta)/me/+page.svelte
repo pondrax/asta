@@ -13,7 +13,7 @@
       target: "#tour-me-stats",
       title: "Ringkasan Dokumen",
       content:
-        "Lihat jumlah total dokumen, dokumen ditandatangani, draft, dan antrean Anda di sini.",
+        "Lihat jumlah total dokumen, dokumen ditandatangani, dan draft Anda di sini.",
       placement: "bottom" as const,
     },
     {
@@ -57,7 +57,6 @@
   function statusColor(s: string | null) {
     if (s === "signed") return "success";
     if (s === "draft") return "warning";
-    if (s === "queue") return "info";
     if (s === "failed") return "error";
     return "ghost";
   }
@@ -65,7 +64,6 @@
   function statusLabel(s: string | null) {
     if (s === "signed") return "Ditandatangani";
     if (s === "draft") return "Draft";
-    if (s === "queue") return "Antrean";
     if (s === "failed") return "Gagal";
     return s || "-";
   }
@@ -111,7 +109,6 @@
           {formatNumber(
             (dash.userDocCounts.signed || 0) +
               (dash.userDocCounts.draft || 0) +
-              (dash.userDocCounts.queue || 0) +
               (dash.userDocCounts.failed || 0),
           )}
         </div>
@@ -134,15 +131,7 @@
           {formatNumber(dash.userDocCounts.draft || 0)}
         </div>
       </div>
-      <div class="stat">
-        <div class="stat-figure text-info text-3xl">
-          <iconify-icon icon="bx:time"></iconify-icon>
-        </div>
-        <div class="stat-title">Antrean</div>
-        <div class="stat-value text-4xl text-info">
-          {formatNumber(dash.userDocCounts.queue || 0)}
-        </div>
-      </div>
+
     </div>
 
     <div class="flex flex-wrap items-end gap-3">
@@ -197,7 +186,7 @@
               queue: "var(--color-info)",
               failed: "var(--color-error)",
             };
-            return dash.docStatuses.map((s) => ({
+            return dash.docStatuses.filter((s) => s.status !== "queue").map((s) => ({
               label: statusLabel(s.status),
               value: s.count,
               color: colorMap[s.status] || "var(--color-primary)",
@@ -205,7 +194,7 @@
           })()}
           height={200}
           type="donut"
-          categories={dash.docStatuses.map((s) => {
+          categories={dash.docStatuses.filter((s) => s.status !== "queue").map((s) => {
             const cm: Record<string, string> = {
               signed: "var(--color-success)",
               draft: "var(--color-warning)",
@@ -233,18 +222,7 @@
             {formatNumber(dash.userDocCounts.draft || 0)}
           </div>
         </div>
-        <div class="bg-base-100/50 p-3 rounded-2xl border border-base-300">
-          <div class="flex items-center gap-3">
-            <div class="w-1.5 h-1.5 rounded-full bg-info"></div>
-            <span
-              class="text-[8px] font-black uppercase tracking-[0.2em] opacity-40"
-              >Antrean</span
-            >
-          </div>
-          <div class="text-2xl font-black font-mono tracking-tighter mt-1">
-            {formatNumber(dash.userDocCounts.queue || 0)}
-          </div>
-        </div>
+
       </div>
     </div>
 

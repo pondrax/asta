@@ -97,7 +97,9 @@
         <div class="form-control w-full max-w-xs">
           <!-- svelte-ignore a11y_label_has_associated_control -->
           <label class="label py-1">
-            <span class="label-text font-bold text-xs opacity-75">Cari Pesan</span>
+            <span class="label-text font-bold text-xs opacity-75"
+              >Cari Pesan</span
+            >
           </label>
           <input
             bind:value={where.message}
@@ -143,16 +145,22 @@
             <tr>
               <td colspan="6" class="py-12 text-center">
                 <div class="flex flex-col items-center justify-center gap-2">
-                  <span class="loading loading-spinner loading-md text-primary"></span>
-                  <span class="text-sm opacity-55 font-medium">Memuat data log...</span>
+                  <span class="loading loading-spinner loading-md text-primary"
+                  ></span>
+                  <span class="text-sm opacity-55 font-medium"
+                    >Memuat data log...</span
+                  >
                 </div>
               </td>
             </tr>
           {:else if records.error}
             <tr>
               <td colspan="6" class="py-12 text-center">
-                <div class="flex flex-col items-center justify-center gap-3 text-error">
-                  <iconify-icon icon="bx:error-circle" class="text-3xl"></iconify-icon>
+                <div
+                  class="flex flex-col items-center justify-center gap-3 text-error"
+                >
+                  <iconify-icon icon="bx:error-circle" class="text-3xl"
+                  ></iconify-icon>
                   <div class="text-sm font-semibold">
                     Gagal memuat data: {records.error.message}
                   </div>
@@ -168,8 +176,11 @@
           {:else if !items.data?.length}
             <tr>
               <td colspan="6" class="py-12 text-center">
-                <div class="flex flex-col items-center justify-center gap-2 opacity-40">
-                  <iconify-icon icon="bx:list-ul" class="text-3xl"></iconify-icon>
+                <div
+                  class="flex flex-col items-center justify-center gap-2 opacity-40"
+                >
+                  <iconify-icon icon="bx:list-ul" class="text-3xl"
+                  ></iconify-icon>
                   <span class="text-sm font-medium">Tidak ada data log</span>
                 </div>
               </td>
@@ -195,9 +206,25 @@
                     {item.level}
                   </span>
                 </td>
-                <td class="font-mono text-xs max-w-sm truncate">{item.message || "-"}</td>
-                <td class="text-xs opacity-60 max-w-48 truncate font-mono">{item.url || "-"}</td>
-                <td class="text-xs opacity-60 font-mono">{item.method || "-"}</td>
+                <td
+                  class="font-mono text-xs max-w-sm leading-relaxed whitespace-pre-wrap"
+                >
+                  {item.message}
+                  {#if item.metadata}
+                    {#each Object.entries(item.metadata) as [k, v], i}
+                      {#if k !== "fileName"}
+                        <br /><span class="text-base-content/90">{k}</span>:
+                        <span class="opacity-70">{JSON.stringify(v)}</span>
+                      {/if}
+                    {/each}
+                  {/if}
+                </td>
+                <td class="text-xs opacity-60 max-w-48 truncate font-mono"
+                  >{item.url || "-"}</td
+                >
+                <td class="text-xs opacity-60 font-mono"
+                  >{item.method || "-"}</td
+                >
                 <td class="text-xs opacity-60 whitespace-nowrap">
                   {d(item.created).format("HH:mm, DD MMM YYYY")}
                 </td>
@@ -209,4 +236,3 @@
     </div>
   </div>
 </div>
-
