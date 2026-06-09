@@ -5,33 +5,13 @@ interface ChatMessage {
   content: string;
 }
 
-export class AI {
-  private apiKey: string;
-  private baseUrl: string;
-  private model: string;
+interface ChatResult {
+  content: string;
+  role: "assistant";
+  finish_reason: string;
+}
 
-  constructor() {
-    this.apiKey = env.OPENROUTER_API_KEY || env.OPENAI_API_KEY || "";
-    this.baseUrl = env.AI_BASE_URL || "https://openrouter.ai/api/v1";
-    this.model = env.AI_MODEL || "";
-  }
-
-  get enabled() {
-    return !!this.apiKey;
-  }
-
-  async chat(messages: ChatMessage[]) {
-    if (!this.enabled) {
-      return { content: "AI chatbot tidak dikonfigurasi. Silakan atur OPENROUTER_API_KEY dan AI_MODEL di environment variables.", role: "assistant" as const };
-    }
-
-    if (!this.model) {
-      return { content: "Model AI belum dikonfigurasi. Silakan atur AI_MODEL di environment variables.", role: "assistant" as const };
-    }
-
-    const systemPrompt: ChatMessage = {
-      role: "system",
-      content: `Anda adalah asisten AI untuk platform Tapak Astà. Berikut adalah panduan lengkap penggunaan aplikasi:
+const systemContent = `Anda adalah asisten AI untuk platform Tapak Astà. Berikut adalah panduan lengkap penggunaan aplikasi:
 
 # Tapak Astà — Cara Penggunaan
 
@@ -158,45 +138,51 @@ Tapak Astà adalah platform tanda tangan elektronik untuk Pemerintah Kota Mojoke
 - Tombol chat mengambang (kanan bawah, primary circle).
 - Klik untuk membuka panel chat.
 - Tanya jawab seputar platform, tanda tangan, atau verifikasi.
-- Menggunakan OpenRouter AI (model bisa diatur).
 - Menjawab dalam Bahasa Indonesia.
 - Tersedia untuk pengguna yang sudah login.
 
-Gunakan informasi di atas untuk menjawab pertanyaan pengguna. Jawablah dengan ramah, jelas, dan selalu dalam Bahasa Indonesia. Beri jarak antar paragraf (sisipkan baris kosong di antara paragraf). Jika Anda tidak tahu jawabannya, akui saja dan jangan membuat informasi palsu.`
-    };
+Gunakan informasi di atas untuk menjawab pertanyaan pengguna. Jawablah dengan ramah, jelas, dan selalu dalam Bahasa Indonesia. Beri jarak antar paragraf (sisipkan baris kosong di antara paragraf). Jika Anda tidak tahu jawabannya, akui saja dan jangan membuat informasi palsu.`;
 
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${this.apiKey}`,
-    };
+const AI_API = "https://g4f.space/v1/chat/completions";
 
-    if (this.baseUrl.includes("openrouter")) {
-      headers["HTTP-Referer"] = "https://asta.mojokertokota.go.id";
-      headers["X-Title"] = "Tapak Astà";
+export class AI {
+  async chat(messages: ChatMessage[]): Promise<ChatResult> {
+    try {
+      const res = await fetch(AI_API, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${env.G4F_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "auto",
+          messages: [{ role: "system", content: systemContent }, ...messages],
+        }),
+      });
+
+      if (res.status === 429) {
+        const retryAfter = parseInt(res.headers.get("Retry-After") || "10", 10);
+        await new Promise(r => setTimeout(r, retryAfter * 1000));
+        return this.chat(messages);
+      }
+
+      if (!res.ok) {
+        throw new Error(`${res.status} ${res.statusText}`);
+      }
+
+      const json = await res.json();
+
+      return {
+        content: json.choices?.[0]?.message?.content || "Maaf, saya tidak dapat merespons saat ini.",
+        role: "assistant" as const,
+        finish_reason: json.choices?.[0]?.finish_reason || "stop",
+      };
+    } catch (e) {
+      return {
+        content: "Maaf, terjadi kesalahan: " + (e instanceof Error ? e.message : "unknown error"),
+        role: "assistant" as const,
+        finish_reason: "stop" as const,
+      };
     }
-
-    const req = await fetch(`${this.baseUrl}/chat/completions`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        model: this.model,
-        messages: [systemPrompt, ...messages],
-        max_tokens: 1024,
-        temperature: 0.7,
-      }),
-    });
-
-    if (!req.ok) {
-      const text = await req.text();
-      throw new Error(`AI API error (${req.status}): ${text}`);
-    }
-
-    const data = await req.json();
-    const choice = data.choices?.[0];
-    return {
-      content: choice?.message?.content || "Maaf, saya tidak dapat merespons saat ini.",
-      role: "assistant" as const,
-      finish_reason: choice?.finish_reason || "stop",
-    };
   }
 }
