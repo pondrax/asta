@@ -127,15 +127,24 @@
       {/if}
     </div>
 
-    <div class="border-t border-base-300 p-3 flex gap-2">
-      <input
-        type="text"
-        bind:value={input}
-        onkeydown={handleKeydown}
-        placeholder="Ketik pesan..."
-        class="input input-bordered input-sm flex-1"
-        disabled={loading}
-      />
+    <div class="border-t border-base-300 p-3 flex gap-2 relative items-center">
+      <label class="input input-bordered input-sm flex-1 flex items-center gap-1">
+        <button
+          class="btn btn-ghost btn-xs p-0 size-6 flex items-center justify-center"
+          onclick={() => (showEmoji = !showEmoji)}
+          aria-label="Emoji"
+        >
+          <iconify-icon icon="bx:smile"></iconify-icon>
+        </button>
+        <input
+          type="text"
+          bind:value={input}
+          onkeydown={handleKeydown}
+          placeholder="Ketik pesan..."
+          class="grow"
+          disabled={loading}
+        />
+      </label>
       <button
         class="btn btn-primary btn-sm"
         onclick={send}
@@ -144,6 +153,23 @@
       >
         <iconify-icon icon="bx:send"></iconify-icon>
       </button>
+      {#if showEmoji}
+        <div
+          class="absolute bottom-full left-0 mb-1 p-2 bg-base-100 border border-base-300 rounded-box shadow-xl grid grid-cols-8 gap-1 text-lg"
+        >
+          {#each ["😊", "😂", "❤️", "👍", "🔥", "🎉", "🙏", "😁", "🥺", "😅", "🤔", "✨", "🙌", "💪", "👏", "⭐", "🤗", "😍", "🥳", "😎", "💯", "🔥", "💡", "🎯"] as e}
+            <button
+              class="btn btn-ghost btn-xs p-0 size-8 flex items-center justify-center"
+              onclick={() => {
+                input += e;
+                showEmoji = false;
+              }}
+            >
+              {e}
+            </button>
+          {/each}
+        </div>
+      {/if}
     </div>
   </div>
 {/if}
