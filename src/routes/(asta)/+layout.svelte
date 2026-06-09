@@ -63,6 +63,7 @@
               <li><a href="/me">Overview</a></li>
               <li><a href="/me/documents">Dokumen Saya</a></li>
               <li><a href="/profile">Profil</a></li>
+              <li><a href="/survey">Survey Kepuasan</a></li>
               {#if user.role?.name === "admin"}
                 <li><a href="/templates">Templates</a></li>
               {/if}
@@ -72,6 +73,7 @@
                 <li><a href="/main/users">Users</a></li>
                 <li><a href="/main/logs">Logs</a></li>
                 <li><a href="/main/portal-bsre">BSrE Portal</a></li>
+                <li><a href="/main/survey">Survey</a></li>
               {/if}
             {/if}
           </ul>
@@ -828,6 +830,24 @@
                           : 'opacity-40 group-hover:opacity-100'}"
                       ></iconify-icon>
                       <span>Portal BSrE Portal</span>
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href="/main/survey"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
+                        .url.pathname === '/main/survey'
+                        ? 'text-primary font-bold bg-primary/5'
+                        : 'text-base-content/75'}"
+                    >
+                      <iconify-icon
+                        icon="bx:chevron-right"
+                        class="text-xs transition-all {page.url.pathname ===
+                        '/main/survey'
+                          ? 'text-primary opacity-100'
+                          : 'opacity-40 group-hover:opacity-100'}"
+                      ></iconify-icon>
+                      <span>Survey Kepuasan</span>
                     </a>
                   </li>
                 </ul>

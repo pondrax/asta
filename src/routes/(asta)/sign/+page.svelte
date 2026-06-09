@@ -5,6 +5,7 @@
   import type { SignatureType } from "./types";
   import * as pdfLib from "$lib/utils/pdf";
   import { Modal, Tour } from "$lib/components";
+  import { submitSurvey } from "$lib/remotes/survey.remote";
   import Documents from "./documents.svelte";
   import Metadata from "./metadata.svelte";
   import Preview from "$lib/components/preview.svelte";
@@ -130,6 +131,7 @@
     };
     confirm?: boolean;
     template?: string;
+    survey?: { rating: number; feedback: string };
   } = $state({});
 
   let fileInput: HTMLInputElement | null = $state(null);
@@ -793,8 +795,8 @@
               recipient: item.nomor_telepon,
               payload: {
                 text: asDraft
-                  ? `*Dokumen berhasil disimpan sebagai draft*\n\n${notifyText}\n\nTerima kasih telah menggunakan layanan *Tapak Astà*.`
-                  : `*Dokumen berhasil ditandatangani*\n\n${notifyText}\n\nTerima kasih telah menggunakan layanan *Tapak Astà*.`,
+                  ? `*Dokumen berhasil disimpan sebagai draft*\n\n${notifyText}\n\n\nTerima kasih telah menggunakan layanan *Tapak Astà*.\nBeri penilaian penggunaan layanan ini: ${location.origin}/survey?email=${btoa(item.email || "")}`
+                  : `*Dokumen berhasil ditandatangani*\n\n${notifyText}\n\n\nTerima kasih telah menggunakan layanan *Tapak Astà*.\nBeri penilaian penggunaan layanan ini: ${location.origin}/survey?email=${btoa(item.email || "")}`,
               },
             });
             if (asDraft) return;
@@ -931,6 +933,15 @@
               </a>
             {/if}
             {#if !asDraft}
+              <button
+                type="button"
+                class="tooltip tooltip-open btn btn-sm btn-primary animate-pulse"
+                data-tip="Beri penilaian Layanan Ini"
+                onclick={() => (forms.survey = { rating: 0, feedback: "" })}
+              >
+                <iconify-icon icon="bx:clipboard"></iconify-icon>
+                Survey
+              </button>
               <button
                 type="button"
                 class="btn btn-sm btn-error"
@@ -1125,5 +1136,66 @@
   size="xl"
 >
   <Template onSelect={initTemplate} />
+</Modal>
+
+<Modal bind:data={forms.survey} title="Survey Kepuasan" size="sm">
+  <div class="space-y-4 my-2">
+    <p class="text-sm opacity-70">
+      Bantu kami meningkatkan kualitas layanan Tapak Astà.
+    </p>
+    <div>
+      <div class="font-semibold text-sm">Seberapa puas Anda?</div>
+      <div class="rating rating-lg mt-2">
+        <input type="radio" name="survey-rating" class="rating-hidden" />
+        {#each [1, 2, 3, 4, 5] as n}
+          <input
+            type="radio"
+            name="survey-rating"
+            class="mask mask-star-2 bg-warning"
+            aria-label="{n} star"
+            checked={forms.survey?.rating === n}
+            onchange={() => {
+              if (forms.survey) forms.survey.rating = n;
+            }}
+          />
+        {/each}
+      </div>
+    </div>
+    <div>
+      <label class="font-semibold text-sm" for="survey-feedback"
+        >Kritik & Saran</label
+      >
+      <textarea
+        id="survey-feedback"
+        class="textarea textarea-bordered w-full mt-1"
+        rows="3"
+        placeholder="Tulis masukan Anda..."
+        bind:value={forms.survey!.feedback}
+      ></textarea>
+    </div>
+  </div>
+  <div class="flex justify-end gap-2">
+    <button
+      class="btn btn-sm btn-ghost"
+      onclick={() => (forms.survey = undefined)}
+    >
+      Lewati
+    </button>
+    <button
+      class="btn btn-sm btn-primary"
+      disabled={!forms.survey?.rating}
+      onclick={async () => {
+        if (!forms.survey?.rating) return;
+        await submitSurvey({
+          email: data.user?.email || "",
+          rating: forms.survey.rating,
+          feedback: forms.survey.feedback || "",
+        });
+        forms.survey = undefined;
+      }}
+    >
+      Kirim
+    </button>
+  </div>
 </Modal>
 <!-- <SignModal bind:data={forms.sign} /> -->

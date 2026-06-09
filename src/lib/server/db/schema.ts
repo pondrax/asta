@@ -152,3 +152,11 @@ export const bsreUsers = pgTable('bsre_users', {
 	details: jsonb('details'),
 	fetchedAt: timestamp('fetched_at', { mode: 'string', withTimezone: true }).defaultNow(),
 })
+
+export const surveyResponses = pgTable('survey_responses', {
+	id,
+	email: text('email'),
+	rating: integer('rating'),
+	feedback: text('feedback'),
+	created,
+})
