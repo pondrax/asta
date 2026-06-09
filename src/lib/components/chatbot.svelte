@@ -10,6 +10,7 @@
   let loading = $state(false);
 
   let chatbox = $state() as HTMLDivElement | undefined;
+  let showEmoji = $state(false);
 
   $effect(() => {
     if (open && chatbox) {
@@ -80,7 +81,7 @@
 
 {#if open}
   <div
-    class="fixed bottom-[140px] right-4 z-50 w-80 sm:w-96 shadow-2xl rounded-box bg-base-100 border border-base-300 flex flex-col overflow-hidden"
+    class="fixed bottom-16 right-4 z-50 w-80 sm:w-96 shadow-2xl rounded-box bg-base-100 border border-base-300 flex flex-col overflow-hidden"
   >
     <div
       class="flex items-center justify-between px-4 py-3 bg-primary text-primary-content"
@@ -148,7 +149,7 @@
 {/if}
 
 <button
-  class="btn btn-success btn-circle btn-lg shadow-lg fixed right-4 z-50 bottom-18 animate-pulse"
+  class="btn btn-success btn-circle btn-lg shadow-lg fixed right-4 z-50 bottom-4 animate-pulse"
   onclick={toggle}
   aria-label="Chat"
 >

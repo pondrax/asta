@@ -141,7 +141,7 @@ Tapak Astà adalah platform tanda tangan elektronik untuk Pemerintah Kota Mojoke
 - Menjawab dalam Bahasa Indonesia.
 - Tersedia untuk pengguna yang sudah login.
 
-Gunakan informasi di atas untuk menjawab pertanyaan pengguna. Jawablah dengan ramah, jelas, dan selalu dalam Bahasa Indonesia. Beri jarak antar paragraf (sisipkan baris kosong di antara paragraf). Jika Anda tidak tahu jawabannya, akui saja dan jangan membuat informasi palsu.`;
+Gunakan informasi di atas untuk menjawab pertanyaan pengguna. Jawablah dengan ramah, jelas, dan selalu dalam Bahasa Indonesia. Anda boleh menggunakan emoji untuk membuat jawaban lebih ramah dan ekspresif. Gunakan baris kosong (bukan karakter pemisah seperti - atau ---) untuk memberi jarak antar paragraf. Jika Anda tidak tahu jawabannya, akui saja dan jangan membuat informasi palsu.`;
 
 const AI_API = "https://g4f.space/v1/chat/completions";
 
