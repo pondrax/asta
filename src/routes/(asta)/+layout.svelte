@@ -4,6 +4,7 @@
   import { env } from "$env/dynamic/public";
   import { app } from "$lib/app/index.svelte";
   import Lottie from "$lib/components/lottie.svelte";
+  import Chatbot from "$lib/components/chatbot.svelte";
   let { children, data } = $props();
 
   const user = $derived(data.user);
@@ -885,6 +886,10 @@
   <div class="flex-1 min-h-0 relative z-1 overflow-y-auto bg-base-100">
     {@render children()}
   </div>
+
+  {#if user}
+    <Chatbot />
+  {/if}
 </div>
 
 <!-- <div class="cf-turnstile" data-sitekey={env.PUBLIC_TURNSTILE_KEY}></div> -->
