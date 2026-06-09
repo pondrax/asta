@@ -181,7 +181,7 @@
             onclick={() => (app.showTour = true)}
           >
             <iconify-icon icon="bx:help-circle" class="text-xl"></iconify-icon>
-            <span>Panduan</span>
+            <span class="hidden md:inline">Panduan</span>
           </button>
         {/if}
         <label class="swap swap-rotate">
@@ -887,9 +887,7 @@
     {@render children()}
   </div>
 
-  {#if user}
-    <Chatbot />
-  {/if}
+  <Chatbot />
 </div>
 
 <!-- <div class="cf-turnstile" data-sitekey={env.PUBLIC_TURNSTILE_KEY}></div> -->

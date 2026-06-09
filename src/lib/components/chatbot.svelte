@@ -81,7 +81,7 @@
 
 {#if open}
   <div
-    class="fixed bottom-16 right-4 z-50 w-80 sm:w-96 shadow-2xl rounded-box bg-base-100 border border-base-300 flex flex-col overflow-hidden"
+    class="fixed bottom-18 right-4 z-50 w-80 sm:w-96 shadow-2xl rounded-box bg-base-100 border border-base-300 flex flex-col overflow-hidden"
   >
     <div
       class="flex items-center justify-between px-4 py-3 bg-primary text-primary-content"
@@ -108,7 +108,7 @@
           <div
             class="chat-bubble {msg.role === 'user'
               ? 'chat-bubble-primary'
-              : 'chat-bubble-ghost bg-base-200'} chat-md"
+              : 'chat-bubble-ghost bg-base-200'} chat-sm"
           >
             {#if msg.role === "user"}
               {msg.content}
@@ -128,9 +128,9 @@
     </div>
 
     <div class="border-t border-base-300 p-3 flex gap-2 relative items-center">
-      <label class="input input-bordered input-sm flex-1 flex items-center gap-1">
+      <label class="input input-sm">
         <button
-          class="btn btn-ghost btn-xs p-0 size-6 flex items-center justify-center"
+          class="btn btn-ghost btn-xs -ml-2"
           onclick={() => (showEmoji = !showEmoji)}
           aria-label="Emoji"
         >
@@ -155,13 +155,13 @@
       </button>
       {#if showEmoji}
         <div
-          class="absolute bottom-full left-0 mb-1 p-2 bg-base-100 border border-base-300 rounded-box shadow-xl grid grid-cols-8 gap-1 text-lg"
+          class="absolute bottom-full left-0 mb-1 p-2 bg-base-100 border border-base-300 rounded-box shadow-xl grid grid-cols-8 text-lg"
         >
           {#each ["😊", "😂", "❤️", "👍", "🔥", "🎉", "🙏", "😁", "🥺", "😅", "🤔", "✨", "🙌", "💪", "👏", "⭐", "🤗", "😍", "🥳", "😎", "💯", "🔥", "💡", "🎯"] as e}
             <button
               class="btn btn-ghost btn-xs p-0 size-8 flex items-center justify-center"
               onclick={() => {
-                input += e;
+                input += e + " ";
                 showEmoji = false;
               }}
             >
@@ -174,94 +174,20 @@
   </div>
 {/if}
 
-<button
-  class="btn btn-success btn-circle btn-lg shadow-lg fixed right-4 z-50 bottom-4 animate-pulse"
-  onclick={toggle}
-  aria-label="Chat"
->
-  <iconify-icon icon={open ? "bx:x" : "bx:bot"} class="text-xl"></iconify-icon>
-</button>
+<div class="fab">
+  <button
+    class="btn btn-accent btn-circle btn-lg tooltip"
+    data-tip="Tanya AI"
+    onclick={toggle}
+    aria-label="Chat"
+  >
+    <iconify-icon icon={open ? "bx:x" : "bx:bot"} class="text-2xl"
+    ></iconify-icon>
+  </button>
+</div>
 
 <style>
-  .chat-md {
+  .chat-sm {
     font-size: 0.75rem;
-    line-height: 1.5;
-  }
-  .chat-md p {
-    margin: 0.5rem 0;
-  }
-  .chat-md p:first-child {
-    margin-top: 0;
-  }
-  .chat-md p:last-child {
-    margin-bottom: 0;
-  }
-  .chat-md h1 {
-    font-size: 1.125rem;
-    font-weight: 700;
-    margin: 0.75rem 0 0.375rem;
-  }
-  .chat-md h2 {
-    font-size: 1rem;
-    font-weight: 700;
-    margin: 0.75rem 0 0.375rem;
-  }
-  .chat-md h3 {
-    font-size: 0.875rem;
-    font-weight: 600;
-    margin: 0.625rem 0 0.375rem;
-  }
-  .chat-md h4 {
-    font-size: 0.8125rem;
-    font-weight: 600;
-    margin: 0.625rem 0 0.375rem;
-  }
-  .chat-md ul,
-  .chat-md ol {
-    padding-left: 1.25rem;
-    margin: 0.5rem 0;
-  }
-  .chat-md li {
-    margin: 0.25rem 0;
-  }
-  .chat-md li::marker {
-    color: oklch(var(--p));
-  }
-  .chat-md code {
-    background: oklch(var(--b3));
-    padding: 0.125rem 0.25rem;
-    border-radius: 0.25rem;
-    font-size: 0.6875rem;
-    font-family: monospace;
-  }
-  .chat-md pre {
-    background: oklch(var(--b3));
-    padding: 0.5rem;
-    border-radius: 0.5rem;
-    overflow-x: auto;
-    margin: 0.5rem 0;
-  }
-  .chat-md pre code {
-    background: none;
-    padding: 0;
-    border-radius: 0;
-  }
-  .chat-md blockquote {
-    border-left: 3px solid oklch(var(--p));
-    padding-left: 0.5rem;
-    margin: 0.5rem 0;
-    opacity: 0.85;
-  }
-  .chat-md a {
-    color: oklch(var(--p));
-    text-decoration: underline;
-  }
-  .chat-md strong {
-    font-weight: 700;
-  }
-  .chat-md hr {
-    border: none;
-    border-top: 1px solid oklch(var(--b3));
-    margin: 0.75rem 0;
   }
 </style>

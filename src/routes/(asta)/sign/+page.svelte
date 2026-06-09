@@ -511,7 +511,7 @@
 </div>
 <!-- </div> -->
 
-<div class="fab bottom-18 gap-4">
+<div class="fab right-18">
   <div
     tabindex="0"
     role="button"
@@ -541,7 +541,7 @@
     <iconify-icon icon="bx:book" class="text-2xl"></iconify-icon>
   </button>
 </div>
-<div class="fab right-18 gap-4">
+<div class="fab right-32 gap-4">
   <button
     id="tour-sign-button"
     bind:this={signButton}
