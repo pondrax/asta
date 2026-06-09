@@ -192,9 +192,11 @@ Gunakan informasi di atas untuk menjawab pertanyaan pengguna. Jawablah dengan ra
     }
 
     const data = await req.json();
+    const choice = data.choices?.[0];
     return {
-      content: data.choices?.[0]?.message?.content || "Maaf, saya tidak dapat merespons saat ini.",
+      content: choice?.message?.content || "Maaf, saya tidak dapat merespons saat ini.",
       role: "assistant" as const,
+      finish_reason: choice?.finish_reason || "stop",
     };
   }
 }

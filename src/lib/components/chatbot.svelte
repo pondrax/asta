@@ -38,10 +38,25 @@
     messages = [...messages, { role: "user", content: text }];
     loading = true;
     try {
-      const result = await sendMessage({
-        messages: messages.map((m) => ({ role: m.role, content: m.content })),
-      });
-      messages = [...messages, { role: "assistant", content: result.content }];
+      const history = () =>
+        messages.map((m) => ({ role: m.role, content: m.content }));
+      let result = await sendMessage({ messages: history() });
+      let fullContent = result.content;
+      while (result.finish_reason === "length") {
+        result = await sendMessage({
+          messages: [
+            ...history(),
+            { role: "assistant", content: fullContent },
+            { role: "user", content: "Lanjutkan" },
+          ],
+        });
+        fullContent += "\n\n" + result.content;
+      }
+      const chunks = fullContent.split(/\n\n+/).filter(Boolean);
+      messages = [
+        ...messages,
+        ...chunks.map((c: any) => ({ role: "assistant" as const, content: c })),
+      ];
     } catch {
       messages = [
         ...messages,
@@ -90,11 +105,15 @@
       {#each messages as msg, i (msg.role + i)}
         <div class="chat {msg.role === 'user' ? 'chat-end' : 'chat-start'}">
           <div
-            class="chat-bubble text-xs {msg.role === 'user'
+            class="chat-bubble {msg.role === 'user'
               ? 'chat-bubble-primary'
-              : 'chat-bubble-ghost bg-base-200'}"
+              : 'chat-bubble-ghost bg-base-200'} chat-md"
           >
-            {@html render(msg.content)}
+            {#if msg.role === "user"}
+              {msg.content}
+            {:else}
+              {@html render(msg.content)}
+            {/if}
           </div>
         </div>
       {/each}
@@ -135,3 +154,87 @@
 >
   <iconify-icon icon={open ? "bx:x" : "bx:bot"} class="text-xl"></iconify-icon>
 </button>
+
+<style>
+  .chat-md {
+    font-size: 0.75rem;
+    line-height: 1.5;
+  }
+  .chat-md p {
+    margin: 0.5rem 0;
+  }
+  .chat-md p:first-child {
+    margin-top: 0;
+  }
+  .chat-md p:last-child {
+    margin-bottom: 0;
+  }
+  .chat-md h1 {
+    font-size: 1.125rem;
+    font-weight: 700;
+    margin: 0.75rem 0 0.375rem;
+  }
+  .chat-md h2 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0.75rem 0 0.375rem;
+  }
+  .chat-md h3 {
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin: 0.625rem 0 0.375rem;
+  }
+  .chat-md h4 {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    margin: 0.625rem 0 0.375rem;
+  }
+  .chat-md ul,
+  .chat-md ol {
+    padding-left: 1.25rem;
+    margin: 0.5rem 0;
+  }
+  .chat-md li {
+    margin: 0.25rem 0;
+  }
+  .chat-md li::marker {
+    color: oklch(var(--p));
+  }
+  .chat-md code {
+    background: oklch(var(--b3));
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+    font-size: 0.6875rem;
+    font-family: monospace;
+  }
+  .chat-md pre {
+    background: oklch(var(--b3));
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+    margin: 0.5rem 0;
+  }
+  .chat-md pre code {
+    background: none;
+    padding: 0;
+    border-radius: 0;
+  }
+  .chat-md blockquote {
+    border-left: 3px solid oklch(var(--p));
+    padding-left: 0.5rem;
+    margin: 0.5rem 0;
+    opacity: 0.85;
+  }
+  .chat-md a {
+    color: oklch(var(--p));
+    text-decoration: underline;
+  }
+  .chat-md strong {
+    font-weight: 700;
+  }
+  .chat-md hr {
+    border: none;
+    border-top: 1px solid oklch(var(--b3));
+    margin: 0.75rem 0;
+  }
+</style>
