@@ -62,7 +62,7 @@
       {
         highlightScanRegion: true,
         highlightCodeOutline: true,
-      }
+      },
     );
     try {
       await qrScanner.start();
@@ -202,7 +202,11 @@
     }
 
     // Trigger preview fetch if authorized and file details are known
-    if (isAuthorized && fileURL && (!previewFile || lastFetchedURL !== fileURL)) {
+    if (
+      isAuthorized &&
+      fileURL &&
+      (!previewFile || lastFetchedURL !== fileURL)
+    ) {
       previewURL(fileURL, fileName);
     }
   });
@@ -352,7 +356,33 @@
         </div>
       </div>
     {:else if previewFile || fileURL}
-      <Preview file={previewFile} />
+      <div class="h-full relative">
+        <div class="absolute top-4 right-4 z-10 flex gap-2">
+          <button
+            type="button"
+            class="btn btn-sm btn-secondary tooltip tooltip-bottom"
+            data-tip="Download"
+            onclick={() => {
+              if (previewFile) {
+                const url = URL.createObjectURL(previewFile);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = previewFile.name;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+              } else if (fileURL) {
+                downloadFile(fileURL);
+              }
+            }}
+          >
+            <iconify-icon icon="bx:download"></iconify-icon>
+            Download PDF
+          </button>
+        </div>
+        <Preview file={previewFile} />
+      </div>
     {:else}
       <Upload
         bind:files={uploaderFiles}
@@ -470,9 +500,16 @@
             <div
               class="aspect-square bg-base-200 rounded-xl overflow-hidden flex flex-col items-center justify-center border-2 border-dashed border-base-content/10 gap-3 relative"
             >
-              <video bind:this={videoEl} playsinline muted class="w-full h-full object-cover absolute inset-0 z-10"></video>
+              <video
+                bind:this={videoEl}
+                playsinline
+                muted
+                class="w-full h-full object-cover absolute inset-0 z-10"
+              ></video>
               {#if !isScanning}
-                <div class="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-base-200 z-20">
+                <div
+                  class="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-base-200 z-20"
+                >
                   <iconify-icon icon="bx:camera" class="text-5xl opacity-20"
                   ></iconify-icon>
                   <span class="text-xs opacity-40">Kamera tidak aktif</span>
@@ -480,9 +517,13 @@
               {/if}
             </div>
             {#if isScanning}
-              <button class="btn btn-error w-full" onclick={stopScan}>Hentikan Kamera</button>
+              <button class="btn btn-error w-full" onclick={stopScan}
+                >Hentikan Kamera</button
+              >
             {:else}
-              <button class="btn btn-primary w-full" onclick={startScan}>Buka Kamera</button>
+              <button class="btn btn-primary w-full" onclick={startScan}
+                >Buka Kamera</button
+              >
             {/if}
           </div>
         {/if}

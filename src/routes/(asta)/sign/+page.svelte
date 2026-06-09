@@ -386,6 +386,29 @@
         </div>
       {/if}
 
+      <div class="absolute top-4 right-4 z-10 flex gap-2">
+        <button
+          type="button"
+          class="btn btn-sm btn-secondary tooltip tooltip-bottom"
+          data-tip="Download"
+          onclick={() => {
+            if (previewFile) {
+              const url = URL.createObjectURL(previewFile);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = previewFile.name;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+            }
+          }}
+        >
+          <iconify-icon icon="bx:download"></iconify-icon>
+          Download PDF
+        </button>
+      </div>
+
       <Preview file={previewFile} {hasSignature}>
         {#snippet children(scale, pageSizes, gutter)}
           {#each signatures as sign}
