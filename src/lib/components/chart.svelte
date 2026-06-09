@@ -13,6 +13,7 @@
     isCollapsed = $bindable(false),
     type = "area",
     card = true,
+    legendPosition = "bottom",
     categories = [
       { key: "info", color: "var(--color-primary)", label: "Info" },
       { key: "warn", color: "var(--color-warning)", label: "Warning" },
@@ -36,7 +37,7 @@
         chart: { type: "donut", height: height || 200 },
         colors: categories.length ? categories.map((c) => c.color) : undefined,
         dataLabels: { enabled: true, style: { fontSize: "10px", fontWeight: 800 } },
-        legend: { show: true, position: "bottom", fontSize: "10px", fontWeight: 800 },
+        legend: { show: true, position: legendPosition, fontSize: "10px", fontWeight: 800 },
         plotOptions: { pie: { donut: { size: "60%" } } },
         tooltip: { theme: "light", style: { fontSize: "12px" } },
       };

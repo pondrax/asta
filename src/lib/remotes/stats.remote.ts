@@ -3,6 +3,9 @@ import { db } from "$lib/server/db";
 import { documents, users, signers, documentStatistics, __logs } from "$lib/server/db/schema";
 import dayjs from "dayjs";
 import isoWeek from "dayjs/plugin/isoWeek";
+import { promises as fs } from "fs";
+import path from "path";
+import { env } from "$env/dynamic/private";
 
 dayjs.extend(isoWeek);
 
@@ -249,4 +252,20 @@ export const getAdminDashboard = query("unchecked", async () => {
     totalSigners: allSigners.length,
     totalDocs: allDocs.length,
   };
+});
+
+export const getDiskUsage = query("unchecked", async () => {
+  try {
+    const targetDir = path.resolve(env.STORAGE_BASE_DIR || "./uploads");
+    const stats = await fs.statfs(targetDir);
+
+    const total = stats.blocks * stats.bsize;
+    const free = stats.bfree * stats.bsize;
+    const used = total - free;
+    const usagePercent = total > 0 ? Math.round((used / total) * 1000) / 10 : 0;
+
+    return { total, used, free, usagePercent };
+  } catch {
+    return null;
+  }
 });

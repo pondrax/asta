@@ -67,6 +67,7 @@ export class Esign {
         }
     ];
 
+    console.log()
     return this.makeRequest(
       `${env.ESIGN_URL}/api/v2/sign/pdf`,
       {

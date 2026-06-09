@@ -2,11 +2,14 @@
   import { Chart, Tour } from "$lib/components";
   import { app } from "$lib/app/index.svelte";
   import { d } from "$lib/utils";
-  import { getAdminDashboard } from "$lib/remotes/stats.remote";
+  import { getAdminDashboard, getDiskUsage } from "$lib/remotes/stats.remote";
   import { getBsreStats } from "$lib/remotes/bsre.remote";
 
   const dashData = getAdminDashboard({});
   const dash = $derived(dashData.current);
+
+  const diskData = getDiskUsage({});
+  const disk = $derived(diskData.current);
 
   const tourSteps = [
     {
@@ -67,6 +70,13 @@
     if (s === "queue") return "Antrean";
     if (s === "failed") return "Gagal";
     return s || "-";
+  }
+
+  function formatBytes(bytes: number) {
+    if (!bytes) return "0 B";
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return (bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0) + " " + units[i];
   }
 
   function logLevel(l: string | null) {
@@ -346,6 +356,77 @@
       </div>
     </div>
 
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <a
+        href="/sign"
+        class="bg-base-100/50 p-4 rounded-2xl border border-base-300 hover:bg-base-200/50 transition-all flex flex-col gap-1.5"
+      >
+        <div class="flex items-center gap-3">
+          <div
+            class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0"
+          >
+            <iconify-icon icon="bx:pen" class="text-lg text-primary"
+            ></iconify-icon>
+          </div>
+          <span class="font-bold text-sm">Tanda Tangan</span>
+        </div>
+        <span class="text-[10px] opacity-40 leading-tight"
+          >Upload & tanda tangan dokumen secara elektronik</span
+        >
+      </a>
+      <a
+        href="/verify"
+        class="bg-base-100/50 p-4 rounded-2xl border border-base-300 hover:bg-base-200/50 transition-all flex flex-col gap-1.5"
+      >
+        <div class="flex items-center gap-3">
+          <div
+            class="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center shrink-0"
+          >
+            <iconify-icon icon="bx:check-shield" class="text-lg text-success"
+            ></iconify-icon>
+          </div>
+          <span class="font-bold text-sm">Verifikasi</span>
+        </div>
+        <span class="text-[10px] opacity-40 leading-tight"
+          >Verifikasi keaslian tanda tangan dokumen</span
+        >
+      </a>
+      <a
+        href="/templates"
+        class="bg-base-100/50 p-4 rounded-2xl border border-base-300 hover:bg-base-200/50 transition-all flex flex-col gap-1.5"
+      >
+        <div class="flex items-center gap-3">
+          <div
+            class="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center shrink-0"
+          >
+            <iconify-icon icon="bx:file-blank" class="text-lg text-accent"
+            ></iconify-icon>
+          </div>
+          <span class="font-bold text-sm">Templates</span>
+        </div>
+        <span class="text-[10px] opacity-40 leading-tight"
+          >Gunakan template dokumen siap pakai</span
+        >
+      </a>
+      <a
+        href="/profile"
+        class="bg-base-100/50 p-4 rounded-2xl border border-base-300 hover:bg-base-200/50 transition-all flex flex-col gap-1.5"
+      >
+        <div class="flex items-center gap-3">
+          <div
+            class="w-8 h-8 rounded-lg bg-info/10 flex items-center justify-center shrink-0"
+          >
+            <iconify-icon icon="bx:user" class="text-lg text-info"
+            ></iconify-icon>
+          </div>
+          <span class="font-bold text-sm">Profil</span>
+        </div>
+        <span class="text-[10px] opacity-40 leading-tight"
+          >Kelola informasi akun dan preferensi</span
+        >
+      </a>
+    </div>
+
     <!-- BSrE Chart -->
     <div
       class="bg-base-100/40 border border-base-200/60 rounded-2xl shadow-sm backdrop-blur transition-all duration-500 {bsreChartCollapsed
@@ -456,8 +537,7 @@
                       : ''}"
                     onclick={() => toggleBsreFilter("status", d.label)}
                     onkeydown={(e) =>
-                      e.key === "Enter" &&
-                      toggleBsreFilter("status", d.label)}
+                      e.key === "Enter" && toggleBsreFilter("status", d.label)}
                     role="button"
                     tabindex="0"
                   >
@@ -597,6 +677,63 @@
       </div>
     </div>
 
+    {#if disk}
+      <div class="stats stats-vertical lg:stats-horizontal shadow w-full">
+        <div class="stat">
+          <div class="stat-figure text-primary text-3xl">
+            <iconify-icon icon="bx:hard-drive"></iconify-icon>
+          </div>
+          <div class="stat-title">Total</div>
+          <div class="stat-value text-4xl">{formatBytes(disk.total)}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-figure text-primary text-3xl">
+            <iconify-icon icon="bx:pie-chart-alt"></iconify-icon>
+          </div>
+          <div class="stat-title">Terpakai</div>
+          <div class="stat-value text-4xl text-primary">
+            {formatBytes(disk.used)}
+          </div>
+          <div class="stat-desc text-xs">
+            {disk.usagePercent}% dari total
+          </div>
+        </div>
+        <div class="stat">
+          <div class="stat-figure text-success text-3xl">
+            <iconify-icon icon="bx:check-circle"></iconify-icon>
+          </div>
+          <div class="stat-title">Bebas</div>
+          <div class="stat-value text-4xl text-success">
+            {formatBytes(disk.free)}
+          </div>
+        </div>
+        <div class="stat pb-0 [&>div]:border-0 w-70">
+          <Chart
+            title=""
+            collapsible={false}
+            legendPosition="right"
+            data={[
+              {
+                label: "Terpakai",
+                value: disk.used,
+                color: "var(--color-primary)",
+              },
+              {
+                label: "Bebas",
+                value: disk.free,
+                color: "var(--color-success)",
+              },
+            ]}
+            type="donut"
+            categories={[
+              { key: "", color: "var(--color-primary)", label: "Terpakai" },
+              { key: "", color: "var(--color-success)", label: "Bebas" },
+            ]}
+          />
+        </div>
+      </div>
+    {/if}
+
     <div
       id="tour-main-logs"
       class="bg-base-100/50 p-4 rounded-2xl border border-base-300 transition-all duration-500 {logsCollapsed
@@ -667,76 +804,7 @@
       {/if}
     </div>
 
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-      <a
-        href="/sign"
-        class="bg-base-100/50 p-4 rounded-2xl border border-base-300 hover:bg-base-200/50 transition-all flex flex-col gap-1.5"
-      >
-        <div class="flex items-center gap-3">
-          <div
-            class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0"
-          >
-            <iconify-icon icon="bx:pen" class="text-lg text-primary"
-            ></iconify-icon>
-          </div>
-          <span class="font-bold text-sm">Tanda Tangan</span>
-        </div>
-        <span class="text-[10px] opacity-40 leading-tight"
-          >Upload & tanda tangan dokumen secara elektronik</span
-        >
-      </a>
-      <a
-        href="/verify"
-        class="bg-base-100/50 p-4 rounded-2xl border border-base-300 hover:bg-base-200/50 transition-all flex flex-col gap-1.5"
-      >
-        <div class="flex items-center gap-3">
-          <div
-            class="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center shrink-0"
-          >
-            <iconify-icon icon="bx:check-shield" class="text-lg text-success"
-            ></iconify-icon>
-          </div>
-          <span class="font-bold text-sm">Verifikasi</span>
-        </div>
-        <span class="text-[10px] opacity-40 leading-tight"
-          >Verifikasi keaslian tanda tangan dokumen</span
-        >
-      </a>
-      <a
-        href="/templates"
-        class="bg-base-100/50 p-4 rounded-2xl border border-base-300 hover:bg-base-200/50 transition-all flex flex-col gap-1.5"
-      >
-        <div class="flex items-center gap-3">
-          <div
-            class="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center shrink-0"
-          >
-            <iconify-icon icon="bx:file-blank" class="text-lg text-accent"
-            ></iconify-icon>
-          </div>
-          <span class="font-bold text-sm">Templates</span>
-        </div>
-        <span class="text-[10px] opacity-40 leading-tight"
-          >Gunakan template dokumen siap pakai</span
-        >
-      </a>
-      <a
-        href="/profile"
-        class="bg-base-100/50 p-4 rounded-2xl border border-base-300 hover:bg-base-200/50 transition-all flex flex-col gap-1.5"
-      >
-        <div class="flex items-center gap-3">
-          <div
-            class="w-8 h-8 rounded-lg bg-info/10 flex items-center justify-center shrink-0"
-          >
-            <iconify-icon icon="bx:user" class="text-lg text-info"
-            ></iconify-icon>
-          </div>
-          <span class="font-bold text-sm">Profil</span>
-        </div>
-        <span class="text-[10px] opacity-40 leading-tight"
-          >Kelola informasi akun dan preferensi</span
-        >
-      </a>
-    </div>
+
 
     {#if app.showTour}
       <Tour
