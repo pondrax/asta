@@ -39,7 +39,7 @@ export const launchBsre = command(
     // If no token and not on BEID, force a redirect to trigger login
     if (!token) {
       console.log("[bsre] no token found, re-navigating to force login redirect");
-      await session.page.goto(BSRE_URL, { waitUntil: "networkidle", timeout: 30_000 });
+      await session.page.goto(BSRE_URL, { waitUntil: "domcontentloaded", timeout: 30_000 });
       if (new URL(session.page.url()).hostname.includes(BEID_HOST)) {
         await handleBeIDLogin(session.page);
         await session.page.waitForLoadState("networkidle", { timeout: 20_000 }).catch(() => { });
@@ -145,11 +145,19 @@ export const fetchBsreUsers = command(
     if (!authorization) {
       const s = sessions.get(userId);
       if (s) {
+        // Cek apakah URL sudah redirect ke halaman login BEID
+        if (new URL(s.page.url()).hostname.includes(BEID_HOST)) {
+          await handleBeIDLogin(s.page);
+          await s.page.waitForLoadState("networkidle", { timeout: 20_000 }).catch(() => {});
+        }
+
         const token = await getAccessToken(s.page);
         if (token) {
           authorization = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
           tokenStore.set(userId, authorization);
         }
+        // Session tidak diperlukan lagi setelah token didapatkan
+        await closeSession(userId);
       }
     }
 
@@ -262,9 +270,9 @@ export const fetchBsreUsers = command(
                   verifiedVerifikator: merged.verifiedVerifikator ?? null,
                   details: detailData,
                 };
-                await db.query.bsreUsers.upsert({
-                  data: { id: user.id, ...record },
-                  update: () => ({ ...record, fetchedAt: new Date().toISOString() }),
+                await db.insert(bsreUsers).values({ id: user.id, ...record }).onConflictDoUpdate({
+                  target: bsreUsers.id,
+                  set: { ...record, fetchedAt: new Date().toISOString() },
                 });
               }
             } catch (err) {
@@ -278,6 +286,9 @@ export const fetchBsreUsers = command(
       }
 
       console.log("[bsre] users synced:", processed, "records");
+      if (sessions.has(userId)) {
+        await closeSession(userId);
+      }
       return { success: true, total: processed };
     } catch (err: any) {
       return { success: false, message: err?.message ?? "Gagal fetch API.", data: null };
