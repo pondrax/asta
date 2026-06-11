@@ -13,7 +13,7 @@
     isCollapsed = $bindable(false),
     type = "area",
     card = true,
-    legendPosition = "bottom",
+    legendPosition = "bottom" as "bottom" | "top" | "left" | "right",
     categories = [
       { key: "info", color: "var(--color-primary)", label: "Info" },
       { key: "warn", color: "var(--color-warning)", label: "Warning" },
@@ -36,8 +36,16 @@
         labels: lbls,
         chart: { type: "donut", height: height || 200 },
         colors: categories.length ? categories.map((c) => c.color) : undefined,
-        dataLabels: { enabled: true, style: { fontSize: "10px", fontWeight: 800 } },
-        legend: { show: true, position: legendPosition, fontSize: "10px", fontWeight: 800 },
+        dataLabels: {
+          enabled: true,
+          style: { fontSize: "10px", fontWeight: 800 },
+        },
+        legend: {
+          show: true,
+          position: legendPosition,
+          fontSize: "10px",
+          fontWeight: 800,
+        },
         plotOptions: { pie: { donut: { size: "60%" } } },
         tooltip: { theme: "light", style: { fontSize: "12px" } },
       };
@@ -66,10 +74,13 @@
       },
       colors: categories.map((cat) => cat.color),
       fill: {},
-      stroke: type === "bar" ? { show: true, width: 0, colors: categories.map((c) => c.color) } : {
-        curve: "smooth",
-        width: 3,
-      },
+      stroke:
+        type === "bar"
+          ? { show: true, width: 0, colors: categories.map((c) => c.color) }
+          : {
+              curve: "smooth",
+              width: 3,
+            },
       grid: {
         show: true,
         borderColor: "rgba(128,128,128,0.1)",
@@ -77,13 +88,16 @@
         padding: { left: 10, right: 10, top: 0, bottom: 0 },
       },
       dataLabels: { enabled: false },
-      plotOptions: type === "bar" ? {
-        bar: {
-          columnWidth: "60%",
-          borderRadius: 4,
-          borderRadiusApplication: "end",
-        },
-      } : {},
+      plotOptions:
+        type === "bar"
+          ? {
+              bar: {
+                columnWidth: "60%",
+                borderRadius: 4,
+                borderRadiusApplication: "end",
+              },
+            }
+          : {},
       xaxis: {
         categories: labels,
         tickAmount: 8,
@@ -188,7 +202,8 @@
   <div class="flex justify-between items-center mb-3">
     <div>
       {#if subtitle}
-        <span class="text-[8px] font-black uppercase tracking-[0.2em] opacity-30"
+        <span
+          class="text-[8px] font-black uppercase tracking-[0.2em] opacity-30"
           >{subtitle}</span
         >
       {/if}

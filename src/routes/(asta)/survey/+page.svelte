@@ -43,11 +43,20 @@
       Bantu kami meningkatkan kualitas layanan Tapak Astà.
     </p>
 
-    <div class="bg-base-100/50 p-6 rounded-2xl border border-base-300 space-y-6">
+    <div
+      class="bg-base-100/50 p-6 rounded-2xl border border-base-300 space-y-6"
+    >
       <div>
-        <label class="font-semibold text-sm">Seberapa puas Anda dengan layanan kami?</label>
+        <label class="font-semibold text-sm" for="survey-rating"
+          >Seberapa puas Anda dengan layanan kami?</label
+        >
         <div class="rating rating-lg mt-2">
-          <input type="radio" name="survey-standalone" class="rating-hidden" />
+          <input
+            id="survey-rating"
+            type="radio"
+            name="survey-standalone"
+            class="rating-hidden"
+          />
           {#each [1, 2, 3, 4, 5] as n}
             <input
               type="radio"
@@ -62,7 +71,9 @@
       </div>
 
       <div>
-        <label class="font-semibold text-sm" for="feedback">Kritik & Saran</label>
+        <label class="font-semibold text-sm" for="feedback"
+          >Kritik & Saran</label
+        >
         <textarea
           id="feedback"
           class="textarea textarea-bordered w-full mt-2"
@@ -72,7 +83,11 @@
         ></textarea>
       </div>
 
-      <button class="btn btn-primary w-full" onclick={submit} disabled={!rating || loading}>
+      <button
+        class="btn btn-primary w-full"
+        onclick={submit}
+        disabled={!rating || loading}
+      >
         {#if loading}
           <span class="loading loading-spinner"></span>
         {:else}

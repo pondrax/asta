@@ -303,7 +303,9 @@
             ]}
           />
           {#if status.current?.lastSync}
-            <div class="flex gap-1 items-center mt-1 text-[10px] font-bold opacity-40">
+            <div
+              class="flex gap-1 items-center mt-1 text-[10px] font-bold opacity-40"
+            >
               <iconify-icon icon="bx:time-five"></iconify-icon>
               Sync: {d(status.current.lastSync).format("DD MMM YYYY, HH:mm")}
             </div>
@@ -431,103 +433,103 @@
     <div
       class="bg-base-100/40 border border-base-200/60 rounded-2xl py-1 px-4 shadow-sm backdrop-blur transition-all duration-500"
     >
-    <div class="flex items-center gap-3">
-      <div class="flex items-center gap-2 ml-2">
-        <div
-          class="badge badge-sm {status.current?.active
-            ? 'badge-success'
-            : 'badge-neutral'} gap-1"
-        >
-          <iconify-icon
-            icon={status.current?.active
-              ? "bx:radio-circle-marked"
-              : "bx:radio-circle"}
-          ></iconify-icon>
-          {status.current?.active ? "Sesi Aktif" : "Sesi Tidak Aktif"}
-        </div>
-        <div
-          class="badge badge-sm {status.current?.hasToken
-            ? 'badge-info'
-            : 'badge-ghost'} gap-1"
-        >
-          <iconify-icon icon={status.current?.hasToken ? "bx:key" : "bx:lock"}
-          ></iconify-icon>
-          {status.current?.hasToken ? "Token OK" : "No Token"}
-        </div>
-        {#if status.current?.active && status.current.mode?.startsWith("remote")}
-          <span class="text-xs opacity-60">🌐 Remote</span>
-        {/if}
-      </div>
-      <div class="flex gap-2 ml-auto">
-        <button
-          class="btn btn-sm btn-primary gap-1"
-          onclick={syncFromBsre}
-          disabled={(!status.current?.active && !status.current?.hasToken) ||
-            syncing}
-        >
-          {#if syncing}
-            <span class="loading loading-spinner loading-xs"></span>
-          {:else}
-            <iconify-icon icon="bx:sync"></iconify-icon>
-          {/if}
-          Sync
-        </button>
-        <button class="btn btn-primary btn-sm gap-1" onclick={launch}>
-          {#if launchBsre.pending}
-            <span class="loading loading-spinner loading-xs"></span>
-          {:else}
-            <iconify-icon icon="bx:key"></iconify-icon>
-          {/if}
-          Update Token
-        </button>
-        <button
-          class="btn btn-warning btn-sm gap-1"
-          onclick={runDebug}
-          disabled={!status.current?.active}
-        >
-          {#if debugLoading}
-            <span class="loading loading-spinner loading-xs"></span>
-          {:else}
-            <iconify-icon icon="bx:bug"></iconify-icon>
-          {/if}
-          Debug
-        </button>
-        <button
-          class="btn btn-error btn-outline btn-sm gap-1"
-          onclick={close}
-          disabled={!status.current?.active}
-        >
-          {#if closeBsre.pending}
-            <span class="loading loading-spinner loading-xs"></span>
-          {:else}
-            <iconify-icon icon="bx:stop"></iconify-icon>
-          {/if}
-          Tutup
-        </button>
-      </div>
-    </div>
-
-    {#if debugData}
-      <div class="border-t border-base-content/10 mt-2 pt-2">
-        <div class="flex items-center justify-between mb-1">
-          <span class="text-[11px] font-semibold opacity-60"
-            >Info Debug Sesi</span
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2 ml-2">
+          <div
+            class="badge badge-sm {status.current?.active
+              ? 'badge-success'
+              : 'badge-neutral'} gap-1"
           >
+            <iconify-icon
+              icon={status.current?.active
+                ? "bx:radio-circle-marked"
+                : "bx:radio-circle"}
+            ></iconify-icon>
+            {status.current?.active ? "Sesi Aktif" : "Sesi Tidak Aktif"}
+          </div>
+          <div
+            class="badge badge-sm {status.current?.hasToken
+              ? 'badge-info'
+              : 'badge-ghost'} gap-1"
+          >
+            <iconify-icon icon={status.current?.hasToken ? "bx:key" : "bx:lock"}
+            ></iconify-icon>
+            {status.current?.hasToken ? "Token OK" : "No Token"}
+          </div>
+          {#if status.current?.active && status.current.mode?.startsWith("remote")}
+            <span class="text-xs opacity-60">🌐 Remote</span>
+          {/if}
+        </div>
+        <div class="flex gap-2 ml-auto">
           <button
-            class="btn btn-ghost btn-xs"
-            onclick={() => (debugData = null)}>Tutup</button
+            class="btn btn-sm btn-primary gap-1"
+            onclick={syncFromBsre}
+            disabled={(!status.current?.active && !status.current?.hasToken) ||
+              syncing}
           >
+            {#if syncing}
+              <span class="loading loading-spinner loading-xs"></span>
+            {:else}
+              <iconify-icon icon="bx:sync"></iconify-icon>
+            {/if}
+            Sync
+          </button>
+          <button class="btn btn-primary btn-sm gap-1" onclick={launch}>
+            {#if launchBsre.pending}
+              <span class="loading loading-spinner loading-xs"></span>
+            {:else}
+              <iconify-icon icon="bx:key"></iconify-icon>
+            {/if}
+            Update Token
+          </button>
+          <button
+            class="btn btn-warning btn-sm gap-1"
+            onclick={runDebug}
+            disabled={!status.current?.active}
+          >
+            {#if debugLoading}
+              <span class="loading loading-spinner loading-xs"></span>
+            {:else}
+              <iconify-icon icon="bx:bug"></iconify-icon>
+            {/if}
+            Debug
+          </button>
+          <button
+            class="btn btn-error btn-outline btn-sm gap-1"
+            onclick={close}
+            disabled={!status.current?.active}
+          >
+            {#if closeBsre.pending}
+              <span class="loading loading-spinner loading-xs"></span>
+            {:else}
+              <iconify-icon icon="bx:stop"></iconify-icon>
+            {/if}
+            Tutup
+          </button>
         </div>
-        <pre
-          class="bg-base-200/80 p-2 rounded text-[10px] overflow-auto max-h-40">{JSON.stringify(
-            debugData,
-            null,
-            2,
-          )}</pre>
       </div>
-    {/if}
-  </div>
-{/if}
+
+      {#if debugData}
+        <div class="border-t border-base-content/10 mt-2 pt-2">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[11px] font-semibold opacity-60"
+              >Info Debug Sesi</span
+            >
+            <button
+              class="btn btn-ghost btn-xs"
+              onclick={() => (debugData = null)}>Tutup</button
+            >
+          </div>
+          <pre
+            class="bg-base-200/80 p-2 rounded text-[10px] overflow-auto max-h-40">{JSON.stringify(
+              debugData,
+              null,
+              2,
+            )}</pre>
+        </div>
+      {/if}
+    </div>
+  {/if}
 
   <!-- Users Table -->
   <div
@@ -709,6 +711,7 @@
                       <button
                         class="btn btn-ghost btn-xs text-primary tooltip tooltip-left"
                         data-tip="Lihat Detail"
+                        aria-label="Lihat Detail"
                         onclick={(e) => {
                           e.stopPropagation();
                           selectedUser = user;
@@ -724,6 +727,7 @@
                           rel="noopener noreferrer"
                           class="btn btn-ghost btn-xs text-accent tooltip tooltip-left"
                           data-tip="Buka Profil BSrE"
+                          aria-label="Buka Profil BSrE"
                           onclick={(e) => e.stopPropagation()}
                         >
                           <iconify-icon icon="bx:link-external" class="text-sm"
@@ -1008,9 +1012,13 @@
             >
           </div>
         </div>
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div
           class="modal-backdrop bg-black/40 backdrop-blur-xs"
+          role="button"
+          tabindex="0"
           onclick={() => (selectedUser = null)}
+          onkeydown={(e) => e.key === "Enter" && (selectedUser = null)}
         ></div>
       </dialog>
     </div>
