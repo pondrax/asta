@@ -54,7 +54,7 @@ export const handleRedirect: Handle = ({ event, resolve }) => {
     return redirect(302, '/');
   }
   if (event.url.pathname === '/d') {
-    return redirect(302, '/verify' + event.url.search);
+    return redirect(302, `/verify${event.url.search}`);
   }
 
   return resolve(event);
@@ -64,7 +64,7 @@ export const handle: Handle = sequence(handleParaglide, handleAuth, handleRedire
 
 startCron();
 
-export const handleValidationError: HandleValidationError = ({ event, issues }) => {
+export const handleValidationError: HandleValidationError = ({ issues }) => {
   return {
     message: 'Validation Errors',
     //@ts-ignore - the summary property exists at runtime but is not in the type definition

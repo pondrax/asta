@@ -90,9 +90,6 @@ importers:
       drizzle-orm:
         specifier: 1.0.0-beta.20
         version: 1.0.0-beta.20(@types/mssql@9.1.11(@azure/core-client@1.10.1))(arktype@2.2.0)(mssql@11.0.1(@azure/core-client@1.10.1))(postgres@3.4.9)
-      drizzle-plus:
-        specifier: 1.0.0-beta.34
-        version: 1.0.0-beta.34(drizzle-orm@1.0.0-beta.20(@types/mssql@9.1.11(@azure/core-client@1.10.1))(arktype@2.2.0)(mssql@11.0.1(@azure/core-client@1.10.1))(postgres@3.4.9))
       iconify-icon:
         specifier: ^3.0.2
         version: 3.0.2
@@ -1324,11 +1321,6 @@ packages:
         optional: true
       zod:
         optional: true
-
-  drizzle-plus@1.0.0-beta.34:
-    resolution: {integrity: sha512-bqp9IiEjF+DWx75jWUnixT4SCAWoyzvCYpqRYs1+K1Z9IWV/3g33oyTHweDwEK8gb2/a1ZYnvlmvfD9+jEeAAQ==}
-    peerDependencies:
-      drizzle-orm: '>=1.0.0-0'
 
   ecdsa-sig-formatter@1.0.11:
     resolution: {integrity: sha512-nagl3RYrbNv6kQkeJIpt6NJZy8twLB/2vtz6yN9Z4vRKHN4/QZJIEbqohALSgwKdnksuY3k5Addp5lg8sVoVcQ==}
@@ -2928,10 +2920,6 @@ snapshots:
     optionalDependencies:
       arktype: 2.2.0
       postgres: 3.4.9
-
-  drizzle-plus@1.0.0-beta.34(drizzle-orm@1.0.0-beta.20(@types/mssql@9.1.11(@azure/core-client@1.10.1))(arktype@2.2.0)(mssql@11.0.1(@azure/core-client@1.10.1))(postgres@3.4.9)):
-    dependencies:
-      drizzle-orm: 1.0.0-beta.20(@types/mssql@9.1.11(@azure/core-client@1.10.1))(arktype@2.2.0)(mssql@11.0.1(@azure/core-client@1.10.1))(postgres@3.4.9)
 
   ecdsa-sig-formatter@1.0.11:
     dependencies:

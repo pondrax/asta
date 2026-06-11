@@ -30,7 +30,7 @@ export class OAuth {
     this.provider = new providers[provider](config);
   }
 
-  getAuthUrl(state?: Record<string, any>) {
+  getAuthUrl(state?: Record<string, unknown>) {
     return {
       state: this.state,
       url: this.provider.getAuthUrl(state)

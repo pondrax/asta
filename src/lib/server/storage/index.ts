@@ -236,7 +236,7 @@ export class FileStorage {
         : Buffer.from(content);
 
     const encrypted = encrypt(buffer);
-    return this.storage.save(filename + '.enc', encrypted);
+    return await this.storage.save(`${filename}.enc`, encrypted);
   }
 
   async read(filename: string): Promise<ArrayBuffer> {
@@ -253,7 +253,7 @@ export class FileStorage {
     return content;
   }
 
-  async delete(filename: string): Promise<StorageResult> {
+  delete(filename: string): Promise<StorageResult> {
     return this.storage.delete(filename);
   }
 }

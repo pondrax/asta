@@ -1,5 +1,4 @@
-import { sql, type SQL, is, getTableColumns, relationsFilterToSQL, type BuildQueryResult, type DBQueryConfig, type TablesRelationalConfig } from 'drizzle-orm';
-import { PgTable } from 'drizzle-orm/pg-core';
+import { sql, getTableColumns, relationsFilterToSQL, type BuildQueryResult, type DBQueryConfig, type TablesRelationalConfig } from 'drizzle-orm';
 //@ts-ignore - drizzle internal module, no public type export available
 import { RelationalQueryBuilder } from "drizzle-orm/pg-core/query-builders/query";
 
@@ -76,7 +75,7 @@ export const withPlus = <TSchema extends TablesRelationalConfig>() => <T extends
       return await query.returning().execute();
     };
 
-    // upsert (Overriding drizzle-plus which uses broken query.then on builders)
+    // upsert (with smart conflict target detection)
     proto.upsert = async function (this: any, args: { data: any, update?: (table: any) => any, conflict?: any, where?: any }) {
       const { data, update, conflict, where } = args;
 
