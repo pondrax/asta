@@ -1,6 +1,5 @@
 import { form, getRequestEvent, query } from "$app/server";
 import { db } from "$lib/server/db";
-import { delay } from "$lib/utils";
 import { inArray, type BuildQueryResult, type DBQueryConfig } from "drizzle-orm";
 import type { relations } from "$lib/server/db/relations";
 
@@ -16,7 +15,7 @@ const searchable = (name: keyof Tables, search?: string) => {
   if (!table) return [];
 
   return Object.entries(table)
-    .filter(([key, value]) => value && typeof value === 'object' && 'columnType' in (value as any))
+    .filter(([, value]) => value && typeof value === 'object' && 'columnType' in (value as Record<string, unknown>))
     .map(([key, value]: [string, any]) => {
       if (value.columnType === 'PgText') {
         return { [key]: { ilike: `%${search}%` } };
@@ -46,11 +45,7 @@ const getAuthGuard = (name: keyof Tables) => {
         }
       }
     },
-    users: {
-      get: (search?: string) => {
-
-      }
-    },
+    users: {},
     roles: {
       get: (search?: string) => {
         // return search ? { OR: searchable(name, search) } : {}
@@ -103,7 +98,7 @@ export const getData = query(
   const data = await queryBuilder.findManyAndCount(params);
 
   return Object.assign(data, {
-    time: (performance.now() - time).toFixed(2) + 'ms'
+    time: `${(performance.now() - time).toFixed(2)}ms`
   }) as {
     data: BuildQueryResult<TFullSchema, TFullSchema[T], Params>[];
     count: number;
@@ -118,8 +113,8 @@ export const delData = form('unchecked', async ({ table, id }: { table: keyof Ta
   // await delay(10000)
   const data = await db.delete(schemaTable).where(inArray(schemaTable.id, id));
 
-  return Object.assign(data, {
-    time: (performance.now() - time).toFixed(2) + 'ms'
+  Object.assign(data, {
+    time: `${(performance.now() - time).toFixed(2)}ms`
   });
 })
 
@@ -130,28 +125,7 @@ export const saveData = form('unchecked', async ({ table, id }: { table: keyof T
   // await delay(10000)
   const data = await db.update(schemaTable).set({}).where(inArray(schemaTable.id, id));
 
-  return Object.assign(data, {
-    time: (performance.now() - time).toFixed(2) + 'ms'
+  Object.assign(data, {
+    time: `${(performance.now() - time).toFixed(2)}ms`
   });
 })
-async function xx() {
-
-  const x = getData({
-    table: 'users',
-    limit: 10,
-    offset: 0,
-    with: {
-      posts: true
-    }
-  })
-
-  const d = getData({
-    table: 'documents',
-    limit: 10,
-    offset: 0,
-    with: {
-      user: true,
-    }
-  })
-  d.current?.data.at(0)?.user?.email
-}
