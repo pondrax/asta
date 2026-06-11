@@ -115,12 +115,14 @@ export const signDocument = command(type({
 
     if (response.data.file && response.data.file.length > 0) {
       console.log('size', response.data.file[0].length);
+      let savedUrl: string | null = null;
       if (props.__saveDocument) {
         const blob = base64ToBlob(response.data.file[0]);
         const buffer = Buffer.from(await blob.arrayBuffer());
         const checksum = await calculateFileChecksum(buffer);
         const saved = await storage.save(`documents/${props.__asDraft ? 'draft_' : 'signed_'}${props.fileName}`, buffer);
         if (saved.url) {
+          savedUrl = saved.url;
           await db.query.documents.upsert({
             data: {
               id: props.id,
@@ -140,6 +142,19 @@ export const signDocument = command(type({
             })
           })
         }
+      } else {
+        // Save minimal record for non-logged-in users (for counting top signers)
+        await db.query.documents.upsert({
+          data: {
+            id: props.id,
+            owner: props.email,
+            signer: props.email,
+            title: props.fileName,
+            status: 'signed',
+            esign: !props.__manual,
+            to: props.to,
+          },
+        })
       }
 
       // const { fileBase64, fileName, ...metadata } = props
