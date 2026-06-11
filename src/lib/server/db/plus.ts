@@ -1,6 +1,6 @@
 import { sql, type SQL, is, getTableColumns, relationsFilterToSQL, type BuildQueryResult, type DBQueryConfig, type TablesRelationalConfig } from 'drizzle-orm';
 import { PgTable } from 'drizzle-orm/pg-core';
-// @ts-ignore
+//@ts-ignore - drizzle internal module, no public type export available
 import { RelationalQueryBuilder } from "drizzle-orm/pg-core/query-builders/query";
 
 export const withPlus = <TSchema extends TablesRelationalConfig>() => <T extends { query: any }>(db: T): T & {

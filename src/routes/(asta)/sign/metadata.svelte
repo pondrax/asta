@@ -96,7 +96,7 @@
 
   onMount(() => {
     // getUserCity();
-    // @ts-expect-error
+    //@ts-ignore - debounceCheckEmail is called on mount before its definition in the parent
     debounceCheckEmail();
   });
   $effect(() => {

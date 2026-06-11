@@ -315,7 +315,7 @@
     saveDocument = true;
   }
 
-  //@ts-expect-error
+  //@ts-ignore - debounce return type doesn't match the debounced function signature
   const debounceFillFormFields = debounce(() => {
     fillFormFields(documents[activeIndex]);
   }, 500);
@@ -334,7 +334,7 @@
 
     getDocumentDetails(documents[activeIndex]);
     const serialized = JSON.stringify(form);
-    //@ts-expect-error
+    //@ts-ignore - debounceFillFormFields type mismatch but works at runtime
     debounceFillFormFields();
   });
 
@@ -585,7 +585,7 @@
         completed: [],
       } as any;
       setTimeout(() => {
-        // @ts-expect-error
+        //@ts-ignore - window.turnstile is not typed in TS
         turnstileId = window.turnstile.render("#turnstile-container", {
           sitekey: env.PUBLIC_TURNSTILE_KEY,
           // size: "flexible",
@@ -795,7 +795,7 @@
         } finally {
           loading = false;
           asTemplate = false;
-          // @ts-expect-error
+          //@ts-ignore - window.turnstile is not typed in TS
           window.turnstile.reset(turnstileId);
           turnstileSuccess = false;
         }

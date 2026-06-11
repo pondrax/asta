@@ -1,7 +1,9 @@
-import { error, redirect, type Handle } from '@sveltejs/kit';
+import { error, redirect, type Handle, type HandleValidationError } from '@sveltejs/kit';
 import { paraglideMiddleware } from '$lib/paraglide/server';
 import { verifyJWT } from '$lib/server/plugins/jwt';
 import { sequence } from '@sveltejs/kit/hooks';
+import { db } from '$lib/server/db';
+import { startCron } from '$lib/server/cron';
 
 const handleParaglide: Handle = ({ event, resolve }) => paraglideMiddleware(event.request, ({ request, locale }) => {
 	event.request = request;
@@ -60,16 +62,12 @@ export const handleRedirect: Handle = ({ event, resolve }) => {
 export const handle: Handle = sequence(handleParaglide, handleAuth, handleRedirect);
 
 
-import { startCron } from '$lib/server/cron';
 startCron();
-
-import type { HandleValidationError } from '@sveltejs/kit';
-import { db } from '$lib/server/db';
 
 export const handleValidationError: HandleValidationError = ({ event, issues }) => {
 	return {
 		message: 'Validation Errors',
-		//@ts-expect-error
+		//@ts-ignore - the summary property exists at runtime but is not in the type definition
 		issues: issues?.summary || issues,
 	};
 };

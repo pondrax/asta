@@ -148,7 +148,7 @@ export const fetchBsreUsers = command(
         // Cek apakah URL sudah redirect ke halaman login BEID
         if (new URL(s.page.url()).hostname.includes(BEID_HOST)) {
           await handleBeIDLogin(s.page);
-          await s.page.waitForLoadState("networkidle", { timeout: 20_000 }).catch(() => {});
+          await s.page.waitForLoadState("networkidle", { timeout: 20_000 }).catch(() => { });
         }
 
         const token = await getAccessToken(s.page);
@@ -243,8 +243,8 @@ export const fetchBsreUsers = command(
                 const sertifikat: any[] = detailData?.data?.sertifikat ?? [];
                 const latestCert = sertifikat.length > 0
                   ? [...sertifikat].sort(
-                      (a, b) => new Date(b.notAfterDate).getTime() - new Date(a.notAfterDate).getTime()
-                    )[0]
+                    (a, b) => new Date(b.notAfterDate).getTime() - new Date(a.notAfterDate).getTime()
+                  )[0]
                   : null;
                 const certificateStatus = latestCert?.status ?? merged.certificateStatus ?? null;
 

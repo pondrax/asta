@@ -178,7 +178,7 @@ export const signDocument = command(type({
 
     return response.data;
   } catch (err) {
-    //@ts-expect-error
+    //@ts-ignore - err is unknown type, accessing .message requires suppression
     return { error: '[Server Esign Error] ' + err?.message + '.\nHarap mencoba lagi dalam beberapa saat' }
   }
 })
@@ -213,7 +213,7 @@ export const verifyDocument = command(type({
     }
 
   } catch (err) {
-    //@ts-expect-error
+    //@ts-ignore - err is unknown type, accessing .message requires suppression
     return { error: '[Server Esign Error] ' + err?.message + '.\nHarap mencoba lagi dalam beberapa saat' }
   }
 

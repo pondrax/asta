@@ -43,7 +43,7 @@
 
     if (exportAll) {
       const { limit, offset, ...allQuery } = query;
-      // @ts-expect-error getData dynamic table
+      //@ts-ignore - getData accepts dynamic table query types
       const allData = await getData(allQuery);
       data = allData?.data ?? [];
     }

@@ -1,7 +1,7 @@
 import { query, form } from "$app/server";
 import { db } from '$lib/server/db';
 import { checkAdmin } from '$lib/utils/server';
-import { and, ilike, eq, sql, inArray, getColumns } from 'drizzle-orm';
+import { and, ilike, eq, inArray, getColumns } from 'drizzle-orm';
 
 export interface CollectionSchema {
     name: string;
@@ -57,7 +57,7 @@ export const getCollectionData = query('unchecked', async (params: {
     checkAdmin();
     const { table, limit, offset, where = {}, orderBy = {}, search } = params;
     
-    // @ts-ignore
+    //@ts-ignore - db.query[table] is a dynamic index access on the query builder
     const qb = db.query[table];
     if (!qb) return { data: [], count: 0 };
 
@@ -84,15 +84,15 @@ export const upsertData = form('unchecked', async (params: { table: string, data
     checkAdmin();
     const { table, data } = params;
     
-    // @ts-ignore
+    //@ts-ignore - db._.fullSchema is an internal drizzle property
     const tableObj = db._.fullSchema[table];
     if (!tableObj) throw new Error('Table not found');
     
     if (data.id) {
-        // @ts-ignore
+        //@ts-ignore - tableObj is dynamic and db.update expects a typed table
         await db.update(tableObj).set(data).where(eq(tableObj.id, data.id));
     } else {
-        // @ts-ignore
+        //@ts-ignore - tableObj is dynamic and db.insert expects a typed table
         await db.insert(tableObj).values(data);
     }
     
@@ -102,11 +102,11 @@ export const upsertData = form('unchecked', async (params: { table: string, data
 export const batchUpdate = form('unchecked', async (params: { table: string, ids: string[], data: any }) => {
     checkAdmin();
     const { table, ids, data } = params;
-    // @ts-ignore
+    //@ts-ignore - db._.fullSchema is an internal drizzle property
     const tableObj = db._.fullSchema[table];
     if (!tableObj) throw new Error('Table not found');
 
-    // @ts-ignore
+    //@ts-ignore - dynamic table reference for db.update
     await db.update(tableObj).set(data).where(inArray(tableObj.id, ids));
     return { success: true };
 });
@@ -114,11 +114,11 @@ export const batchUpdate = form('unchecked', async (params: { table: string, ids
 export const deleteCollectionRows = form('unchecked', async (params: { table: string, ids: string[] }) => {
     checkAdmin();
     const { table, ids } = params;
-    // @ts-ignore
+    //@ts-ignore - db._.fullSchema is an internal drizzle property
     const tableObj = db._.fullSchema[table];
     if (!tableObj) throw new Error('Table not found');
     
-    // @ts-ignore
+    //@ts-ignore - dynamic table reference for db.delete
     await db.delete(tableObj).where(inArray(tableObj.id, ids));
     return { success: true };
 });

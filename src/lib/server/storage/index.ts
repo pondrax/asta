@@ -142,7 +142,7 @@ class VercelBlobStorage {
           Authorization: `Bearer ${this.token}`,
           'Content-Type': 'application/octet-stream',
         },
-        // @ts-expect-error
+        //@ts-ignore - Buffer is assignable to BodyInit at runtime but TS complains
         body: buffer,
       });
 
@@ -257,21 +257,5 @@ export class FileStorage {
     return this.storage.delete(filename);
   }
 }
-
-// Usage
-export async function example() {
-  // Uses global env config automatically
-  const storage = new FileStorage();
-
-  const result = await storage.save('test.txt', 'Hello, World!');
-  console.log('Save result:', result);
-
-  // Or override with local config
-  const customStorage = new FileStorage({
-    provider: 'local',
-    baseDir: './custom-uploads',
-  });
-
-  const customResult = await customStorage.save('custom.txt', 'Custom storage');
   console.log('Custom save result:', customResult);
 }

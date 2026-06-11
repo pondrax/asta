@@ -35,7 +35,7 @@
       statusResult = { error: "Terjadi kesalahan saat mengecek status." };
     } finally {
       checking = false;
-      // @ts-expect-error
+      //@ts-ignore - window.turnstile is not typed in TS
       window.turnstile.reset(turnstileId);
       turnstileSuccess = false;
     }
@@ -86,13 +86,13 @@
   onMount(() => {
     // Initialize Turnstile with safety check for window.turnstile
     function initTurnstile() {
-      // @ts-expect-error
+      //@ts-ignore - window.turnstile is not typed in TS
       if (!window.turnstile) {
         setTimeout(initTurnstile, 100);
         return;
       }
 
-      // @ts-expect-error
+      //@ts-ignore - window.turnstile is not typed in TS
       turnstileId = window.turnstile.render("#turnstile-container", {
         sitekey: env.PUBLIC_TURNSTILE_KEY,
         size: "flexible",

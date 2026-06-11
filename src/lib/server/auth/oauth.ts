@@ -20,14 +20,13 @@ export class OAuth {
   private provider: OAuthProvider;
   private state: string;
 
-  constructor(provider: keyof Providers, config?: OAuthConfig, params: Record<string, string> = {}) {
+  constructor(provider: keyof Providers, config?: OAuthConfig) {
     this.state = createId(32);
-    const query = new URLSearchParams(params);
     if (!config) {
-      //@ts-expect-error
+      //@ts-ignore - dynamic key access on providersConfig
       config = providersConfig[provider];
     }
-    //@ts-expect-error
+    //@ts-ignore - dynamic provider constructor from providers map
     this.provider = new providers[provider](config);
   }
 
