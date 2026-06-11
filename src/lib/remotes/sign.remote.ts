@@ -107,7 +107,7 @@ export const signDocument = command(type({
           fileName: props.fileName,
         })
         if (response.data?.error_description) {
-          response.data.error += '\n' + response.data?.error_description;
+          response.data.error += `\n${response.data?.error_description}`;
         }
         return response.data;
       }
@@ -192,7 +192,7 @@ export const signDocument = command(type({
     return response.data;
   } catch (err) {
     //@ts-ignore - err is unknown type, accessing .message requires suppression
-    return { error: '[Server Esign Error] ' + err?.message + '.\nHarap mencoba lagi dalam beberapa saat' }
+    return { error: `[Server Esign Error] ${err?.message}.\nHarap mencoba lagi dalam beberapa saat` }
   }
 })
 
@@ -227,7 +227,7 @@ export const verifyDocument = command(type({
 
   } catch (err) {
     //@ts-ignore - err is unknown type, accessing .message requires suppression
-    return { error: '[Server Esign Error] ' + err?.message + '.\nHarap mencoba lagi dalam beberapa saat' }
+    return { error: `[Server Esign Error] ${err?.message}.\nHarap mencoba lagi dalam beberapa saat` }
   }
 
   return {

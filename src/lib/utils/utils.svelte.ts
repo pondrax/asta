@@ -10,8 +10,8 @@ export function withTimeout<T>(
   ms = 30000
 ): ReactivePromise<T> {
   let loading = $state(true);
-  let current = $state<T | undefined>(undefined);
-  let error = $state<Error | undefined>(undefined);
+  let current = $state<T | undefined>();
+  let error = $state<Error | undefined>();
   let trigger = $state(0);
 
   const factory =
@@ -19,13 +19,13 @@ export function withTimeout<T>(
 
   $effect(() => {
     // Access trigger to re-run when refresh() is called
-    trigger;
+    if (trigger !== -1) {}
 
     loading = true;
     error = undefined;
 
     const promise = Promise.resolve(factory());
-    let timerId: any;
+    let timerId: ReturnType<typeof setTimeout> | undefined;
 
     const timeout = ms
       ? new Promise<never>((_, reject) => {
