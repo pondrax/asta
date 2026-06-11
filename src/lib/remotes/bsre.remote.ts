@@ -30,7 +30,7 @@ export const launchBsre = command(
     // If no token and on BEID login, handle it
     if (!token && new URL(session.page.url()).hostname.includes(BEID_HOST)) {
       await handleBeIDLogin(session.page);
-      await session.page.waitForLoadState("networkidle", { timeout: 20_000 }).catch(() => { });
+      await session.page.waitForLoadState("networkidle", { timeout: 20_000 }).catch(() => { /* timeout ok */ });
       token = await getAccessToken(session.page);
       console.log("[bsre] token after BEID login:", token ? "found ✓" : "NOT found ✗");
     }
@@ -41,7 +41,7 @@ export const launchBsre = command(
       await session.page.goto(BSRE_URL, { waitUntil: "domcontentloaded", timeout: 30_000 });
       if (new URL(session.page.url()).hostname.includes(BEID_HOST)) {
         await handleBeIDLogin(session.page);
-        await session.page.waitForLoadState("networkidle", { timeout: 20_000 }).catch(() => { });
+        await session.page.waitForLoadState("networkidle", { timeout: 20_000 }).catch(() => { /* timeout ok */ });
         token = await getAccessToken(session.page);
         console.log("[bsre] token after re-login:", token ? "found ✓" : "NOT found ✗");
       }
@@ -57,7 +57,7 @@ export const launchBsre = command(
       success: true,
       message: `Browser BSrE dibuka via ${modeLabel}. Token: ${token ? "✓" : "tidak ditemukan"}`,
       mode: session.mode,
-      hasToken: !!token,
+      hasToken: Boolean(token),
     };
   }
 );
@@ -74,18 +74,18 @@ export const closeBsre = command(
 export const navigateBsre = command(
   type({ userId: "string", url: "string" }),
   async ({ userId, url }) => {
-    const s = sessions.get(userId);
-    if (!s) return { success: false, message: "Tidak ada sesi aktif." };
+    const client = sessions.get(userId);
+    if (!client) return { success: false, message: "Tidak ada sesi aktif." };
 
-    await s.page.goto(url, { waitUntil: "domcontentloaded", timeout: 30_000 });
+    await client.page.goto(url, { waitUntil: "domcontentloaded", timeout: 30_000 });
 
-    if (new URL(s.page.url()).hostname.includes(BEID_HOST) && userId === "auto-sync") {
-      await handleBeIDLogin(s.page);
-      await s.page.waitForLoadState("networkidle", { timeout: 20_000 }).catch(() => { /* timeout ok */ });
+    if (new URL(client.page.url()).hostname.includes(BEID_HOST) && userId === "auto-sync") {
+      await handleBeIDLogin(client.page);
+      await client.page.waitForLoadState("networkidle", { timeout: 20_000 }).catch(() => { /* timeout ok */ });
     }
 
     // Re-cache token after navigation
-    await cacheToken(userId, s.page);
+    await cacheToken(userId, client.page);
 
     return { success: true, message: `Navigasi ke ${url} berhasil.` };
   }
@@ -109,10 +109,10 @@ export const getSessionStatus = query(
 export const debugBsreSession = command(
   type({ userId: "string" }),
   async ({ userId }) => {
-    const s = sessions.get(userId);
-    if (!s) return { success: false, message: "Tidak ada sesi aktif." };
+    const client = sessions.get(userId);
+    if (!client) return { success: false, message: "Tidak ada sesi aktif." };
     try {
-      const info = await s.page.evaluate(() => {
+      const info = await client.page.evaluate(() => {
         return {
           url: window.location.href,
           localStorage: { ...localStorage },
@@ -142,15 +142,15 @@ export const fetchBsreUsers = command(
     let authorization = tokenStore.get(userId);
 
     if (!authorization) {
-      const s = sessions.get(userId);
-      if (s) {
+      const client = sessions.get(userId);
+      if (client) {
         // Cek apakah URL sudah redirect ke halaman login BEID
-        if (new URL(s.page.url()).hostname.includes(BEID_HOST)) {
-          await handleBeIDLogin(s.page);
-          await s.page.waitForLoadState("networkidle", { timeout: 20_000 }).catch(() => { });
+        if (new URL(client.page.url()).hostname.includes(BEID_HOST)) {
+          await handleBeIDLogin(client.page);
+          await client.page.waitForLoadState("networkidle", { timeout: 20_000 }).catch(() => { /* timeout ok */ });
         }
 
-        const token = await getAccessToken(s.page);
+        const token = await getAccessToken(client.page);
         if (token) {
           authorization = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
           tokenStore.set(userId, authorization);

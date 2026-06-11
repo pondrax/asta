@@ -34,7 +34,7 @@ const getAuthGuard = (name: keyof Tables) => {
   const event = getRequestEvent()
   const user = event.locals.user
 
-  const GUARD: Partial<Record<keyof Tables, { get?: (search?: string) => Record<string, unknown> | void }>> = {
+  const GUARD: Partial<Record<keyof Tables, { get?: (search?: string) => Record<string, unknown> | undefined }>> = {
     documents: {
       get: () => {
         return {
