@@ -202,7 +202,7 @@ export const verifyDocument = command(type({
   try {
     const response = await esign.verifyPDF(props)
 
-    if (response.status == 200) {
+    if (response.status === 200) {
       const id = (await db.query.documentStatistics.findFirst({
         where: {
           type: 'verified',

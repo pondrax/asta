@@ -7,7 +7,7 @@ export type ReactivePromise<T> = {
 
 export function withTimeout<T>(
   promiseOrFactory: Promise<T> | (() => Promise<T>),
-  ms: number = 30000
+  ms = 30000
 ): ReactivePromise<T> {
   let loading = $state(true);
   let current = $state<T | undefined>(undefined);

@@ -27,7 +27,7 @@ export const getStats = query("unchecked", async () => {
   return rows.reduce((acc: Record<string, ReturnType<typeof empty>>, r) => {
     if (!r.type || !r.value) return acc;
     const d = dayjs(r.created).startOf("day");
-    const v = +r.value || 0;
+    const v = Number(r.value) || 0;
 
     const bucket = acc[r.type] ??= empty();
 
