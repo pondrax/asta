@@ -81,7 +81,7 @@ export const navigateBsre = command(
 
     if (new URL(s.page.url()).hostname.includes(BEID_HOST) && userId === "auto-sync") {
       await handleBeIDLogin(s.page);
-      await s.page.waitForLoadState("networkidle", { timeout: 20_000 }).catch(() => { });
+      await s.page.waitForLoadState("networkidle", { timeout: 20_000 }).catch(() => { /* timeout ok */ });
     }
 
     // Re-cache token after navigation

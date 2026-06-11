@@ -11,12 +11,12 @@ export type TableRow<T extends TableName> = Awaited<ReturnType<Tables[T]['findFi
 
 const searchable = (name: keyof Tables, search?: string) => {
   if (!search) return [];
-  const table = (db._ as any).relations[name]?.table;
+  const table = (db._ as { relations: Record<string, { table: unknown }> }).relations[name]?.table;
   if (!table) return [];
 
   return Object.entries(table)
     .filter(([, value]) => value && typeof value === 'object' && 'columnType' in (value as Record<string, unknown>))
-    .map(([key, value]: [string, any]) => {
+    .map(([key, value]: [string, { columnType: string }]) => {
       if (value.columnType === 'PgText') {
         return { [key]: { ilike: `%${search}%` } };
       }
@@ -34,7 +34,7 @@ const getAuthGuard = (name: keyof Tables) => {
   const event = getRequestEvent()
   const user = event.locals.user
 
-  const GUARD: Partial<Record<keyof Tables, any>> = {
+  const GUARD: Partial<Record<keyof Tables, { get?: (search?: string) => Record<string, unknown> | void }>> = {
     documents: {
       get: () => {
         return {
@@ -75,7 +75,7 @@ export const getData = query(
   const time = performance.now()
   const conditions = [];
 
-  const _params = params as any;
+  const _params = params as Record<string, unknown>;
   if (_params.where) {
     conditions.push(_params.where);
   }
@@ -94,7 +94,7 @@ export const getData = query(
     _params.where = conditions.length === 1 ? conditions[0] : { AND: conditions };
   }
 
-  const queryBuilder = db.query[table] as any;
+  const queryBuilder = db.query[table] as { findManyAndCount: (params: unknown) => Promise<{ data: unknown[]; count: number }> };
   const data = await queryBuilder.findManyAndCount(params);
 
   return Object.assign(data, {
