@@ -306,10 +306,12 @@
   }
 </script>
 
-<div class="px-5 flex gap-5 h-full flex-col md:flex-row">
-  <div id="tour-verify-preview" class="grow h-full min-h-200 md:order-2">
+<div
+  class="px-5 flex gap-5 h-full flex-col md:flex-row overflow-y-auto md:overflow-y-hidden"
+>
+  <div id="tour-verify-preview" class="grow min-h-0 md:order-2 flex flex-col">
     {#if !isAuthorized && fileURL && !previewFile}
-      <div class="flex flex-col items-center justify-center h-full">
+      <div class="flex flex-col items-center justify-center min-h-0 py-8">
         <div
           class="card bg-base-100 shadow-xl border border-base-300 w-full max-w-md"
         >
@@ -356,7 +358,7 @@
         </div>
       </div>
     {:else if previewFile || fileURL}
-      <div class="h-full relative">
+      <div class="grow min-h-0 relative flex flex-col">
         <div class="absolute top-4 right-4 z-10 flex gap-2">
           <button
             type="button"
@@ -381,23 +383,24 @@
             Download PDF
           </button>
         </div>
-        <Preview file={previewFile} />
+        <div class="grow min-h-0 overflow-y-auto">
+          <Preview file={previewFile} />
+        </div>
       </div>
     {:else}
-      <Upload
-        bind:files={uploaderFiles}
-        bind:fileInput={uploaderInput}
-        title="Pilih File untuk Verifikasi"
-      />
+      <div class="grow min-h-0 flex flex-col">
+        <Upload
+          bind:files={uploaderFiles}
+          bind:fileInput={uploaderInput}
+          title="Pilih File untuk Verifikasi"
+        />
+      </div>
     {/if}
   </div>
 
-  <div class="flex flex-col md:w-sm shrink-0 h-full">
-    <!-- Tabs Navigation (Now outside for cleaner border) -->
-    <div
-      id="tour-verify-mode"
-      class="tabs tabs-lift w-full shrink-0 h-150 md:h-auto"
-    >
+  <div class="flex flex-col md:w-sm shrink-0 min-h-0">
+    <!-- Tabs Navigation -->
+    <div id="tour-verify-mode" class="tabs tabs-lift w-full shrink-0">
       <label
         class="tab flex-1 {mode === 'upload' ? 'tab-active' : ''} bg-base-100"
       >
@@ -631,7 +634,7 @@
         class="tooltip tooltip-right before:-translate-x-10 after:-translate-x-10"
         data-tip="Ada Pertanyaan?"
       >
-        <div class="scale-75 -mt-12 -ml-5">
+        <div class="scale-50 flex -mb-1 -ml-10">
           <Char />
         </div>
       </div>

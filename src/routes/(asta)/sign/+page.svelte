@@ -350,9 +350,14 @@
 </svelte:head>
 
 <!-- <div class="px-5"> -->
-<div class="px-5 flex gap-5 h-full flex-col md:flex-row">
-  <div class="rounded-2xl grow min-h-150 md:order-2">
-    <div class:hidden={!documents[activeIndex]} class="h-full relative">
+<div
+  class="px-5 flex gap-5 h-full flex-col md:flex-row overflow-y-auto md:overflow-y-hidden"
+>
+  <div class="rounded-2xl grow min-h-0 md:order-2 flex flex-col">
+    <div
+      class:hidden={!documents[activeIndex]}
+      class="grow min-h-0 relative flex flex-col"
+    >
       {#if hasSignature}
         <div
           class="absolute top-0 alert py-1 px-5 alert-warning left-0 right-0 z-5"
@@ -409,63 +414,65 @@
         </button>
       </div>
 
-      <Preview file={previewFile} {hasSignature}>
-        {#snippet children(scale, pageSizes, gutter)}
-          {#each signatures as sign}
-            {@const sumPrevHeight = pageSizes
-              .slice(0, sign.page - 1)
-              .reduce((acc, cur) => acc + cur.height + gutter, 0)}
-            <Dragresize
-              x={sign.originX}
-              y={sign.originY + sumPrevHeight}
-              width={sign.width}
-              height={sign.height}
-              {scale}
-              onchange={(e) => {
-                let acc = 0;
-                for (let i = 0; i < pageSizes.length; i++) {
-                  const h = pageSizes[i].height;
-                  if (e.y < acc + h) {
-                    sign.page = i + 1;
-                    sign.originY = e.y - acc;
-                    break;
+      <div class="grow min-h-0 overflow-y-auto">
+        <Preview file={previewFile} {hasSignature}>
+          {#snippet children(scale, pageSizes, gutter)}
+            {#each signatures as sign}
+              {@const sumPrevHeight = pageSizes
+                .slice(0, sign.page - 1)
+                .reduce((acc, cur) => acc + cur.height + gutter, 0)}
+              <Dragresize
+                x={sign.originX}
+                y={sign.originY + sumPrevHeight}
+                width={sign.width}
+                height={sign.height}
+                {scale}
+                onchange={(e) => {
+                  let acc = 0;
+                  for (let i = 0; i < pageSizes.length; i++) {
+                    const h = pageSizes[i].height;
+                    if (e.y < acc + h) {
+                      sign.page = i + 1;
+                      sign.originY = e.y - acc;
+                      break;
+                    }
+                    acc += h + gutter;
                   }
-                  acc += h + gutter;
-                }
 
-                sign.originX = e.x;
-                sign.width = e.width;
-                sign.height = e.height;
-              }}
-            >
-              <button
-                type="button"
-                class="btn btn-xs btn-circle btn-error absolute -top-6 left-1/2 -translate-x-1/2"
-                onclick={() => {
-                  signatures = signatures.filter((s) => s !== sign);
+                  sign.originX = e.x;
+                  sign.width = e.width;
+                  sign.height = e.height;
                 }}
               >
-                x
-              </button>
-              <img
-                id={`sign-${sign.id}`}
-                src={`data:image/png;base64,${sign.imageBase64}`}
-                class="w-full h-full pointer-events-none"
-                alt="Visualisasi"
-              />
-            </Dragresize>
-          {/each}
-        {/snippet}
-      </Preview>
+                <button
+                  type="button"
+                  class="btn btn-xs btn-circle btn-error absolute -top-6 left-1/2 -translate-x-1/2"
+                  onclick={() => {
+                    signatures = signatures.filter((s) => s !== sign);
+                  }}
+                >
+                  x
+                </button>
+                <img
+                  id={`sign-${sign.id}`}
+                  src={`data:image/png;base64,${sign.imageBase64}`}
+                  class="w-full h-full pointer-events-none"
+                  alt="Visualisasi"
+                />
+              </Dragresize>
+            {/each}
+          {/snippet}
+        </Preview>
+      </div>
     </div>
 
-    <div class:hidden={hasDocuments} class="h-full">
+    <div class:hidden={hasDocuments} class="grow min-h-0 flex flex-col">
       <Upload bind:fileInput bind:files title="Pilih File PDF" />
     </div>
   </div>
-  <div class="flex flex-col md:w-sm shrink-0">
-    <div class="grow flex min-h-0">
-      <div class="tabs tabs-lift h-150 md:h-auto w-full">
+  <div class="flex flex-col md:w-sm shrink-0 min-h-0">
+    <div class="grow flex min-h-0 overflow-y-auto">
+      <div class="tabs tabs-lift w-full">
         <label class="tab bg-base-100">
           <input
             type="radio"
@@ -522,7 +529,7 @@
         class="tooltip tooltip-right before:-translate-x-10 after:-translate-x-10"
         data-tip="Ada Pertanyaan?"
       >
-        <div class="scale-75 -mt-12 -ml-5">
+        <div class="scale-50 flex -mb-1 -ml-10">
           <Char closeeye={showPassphrase} />
         </div>
       </div>
