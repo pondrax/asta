@@ -19,7 +19,7 @@ export function withTimeout<T>(
 
   $effect(() => {
     // Access trigger to re-run when refresh() is called
-    if (trigger !== -1) {}
+    if (trigger !== -1) { }
 
     loading = true;
     error = undefined;
