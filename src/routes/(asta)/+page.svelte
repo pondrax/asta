@@ -15,14 +15,20 @@
   }
 </script>
 
-<div>
-  <div class="flex justify-center items-center h-[calc(100vh-12rem)]">
+<div class="overflow-y-auto">
+  <!-- Hero -->
+  <div
+    class="flex justify-center items-center min-h-[calc(100vh-12rem)] px-4 py-6"
+  >
     <div class="max-w-xl text-center">
-      <div class="-my-10">
-        <Lottie url="/asta-themed.json" loop autoplay />
+      <!-- Lottie: smaller on short screens via max-h -->
+      <div class="h-50vh overflow-hidden flex justify-center">
+        <div class="h-full w-full max-w-[280px] sm:max-w-[400px]">
+          <Lottie url="/asta-themed.json" loop autoplay />
+        </div>
       </div>
 
-      <p class="pb-5">
+      <p class="pb-5 text-sm sm:text-base leading-relaxed">
         Tata Pelayanan Keamanan dan Asisten Sertifikat Elektronik Kota Mojokerto
         disingkat <span class="animate-pulse font-semibold text-primary">
           Tapak Astà
@@ -31,21 +37,23 @@
         Mojokerto, dengan fokus pada tata pelayanan keamanan yang terpercaya dan
         mudah diakses oleh pengguna.
       </p>
-      <a href="./sign" class="btn btn-primary animate-bounce">
+      <a href="./sign" class="btn btn-primary animate-bounce btn-sm sm:btn-md">
         <iconify-icon icon="bx:pen"></iconify-icon>
         Tanda Tangan Dokumen Sekarang!
       </a>
     </div>
   </div>
-  <section class="max-w-md sm:max-w-4xl mx-auto">
+
+  <!-- Stats -->
+  <section class="max-w-5xl mx-auto px-4">
     {#if current}
       <div class="stats stats-vertical lg:stats-horizontal shadow w-full">
         <div class="stat">
-          <div class="stat-figure text-primary/90 text-5xl">
+          <div class="stat-figure text-primary/90 text-3xl sm:text-5xl">
             <iconify-icon icon="bx:bxs-file-archive"></iconify-icon>
           </div>
-          <div class="stat-title">Tanda Tangan Hari ini</div>
-          <div class="stat-value text-5xl">
+          <div class="stat-title text-xs sm:text-sm">Tanda Tangan Hari ini</div>
+          <div class="stat-value text-3xl sm:text-5xl">
             {formatNumber(current?.signed?.today)}
           </div>
           <div class="stat-desc text-xs">
@@ -64,11 +72,11 @@
         </div>
 
         <div class="stat">
-          <div class="stat-figure text-primary text-5xl">
+          <div class="stat-figure text-primary text-3xl sm:text-5xl">
             <iconify-icon icon="bx:bxs-file-archive"></iconify-icon>
           </div>
-          <div class="stat-title">Total Tanda Tangan</div>
-          <div class="stat-value text-5xl">
+          <div class="stat-title text-xs sm:text-sm">Total Tanda Tangan</div>
+          <div class="stat-value text-3xl sm:text-5xl">
             {formatNumber(current?.signed?.total)}
           </div>
           <div class="stat-desc text-xs">
@@ -78,11 +86,11 @@
         </div>
 
         <div class="stat">
-          <div class="stat-figure text-accent/90 text-5xl">
+          <div class="stat-figure text-accent/90 text-3xl sm:text-5xl">
             <iconify-icon icon="bx:bxs-file-find"></iconify-icon>
           </div>
-          <div class="stat-title">Verifikasi Hari Ini</div>
-          <div class="stat-value text-5xl">
+          <div class="stat-title text-xs sm:text-sm">Verifikasi Hari Ini</div>
+          <div class="stat-value text-3xl sm:text-5xl">
             {formatNumber(current?.verified?.today)}
           </div>
           <div class="stat-desc text-xs">
@@ -101,11 +109,11 @@
           </div>
         </div>
         <div class="stat">
-          <div class="stat-figure text-accent text-5xl">
+          <div class="stat-figure text-accent text-3xl sm:text-5xl">
             <iconify-icon icon="bx:bxs-file-find"></iconify-icon>
           </div>
-          <div class="stat-title">Total Verifikasi</div>
-          <div class="stat-value 5xl">
+          <div class="stat-title text-xs sm:text-sm">Total Verifikasi</div>
+          <div class="stat-value text-3xl sm:text-5xl">
             {formatNumber(current?.verified?.total)}
           </div>
           <div class="stat-desc text-xs">
@@ -129,7 +137,7 @@
 </div>
 
 <footer
-  class="footer sm:footer-horizontal bg-base-200 text-base-content p-10 mt-30 shadow-[0_-2px_6px_-1px_rgba(0,0,0,0.1)] relative z-1"
+  class="footer sm:footer-horizontal bg-base-200 text-base-content p-6 sm:p-10 mt-16 sm:mt-30 shadow-[0_-2px_6px_-1px_rgba(0,0,0,0.1)] relative z-1"
 >
   <aside class="">
     <div class="w-50 -mb-10 -mt-20">
