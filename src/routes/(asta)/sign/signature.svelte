@@ -218,7 +218,7 @@
       bind:this={canvasImage}
       width="640"
       height="320"
-      class="border border-base-300 rounded-lg bg-white w-full"
+      class="border border-base-300 rounded-lg bg-white w-full max-h-32"
     ></canvas>
   </div>
 
@@ -232,7 +232,7 @@
       bind:this={canvasQR}
       width="400"
       height="400"
-      class="border border-base-300 rounded-lg bg-white h-48 mx-auto"
+      class="border border-base-300 rounded-lg bg-white h-32 mx-auto"
     ></canvas>
   </div>
 
@@ -244,7 +244,7 @@
   <div class="tab-content relative">
     <canvas
       bind:this={canvasBox}
-      class="border border-base-300 bg-white w-full"
+      class="border border-base-300 bg-white w-full max-h-24"
       width="640"
       height="180"
     ></canvas>
@@ -258,7 +258,7 @@
   <div class="tab-content relative">
     <canvas
       bind:this={canvasPad}
-      class="border border-base-300 rounded-lg bg-white w-full h-48 touch-none"
+      class="border border-base-300 rounded-lg bg-white w-full h-32 touch-none"
       width="640"
       height="320"
       onmousedown={startDrawing}

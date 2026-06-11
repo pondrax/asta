@@ -516,6 +516,7 @@
             bind:useEmail
             {fields}
             {hasSignature}
+            bind:signatures
             {setSignature}
             {signButton}
           >
@@ -524,12 +525,12 @@
         </div>
       </div>
     </div>
-    <div class="text-sm flex items-end relative z-10">
+    <div class="text-sm flex items-end relative z-30">
       <div
         class="tooltip tooltip-right before:-translate-x-10 after:-translate-x-10"
         data-tip="Ada Pertanyaan?"
       >
-        <div class="scale-50 flex -mb-1 -ml-10">
+        <div class="scale-50 flex -mb-1 -ml-12 -mt-8">
           <Char closeeye={showPassphrase} />
         </div>
       </div>

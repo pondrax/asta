@@ -18,6 +18,7 @@
     fields = $bindable({}),
     visual = $bindable({}),
     hasSignature,
+    signatures = $bindable([]),
     setSignature,
     signButton,
     useEmail = $bindable(true),
@@ -36,6 +37,7 @@
     "nomor_telepon",
   ];
   let signaturePanel = $state(true);
+  let emailFocused = $state(false);
   const checkEmail = async (el: Event) => {
     if (!form.email && !form.nik) return;
     const cancel = useEmail
@@ -146,20 +148,10 @@
       </div>
     </li>
     {#if bsre}
-      <!-- <li class="px-0 py-1">
-        <label class="label py-0 bg-transparent flex justify-between">
-          <span class="btn btn-sm" class:btn-primary={!useEmail}> NIK</span>
-          <input
-            type="checkbox"
-            bind:checked={useEmail}
-            class="toggle"
-            onchange={debounceCheckEmail}
-          />
-          <span class="btn btn-sm" class:btn-primary={useEmail}> EMAIL</span>
-        </label>
-      </li> -->
-
-      <li class="p-2 tooltip">
+      <li
+        class="p-2 tooltip bg-base-100 sticky top-10 z-25"
+        class:tooltip-open={status === "NOT_REGISTERED"}
+      >
         {#if form.email?.split("@").at(0) !== ""}
           <div class="tooltip-content pointer-events-auto!">
             {#if status === "ISSUE"}
@@ -201,8 +193,12 @@
               type="text"
               placeholder="Email Dinas"
               oninput={debounceCheckEmail}
+              onfocus={() => (emailFocused = true)}
+              onblur={() => (emailFocused = false)}
             />
-            <span class="label">@mojokertokota.go.id</span>
+            <span class="label"
+              >{emailFocused ? "***go.id" : "@mojokertokota.go.id"}</span
+            >
             {#if loading}
               <span class="loading"></span>
             {:else if status == "ISSUE"}
@@ -217,7 +213,7 @@
         </label>
       </li>
     {:else}
-      <li class="p-2">
+      <li class="p-2 bg-base-100 sticky top-10 z-25">
         <label class="floating-label p-0 bg-transparent">
           <span>Email Penandatangan</span>
           <div class="input input-sm">
@@ -418,45 +414,71 @@
         </li>
       {/if}
     {/each}
-    <li class="px-2 py-1 pb-100">
-      {#if bsre}
-        <label
-          class="label p-0 tooltip"
-          data-tip="Hanya untuk dokumen draft / belum di ttd"
-        >
-          <input
-            type="checkbox"
-            class="toggle"
-            bind:checked={
-              () => (hasSignature ? false : form.footer),
-              (val) => (form.footer = val)
-            }
-            disabled={hasSignature}
-          />
-          Visualisasi Footer BSrE - BSSN
-        </label>
-      {:else}
-        <label
-          class="label p-0 tooltip"
-          data-tip="Dokumen manual wajib menggunakan footer"
-        >
-          <input type="checkbox" class="toggle" checked={true} disabled />
-          Visualisasi Footer Dokumen
-        </label>
-      {/if}
-    </li>
   </ul>
 
-  {#if signaturePanel}
-    <div id="tour-signature" class="absolute bottom-0 z-5 px-3">
-      <Signature
-        {form}
-        {setSignature}
-        {hasSignature}
-        availableVisual={bsre ? ["image", "qr", "box", "draw"] : ["draw"]}
-      />
+  <div id="tour-signature" class="absolute bottom-0 z-20 left-0 right-0 px-3">
+    <div class="bg-base-200 rounded-lg shadow-sm">
+      <button
+        type="button"
+        class="btn btn-ghost btn-sm w-full flex items-center gap-2 rounded-lg"
+        onclick={() => (signaturePanel = !signaturePanel)}
+      >
+        <iconify-icon
+          icon={signaturePanel ? "bx:chevron-down" : "bx:chevron-right"}
+          class="text-lg"
+        ></iconify-icon>
+        <span class="text-xs font-medium">Visualisasi Tanda Tangan</span>
+        <span class="badge badge-xs badge-primary">{signatures.length}</span>
+        <span class="ml-auto text-[10px] opacity-60">
+          {signaturePanel ? "sembunyikan" : "tampilkan"}
+        </span>
+      </button>
 
-      {@render children?.()}
+      {#if signaturePanel}
+        <div class="px-2 pb-2">
+          <div class="py-1 border-b border-base-300 mb-1">
+            {#if bsre}
+              <label
+                class="label p-0 tooltip cursor-pointer"
+                data-tip="Hanya untuk dokumen draft / belum di ttd"
+              >
+                <input
+                  type="checkbox"
+                  class="toggle toggle-sm"
+                  bind:checked={
+                    () => (hasSignature ? false : form.footer),
+                    (val) => (form.footer = val)
+                  }
+                  disabled={hasSignature}
+                />
+                <span class="text-xs">Visualisasi Footer BSrE - BSSN</span>
+              </label>
+            {:else}
+              <label
+                class="label p-0 tooltip cursor-pointer"
+                data-tip="Dokumen manual wajib menggunakan footer"
+              >
+                <input
+                  type="checkbox"
+                  class="toggle toggle-sm"
+                  checked={true}
+                  disabled
+                />
+                <span class="text-xs">Visualisasi Footer Dokumen</span>
+              </label>
+            {/if}
+          </div>
+
+          <Signature
+            {form}
+            {setSignature}
+            {hasSignature}
+            availableVisual={bsre ? ["image", "qr", "box", "draw"] : ["draw"]}
+          />
+
+          {@render children?.()}
+        </div>
+      {/if}
     </div>
-  {/if}
+  </div>
 </form>
