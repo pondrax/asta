@@ -115,11 +115,11 @@
     signButton?.click();
     console.log(e);
   }}
-  class="h-full relative"
+  class="h-full relative flex flex-col"
 >
   <ul
     id="tour-metadata"
-    class="menu h-full overflow-auto flex-nowrap rounded-xl w-full relative"
+    class="menu grow overflow-auto flex-nowrap rounded-xl w-full relative"
   >
     <li class="menu-title bg-base-100 sticky -top-2 z-5">
       <div class="flex gap-5 justify-between items-center">
@@ -416,69 +416,79 @@
     {/each}
   </ul>
 
-  <div id="tour-signature" class="absolute bottom-0 z-20 left-0 right-0 px-3">
-    <div class="bg-base-200 rounded-lg shadow-sm">
+  <div id="tour-signature" class="bg-base-200 rounded-lg shadow-sm">
+    <div class="flex items-center justify-between px-1 py-1">
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+      <label
+        class="btn btn-xs btn-ghost tooltip"
+        data-tip="Visualisasi (Opsional)"
+        onclick={() => (signaturePanel = true)}
+      >
+        <input
+          type="checkbox"
+          class="checkbox checkbox-xs"
+          class:checkbox-success={signatures.length > 0}
+          checked={signatures.length > 0}
+          readonly
+        />
+        Visualisasi Tanda Tangan
+      </label>
+      {#if bsre}
+        <label
+          class="btn btn-xs tooltip btn-ghost"
+          data-tip="Hanya untuk dokumen draft / belum di ttd"
+        >
+          <input
+            type="checkbox"
+            class="checkbox checkbox-xs"
+            class:checkbox-success={form.footer}
+            bind:checked={
+              () => (hasSignature ? false : form.footer),
+              (val) => (form.footer = val)
+            }
+            disabled={hasSignature}
+          />
+          Footer BSrE
+        </label>
+      {:else}
+        <label
+          class="btn btn-xs btn-ghost tooltip"
+          data-tip="Dokumen manual wajib menggunakan footer"
+        >
+          <input
+            type="checkbox"
+            class="checkbox checkbox-xs checkbox-success"
+            checked={true}
+            disabled
+          />
+          Footer
+        </label>
+      {/if}
       <button
         type="button"
-        class="btn btn-ghost btn-sm w-full flex items-center gap-2 rounded-lg"
+        aria-label="Toggle Signature Panel"
+        class="btn btn-xs btn-square btn-ghost ml-auto"
         onclick={() => (signaturePanel = !signaturePanel)}
       >
         <iconify-icon
-          icon={signaturePanel ? "bx:chevron-down" : "bx:chevron-right"}
+          icon={signaturePanel ? "bx:chevron-down" : "bx:chevron-up"}
           class="text-lg"
         ></iconify-icon>
-        <span class="text-xs font-medium">Visualisasi Tanda Tangan</span>
-        <span class="badge badge-xs badge-primary">{signatures.length}</span>
-        <span class="ml-auto text-[10px] opacity-60">
-          {signaturePanel ? "sembunyikan" : "tampilkan"}
-        </span>
       </button>
-
-      {#if signaturePanel}
-        <div class="px-2 pb-2">
-          <div class="py-1 border-b border-base-300 mb-1">
-            {#if bsre}
-              <label
-                class="label p-0 tooltip cursor-pointer"
-                data-tip="Hanya untuk dokumen draft / belum di ttd"
-              >
-                <input
-                  type="checkbox"
-                  class="toggle toggle-sm"
-                  bind:checked={
-                    () => (hasSignature ? false : form.footer),
-                    (val) => (form.footer = val)
-                  }
-                  disabled={hasSignature}
-                />
-                <span class="text-xs">Visualisasi Footer BSrE - BSSN</span>
-              </label>
-            {:else}
-              <label
-                class="label p-0 tooltip cursor-pointer"
-                data-tip="Dokumen manual wajib menggunakan footer"
-              >
-                <input
-                  type="checkbox"
-                  class="toggle toggle-sm"
-                  checked={true}
-                  disabled
-                />
-                <span class="text-xs">Visualisasi Footer Dokumen</span>
-              </label>
-            {/if}
-          </div>
-
-          <Signature
-            {form}
-            {setSignature}
-            {hasSignature}
-            availableVisual={bsre ? ["image", "qr", "box", "draw"] : ["draw"]}
-          />
-
-          {@render children?.()}
-        </div>
-      {/if}
     </div>
+
+    {#if signaturePanel}
+      <div class="px-2 pb-2">
+        <Signature
+          {form}
+          {setSignature}
+          {hasSignature}
+          availableVisual={bsre ? ["image", "qr", "box", "draw"] : ["draw"]}
+        />
+
+        {@render children?.()}
+      </div>
+    {/if}
   </div>
 </form>
