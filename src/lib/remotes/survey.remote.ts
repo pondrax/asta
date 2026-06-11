@@ -1,6 +1,5 @@
 import { command, getRequestEvent, query } from "$app/server";
 import { db } from "$lib/server/db";
-import { surveyResponses } from "$lib/server/db/schema";
 
 export const submitSurvey = command("unchecked", async (props: { email: string; rating: number; feedback: string }) => {
   await db.query.surveyResponses.upsert({

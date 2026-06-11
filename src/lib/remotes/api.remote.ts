@@ -36,7 +36,7 @@ const getAuthGuard = (name: keyof Tables) => {
 
   const GUARD: Partial<Record<keyof Tables, any>> = {
     documents: {
-      get: (opt: any) => {
+      get: () => {
         return {
           OR: [
             { owner: user?.email ?? '-', },
@@ -47,12 +47,12 @@ const getAuthGuard = (name: keyof Tables) => {
     },
     users: {},
     roles: {
-      get: (search?: string) => {
+      get: () => {
         // return search ? { OR: searchable(name, search) } : {}
       }
     },
     organizations: {
-      get: (search?: string) => {
+      get: () => {
         // return search ? { OR: searchable(name, search) } : {}
       }
     }

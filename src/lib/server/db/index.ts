@@ -1,4 +1,4 @@
-import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import { drizzle } from 'drizzle-orm/postgres-js';
 import { env } from '$env/dynamic/private';
 import * as schema from './schema';
 import { relations } from './relations';

@@ -117,40 +117,40 @@ type FlexibleCertificateDetail = Omit<CertificateDetail, 'notBeforeDate' | 'notA
 };
 
 // Utility function to normalize dates to ISO strings
-function normalizeSignatureResponse(
-  response: FlexibleSignatureVerificationResponse
-): SignatureVerificationResponse {
-  return {
-    ...response,
-    signatureInformations: response.signatureInformations.map(sig => ({
-      ...sig,
-      signatureDate: normalizeDate(sig.signatureDate),
-      timestampInfomation: {
-        ...sig.timestampInfomation,
-        timestampDate: normalizeDate(sig.timestampInfomation.timestampDate)
-      },
-      certificateDetails: sig.certificateDetails.map(cert => ({
-        ...cert,
-        notBeforeDate: normalizeDate(cert.notBeforeDate),
-        notAfterDate: normalizeDate(cert.notAfterDate)
-      }))
-    }))
-  };
-}
+// function normalizeSignatureResponse(
+//   response: FlexibleSignatureVerificationResponse
+// ): SignatureVerificationResponse {
+//   return {
+//     ...response,
+//     signatureInformations: response.signatureInformations.map(sig => ({
+//       ...sig,
+//       signatureDate: normalizeDate(sig.signatureDate),
+//       timestampInfomation: {
+//         ...sig.timestampInfomation,
+//         timestampDate: normalizeDate(sig.timestampInfomation.timestampDate)
+//       },
+//       certificateDetails: sig.certificateDetails.map(cert => ({
+//         ...cert,
+//         notBeforeDate: normalizeDate(cert.notBeforeDate),
+//         notAfterDate: normalizeDate(cert.notAfterDate)
+//       }))
+//     }))
+//   };
+// }
 
-function normalizeDate(date: DateLike): string {
-  if (typeof date === 'number') {
-    // Assuming Unix timestamp in milliseconds
-    return new Date(date).toISOString();
-  } else if (typeof date === 'string') {
-    // If it's already an ISO string, return as-is
-    // If it's a different format, you might need additional parsing
-    return date;
-  } else if (date instanceof Date) {
-    return date.toISOString();
-  }
-  return '';
-}
+// function normalizeDate(date: DateLike): string {
+//   if (typeof date === 'number') {
+//     // Assuming Unix timestamp in milliseconds
+//     return new Date(date).toISOString();
+//   } else if (typeof date === 'string') {
+//     // If it's already an ISO string, return as-is
+//     // If it's a different format, you might need additional parsing
+//     return date;
+//   } else if (date instanceof Date) {
+//     return date.toISOString();
+//   }
+//   return '';
+// }
 
 // Usage example:
 // const rawResponse: FlexibleSignatureVerificationResponse = ...; // From your API

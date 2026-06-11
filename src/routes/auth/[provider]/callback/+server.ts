@@ -1,7 +1,7 @@
 import { OAuth, type Providers } from "$lib/server/auth/oauth";
 import { db } from "$lib/server/db/index.js";
 import { createJWT } from "$lib/server/plugins/jwt.js";
-import { error, json, redirect } from "@sveltejs/kit";
+import { redirect } from "@sveltejs/kit";
 
 export async function GET({ params, url, cookies }) {
   const provider = params.provider as keyof Providers;

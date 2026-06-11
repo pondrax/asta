@@ -1,7 +1,7 @@
 import { query, form } from "$app/server";
 import { db } from '$lib/server/db';
 import { checkAdmin } from '$lib/utils/server';
-import { and, ilike, eq, inArray, getColumns } from 'drizzle-orm';
+import { eq, inArray, getColumns } from 'drizzle-orm';
 
 export interface CollectionSchema {
   name: string;
@@ -55,7 +55,7 @@ export const getCollectionData = query('unchecked', async (params: {
 }) => {
 
   checkAdmin();
-  const { table, limit, offset, where = {}, orderBy = {}, search } = params;
+  const { table, limit, offset, where = {}, orderBy = {} } = params;
 
   //@ts-ignore - db.query[table] is a dynamic index access on the query builder
   const qb = db.query[table];
@@ -163,11 +163,11 @@ export const getTableStats = query('unchecked', async (params: { table: string, 
 
   return JSON.parse(JSON.stringify({
     series: Object.entries(series).map(([date, count]) => {
-      const [y, m, d] = date.split('-');
+      const [, m, d] = date.split('-');
       return { label: `${d}/${m}`, count };
     }).reverse(),
     total: records.length,
-    time: (performance.now() - time).toFixed(2) + 'ms'
+    time: `${(performance.now() - time).toFixed(2)}ms`
   }));
 });
 
@@ -216,7 +216,7 @@ export const getLogStats = query('unchecked', async (params: { where?: Record<st
 
   return JSON.parse(JSON.stringify({
     series: Object.entries(series).map(([day, counts]) => {
-      const [y, m, d] = day.split('-');
+      const [, m, d] = day.split('-');
       return {
         label: `${d}/${m}`,
         ...counts

@@ -1,5 +1,4 @@
 import { env } from '$env/dynamic/private';
-import { db } from '$lib/server/db';
 
 export async function load({ locals, url }) {
   if (!locals.user) {

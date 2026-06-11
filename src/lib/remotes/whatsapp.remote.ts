@@ -25,7 +25,7 @@ import { type } from "arktype"
 
 export const sendMessage = command(type({ recipient: 'string', payload: 'object' }), async ({ recipient, payload }) => {
   try {
-    const response = await fetch(env.WHATSAPP_HOST + '/api/v1/send', {
+    await fetch(env.WHATSAPP_HOST + '/api/v1/send', {
       method: 'POST',
       headers: {
         'Authorization': env.WHATSAPP_AUTH,

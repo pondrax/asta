@@ -1,6 +1,3 @@
-import { createId } from "$lib/utils"
-import { db } from ".."
-
 export default async () => {
   console.log('Upserting documents...')
   // const data = Array.from({ length: 100_000 }, (_, i) => ({

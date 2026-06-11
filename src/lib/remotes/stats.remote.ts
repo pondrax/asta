@@ -1,6 +1,6 @@
 import { getRequestEvent, query } from "$app/server";
 import { db } from "$lib/server/db";
-import { documents, users, signers, documentStatistics, __logs } from "$lib/server/db/schema";
+import { __logs } from "$lib/server/db/schema";
 import dayjs from "dayjs";
 import isoWeek from "dayjs/plugin/isoWeek";
 import { promises as fs } from "fs";

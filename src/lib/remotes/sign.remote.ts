@@ -115,14 +115,12 @@ export const signDocument = command(type({
 
     if (response.data.file && response.data.file.length > 0) {
       console.log('size', response.data.file[0].length);
-      let savedUrl: string | null = null;
       if (props.__saveDocument) {
         const blob = base64ToBlob(response.data.file[0]);
         const buffer = Buffer.from(await blob.arrayBuffer());
         const checksum = await calculateFileChecksum(buffer);
         const saved = await storage.save(`documents/${props.__asDraft ? 'draft_' : 'signed_'}${props.fileName}`, buffer);
         if (saved.url) {
-          savedUrl = saved.url;
           await db.query.documents.upsert({
             data: {
               id: props.id,
