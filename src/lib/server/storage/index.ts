@@ -257,5 +257,3 @@ export class FileStorage {
     return this.storage.delete(filename);
   }
 }
-  console.log('Custom save result:', customResult);
-}

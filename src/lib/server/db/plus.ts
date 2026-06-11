@@ -16,11 +16,11 @@ export const withPlus = <TSchema extends TablesRelationalConfig>() => <T extends
         args: { data: any, where?: TConfig['where'] }
       ): Promise<BuildQueryResult<TSchema, TSchema[K], TConfig>[]>;
       upsert<TConfig extends DBQueryConfig<'one', TSchema, TSchema[K]>>(
-        args: { 
-          data: any, 
-          update?: (table: BuildQueryResult<TSchema, TSchema[K], {}>) => any, 
-          conflict?: any, 
-          where?: TConfig['where'] 
+        args: {
+          data: any,
+          update?: (table: BuildQueryResult<TSchema, TSchema[K], {}>) => any,
+          conflict?: any,
+          where?: TConfig['where']
         }
       ): Promise<BuildQueryResult<TSchema, TSchema[K], TConfig>>;
     }

@@ -6,58 +6,58 @@ import { db } from '$lib/server/db';
 import { startCron } from '$lib/server/cron';
 
 const handleParaglide: Handle = ({ event, resolve }) => paraglideMiddleware(event.request, ({ request, locale }) => {
-	event.request = request;
+  event.request = request;
 
-	return resolve(event, {
-		transformPageChunk: ({ html }) => html.replace('%paraglide.lang%', locale)
-	});
+  return resolve(event, {
+    transformPageChunk: ({ html }) => html.replace('%paraglide.lang%', locale)
+  });
 });
 
 
 export const handleAuth: Handle = async ({ event, resolve }) => {
-	const token = event.cookies.get('auth-token');
+  const token = event.cookies.get('auth-token');
 
-	if (token) {
-		try {
-			const userjwt = await verifyJWT(token);
+  if (token) {
+    try {
+      const userjwt = await verifyJWT(token);
 
-			event.locals.user = await db.query.users.findFirst({
-				where: {
-					email: userjwt?.email || '-'
-				},
-				with: {
-					role: true,
-				},
-			});
+      event.locals.user = await db.query.users.findFirst({
+        where: {
+          email: userjwt?.email || '-'
+        },
+        with: {
+          role: true,
+        },
+      });
 
-			if (event.url.pathname.startsWith('/main')) {
-				if (event.locals.user?.role.name !== 'admin') {
-					return error(403, 'Forbidden. Anda tidak memiliki akses ke halaman ini');
-				}
-			}
-		} catch {
-			event.cookies.delete('auth-token', { path: '/' });
-		}
-	} else {
-		if (event.url.pathname.startsWith('/main')) {
-			if (event.locals.user?.role.name === 'admin') {
-				return resolve(event);
-			}
-			return error(403, 'Forbidden. Anda tidak memiliki akses ke halaman ini');
-		}
-	}
+      if (event.url.pathname.startsWith('/main')) {
+        if (event.locals.user?.role.name !== 'admin') {
+          return error(403, 'Forbidden. Anda tidak memiliki akses ke halaman ini');
+        }
+      }
+    } catch {
+      event.cookies.delete('auth-token', { path: '/' });
+    }
+  } else {
+    if (event.url.pathname.startsWith('/main')) {
+      if (event.locals.user?.role.name === 'admin') {
+        return resolve(event);
+      }
+      return error(403, 'Forbidden. Anda tidak memiliki akses ke halaman ini');
+    }
+  }
 
-	return resolve(event);
+  return resolve(event);
 };
 export const handleRedirect: Handle = ({ event, resolve }) => {
-	if (event.url.pathname === '/asta') {
-		return redirect(302, '/');
-	}
-	if (event.url.pathname === '/d') {
-		return redirect(302, '/verify' + event.url.search);
-	}
+  if (event.url.pathname === '/asta') {
+    return redirect(302, '/');
+  }
+  if (event.url.pathname === '/d') {
+    return redirect(302, '/verify' + event.url.search);
+  }
 
-	return resolve(event);
+  return resolve(event);
 };
 export const handle: Handle = sequence(handleParaglide, handleAuth, handleRedirect);
 
@@ -65,9 +65,9 @@ export const handle: Handle = sequence(handleParaglide, handleAuth, handleRedire
 startCron();
 
 export const handleValidationError: HandleValidationError = ({ event, issues }) => {
-	return {
-		message: 'Validation Errors',
-		//@ts-ignore - the summary property exists at runtime but is not in the type definition
-		issues: issues?.summary || issues,
-	};
+  return {
+    message: 'Validation Errors',
+    //@ts-ignore - the summary property exists at runtime but is not in the type definition
+    issues: issues?.summary || issues,
+  };
 };
