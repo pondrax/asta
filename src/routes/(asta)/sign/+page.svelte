@@ -32,7 +32,6 @@
   import { onMount } from "svelte";
   import { page } from "$app/state";
   import Dragresize from "$lib/components/dragresize.svelte";
-  import Char from "$lib/components/char.svelte";
   import { sendMessage } from "$lib/remotes/whatsapp.remote";
 
   const { data } = $props();
@@ -59,7 +58,6 @@
   let elapsedTime = $state(0);
   let turnstileId = $state("");
 
-  let showPassphrase = $state(false);
   let activeTab = $state("metadata");
   const tourSteps = [
     {
@@ -526,14 +524,6 @@
       </div>
     </div>
     <div class="text-sm flex items-end relative z-30">
-      <div
-        class="tooltip tooltip-right before:-translate-x-10 after:-translate-x-10"
-        data-tip="Ada Pertanyaan?"
-      >
-        <div class="scale-50 flex -mb-1 -ml-12 -mt-8">
-          <Char closeeye={showPassphrase} />
-        </div>
-      </div>
       <div class="mr-auto flex items-center gap-2">
         Tapak Astà v2.0.1 #{version.slice(0, 7)}
       </div>
@@ -542,37 +532,7 @@
 </div>
 <!-- </div> -->
 
-<div class="fab right-18">
-  <div
-    tabindex="0"
-    role="button"
-    class="btn btn-lg btn-circle btn-primary tooltip"
-    data-tip="Unggah"
-  >
-    <iconify-icon icon="bx:plus" class="text-2xl"></iconify-icon>
-  </div>
-  <div class="fab-close">
-    <span class="btn btn-circle btn-lg btn-error">✕</span>
-  </div>
-
-  <button
-    class="btn btn-lg rounded-xl"
-    aria-label="Upload PDF"
-    onclick={() => fileInput?.click()}
-  >
-    Unggah PDF
-    <iconify-icon icon="bx:upload" class="text-2xl"></iconify-icon>
-  </button>
-  <button
-    class="btn btn-lg rounded-xl"
-    aria-label="Template PDF"
-    onclick={() => (forms.template = "open")}
-  >
-    Template PDF
-    <iconify-icon icon="bx:book" class="text-2xl"></iconify-icon>
-  </button>
-</div>
-<div class="fab right-32 gap-4">
+<div class="fab right-38">
   <button
     id="tour-sign-button"
     bind:this={signButton}
@@ -611,6 +571,37 @@
   >
     <iconify-icon icon="bx:pen" class="text-xl"></iconify-icon>
     Tanda Tangan
+  </button>
+</div>
+
+<div class="fab right-24">
+  <div
+    tabindex="0"
+    role="button"
+    class="btn btn-lg btn-circle btn-primary tooltip tooltip-left"
+    data-tip="Unggah"
+  >
+    <iconify-icon icon="bx:plus" class="text-2xl"></iconify-icon>
+  </div>
+  <div class="fab-close">
+    <span class="btn btn-circle btn-lg btn-error">✕</span>
+  </div>
+
+  <button
+    class="btn btn-lg rounded-xl"
+    aria-label="Upload PDF"
+    onclick={() => fileInput?.click()}
+  >
+    Unggah PDF
+    <iconify-icon icon="bx:upload" class="text-2xl"></iconify-icon>
+  </button>
+  <button
+    class="btn btn-lg rounded-xl"
+    aria-label="Template PDF"
+    onclick={() => (forms.template = "open")}
+  >
+    Template PDF
+    <iconify-icon icon="bx:book" class="text-2xl"></iconify-icon>
   </button>
 </div>
 
@@ -1031,19 +1022,19 @@
                 autocomplete="off"
                 placeholder="Masukkan Passphrase"
                 class="input input-bordered join-item grow
-                {!showPassphrase ? 'text-password' : ''}"
+                {!app.showPassphrase ? 'text-password' : ''}"
               />
               <button
                 type="button"
                 class="btn join-item"
                 onclick={() => {
-                  showPassphrase = !showPassphrase;
+                  app.showPassphrase = !app.showPassphrase;
                 }}
                 aria-label="Show/Hide Passphrase"
                 disabled={item.completed.length > 0}
               >
                 <iconify-icon
-                  icon={showPassphrase ? "bx:show" : "bx:hide"}
+                  icon={app.showPassphrase ? "bx:show" : "bx:hide"}
                   class="text-2xl"
                 ></iconify-icon>
               </button>
@@ -1153,7 +1144,7 @@
       onclick={() => {
         forms.confirm = false;
         forms.sign = undefined;
-        showPassphrase = false;
+        app.showPassphrase = false;
         documents = {};
       }}
     >

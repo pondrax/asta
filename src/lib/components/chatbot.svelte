@@ -1,6 +1,8 @@
 <script lang="ts">
   import { marked } from "marked";
   import { sendMessage } from "$lib/remotes/chat.remote";
+  import Char from "./char.svelte";
+  import { app } from "$lib/app/index.svelte";
 
   const render = (text: string) => marked.parse(text) as string;
 
@@ -174,16 +176,17 @@
   </div>
 {/if}
 
-<div class="fab">
-  <button
-    class="btn btn-accent btn-circle btn-lg tooltip"
-    data-tip="Tanya AI"
-    onclick={toggle}
-    aria-label="Chat"
-  >
-    <iconify-icon icon={open ? "bx:x" : "bx:bot"} class="text-2xl"
-    ></iconify-icon>
-  </button>
+<div class="fixed -bottom-2 right-2 z-50">
+  <div class="tooltip tooltip-left" data-tip="Ada Pertanyaan?">
+    <button onclick={toggle} aria-label="Buka Asisten" class="">
+      <div
+        class="cursor-pointer
+          hover:filter-[drop-shadow(0_0_8px_var(--color-secondary))]"
+      >
+        <Char closeeye={app.showPassphrase} />
+      </div>
+    </button>
+  </div>
 </div>
 
 <style>

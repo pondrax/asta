@@ -8,7 +8,6 @@
   import Upload from "../sign/upload.svelte";
   import type { SignatureVerificationResponse } from "./types";
   import { version } from "$app/environment";
-  import Char from "$lib/components/char.svelte";
   import { Tour } from "$lib/components";
   import { app } from "$lib/app/index.svelte";
 
@@ -630,14 +629,6 @@
 
     <!-- Sidebar Footer -->
     <div class="text-sm flex items-end relative z-30 shrink-0 mt-5">
-      <div
-        class="tooltip tooltip-right before:-translate-x-10 after:-translate-x-10"
-        data-tip="Ada Pertanyaan?"
-      >
-        <div class="scale-50 flex -mb-1 -ml-12 -mt-18">
-          <Char />
-        </div>
-      </div>
       <div class="mr-auto flex items-center gap-2">
         Tapak Astà v2.0.1 #{version.slice(0, 7)}
       </div>

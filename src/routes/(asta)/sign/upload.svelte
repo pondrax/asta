@@ -68,12 +68,16 @@
         {title}
         <iconify-icon icon="bx:upload" class="ml-2"></iconify-icon>
       </button>
-      <div class="text-sm text-base-content/60 my-2">
-        Atau geser file ke area ini
+      <div class="text-sm text-base-content/60 mt-3">
+        atau seret file ke area ini
       </div>
-      <div class="text-sm text-error my-2">
-        File PDF. Maksimal 20 MB. <br />
-        Dapat mengunggah File PDF lebih dari satu file.
+
+      <div class="text-sm text-base-content/70 mt-2">
+        Mendukung unggah beberapa file PDF
+      </div>
+
+      <div class="text-sm text-error mt-2 font-medium">
+        Maksimal ukuran file: 20 MB
       </div>
     {/if}
   </div>
