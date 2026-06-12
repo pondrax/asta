@@ -19,38 +19,39 @@ export function withTimeout<T>(
 
   $effect(() => {
     // Access trigger to re-run when refresh() is called
-    if (trigger !== -1) { }
+    if (trigger !== -1) {
 
-    loading = true;
-    error = undefined;
+      loading = true;
+      error = undefined;
 
-    const promise = Promise.resolve(factory());
-    let timerId: ReturnType<typeof setTimeout> | undefined;
+      const promise = Promise.resolve(factory());
+      let timerId: ReturnType<typeof setTimeout> | undefined;
 
-    const timeout = ms
-      ? new Promise<never>((_, reject) => {
-        timerId = setTimeout(() => {
-          reject(new Error('Request timed out'));
-        }, ms);
-      })
-      : null;
+      const timeout = ms
+        ? new Promise<never>((_, reject) => {
+          timerId = setTimeout(() => {
+            reject(new Error('Request timed out'));
+          }, ms);
+        })
+        : null;
 
-    const race = timeout ? Promise.race([promise, timeout]) : promise;
+      const race = timeout ? Promise.race([promise, timeout]) : promise;
 
-    race
-      .then((result) => {
-        current = result as T;
-      })
-      .catch((err) => {
-        error = err instanceof Error ? err : new Error(String(err));
-      })
-      .finally(() => {
-        loading = false;
-        if (timerId) {
-          clearTimeout(timerId);
-        }
-      });
-    // console.log(promiseOrFactory)
+      race
+        .then((result) => {
+          current = result as T;
+        })
+        .catch((err) => {
+          error = err instanceof Error ? err : new Error(String(err));
+        })
+        .finally(() => {
+          loading = false;
+          if (timerId) {
+            clearTimeout(timerId);
+          }
+        });
+      // console.log(promiseOrFactory)
+    }
   });
 
   return {
