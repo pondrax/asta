@@ -18,6 +18,107 @@ const BSRE_URL = "https://portal-bsre.bssn.go.id/";
 const BSRE_USERS_API = "https://portal-bsre.bssn.go.id/api/rest/manage/user/list";
 const BEID_HOST = "beid.bssn.go.id";
 
+/**
+ * Full login / token-acquisition flow (shared between launchBsre and fetchBsreUsers).
+ * 1. Opens (or reuses) a browser session
+ * 2. Navigates to the BSrE portal
+ * 3. Waits for URL to settle (portal stays or JS redirects to BEID)
+ * 4. If on BEID → fills credentials/OTP → waits for SSO redirect back to portal
+ * 5. Extracts token from localStorage / sessionStorage / brute-force scan
+ * 6. Caches the token in tokenStore and returns it, or null on failure
+ */
+async function acquireToken(userId: string): Promise<string | null> {
+  console.debug("[bsre] acquireToken — start, userId:", userId);
+  const session = await openSession(userId);
+  console.debug("[bsre] acquireToken — session opened, mode:", session.mode);
+
+  // Navigate to portal
+  console.debug("[bsre] acquireToken — navigating to", BSRE_URL);
+  try {
+    await session.page.goto(BSRE_URL, { waitUntil: "load", timeout: 30_000 });
+  } catch {
+    console.debug("[bsre] acquireToken — goto interrupted (SSO), url:", session.page.url());
+  }
+  await session.page.waitForLoadState("load", { timeout: 15_000 }).catch(() => { });
+
+  // Wait for JS-initiated SSO redirects that fire *after* the load event
+  try {
+    await session.page.waitForFunction(
+      (beid) => {
+        const host = window.location.hostname;
+        return host.includes(beid as string) || host === "portal-bsre.bssn.go.id";
+      },
+      BEID_HOST,
+      { timeout: 8_000 }
+    );
+  } catch {
+    console.debug("[bsre] acquireToken — URL settle timed out, url:", session.page.url());
+  }
+  console.debug("[bsre] acquireToken — after settle, url:", session.page.url());
+
+  // Handle BEID login if needed
+  const isBeid = new URL(session.page.url()).hostname.includes(BEID_HOST);
+  if (isBeid) {
+    console.log("[bsre] acquireToken — on BEID, handling login");
+    await handleBeIDLogin(session.page);
+    console.debug("[bsre] acquireToken — login done, url:", session.page.url());
+
+    // Wait for SSO redirect back to portal before checking localStorage
+    console.log("[bsre] acquireToken — waiting for SSO redirect back to portal...");
+    try {
+      await session.page.waitForFunction(
+        (host) => !new URL(window.location.href).hostname.includes(host as string),
+        BEID_HOST,
+        { timeout: 15_000 }
+      );
+    } catch {
+      console.debug("[bsre] acquireToken — SSO redirect wait timed out, url:", session.page.url());
+    }
+  }
+
+  // Extract token (only safe when on portal domain, not BEID)
+  const stillBeid = new URL(session.page.url()).hostname.includes(BEID_HOST);
+  if (stillBeid) {
+    console.log("[bsre] acquireToken — still on BEID after login, cannot check localStorage");
+    return null;
+  }
+
+  await session.page.waitForTimeout(1_500);
+
+  let token = await getAccessToken(session.page);
+  console.debug("[bsre] acquireToken — getAccessToken:", token ? "found ✓" : "null");
+
+  if (!token) {
+    console.log("[bsre] acquireToken — scanning localStorage...");
+    token = await session.page.evaluate(() => {
+      const known = [
+        "access_token", "token", "auth_token", "bearer_token",
+        "kc-access-token", "oidc.access_token", "keycloak-token",
+      ];
+      for (const key of known) {
+        const val = localStorage.getItem(key);
+        if (val) return val;
+      }
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)!;
+        const val = localStorage.getItem(key);
+        if (val && val.length > 100) return val;
+      }
+      return null;
+    }) as string | null;
+    console.debug("[bsre] acquireToken — localStorage scan:", token ? "found ✓" : "null");
+  }
+
+  if (token) {
+    const formatted = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
+    tokenStore.set(userId, formatted);
+    console.debug("[bsre] acquireToken — token cached ✓");
+    return formatted;
+  }
+
+  return null;
+}
+
 export const launchBsre = command(
   type({ userId: "string" }),
   async ({ userId }) => {
@@ -26,104 +127,53 @@ export const launchBsre = command(
     console.debug("[bsre] launchBsre — session obtained, mode:", session.mode);
 
     // 1. Check if token already cached (from request interception or previous session)
-    let token: string | null | undefined = tokenStore.get(userId);
-    console.debug("[bsre] launchBsre — tokenStore.has(userId):", !!token);
-    if (token) {
-      console.log("[bsre] token already cached ✓");
-      const modeLabel = session.mode.startsWith("remote") ? "remote CDP" : "browser lokal";
-      return {
-        success: true,
-        message: `Token sudah tersedia. Browser BSrE via ${modeLabel}.`,
-        mode: session.mode,
-        hasToken: true,
-      };
-    }
-
-    // 2. Navigate — wrap in try-catch because SSO redirect may interrupt navigation
-    //    when the user already has an active Keycloak session
-    console.debug("[bsre] launchBsre — navigating to", BSRE_URL);
-    try {
-      await session.page.goto(BSRE_URL, { waitUntil: "load", timeout: 30_000 });
-      console.debug("[bsre] launchBsre — goto completed, url:", session.page.url());
-    } catch {
-      console.debug("[bsre] launchBsre — goto interrupted (SSO redirect), url:", session.page.url());
-    }
-    await session.page.waitForLoadState("load", { timeout: 15_000 }).catch(() => { });
-
-    // Wait a beat for JS-initiated SSO redirects that fire *after* the load event
-    try {
-      await session.page.waitForFunction(
-        (beid) => {
-          const host = window.location.hostname;
-          // Wait until URL stabilises on either portal or BEID (not an intermediate state)
-          return host.includes(beid as string) || host === "portal-bsre.bssn.go.id";
-        },
-        BEID_HOST,
-        { timeout: 8_000 }
-      );
-    } catch {
-      console.debug("[bsre] launchBsre — URL settle wait timed out, url:", session.page.url());
-    }
-    console.debug("[bsre] launchBsre — after settle, url:", session.page.url());
-
-    // 3. If we landed on BEID login, handle credentials + OTP
-    const isBeid = new URL(session.page.url()).hostname.includes(BEID_HOST);
-    console.debug("[bsre] launchBsre — after nav, on BEID?", isBeid, "url:", session.page.url());
-    if (isBeid) {
-      console.log("[bsre] on BEID login page — handling login");
-      await handleBeIDLogin(session.page);
-      console.debug("[bsre] launchBsre — handleBeIDLogin returned, url now:", session.page.url());
-      // Wait for SSO redirect back to portal before checking localStorage
-      console.log("[bsre] waiting for redirect back to portal...");
+    const cached = tokenStore.get(userId);
+    if (cached) {
+      // Navigate to portal and verify localStorage still has the token (SSO still alive)
+      console.debug("[bsre] launchBsre — cached token exists, verifying localStorage...");
+      try {
+        await session.page.goto(BSRE_URL, { waitUntil: "load", timeout: 30_000 });
+      } catch {
+        console.debug("[bsre] launchBsre — goto interrupted (SSO), url:", session.page.url());
+      }
+      await session.page.waitForLoadState("load", { timeout: 15_000 }).catch(() => { });
+      // Wait for URL to settle (catch JS redirect to BEID)
       try {
         await session.page.waitForFunction(
-          (host) => !new URL(window.location.href).hostname.includes(host as string),
+          (beid) => {
+            const host = window.location.hostname;
+            return host.includes(beid as string) || host === "portal-bsre.bssn.go.id";
+          },
           BEID_HOST,
-          { timeout: 15_000 }
+          { timeout: 8_000 }
         );
-        console.debug("[bsre] launchBsre — redirect detected, url:", session.page.url());
-      } catch {
-        console.debug("[bsre] launchBsre — redirect wait timed out, url:", session.page.url());
+      } catch { }
+
+      const hasLsToken = await session.page.evaluate(() => {
+        const val = localStorage.getItem("access_token");
+        return !!val;
+      });
+      console.debug("[bsre] launchBsre — localStorage.accessToken exists?", hasLsToken);
+
+      if (hasLsToken) {
+        // SSO session is alive — cached token is still good
+        console.log("[bsre] token already cached ✓ (verified via localStorage)");
+        const modeLabel = session.mode.startsWith("remote") ? "remote CDP" : "browser lokal";
+        return {
+          success: true,
+          message: `Token sudah tersedia. Browser BSrE via ${modeLabel}.`,
+          mode: session.mode,
+          hasToken: true,
+        };
       }
+
+      // localStorage is empty — SSO session died, clear cached token and re-acquire
+      console.log("[bsre] cached token expired (no localStorage.accessToken), re-acquiring...");
+      tokenStore.delete(userId);
     }
 
-    // 4. Only check localStorage once we're back on portal (not BEID domain)
-    const stillBeid = new URL(session.page.url()).hostname.includes(BEID_HOST);
-    console.debug("[bsre] launchBsre — checking token, still on BEID?", stillBeid);
-    if (!stillBeid) {
-      await session.page.waitForTimeout(1_500);
-      token = await getAccessToken(session.page);
-      console.debug("[bsre] launchBsre — getAccessToken returned:", token ? "found ✓" : "NOT found ✗");
-
-      // 5. If still no token, brute-force scan localStorage for any JWT-like value
-      if (!token) {
-        console.log("[bsre] scanning localStorage for token...");
-        token = await session.page.evaluate(() => {
-          const known = [
-            "access_token", "token", "auth_token", "bearer_token",
-            "kc-access-token", "oidc.access_token", "keycloak-token"
-          ];
-          for (const key of known) {
-            const val = localStorage.getItem(key);
-            if (val) return val;
-          }
-          for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i)!;
-            const val = localStorage.getItem(key);
-            if (val && val.length > 100) return val;
-          }
-          return null;
-        }) as string | null;
-        console.debug("[bsre] launchBsre — localStorage scan result:", token ? "found ✓" : "null");
-      }
-    } else {
-      console.log("[bsre] still on BEID after login — skipping localStorage check");
-    }
-
-    // Cache token for the user
-    if (token) {
-      tokenStore.set(userId, token.startsWith("Bearer ") ? token : `Bearer ${token}`);
-    }
+    // 2. Acquire a fresh token (navigate → login if BEID → extract from localStorage)
+    const token = await acquireToken(userId);
 
     const modeLabel = session.mode.startsWith("remote") ? "remote CDP" : "browser lokal";
     return {
@@ -212,100 +262,16 @@ export const fetchBsreUsers = command(
     search: "string?",
   }),
   async ({ userId, search = "" }) => {
-    let authorization = tokenStore.get(userId);
+    let authorization: string | null = tokenStore.get(userId) ?? null;
     console.debug("[bsre] fetchBsreUsers — token cached?", !!authorization, "userId:", userId);
 
-    // Proactively fetch token if not cached — same flow as launchBsre
+    // Acquire token if not cached
     if (!authorization) {
-      console.debug("[bsre] fetchBsreUsers — no token, opening session...");
-      const session = await openSession(userId);
-      console.debug("[bsre] fetchBsreUsers — session opened, mode:", session.mode);
-
-      // Navigate to portal — SSO redirect may interrupt, that's ok
-      console.debug("[bsre] fetchBsreUsers — navigating to", BSRE_URL);
-      try {
-        await session.page.goto(BSRE_URL, { waitUntil: "load", timeout: 30_000 });
-        console.debug("[bsre] fetchBsreUsers — goto done, url:", session.page.url());
-      } catch {
-        console.debug("[bsre] fetchBsreUsers — goto interrupted (SSO), url:", session.page.url());
-      }
-      await session.page.waitForLoadState("load", { timeout: 15_000 }).catch(() => { });
-
-      // Wait a beat for JS-initiated SSO redirects that fire *after* the load event
-      try {
-        await session.page.waitForFunction(
-          (beid) => {
-            const host = window.location.hostname;
-            return host.includes(beid as string) || host === "portal-bsre.bssn.go.id";
-          },
-          BEID_HOST,
-          { timeout: 8_000 }
-        );
-      } catch {
-        console.debug("[bsre] fetchBsreUsers — URL settle wait timed out, url:", session.page.url());
-      }
-      console.debug("[bsre] fetchBsreUsers — after settle, url:", session.page.url());
-
-      // Handle BEID login (no-op if not on BEID host — self-guarding)
-      console.debug("[bsre] fetchBsreUsers — calling handleBeIDLogin, url:", session.page.url());
-      await handleBeIDLogin(session.page);
-      console.debug("[bsre] fetchBsreUsers — handleBeIDLogin returned, url:", session.page.url());
-
-      // Wait for SSO redirect back to portal before checking localStorage
-      console.log("[bsre] sync: waiting for redirect back to portal...");
-      try {
-        await session.page.waitForFunction(
-          (host) => !new URL(window.location.href).hostname.includes(host as string),
-          BEID_HOST,
-          { timeout: 15_000 }
-        );
-        console.debug("[bsre] fetchBsreUsers — redirect detected, url:", session.page.url());
-      } catch {
-        console.debug("[bsre] fetchBsreUsers — redirect wait timed out, url:", session.page.url());
-      }
-
-      // Only check localStorage once we're on portal (BEID has no token)
-      let token: string | null = null;
-      const isBeid = new URL(session.page.url()).hostname.includes(BEID_HOST);
-      console.debug("[bsre] fetchBsreUsers — after redirect wait, on BEID?", isBeid);
-      if (!isBeid) {
-        await session.page.waitForTimeout(1_500);
-
-        token = await getAccessToken(session.page);
-        console.debug("[bsre] fetchBsreUsers — getAccessToken:", token ? "found ✓" : "null");
-
-        if (!token) {
-          console.log("[bsre] sync: scanning localStorage for token...");
-          token = await session.page.evaluate(() => {
-            const known = [
-              "access_token", "token", "auth_token", "bearer_token",
-              "kc-access-token", "oidc.access_token", "keycloak-token"
-            ];
-            for (const key of known) {
-              const val = localStorage.getItem(key);
-              if (val) return val;
-            }
-            for (let i = 0; i < localStorage.length; i++) {
-              const key = localStorage.key(i)!;
-              const val = localStorage.getItem(key);
-              if (val && val.length > 100) return val;
-            }
-            return null;
-          }) as string | null;
-          console.debug("[bsre] fetchBsreUsers — localStorage scan result:", token ? "found ✓" : "null");
-        }
-      } else {
-        console.log("[bsre] sync: still on BEID — skipping localStorage check");
-      }
-
-      if (token) {
-        authorization = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
-        tokenStore.set(userId, authorization);
-      }
-      // Keep the session alive — token is cached, page will be reused next launch
+      console.debug("[bsre] fetchBsreUsers — no token, acquiring...");
+      authorization = await acquireToken(userId);
     }
 
-    // If still no token after proactive fetch, bail with a clear message
+    // If still no token after proactive fetch, bail
     if (!authorization) {
       return {
         success: false,
@@ -314,129 +280,164 @@ export const fetchBsreUsers = command(
       };
     }
 
+    // Helper to make an API call with the current authorization
+    const apiFetch = (url: string, opts: RequestInit = {}) => {
+      return fetch(url, {
+        ...opts,
+        headers: { ...opts.headers, authorization: authorization! } as HeadersInit,
+      });
+    };
+
     try {
       // First: fetch a single row to determine total records
-      const countRes = await fetch(BSRE_USERS_API, {
+      const countRes = await apiFetch(BSRE_USERS_API, {
         method: "POST",
         headers: {
           accept: "application/json, text/plain, */*",
-          authorization,
           "content-type": "application/json;charset=UTF-8",
         },
         body: JSON.stringify({ search, start: 0, length: 1, filters: null }),
       });
 
+      // Handle 401 — acquire fresh token and retry once
+      if (countRes.status === 401) {
+        console.log("[bsre] fetchBsreUsers — token expired (401), re-acquiring...");
+        tokenStore.delete(userId);
+        authorization = await acquireToken(userId);
+        if (!authorization) {
+          return { success: false, message: "Gagal memperbarui token setelah 401.", data: null };
+        }
+        // Retry the count request with the fresh token
+        const retryRes = await apiFetch(BSRE_USERS_API, {
+          method: "POST",
+          headers: {
+            accept: "application/json, text/plain, */*",
+            "content-type": "application/json;charset=UTF-8",
+          },
+          body: JSON.stringify({ search, start: 0, length: 1, filters: null }),
+        });
+        if (!retryRes.ok) {
+          return { success: false, message: `API error after token refresh: ${retryRes.status} ${retryRes.statusText}`, data: null };
+        }
+        const retryData = await retryRes.json();
+        const totalRecords = retryData?.data?.records ?? retryData?.recordsTotal ?? retryData?.total ?? 0;
+        return await paginateAll(userId, search, totalRecords, authorization);
+      }
+
       if (!countRes.ok) {
-        if (countRes.status === 401) tokenStore.delete(userId);
         return { success: false, message: `API error: ${countRes.status} ${countRes.statusText}`, data: null };
       }
 
       const countData = await countRes.json();
       const totalRecords = countData?.data?.records ?? countData?.recordsTotal ?? countData?.total ?? 0;
 
-      // Then: paginate through all pages
-      let processed = 0;
-      let start = 0;
-
-      while (start < totalRecords) {
-        const length = Math.min(PAGE_SIZE, totalRecords - start);
-        console.log(`[bsre] Fetching page: start=${start}, length=${length}, total=${totalRecords}`);
-
-        const pageRes = await fetch(BSRE_USERS_API, {
-          method: "POST",
-          headers: {
-            accept: "application/json, text/plain, */*",
-            authorization,
-            "content-type": "application/json;charset=UTF-8",
-          },
-          body: JSON.stringify({ search, start, length, filters: null }),
-        });
-
-        if (!pageRes.ok) {
-          if (pageRes.status === 401) tokenStore.delete(userId);
-          return { success: false, message: `API error at start=${start}: ${pageRes.status} ${pageRes.statusText}`, data: null };
-        }
-
-        const pageData = await pageRes.json();
-        const records: any[] = pageData?.data?.aaData ?? [];
-
-        if (Array.isArray(records) && records.length > 0) {
-          console.log(`[bsre] Fetching details for ${records.length} users (page ${Math.floor(start / PAGE_SIZE) + 1})...`);
-          for (const user of records) {
-            if (!user?.id) continue;
-            try {
-              // Rate limit delay (100ms)
-              await new Promise((resolve) => setTimeout(resolve, 100));
-
-              const detailRes = await fetch(`https://portal-bsre.bssn.go.id/api/rest/manage/user/details/${user.id}`, {
-                method: "GET",
-                headers: {
-                  accept: "application/json, text/plain, */*",
-                  authorization,
-                },
-              });
-              if (detailRes.ok) {
-                const detailData = await detailRes.json();
-                const merged = {
-                  ...user,
-                  ...detailData?.data,
-                  ...detailData?.data?.profile,
-                  ...detailData,
-                };
-
-                // Derive certificate status from the latest sertifikat entry (by notAfterDate desc)
-                const sertifikat: any[] = detailData?.data?.sertifikat ?? [];
-                const latestCert = sertifikat.length > 0
-                  ? [...sertifikat].sort(
-                    (a, b) => new Date(b.notAfterDate).getTime() - new Date(a.notAfterDate).getTime()
-                  )[0]
-                  : null;
-                const certificateStatus = latestCert?.status ?? merged.certificateStatus ?? null;
-
-                const record = {
-                  nama: merged.nama ?? null,
-                  emailAddress: merged.emailAddress ?? null,
-                  username: merged.username ?? null,
-                  nik: merged.nik ?? null,
-                  nip: merged.nip ?? null,
-                  jabatanOrganisasi: merged.jabatanOrganisasi ?? null,
-                  organisasiUnit: merged.organisasiUnit ?? null,
-                  organisasi: merged.organisasi ?? null,
-                  phone: merged.phone ?? merged.no_wa ?? null,
-                  status: merged.status ?? null,
-                  aktif: merged.aktif ?? null,
-                  certificateStatus,
-                  products: merged.products ?? null,
-                  createdDate: merged.createdDate ?? null,
-                  registeredOrigin: merged.registeredOrigin ?? null,
-                  verifiedDukcapil: merged.verifiedDukcapil ?? null,
-                  verifiedLiveness: merged.verfifiedLiveness ?? null,
-                  phoneVerified: merged.phoneVerified ?? null,
-                  verifiedVerifikator: merged.verifiedVerifikator ?? null,
-                  details: detailData,
-                };
-                await db.insert(bsreUsers).values({ id: user.id, ...record }).onConflictDoUpdate({
-                  target: bsreUsers.id,
-                  set: { ...record, fetchedAt: new Date().toISOString() },
-                });
-              }
-            } catch (err) {
-              console.error(`[bsre] Error fetching details for user ${user.id}:`, err);
-            }
-          }
-        }
-
-        processed += records.length;
-        start += length;
-      }
-
-      console.log("[bsre] users synced:", processed, "records");
-      return { success: true, total: processed };
+      return await paginateAll(userId, search, totalRecords, authorization);
     } catch (err: any) {
       return { success: false, message: err?.message ?? "Gagal fetch API.", data: null };
     }
   }
 );
+
+/**
+ * Paginate through all pages of BSrE user data and persist to DB.
+ * Extracted so the 401-retry path can reuse it without duplicating the pagination loop.
+ */
+async function paginateAll(userId: string, search: string, totalRecords: number, authorization: string) {
+  const apiFetch = async (url: string, opts: RequestInit) => {
+    return fetch(url, { ...opts, headers: { ...opts.headers, authorization } });
+  };
+
+  let processed = 0;
+  let start = 0;
+
+  while (start < totalRecords) {
+    const length = Math.min(PAGE_SIZE, totalRecords - start);
+    console.log(`[bsre] Fetching page: start=${start}, length=${length}, total=${totalRecords}`);
+
+    const pageRes = await apiFetch(BSRE_USERS_API, {
+      method: "POST",
+      headers: {
+        accept: "application/json, text/plain, */*",
+        "content-type": "application/json;charset=UTF-8",
+      },
+      body: JSON.stringify({ search, start, length, filters: null }),
+    });
+
+    if (!pageRes.ok) {
+      return { success: false, message: `API error at start=${start}: ${pageRes.status} ${pageRes.statusText}`, data: null };
+    }
+
+    const pageData = await pageRes.json();
+    const records: any[] = pageData?.data?.aaData ?? [];
+
+    if (Array.isArray(records) && records.length > 0) {
+      console.log(`[bsre] Fetching details for ${records.length} users (page ${Math.floor(start / PAGE_SIZE) + 1})...`);
+      for (const user of records) {
+        if (!user?.id) continue;
+        try {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+
+          const detailRes = await apiFetch(`https://portal-bsre.bssn.go.id/api/rest/manage/user/details/${user.id}`, {
+            method: "GET",
+            headers: { accept: "application/json, text/plain, */*" },
+          });
+          if (detailRes.ok) {
+            const detailData = await detailRes.json();
+            const merged = {
+              ...user,
+              ...detailData?.data,
+              ...detailData?.data?.profile,
+              ...detailData,
+            };
+
+            const sertifikat: any[] = detailData?.data?.sertifikat ?? [];
+            const latestCert = sertifikat.length > 0
+              ? [...sertifikat].sort(
+                (a, b) => new Date(b.notAfterDate).getTime() - new Date(a.notAfterDate).getTime()
+              )[0]
+              : null;
+            const certificateStatus = latestCert?.status ?? merged.certificateStatus ?? null;
+
+            const record = {
+              nama: merged.nama ?? null,
+              emailAddress: merged.emailAddress ?? null,
+              username: merged.username ?? null,
+              nik: merged.nik ?? null,
+              nip: merged.nip ?? null,
+              jabatanOrganisasi: merged.jabatanOrganisasi ?? null,
+              organisasiUnit: merged.organisasiUnit ?? null,
+              organisasi: merged.organisasi ?? null,
+              phone: merged.phone ?? merged.no_wa ?? null,
+              status: merged.status ?? null,
+              aktif: merged.aktif ?? null,
+              certificateStatus,
+              products: merged.products ?? null,
+              createdDate: merged.createdDate ?? null,
+              registeredOrigin: merged.registeredOrigin ?? null,
+              verifiedDukcapil: merged.verifiedDukcapil ?? null,
+              verifiedLiveness: merged.verfifiedLiveness ?? null,
+              phoneVerified: merged.phoneVerified ?? null,
+              verifiedVerifikator: merged.verifiedVerifikator ?? null,
+              details: detailData,
+            };
+            await db.insert(bsreUsers).values({ id: user.id, ...record }).onConflictDoUpdate({
+              target: bsreUsers.id,
+              set: { ...record, fetchedAt: new Date().toISOString() },
+            });
+          }
+        } catch (err) {
+          console.error(`[bsre] Error fetching details for user ${user.id}:`, err);
+        }
+      }
+    }
+
+    processed += records.length;
+    start += length;
+  }
+
+  console.log("[bsre] users synced:", processed, "records");
+  return { success: true, total: processed };
+}
 
 type StatsFilter = {
   status?: string;
