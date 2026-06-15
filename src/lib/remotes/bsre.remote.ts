@@ -48,7 +48,7 @@ export const launchBsre = command(
     } catch {
       console.debug("[bsre] launchBsre — goto interrupted (SSO redirect), url:", session.page.url());
     }
-    await session.page.waitForLoadState("load", { timeout: 15_000 }).catch(() => {});
+    await session.page.waitForLoadState("load", { timeout: 15_000 }).catch(() => { });
 
     // Wait a beat for JS-initiated SSO redirects that fire *after* the load event
     try {
@@ -229,7 +229,7 @@ export const fetchBsreUsers = command(
       } catch {
         console.debug("[bsre] fetchBsreUsers — goto interrupted (SSO), url:", session.page.url());
       }
-      await session.page.waitForLoadState("load", { timeout: 15_000 }).catch(() => {});
+      await session.page.waitForLoadState("load", { timeout: 15_000 }).catch(() => { });
 
       // Wait a beat for JS-initiated SSO redirects that fire *after* the load event
       try {
