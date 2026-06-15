@@ -217,7 +217,7 @@ export async function cacheToken(userId: string, page: Page): Promise<string | n
 
 /** Returns { active, mode, startedAt } or { active: false } */
 export function sessionInfo(userId: string) {
-  const s = sessions.get(userId);
-  if (!s) return { active: false as const };
-  return { active: true as const, mode: s.mode, startedAt: s.startedAt.toISOString() };
+  const session = sessions.get(userId);
+  if (!session) return { active: false as const };
+  return { active: true as const, mode: session.mode, startedAt: session.startedAt.toISOString() };
 }

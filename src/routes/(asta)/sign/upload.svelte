@@ -69,7 +69,7 @@
         <iconify-icon icon="bx:upload" class="ml-2"></iconify-icon>
       </button>
       <div class="text-sm text-base-content/60 mt-3">
-        atau seret file ke area ini
+        atau geser file ke area ini
       </div>
 
       <div class="text-sm text-base-content/70 mt-2">

@@ -43,7 +43,7 @@ export default class MicrosoftOauth extends OAuthProvider {
     return {
       username: user.displayName,
       email: user.mail || user.userPrincipalName,
-      avatarUrl: `https://graph.microsoft.com/v1.0/me/photo/$value`,
+      avatarUrl: "https://graph.microsoft.com/v1.0/me/photo/$value",
       data: user
     };
   }

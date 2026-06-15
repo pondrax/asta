@@ -118,16 +118,16 @@ export async function promisePool<T, R>(
   const executing: Promise<void>[] = [];
 
   for (const item of items) {
-    const p = Promise.resolve().then(() => worker(item));
-    results.push(p);
+    const promise = Promise.resolve().then(() => worker(item));
+    results.push(promise);
 
     if (limit <= items.length) {
-      const e: Promise<void> = p.then(() => {
-        const i = executing.indexOf(e);
-        if (i !== -1) executing.splice(i, 1);
+      const execPromise: Promise<void> = promise.then(() => {
+        const idx = executing.indexOf(execPromise);
+        if (idx !== -1) executing.splice(idx, 1);
       });
 
-      executing.push(e);
+      executing.push(execPromise);
 
       if (executing.length >= limit) {
         await Promise.race(executing);

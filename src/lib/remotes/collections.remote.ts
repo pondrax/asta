@@ -149,14 +149,15 @@ export const getTableStats = query('unchecked', async (params: { table: string, 
 
   const series: Record<string, number> = {};
   for (let i = 0; i < 30; i++) {
-    const d = new Date(anchor.getTime());
-    d.setDate(d.getDate() - i);
-    series[d.toISOString().split('T')[0]] = 0;
+    const dayDate = new Date(anchor.getTime());
+    dayDate.setDate(dayDate.getDate() - i);
+    const dayKey = dayDate.toISOString().split('T')[0];
+    series[dayKey] = 0;
   }
 
-  records.forEach((r: any) => {
-    if (r.created) {
-      const date = new Date(r.created).toISOString().split('T')[0];
+  records.forEach((record: any) => {
+    if (record.created) {
+      const date = new Date(record.created).toISOString().split('T')[0];
       if (series[date] !== undefined) series[date]++;
     }
   });
@@ -196,16 +197,16 @@ export const getLogStats = query('unchecked', async (params: { where?: Record<st
   const series: Record<string, LevelCounts> = {};
 
   for (let i = 0; i < 30; i++) {
-    const d = new Date(anchor.getTime());
-    d.setDate(d.getDate() - i);
-    const dayKey = d.toISOString().split('T')[0];
+    const dayDate = new Date(anchor.getTime());
+    dayDate.setDate(dayDate.getDate() - i);
+    const dayKey = dayDate.toISOString().split('T')[0];
     series[dayKey] = { info: 0, warn: 0, error: 0 };
   }
 
-  logs.forEach((l: any) => {
-    const dayKey = new Date(l.created!).toISOString().split('T')[0];
+  logs.forEach((log: any) => {
+    const dayKey = new Date(log.created!).toISOString().split('T')[0];
     if (series[dayKey] !== undefined) {
-      const level = (l.level?.toLowerCase() || 'info') as keyof LevelCounts;
+      const level = (log.level?.toLowerCase() || 'info') as keyof LevelCounts;
       if (series[dayKey][level] !== undefined) {
         series[dayKey][level]++;
       } else {
