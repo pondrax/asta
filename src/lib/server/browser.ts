@@ -42,16 +42,31 @@ export function generateTOTP(): string {
 }
 
 // ---------------------------------------------------------------------------
-// Browser factory — prioritises BROWSER_REMOTE_DEBUG_URL over exec path
+// Shared browser connection — CDP connects once, local launches per-session
 // ---------------------------------------------------------------------------
 
-export async function getBrowser(): Promise<{ browser: Browser; mode: string }> {
+let sharedBrowser: Browser | null = null;
+let sharedBrowserMode = "";
+
+async function getOrCreateBrowser(): Promise<{ browser: Browser; mode: string }> {
   const remoteUrl = env.BROWSER_REMOTE_DEBUG_URL;
+
   if (remoteUrl) {
-    const browser = await chromium.connectOverCDP(remoteUrl);
-    return { browser, mode: `remote:${remoteUrl}` };
+    // Reuse the same CDP connection — closing pages, not the browser
+    if (sharedBrowser?.isConnected()) {
+      return { browser: sharedBrowser, mode: sharedBrowserMode };
+    }
+    // Close stale reference if disconnected
+    if (sharedBrowser) {
+      try { sharedBrowser.close().catch(() => { }); } catch (_) { }
+      sharedBrowser = null;
+    }
+    sharedBrowser = await chromium.connectOverCDP(remoteUrl);
+    sharedBrowserMode = `remote:${remoteUrl}`;
+    return { browser: sharedBrowser, mode: sharedBrowserMode };
   }
 
+  // Local headless: launch a fresh one each time (will be fully closed later)
   const execPath =
     env.BROWSER_EXECUTABLE_PATH ||
     "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser";
@@ -65,25 +80,49 @@ export async function getBrowser(): Promise<{ browser: Browser; mode: string }> 
 }
 
 // ---------------------------------------------------------------------------
-// Session helpers
+// Close only the page/tab for a user — don't disconnect the shared browser
 // ---------------------------------------------------------------------------
 
 export async function closeSession(userId: string): Promise<void> {
   const session = sessions.get(userId);
   if (!session) return;
-  try { await session.browser.close(); } catch (_) { }
+
+  try {
+    // Close just the page (tab), not the browser connection
+    await session.page.close().catch(() => { });
+  } catch (_) { }
+
+  // Only close the whole browser if it's a local (non-shared) launch
+  const isShared = sharedBrowser && session.browser === sharedBrowser;
+  if (!isShared) {
+    try { await session.browser.close().catch(() => { }); } catch (_) { }
+  }
+
   sessions.delete(userId);
 }
 
 export async function openSession(userId: string): Promise<BrowserSession> {
-  await closeSession(userId);
+  // Reuse existing session for this user — never open a new tab unnecessarily
+  const existing = sessions.get(userId);
+  if (existing) {
+    // Check page is still usable
+    try {
+      await existing.page.evaluate(() => 1, { timeout: 2_000 });
+      existing.startedAt = new Date();
+      return existing;
+    } catch {
+      // Page is dead — clean up and create a new one
+      try { await existing.page.close().catch(() => { }); } catch (_) { }
+      sessions.delete(userId);
+    }
+  }
 
-  const { browser, mode } = await getBrowser();
+  const { browser, mode } = await getOrCreateBrowser();
 
   let ctx = browser.contexts()[0];
   if (!ctx) ctx = await browser.newContext({ ignoreHTTPSErrors: true });
 
-  const page = await ctx.newPage() as Page;
+  const page = await ctx.newPage();
 
   // Forward console logs to server terminal
   page.on("console", (msg) => {
@@ -106,7 +145,7 @@ export async function openSession(userId: string): Promise<BrowserSession> {
     if (frame !== page.mainFrame()) return;
     try {
       if (new URL(frame.url()).hostname.includes(BEID_HOST) && userId === "auto-sync") {
-        await page.waitForLoadState("domcontentloaded").catch(() => { });
+        await page.waitForLoadState("load", { timeout: 8_000 }).catch(() => { });
         await handleBeIDLogin(page);
       }
     } catch (_) { }
@@ -125,30 +164,73 @@ export async function handleBeIDLogin(page: Page): Promise<void> {
   if (!new URL(page.url()).hostname.includes(BEID_HOST)) return;
   console.log("[browser] BeID detected — auto-login...");
 
-  await page.waitForSelector(
-    'input[name="username"], input[type="text"]',
-    { timeout: 10_000 }
-  );
-  await page.fill('input[name="username"]', env.PORTAL_BSRE_USERNAME);
-  await page.fill(
-    'input[name="password"], input[type="password"]',
-    env.PORTAL_BSRE_PASSWORD
-  );
-  await page.click(
-    'button[type="submit"], input[type="submit"], button:has-text("Masuk"), button:has-text("Login")'
-  );
-  await page.waitForLoadState("domcontentloaded", { timeout: 15_000 });
+  // Wait for full page load (all resources + JS rendering) before looking for fields
+  await page.waitForLoadState("load", { timeout: 8_000 }).catch(() => { });
+  // Give SPA a moment to render the form
+  await page.waitForTimeout(1_000);
 
-  // OTP step (Google Authenticator)
-  const otpInput = await page.$(
-    'input[name="otp"], input[name="token"], input[placeholder*="OTP"], input[placeholder*="authenticator"], input[maxlength="6"]'
+  const pageUrl = page.url();
+  console.log("[browser] BeID page URL:", pageUrl);
+
+  // Try a broader set of selectors for the username/email field
+  const usernameSelectors = [
+    'input[name="username"]',
+    'input[type="text"]',
+    'input#username',
+    'input[autocomplete="username"]',
+    'input[name="email"]',
+    'input[type="email"]',
+    'input[placeholder*="user" i]',
+    'input[placeholder*="email" i]',
+    'input[placeholder*="akun" i]',
+  ].join(", ");
+
+  try {
+    await page.waitForSelector(usernameSelectors, { timeout: 8_000 });
+  } catch (err) {
+    // Debug: dump page state to understand the actual structure
+    const html = await page.evaluate(() => document.body?.innerHTML?.slice(0, 5000) ?? "no body");
+    console.log("[browser] ⛔ Could not find username field. Page HTML (first 5k chars):\n", html);
+    try {
+      await page.screenshot({ path: "/tmp/beid-login-fail.png", fullPage: false });
+      console.log("[browser] Screenshot saved to /tmp/beid-login-fail.png");
+    } catch (_) { }
+    throw err;
+  }
+
+  // Fill username — try specific selectors, fallback to first visible text input
+  const usernameField = await page.$(
+    'input[name="username"], input#username, input[autocomplete="username"], input[type="email"], input[name="email"]'
   );
+  if (usernameField) {
+    await usernameField.fill(env.PORTAL_BSRE_USERNAME);
+  } else {
+    // Grab the first visible text/email input as a last resort
+    await page.fill('input[type="text"], input:not([type])', env.PORTAL_BSRE_USERNAME);
+  }
+
+  // Password
+  const pwSelectors = 'input[name="password"], input[type="password"], input#password';
+  await page.waitForSelector(pwSelectors, { timeout: 5_000 });
+  await page.fill(pwSelectors, env.PORTAL_BSRE_PASSWORD);
+
+  // Submit button
+  const submitBtn = 'button[type="submit"], input[type="submit"], button:has-text("Masuk"), button:has-text("Login"), button:has-text("Sign in")';
+  await page.click(submitBtn);
+  await page.waitForLoadState("load", { timeout: 10_000 }).catch(() => { });
+
+  // OTP step (Google Authenticator / TOTP)
+  await page.waitForTimeout(800);
+  const otpSelectors = 'input[name="otp"], input[name="token"], input[placeholder*="OTP" i], input[placeholder*="authenticator" i], input[maxlength="6"], input#otp, input#token';
+  const otpInput = await page.$(otpSelectors);
   if (otpInput) {
     const token = generateTOTP();
     console.log("[browser] Submitting TOTP:", token);
     await otpInput.fill(token);
-    await page.click('button[type="submit"], input[type="submit"]');
-    await page.waitForLoadState("domcontentloaded", { timeout: 15_000 });
+    await page.click(submitBtn);
+    await page.waitForLoadState("load", { timeout: 10_000 }).catch(() => { });
+  } else {
+    console.log("[browser] No OTP input found — proceeding");
   }
 
   console.log("[browser] Login complete —", page.url());
@@ -168,9 +250,8 @@ export async function captureApiToken(page: Page): Promise<string | null> {
     }
   };
   page.on("request", handler);
-  await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => { });
   // Give SPA a moment to fire authenticated requests
-  await new Promise((r) => setTimeout(r, 2000));
+  await new Promise((r) => setTimeout(r, 1_000));
   page.off("request", handler);
   return captured;
 }
@@ -186,12 +267,21 @@ export async function getAccessToken(page: Page): Promise<string | null> {
       }
     }
 
-    // 2. Check localStorage/sessionStorage (without logging every time)
+    // 2. Check localStorage/sessionStorage
     const result = await page.evaluate(() => {
-      const candidates = ["access_token", "token", "auth_token", "bearer_token", "kc-access-token"];
+      const candidates = [
+        "access_token", "token", "auth_token", "bearer_token",
+        "kc-access-token", "oidc.access_token", "keycloak-token"
+      ];
       for (const key of candidates) {
         const val = localStorage.getItem(key) || sessionStorage.getItem(key);
         if (val) return val;
+      }
+      // Brute-force fallback: any value over 100 chars is likely a JWT
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)!;
+        const val = localStorage.getItem(key);
+        if (val && val.length > 100) return val;
       }
       return null;
     });

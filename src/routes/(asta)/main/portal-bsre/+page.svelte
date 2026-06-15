@@ -15,7 +15,14 @@
   import { app } from "$lib/app/index.svelte";
 
   const userId = $derived(page.data.user?.id ?? page.data.user?.email ?? "");
+
+  // Track token availability independently so Sync enables immediately after launch
+  let tokenReady = $state(false);
   const status = $derived(getSessionStatus({ userId }));
+  // Sync status's hasToken into our local state too
+  $effect(() => {
+    if (status.current?.hasToken) tokenReady = true;
+  });
 
   let customUrl = $state("https://portal-bsre.bssn.go.id/");
 
@@ -210,6 +217,7 @@
 
   async function launch() {
     const res = await launchBsre({ userId });
+    if (res?.hasToken) tokenReady = true;
     if (res?.success)
       app.showToast("success", res.message ?? "Browser dibuka.");
     else app.showToast("error", "Gagal membuka browser.");
@@ -218,6 +226,7 @@
 
   async function close() {
     const res = await closeBsre({ userId });
+    if (res?.success) tokenReady = false;
     app.showToast("success", res?.message ?? "Sesi ditutup.");
     status.refresh();
   }
@@ -464,7 +473,9 @@
           <button
             class="btn btn-sm btn-primary gap-1"
             onclick={syncFromBsre}
-            disabled={(!status.current?.active && !status.current?.hasToken) ||
+            disabled={(!status.current?.active &&
+              !status.current?.hasToken &&
+              !tokenReady) ||
               syncing}
           >
             {#if syncing}

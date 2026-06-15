@@ -22,29 +22,62 @@ export const launchBsre = command(
   type({ userId: "string" }),
   async ({ userId }) => {
     const session = await openSession(userId);
-    await session.page.goto(BSRE_URL, { waitUntil: "domcontentloaded", timeout: 30_000 });
 
-    let token = await getAccessToken(session.page);
-    console.log("[bsre] token after launch:", token ? "found ✓" : "NOT found ✗");
-
-    // If no token and on BEID login, handle it
-    if (!token && new URL(session.page.url()).hostname.includes(BEID_HOST)) {
-      await handleBeIDLogin(session.page);
-      await session.page.waitForLoadState("networkidle", { timeout: 20_000 }).catch(() => { /* timeout ok */ });
-      token = await getAccessToken(session.page);
-      console.log("[bsre] token after BEID login:", token ? "found ✓" : "NOT found ✗");
+    // 1. Check if token already cached (from request interception or previous session)
+    let token: string | null | undefined = tokenStore.get(userId);
+    if (token) {
+      console.log("[bsre] token already cached ✓");
+      const modeLabel = session.mode.startsWith("remote") ? "remote CDP" : "browser lokal";
+      return {
+        success: true,
+        message: `Token sudah tersedia. Browser BSrE via ${modeLabel}.`,
+        mode: session.mode,
+        hasToken: true,
+      };
     }
 
-    // If no token and not on BEID, force a redirect to trigger login
+    // 2. Navigate — wrap in try-catch because SSO redirect may interrupt navigation
+    //    when the user already has an active Keycloak session
+    try {
+      await session.page.goto(BSRE_URL, { waitUntil: "load", timeout: 30_000 });
+    } catch {
+      console.log("[bsre] goto interrupted by SSO redirect — letting page settle");
+    }
+    await session.page.waitForLoadState("load", { timeout: 15_000 }).catch(() => { });
+
+    // 3. If we landed on BEID login, handle credentials + OTP
+    if (new URL(session.page.url()).hostname.includes(BEID_HOST)) {
+      console.log("[bsre] on BEID login page — handling login");
+      await handleBeIDLogin(session.page);
+    }
+
+    // 4. Give SPA a moment to initialise and store token in localStorage
+    await session.page.waitForTimeout(1_500);
+    token = await getAccessToken(session.page);
+    console.log("[bsre] token after launch:", token ? "found ✓" : "NOT found ✗");
+
+    // 5. If still no token, brute-force scan localStorage for any JWT-like value
     if (!token) {
-      console.log("[bsre] no token found, re-navigating to force login redirect");
-      await session.page.goto(BSRE_URL, { waitUntil: "domcontentloaded", timeout: 30_000 });
-      if (new URL(session.page.url()).hostname.includes(BEID_HOST)) {
-        await handleBeIDLogin(session.page);
-        await session.page.waitForLoadState("networkidle", { timeout: 20_000 }).catch(() => { /* timeout ok */ });
-        token = await getAccessToken(session.page);
-        console.log("[bsre] token after re-login:", token ? "found ✓" : "NOT found ✗");
-      }
+      console.log("[bsre] scanning localStorage for token...");
+      token = await session.page.evaluate(() => {
+        // Check known Keycloak / OIDC keys first
+        const known = [
+          "access_token", "token", "auth_token", "bearer_token",
+          "kc-access-token", "oidc.access_token", "keycloak-token"
+        ];
+        for (const key of known) {
+          const val = localStorage.getItem(key);
+          if (val) return val;
+        }
+        // Brute-force: any value longer than 100 chars is likely a JWT
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)!;
+          const val = localStorage.getItem(key);
+          if (val && val.length > 100) return val;
+        }
+        return null;
+      }) as string | null;
+      if (token) console.log("[bsre] token extracted from localStorage ✓");
     }
 
     // Cache token for the user
@@ -77,11 +110,11 @@ export const navigateBsre = command(
     const client = sessions.get(userId);
     if (!client) return { success: false, message: "Tidak ada sesi aktif." };
 
-    await client.page.goto(url, { waitUntil: "domcontentloaded", timeout: 30_000 });
+    await client.page.goto(url, { waitUntil: "load", timeout: 15_000 });
 
     if (new URL(client.page.url()).hostname.includes(BEID_HOST) && userId === "auto-sync") {
+      await client.page.waitForLoadState("load", { timeout: 15_000 });
       await handleBeIDLogin(client.page);
-      await client.page.waitForLoadState("networkidle", { timeout: 20_000 }).catch(() => { /* timeout ok */ });
     }
 
     // Re-cache token after navigation
@@ -141,29 +174,63 @@ export const fetchBsreUsers = command(
   async ({ userId, search = "" }) => {
     let authorization = tokenStore.get(userId);
 
+    // Proactively fetch token if not cached — same flow as launchBsre
     if (!authorization) {
-      const client = sessions.get(userId);
-      if (client) {
-        // Cek apakah URL sudah redirect ke halaman login BEID
-        if (new URL(client.page.url()).hostname.includes(BEID_HOST)) {
-          await handleBeIDLogin(client.page);
-          await client.page.waitForLoadState("networkidle", { timeout: 20_000 }).catch(() => { /* timeout ok */ });
-        }
+      const session = await openSession(userId);
 
-        const token = await getAccessToken(client.page);
-        if (token) {
-          authorization = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
-          tokenStore.set(userId, authorization);
-        }
-        // Session tidak diperlukan lagi setelah token didapatkan
-        await closeSession(userId);
+      // Navigate to portal — SSO redirect may interrupt, that's ok
+      try {
+        await session.page.goto(BSRE_URL, { waitUntil: "load", timeout: 30_000 });
+      } catch {
+        console.log("[bsre] sync: goto interrupted by SSO redirect — letting page settle");
       }
+      await session.page.waitForLoadState("load", { timeout: 15_000 }).catch(() => { });
+
+      // Handle BEID login if we land there
+      if (new URL(session.page.url()).hostname.includes(BEID_HOST)) {
+        console.log("[bsre] sync: on BEID login page — handling login");
+        await handleBeIDLogin(session.page);
+      }
+
+      // Give SPA a moment to initialise and store token
+      await session.page.waitForTimeout(1_500);
+
+      let token = await getAccessToken(session.page);
+
+      // Brute-force localStorage scan as fallback
+      if (!token) {
+        console.log("[bsre] sync: scanning localStorage for token...");
+        token = await session.page.evaluate(() => {
+          const known = [
+            "access_token", "token", "auth_token", "bearer_token",
+            "kc-access-token", "oidc.access_token", "keycloak-token"
+          ];
+          for (const key of known) {
+            const val = localStorage.getItem(key);
+            if (val) return val;
+          }
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i)!;
+            const val = localStorage.getItem(key);
+            if (val && val.length > 100) return val;
+          }
+          return null;
+        }) as string | null;
+        if (token) console.log("[bsre] sync: token extracted from localStorage ✓");
+      }
+
+      if (token) {
+        authorization = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
+        tokenStore.set(userId, authorization);
+      }
+      // Keep the session alive — token is cached, page will be reused next launch
     }
 
+    // If still no token after proactive fetch, bail with a clear message
     if (!authorization) {
       return {
         success: false,
-        message: "Token tidak ditemukan. Klik 'Buka Portal BSrE' terlebih dahulu agar sistem dapat login dan mendapatkan token.",
+        message: "Gagal mendapatkan token secara otomatis. Coba klik 'Buka Portal BSrE' dulu.",
         data: null,
       };
     }
@@ -285,9 +352,6 @@ export const fetchBsreUsers = command(
       }
 
       console.log("[bsre] users synced:", processed, "records");
-      if (sessions.has(userId)) {
-        await closeSession(userId);
-      }
       return { success: true, total: processed };
     } catch (err: any) {
       return { success: false, message: err?.message ?? "Gagal fetch API.", data: null };
