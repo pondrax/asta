@@ -21,10 +21,13 @@ const BEID_HOST = "beid.bssn.go.id";
 export const launchBsre = command(
   type({ userId: "string" }),
   async ({ userId }) => {
+    console.debug("[bsre] launchBsre — start, userId:", userId);
     const session = await openSession(userId);
+    console.debug("[bsre] launchBsre — session obtained, mode:", session.mode);
 
     // 1. Check if token already cached (from request interception or previous session)
     let token: string | null | undefined = tokenStore.get(userId);
+    console.debug("[bsre] launchBsre — tokenStore.has(userId):", !!token);
     if (token) {
       console.log("[bsre] token already cached ✓");
       const modeLabel = session.mode.startsWith("remote") ? "remote CDP" : "browser lokal";
@@ -38,46 +41,83 @@ export const launchBsre = command(
 
     // 2. Navigate — wrap in try-catch because SSO redirect may interrupt navigation
     //    when the user already has an active Keycloak session
+    console.debug("[bsre] launchBsre — navigating to", BSRE_URL);
     try {
       await session.page.goto(BSRE_URL, { waitUntil: "load", timeout: 30_000 });
+      console.debug("[bsre] launchBsre — goto completed, url:", session.page.url());
     } catch {
-      console.log("[bsre] goto interrupted by SSO redirect — letting page settle");
+      console.debug("[bsre] launchBsre — goto interrupted (SSO redirect), url:", session.page.url());
     }
-    await session.page.waitForLoadState("load", { timeout: 15_000 }).catch(() => { });
+    await session.page.waitForLoadState("load", { timeout: 15_000 }).catch(() => {});
+
+    // Wait a beat for JS-initiated SSO redirects that fire *after* the load event
+    try {
+      await session.page.waitForFunction(
+        (beid) => {
+          const host = window.location.hostname;
+          // Wait until URL stabilises on either portal or BEID (not an intermediate state)
+          return host.includes(beid as string) || host === "portal-bsre.bssn.go.id";
+        },
+        BEID_HOST,
+        { timeout: 8_000 }
+      );
+    } catch {
+      console.debug("[bsre] launchBsre — URL settle wait timed out, url:", session.page.url());
+    }
+    console.debug("[bsre] launchBsre — after settle, url:", session.page.url());
 
     // 3. If we landed on BEID login, handle credentials + OTP
-    if (new URL(session.page.url()).hostname.includes(BEID_HOST)) {
+    const isBeid = new URL(session.page.url()).hostname.includes(BEID_HOST);
+    console.debug("[bsre] launchBsre — after nav, on BEID?", isBeid, "url:", session.page.url());
+    if (isBeid) {
       console.log("[bsre] on BEID login page — handling login");
       await handleBeIDLogin(session.page);
+      console.debug("[bsre] launchBsre — handleBeIDLogin returned, url now:", session.page.url());
+      // Wait for SSO redirect back to portal before checking localStorage
+      console.log("[bsre] waiting for redirect back to portal...");
+      try {
+        await session.page.waitForFunction(
+          (host) => !new URL(window.location.href).hostname.includes(host as string),
+          BEID_HOST,
+          { timeout: 15_000 }
+        );
+        console.debug("[bsre] launchBsre — redirect detected, url:", session.page.url());
+      } catch {
+        console.debug("[bsre] launchBsre — redirect wait timed out, url:", session.page.url());
+      }
     }
 
-    // 4. Give SPA a moment to initialise and store token in localStorage
-    await session.page.waitForTimeout(1_500);
-    token = await getAccessToken(session.page);
-    console.log("[bsre] token after launch:", token ? "found ✓" : "NOT found ✗");
+    // 4. Only check localStorage once we're back on portal (not BEID domain)
+    const stillBeid = new URL(session.page.url()).hostname.includes(BEID_HOST);
+    console.debug("[bsre] launchBsre — checking token, still on BEID?", stillBeid);
+    if (!stillBeid) {
+      await session.page.waitForTimeout(1_500);
+      token = await getAccessToken(session.page);
+      console.debug("[bsre] launchBsre — getAccessToken returned:", token ? "found ✓" : "NOT found ✗");
 
-    // 5. If still no token, brute-force scan localStorage for any JWT-like value
-    if (!token) {
-      console.log("[bsre] scanning localStorage for token...");
-      token = await session.page.evaluate(() => {
-        // Check known Keycloak / OIDC keys first
-        const known = [
-          "access_token", "token", "auth_token", "bearer_token",
-          "kc-access-token", "oidc.access_token", "keycloak-token"
-        ];
-        for (const key of known) {
-          const val = localStorage.getItem(key);
-          if (val) return val;
-        }
-        // Brute-force: any value longer than 100 chars is likely a JWT
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i)!;
-          const val = localStorage.getItem(key);
-          if (val && val.length > 100) return val;
-        }
-        return null;
-      }) as string | null;
-      if (token) console.log("[bsre] token extracted from localStorage ✓");
+      // 5. If still no token, brute-force scan localStorage for any JWT-like value
+      if (!token) {
+        console.log("[bsre] scanning localStorage for token...");
+        token = await session.page.evaluate(() => {
+          const known = [
+            "access_token", "token", "auth_token", "bearer_token",
+            "kc-access-token", "oidc.access_token", "keycloak-token"
+          ];
+          for (const key of known) {
+            const val = localStorage.getItem(key);
+            if (val) return val;
+          }
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i)!;
+            const val = localStorage.getItem(key);
+            if (val && val.length > 100) return val;
+          }
+          return null;
+        }) as string | null;
+        console.debug("[bsre] launchBsre — localStorage scan result:", token ? "found ✓" : "null");
+      }
+    } else {
+      console.log("[bsre] still on BEID after login — skipping localStorage check");
     }
 
     // Cache token for the user
@@ -173,50 +213,89 @@ export const fetchBsreUsers = command(
   }),
   async ({ userId, search = "" }) => {
     let authorization = tokenStore.get(userId);
+    console.debug("[bsre] fetchBsreUsers — token cached?", !!authorization, "userId:", userId);
 
     // Proactively fetch token if not cached — same flow as launchBsre
     if (!authorization) {
+      console.debug("[bsre] fetchBsreUsers — no token, opening session...");
       const session = await openSession(userId);
+      console.debug("[bsre] fetchBsreUsers — session opened, mode:", session.mode);
 
       // Navigate to portal — SSO redirect may interrupt, that's ok
+      console.debug("[bsre] fetchBsreUsers — navigating to", BSRE_URL);
       try {
         await session.page.goto(BSRE_URL, { waitUntil: "load", timeout: 30_000 });
+        console.debug("[bsre] fetchBsreUsers — goto done, url:", session.page.url());
       } catch {
-        console.log("[bsre] sync: goto interrupted by SSO redirect — letting page settle");
+        console.debug("[bsre] fetchBsreUsers — goto interrupted (SSO), url:", session.page.url());
       }
-      await session.page.waitForLoadState("load", { timeout: 15_000 }).catch(() => { });
+      await session.page.waitForLoadState("load", { timeout: 15_000 }).catch(() => {});
 
-      // Handle BEID login if we land there
-      if (new URL(session.page.url()).hostname.includes(BEID_HOST)) {
-        console.log("[bsre] sync: on BEID login page — handling login");
-        await handleBeIDLogin(session.page);
+      // Wait a beat for JS-initiated SSO redirects that fire *after* the load event
+      try {
+        await session.page.waitForFunction(
+          (beid) => {
+            const host = window.location.hostname;
+            return host.includes(beid as string) || host === "portal-bsre.bssn.go.id";
+          },
+          BEID_HOST,
+          { timeout: 8_000 }
+        );
+      } catch {
+        console.debug("[bsre] fetchBsreUsers — URL settle wait timed out, url:", session.page.url());
+      }
+      console.debug("[bsre] fetchBsreUsers — after settle, url:", session.page.url());
+
+      // Handle BEID login (no-op if not on BEID host — self-guarding)
+      console.debug("[bsre] fetchBsreUsers — calling handleBeIDLogin, url:", session.page.url());
+      await handleBeIDLogin(session.page);
+      console.debug("[bsre] fetchBsreUsers — handleBeIDLogin returned, url:", session.page.url());
+
+      // Wait for SSO redirect back to portal before checking localStorage
+      console.log("[bsre] sync: waiting for redirect back to portal...");
+      try {
+        await session.page.waitForFunction(
+          (host) => !new URL(window.location.href).hostname.includes(host as string),
+          BEID_HOST,
+          { timeout: 15_000 }
+        );
+        console.debug("[bsre] fetchBsreUsers — redirect detected, url:", session.page.url());
+      } catch {
+        console.debug("[bsre] fetchBsreUsers — redirect wait timed out, url:", session.page.url());
       }
 
-      // Give SPA a moment to initialise and store token
-      await session.page.waitForTimeout(1_500);
+      // Only check localStorage once we're on portal (BEID has no token)
+      let token: string | null = null;
+      const isBeid = new URL(session.page.url()).hostname.includes(BEID_HOST);
+      console.debug("[bsre] fetchBsreUsers — after redirect wait, on BEID?", isBeid);
+      if (!isBeid) {
+        await session.page.waitForTimeout(1_500);
 
-      let token = await getAccessToken(session.page);
+        token = await getAccessToken(session.page);
+        console.debug("[bsre] fetchBsreUsers — getAccessToken:", token ? "found ✓" : "null");
 
-      // Brute-force localStorage scan as fallback
-      if (!token) {
-        console.log("[bsre] sync: scanning localStorage for token...");
-        token = await session.page.evaluate(() => {
-          const known = [
-            "access_token", "token", "auth_token", "bearer_token",
-            "kc-access-token", "oidc.access_token", "keycloak-token"
-          ];
-          for (const key of known) {
-            const val = localStorage.getItem(key);
-            if (val) return val;
-          }
-          for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i)!;
-            const val = localStorage.getItem(key);
-            if (val && val.length > 100) return val;
-          }
-          return null;
-        }) as string | null;
-        if (token) console.log("[bsre] sync: token extracted from localStorage ✓");
+        if (!token) {
+          console.log("[bsre] sync: scanning localStorage for token...");
+          token = await session.page.evaluate(() => {
+            const known = [
+              "access_token", "token", "auth_token", "bearer_token",
+              "kc-access-token", "oidc.access_token", "keycloak-token"
+            ];
+            for (const key of known) {
+              const val = localStorage.getItem(key);
+              if (val) return val;
+            }
+            for (let i = 0; i < localStorage.length; i++) {
+              const key = localStorage.key(i)!;
+              const val = localStorage.getItem(key);
+              if (val && val.length > 100) return val;
+            }
+            return null;
+          }) as string | null;
+          console.debug("[bsre] fetchBsreUsers — localStorage scan result:", token ? "found ✓" : "null");
+        }
+      } else {
+        console.log("[bsre] sync: still on BEID — skipping localStorage check");
       }
 
       if (token) {

@@ -87,14 +87,15 @@ export async function closeSession(userId: string): Promise<void> {
   const session = sessions.get(userId);
   if (!session) return;
 
-  try {
-    // Close just the page (tab), not the browser connection
-    await session.page.close().catch(() => { });
-  } catch (_) { }
-
-  // Only close the whole browser if it's a local (non-shared) launch
   const isShared = sharedBrowser && session.browser === sharedBrowser;
-  if (!isShared) {
+
+  if (isShared) {
+    // For shared/CDP: navigate to blank instead of closing the tab,
+    // so the 1st tab stays alive for next use
+    try { await session.page.goto("about:blank", { timeout: 5_000 }).catch(() => { }); } catch (_) { }
+  } else {
+    // Local headless: close the page + browser entirely
+    try { await session.page.close().catch(() => { }); } catch (_) { }
     try { await session.browser.close().catch(() => { }); } catch (_) { }
   }
 
@@ -122,7 +123,8 @@ export async function openSession(userId: string): Promise<BrowserSession> {
   let ctx = browser.contexts()[0];
   if (!ctx) ctx = await browser.newContext({ ignoreHTTPSErrors: true });
 
-  const page = await ctx.newPage();
+  // Always reuse the first tab instead of opening a new one
+  const page = ctx.pages()[0] ?? await ctx.newPage();
 
   // Forward console logs to server terminal
   page.on("console", (msg) => {
