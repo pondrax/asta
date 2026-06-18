@@ -41,18 +41,18 @@ async function acquireToken(userId: string): Promise<string | null> {
   }
   await session.page.waitForLoadState("load", { timeout: 15_000 }).catch(() => { });
 
-  // Wait for JS-initiated SSO redirects that fire *after* the load event
+  // Wait up to 8s for a JS-initiated SSO redirect to BEID.
+  // NOTE: we only wait for the BEID host here — if the portal SPA detects an expired
+  // SSO session it will redirect to BEID for re-authentication.  If we stay on the
+  // portal the timeout fires and we proceed (the session is still good).
   try {
     await session.page.waitForFunction(
-      (beid) => {
-        const host = window.location.hostname;
-        return host.includes(beid as string) || host === "portal-bsre.bssn.go.id";
-      },
+      (beid) => window.location.hostname.includes(beid as string),
       BEID_HOST,
       { timeout: 8_000 }
     );
   } catch {
-    console.debug("[bsre] acquireToken — URL settle timed out, url:", session.page.url());
+    console.debug("[bsre] acquireToken — no BEID redirect within 8s, staying on portal, url:", session.page.url());
   }
   console.debug("[bsre] acquireToken — after settle, url:", session.page.url());
 
