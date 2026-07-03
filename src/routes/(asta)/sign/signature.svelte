@@ -285,7 +285,6 @@
       class="btn btn-secondary btn-square"
       aria-label="Tambahkan visualisasi ke dokumen"
       onclick={addSignature}
-      disabled={hasSignature}
     >
       <iconify-icon icon="bx:plus" class="text-2xl"></iconify-icon>
     </button>
