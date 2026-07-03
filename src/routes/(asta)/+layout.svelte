@@ -497,7 +497,7 @@
             </div>
           </div>
         {:else if activeMenu === "verify"}
-          <div class="max-w7-xl mx-auto px-6 lg:px-12 py-8">
+          <div class="max-w-7xl mx-auto px-6 lg:px-12 py-8">
             <div class="grid grid-cols-3 gap-8 items-start">
               <div>
                 <h3
