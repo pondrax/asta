@@ -52,6 +52,7 @@
   let useEmail = $state(true);
   let fields: Record<string, any> = $state({});
   let hasSignature = $state(true);
+  let isEncrypted = $state(false);
   let previewFile: File | null = $state(null);
   let startTime = $state(0);
   let timer = $state(0);
@@ -154,10 +155,13 @@
       String(form.nama).length > 0 &&
       (bsre ? status === "ISSUE" : signatures.length > 0),
   );
-  const allowSigning = $derived(hasDocuments && hasMetadata);
+  const allowSigning = $derived(hasDocuments && hasMetadata && !isEncrypted);
 
   async function getDocumentDetails(file: File) {
     const buffer = await file.arrayBuffer();
+    isEncrypted = await pdfLib.isEncrypted(buffer);
+    if (isEncrypted) return;
+
     fields = await pdfLib.getAllFormFields(buffer);
     hasSignature = await pdfLib.hasSignature(buffer);
 
@@ -173,6 +177,15 @@
     let buffer: ArrayBuffer = await file.arrayBuffer();
 
     if (!id) id = activeIndex;
+
+    // If encrypted, skip processing — just preview as-is
+    if (isEncrypted) {
+      if (!signing) {
+        previewFile = file;
+      }
+      return file;
+    }
+
     const checkSignature = await pdfLib.hasSignature(buffer);
     if (checkSignature) {
       if (!signing) {
@@ -356,7 +369,17 @@
       class:hidden={!documents[activeIndex]}
       class="grow min-h-0 relative flex flex-col"
     >
-      {#if hasSignature}
+      {#if isEncrypted}
+        <div
+          class="absolute top-0 alert py-1 px-5 alert-error left-0 right-0 z-5"
+        >
+          <iconify-icon icon="bx:lock-alt" class="text-xl"></iconify-icon>
+          <span>
+            <strong>Dokumen Diproteksi:</strong> Dokumen ini dilindungi kata sandi
+            dan tidak dapat ditandatangani. Hapus proteksi terlebih dahulu.
+          </span>
+        </div>
+      {:else if hasSignature}
         <div
           class="absolute top-0 alert py-1 px-5 alert-warning left-0 right-0 z-5"
         >
@@ -390,26 +413,28 @@
       {/if}
 
       <div class="absolute top-4 right-4 z-10 flex gap-2">
-        <button
-          type="button"
-          class="btn btn-sm btn-secondary tooltip tooltip-bottom"
-          data-tip="Download"
-          onclick={() => {
-            if (previewFile) {
-              const url = URL.createObjectURL(previewFile);
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = previewFile.name;
-              document.body.appendChild(a);
-              a.click();
-              document.body.removeChild(a);
-              URL.revokeObjectURL(url);
-            }
-          }}
-        >
-          <iconify-icon icon="bx:download"></iconify-icon>
-          Download PDF
-        </button>
+        <div class="mt-5">
+          <button
+            type="button"
+            class="btn btn-sm btn-secondary tooltip tooltip-bottom"
+            data-tip="Download"
+            onclick={() => {
+              if (previewFile) {
+                const url = URL.createObjectURL(previewFile);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = previewFile.name;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+              }
+            }}
+          >
+            <iconify-icon icon="bx:download"></iconify-icon>
+            Download PDF
+          </button>
+        </div>
       </div>
 
       <div class="grow min-h-0 overflow-y-auto">

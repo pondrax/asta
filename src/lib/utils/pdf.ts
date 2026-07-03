@@ -13,14 +13,14 @@ import {
 // Load PDF
 // ---------------------------------------------------------
 export async function loadPdf(bytes: Uint8Array | ArrayBuffer) {
-  return PDFDocument.load(bytes);
+  return PDFDocument.load(bytes, { ignoreEncryption: true });
 }
 
 // ---------------------------------------------------------
 // Read all form fields
 // ---------------------------------------------------------
 export async function getAllFormFields(bytes: Uint8Array | ArrayBuffer) {
-  const pdfDoc = await PDFDocument.load(bytes);
+  const pdfDoc = await PDFDocument.load(bytes, { ignoreEncryption: true });
   const form = pdfDoc.getForm();
   const fields = form.getFields();
 
@@ -56,7 +56,7 @@ export async function fillFormFields(
   bytes: Uint8Array | ArrayBuffer,
   values: Record<string, string | boolean>
 ) {
-  const pdfDoc = await PDFDocument.load(bytes);
+  const pdfDoc = await PDFDocument.load(bytes, { ignoreEncryption: true });
   const form = pdfDoc.getForm();
 
   Object.entries(values).forEach(([name, value]) => {
@@ -108,7 +108,7 @@ export async function drawFooter(
 ) {
   const { text = '', imageBase64, paddingY = 20, lineHeight = 14 } = opts;
 
-  const pdfDoc = await PDFDocument.load(bytes);
+  const pdfDoc = await PDFDocument.load(bytes, { ignoreEncryption: true });
 
   let image;
   if (imageBase64) {
@@ -194,7 +194,7 @@ export async function drawImages(
   const pageIndexing = options?.pageIndexing || 'one';
   const coordinateSystem = options?.coordinateSystem || 'top-left';
 
-  const pdfDoc = await PDFDocument.load(bytes);
+  const pdfDoc = await PDFDocument.load(bytes, { ignoreEncryption: true });
   const pages = pdfDoc.getPages();
 
   const signaturesByPage: { [page: number]: SignatureType[] } = {};
@@ -303,9 +303,18 @@ export function toDownload(
 }
 
 export async function hasSignature(bytes: Uint8Array | ArrayBuffer): Promise<boolean> {
-  const pdfDoc = await PDFDocument.load(bytes);
+  const pdfDoc = await PDFDocument.load(bytes, { ignoreEncryption: true });
   const form = pdfDoc.getForm();
   const fields = form.getFields();
 
   return fields.some(field => field instanceof PDFSignature);
+}
+
+export async function isEncrypted(bytes: Uint8Array | ArrayBuffer): Promise<boolean> {
+  try {
+    await PDFDocument.load(bytes);
+    return false;
+  } catch (err: any) {
+    return err?.name === 'EncryptedPDFError' || String(err?.message).includes('encrypted');
+  }
 }
