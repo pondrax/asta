@@ -19,6 +19,6 @@ jobs:
           SONAR_HOST_URL: "http://192.168.33.116:9002"
         run: |
           sonar-scanner \
-            -Dsonar.projectKey=${{ github.event.repository.name }}
+            -Dsonar.projectKey=${{ github.event.repository.name }} \
             -Dsonar.sources=. \
             -Dsonar.exclusions=vendor/**,node_modules/**,tests/**
