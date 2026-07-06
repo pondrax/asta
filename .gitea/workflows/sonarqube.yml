@@ -6,18 +6,19 @@ on:
     branches: [main, master]
 
 jobs:
-  sonarqube:
-    runs-on: ubuntu-22.04
+  sonar-analysis:
+    runs-on: ubuntu-22.04 # Label native runner yang Anda miliki
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - name: Check out repository code
+        uses: actions/checkout@v4
 
-      - name: SonarQube Scan
-        uses: sonarsource/sonarqube-scan-action@v5
-        with:
-          args: >
-            -Dsonar.host.url=http://192.168.33.116:9002
-            -Dsonar.token=${{ secrets.SONAR_TOKEN }}
+      - name: Execute SonarScanner
+        env:
+          # Token autentikasi yang dibuat dari halaman profil SonarQube Anda
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }} 
+          SONAR_HOST_URL: "http://192.168.33.116:9002"
+        run: |
+          sonar-scanner \
             -Dsonar.projectKey=${{ github.event.repository.name }}
-            -Dsonar.sources=.
+            -Dsonar.sources=. \
+            -Dsonar.exclusions=vendor/**,node_modules/**,tests/**
