@@ -5,6 +5,9 @@
 import { chromium, type Browser, type Page } from "playwright-core";
 import { env } from "$env/dynamic/private";
 import * as OTPAuth from "otpauth";
+import { tmpdir } from "os";
+import { join } from "path";
+import { mkdirSync } from "fs";
 
 const BEID_HOST = "beid.bssn.go.id";
 
@@ -194,8 +197,10 @@ export async function handleBeIDLogin(page: Page): Promise<void> {
     const html = await page.evaluate(() => document.body?.innerHTML?.slice(0, 5000) ?? "no body");
     console.log("[browser] ⛔ Could not find username field. Page HTML (first 5k chars):\n", html);
     try {
-      await page.screenshot({ path: "/tmp/beid-login-fail.png", fullPage: false });
-      console.log("[browser] Screenshot saved to /tmp/beid-login-fail.png");
+      const tmpDir = join(tmpdir(), "asta-browser");
+      mkdirSync(tmpDir, { recursive: true });
+      await page.screenshot({ path: join(tmpDir, "beid-login-fail.png"), fullPage: false });
+      console.log("[browser] Screenshot saved to", join(tmpDir, "beid-login-fail.png"));
     } catch (_) { }
     throw err;
   }

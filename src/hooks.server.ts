@@ -4,6 +4,7 @@ import { verifyJWT } from '$lib/server/plugins/jwt';
 import { sequence } from '@sveltejs/kit/hooks';
 import { db } from '$lib/server/db';
 import { startCron } from '$lib/server/cron';
+import { migrateEncryption } from '$lib/server/db/migrate-encryption';
 
 const handleParaglide: Handle = ({ event, resolve }) => paraglideMiddleware(event.request, ({ request, locale }) => {
   event.request = request;
@@ -63,6 +64,7 @@ export const handle: Handle = sequence(handleParaglide, handleAuth, handleRedire
 
 
 startCron();
+migrateEncryption().catch(err => console.error('[migration] Encryption migration failed:', err));
 
 export const handleValidationError: HandleValidationError = ({ issues }) => {
   return {
