@@ -1,28 +1,39 @@
-import { promises as fs } from 'fs';
-import path from 'path';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
 import crypto from 'crypto';
 import { env } from '$env/dynamic/private';
 import { createId } from '$lib/utils';
 
-const ALGORITHM = 'aes-256-cbc';
-const IV_LENGTH = 16;
+const ALGORITHM = 'aes-256-gcm';
+const IV_LENGTH = 12; // GCM recommended IV length
 const KEY = Buffer.from(env.APP_SECRET || 'secret-key').subarray(0, 32);
 
 function encrypt(buffer: Buffer): Buffer {
   const iv = crypto.randomBytes(IV_LENGTH);
   const cipher = crypto.createCipheriv(ALGORITHM, KEY, iv);
   const encrypted = Buffer.concat([cipher.update(buffer), cipher.final()]);
-  return Buffer.concat([iv, encrypted]);
+  const authTag = cipher.getAuthTag();
+  return Buffer.concat([iv, authTag, encrypted]);
 }
 
 function decrypt(buffer: Buffer): Buffer | null {
   try {
     const iv = buffer.subarray(0, IV_LENGTH);
-    const encrypted = buffer.subarray(IV_LENGTH);
+    const authTag = buffer.subarray(IV_LENGTH, IV_LENGTH + 16);
+    const encrypted = buffer.subarray(IV_LENGTH + 16);
     const decipher = crypto.createDecipheriv(ALGORITHM, KEY, iv);
+    decipher.setAuthTag(authTag);
     return Buffer.concat([decipher.update(encrypted), decipher.final()]);
   } catch (e) {
-    return null;
+    // Fallback: legacy CBC files (no auth tag, 16-byte IV)
+    try {
+      const iv = buffer.subarray(0, 16);
+      const encrypted = buffer.subarray(16);
+      const decipher = crypto.createDecipheriv('aes-256-cbc', KEY, iv);
+      return Buffer.concat([decipher.update(encrypted), decipher.final()]);
+    } catch {
+      return null;
+    }
   }
 }
 
