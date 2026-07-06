@@ -64,7 +64,11 @@ export const handle: Handle = sequence(handleParaglide, handleAuth, handleRedire
 
 
 startCron();
-migrateEncryption().catch(err => console.error('[migration] Encryption migration failed:', err));
+try {
+  await migrateEncryption();
+} catch (err) {
+  console.error('[migration] Encryption migration failed:', err);
+}
 
 export const handleValidationError: HandleValidationError = ({ issues }) => {
   return {

@@ -5,9 +5,9 @@
 import { chromium, type Browser, type Page } from "playwright-core";
 import { env } from "$env/dynamic/private";
 import * as OTPAuth from "otpauth";
-import { tmpdir } from "os";
-import { join } from "path";
-import { mkdirSync } from "fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { mkdirSync } from "node:fs";
 
 const BEID_HOST = "beid.bssn.go.id";
 
