@@ -1,49 +1,22 @@
 <script lang="ts">
   import { marked } from "marked";
-  import { sendMessage } from "$lib/remotes/chat.remote";
+  import { goto } from "$app/navigation";
   import Char from "./char.svelte";
   import { app } from "$lib/app/index.svelte";
 
   const renderer = new marked.Renderer();
 
-  // Custom blockquote: > [!type] title\n> content
-  renderer.blockquote = (tokens: any) => {
-    const text = Array.isArray(tokens)
-      ? tokens.map((t: any) => t.raw || t.text || "").join("")
-      : (tokens as unknown as string);
-    const match = text.match(
-      /^\[!(info|warning|success|error|tip|step|note)\]\s*(.*)/i,
-    );
-    if (match) {
-      const [, type, title] = match;
-      const body = text.replace(/^\[!\w+\]\s*.*\n?/, "").trim();
-      const icons: Record<string, string> = {
-        info: "bx-info-circle",
-        warning: "bx-error",
-        success: "bx-check-circle",
-        error: "bx-x-circle",
-        tip: "bx-bulb",
-        step: "bx-hash",
-        note: "bx-note",
-      };
-      return `<div class="chat-template chat-template-${type.toLowerCase()}"><div class="chat-template-header"><iconify-icon icon="${icons[type.toLowerCase()] || "bx-info-circle"}"></iconify-icon> ${title || type.toUpperCase()}</div>${body ? `<div class="chat-template-body">${marked.parse(body)}</div>` : ""}</div>`;
-    }
-    // Custom heading: ## [icon] title
-    const headingMatch = text.match(/^\[\[(\w[\w:-]*)\]\]\s*(.*)/);
-    if (headingMatch) {
-      const [, icon, title] = headingMatch;
-      return `<div class="chat-template chat-template-card"><div class="chat-template-header"><iconify-icon icon="${icon}"></iconify-icon> ${title}</div></div>`;
-    }
-    return `<blockquote>${text}</blockquote>`;
-  };
-
   // Custom heading with icon: ## [[icon]] title
-  renderer.heading = (tokens: any) => {
-    const text = Array.isArray(tokens)
-      ? tokens.map((t: any) => t.text || "").join("")
-      : (tokens as unknown as string);
-    const depth = Array.isArray(tokens) ? tokens[0]?.depth || 1 : 1;
-    const match = text.match(/^\[\[(\w[\w:-]*)\]\]\s*(.*)/);
+  renderer.heading = (token: any) => {
+    const text =
+      token?.text ||
+      token?.raw ||
+      (Array.isArray(token)
+        ? token.map((t: any) => t.text || "").join("")
+        : String(token));
+    const depth = token?.depth || 1;
+    // Match [[icon]] title anywhere in the text
+    const match = text.match(/\[\[(\w[\w:.\/-]*)\]\]\s*(.*)/);
     if (match) {
       const [, icon, title] = match;
       return `<div class="chat-heading"><iconify-icon icon="${icon}"></iconify-icon> <span>${title}</span></div>`;
@@ -63,6 +36,12 @@
   let chatbox = $state() as HTMLDivElement | undefined;
   let chatInput = $state() as HTMLInputElement | undefined;
   let showEmoji = $state(false);
+  let abortCtrl = $state<AbortController | null>(null);
+  let scrollTick = $state(0);
+
+  let {
+    user = $bindable(undefined),
+  }: { user?: { email?: string; role?: { name?: string } } | null } = $props();
 
   const routeLabels: Record<string, string> = {
     "/sign": "Tanda Tangan",
@@ -81,33 +60,78 @@
     for (const [route, label] of Object.entries(routeLabels)) {
       if (path.startsWith(route + "/")) return label;
     }
-    return path;
+    return path
+      .replace(/^\//, "")
+      .replace(/-/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+
+  const authRoutes = new Set(["/me", "/me/documents", "/main"]);
+  function isAuthRoute(path: string) {
+    return authRoutes.has(path);
   }
 
   function extractUrls(text: string): string[] {
-    const urlRegex = /\b(https?:\/\/[^\s)}\]]+|\/[a-zA-Z][a-zA-Z0-9\-_/]*)/g;
     const urls: string[] = [];
+
+    // From markdown links: [label](url)
+    const mdLinkRegex = /\[([^\]]*)\]\(([^)]+)\)/g;
     let match;
-    while ((match = urlRegex.exec(text)) !== null) {
-      const url = match[1];
-      if (url.startsWith("http")) {
-        try {
-          const u = new URL(url);
-          if (u.origin === window.location.origin) urls.push(u.pathname);
-        } catch {}
-      } else if (url.startsWith("/") && !url.startsWith("//")) {
-        urls.push(url);
+    while ((match = mdLinkRegex.exec(text)) !== null) {
+      const href = match[2].trim();
+      let path = href;
+      try {
+        const u = new URL(href);
+        path = u.pathname;
+      } catch {}
+      path = path.split("?")[0].split("#")[0];
+      if (path.startsWith("/") && !path.startsWith("//")) {
+        if (!urls.includes(path)) urls.push(path);
       }
     }
-    return [...new Set(urls)];
+
+    // From known routes mentioned as plain text: /sign, /verify, etc.
+    const knownRoutes = new Set(Object.keys(routeLabels));
+    for (const route of knownRoutes) {
+      const plainRegex = new RegExp(`(?<![\\w/])${route}(?![\\w/])`, "g");
+      if (plainRegex.test(text) && !urls.includes(route)) urls.push(route);
+    }
+
+    // From full URLs in plain text
+    const fullUrlRegex = /https?:\/\/[\w.-]+(?:\.\w+)+([^\s)]*)/g;
+    while ((match = fullUrlRegex.exec(text)) !== null) {
+      const path = match[1].split("?")[0].split("#")[0] || "/";
+      if (path.startsWith("/") && path.length > 1 && !urls.includes(path)) {
+        const knownRoutes = new Set(Object.keys(routeLabels));
+        for (const route of knownRoutes) {
+          if (path === route || path.startsWith(route + "/")) {
+            urls.push(route);
+            break;
+          }
+        }
+      }
+    }
+
+    return [...new Set(urls)].filter((u) => !(isAuthRoute(u) && !user));
+  }
+
+  function scrollChat(force = false) {
+    if (!chatbox) return;
+    if (!force) {
+      const nearBottom =
+        chatbox.scrollHeight - chatbox.scrollTop - chatbox.clientHeight < 80;
+      if (!nearBottom) return;
+    }
+    chatbox.scrollTo({
+      top: chatbox.scrollHeight,
+      behavior: force ? "instant" : "smooth",
+    });
   }
 
   $effect(() => {
     if (open && chatbox) {
-      const len = messages.length;
-      requestAnimationFrame(() => {
-        chatbox!.scrollTop = chatbox!.scrollHeight;
-      });
+      scrollTick; // track all scroll triggers (new msg + stream updates)
+      requestAnimationFrame(scrollChat);
     }
   });
 
@@ -123,7 +147,10 @@
       messages = [
         {
           role: "assistant",
-          content: "Halo! Ada yang bisa saya bantu terkait layanan Tapak Astà?",
+          content: `# Halo! 👋
+
+Saya adalah asisten AI **Tapak Astà**. 
+Silakan tanyakan apa saja tentang layanan ini! 😊`,
         },
       ];
     }
@@ -131,39 +158,90 @@
 
   async function send() {
     const text = input.trim();
-    if (!text || loading) return;
+    if (!text) return;
     input = "";
+    // Cancel previous stream
+    if (abortCtrl) {
+      abortCtrl.abort();
+      abortCtrl = null;
+    }
     messages = [...messages, { role: "user", content: text }];
+    scrollTick++;
+    scrollChat(true);
     loading = true;
     try {
-      const history = () =>
-        messages.map((m) => ({ role: m.role, content: m.content }));
-      let result = await sendMessage({ messages: history() });
-      let fullContent = result.content;
-      while (result.finish_reason === "length") {
-        result = await sendMessage({
-          messages: [
-            ...history(),
-            { role: "assistant", content: fullContent },
-            { role: "user", content: "Lanjutkan" },
-          ],
-        });
-        fullContent += "\n\n" + result.content;
+      const userCtx = user
+        ? {
+            role: "system" as const,
+            content: `Pengguna yang bertanya: ${user.email || "unknown"}${user.role?.name ? ` (${user.role.name})` : ""}`,
+          }
+        : null;
+      const history = () => {
+        const msgs = messages.map((m) => ({
+          role: m.role,
+          content: m.content,
+        }));
+        return userCtx ? [userCtx, ...msgs] : msgs;
+      };
+      // Add empty assistant message for streaming
+      messages = [...messages, { role: "assistant", content: "" }];
+      scrollTick++;
+      scrollChat(true);
+      abortCtrl = new AbortController();
+      const res = await fetch("/api/chat", {
+        signal: abortCtrl.signal,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: history() }),
+      });
+      if (!res.ok) throw new Error(`${res.status}`);
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let full = "";
+      let buf = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop() || "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const data = line.slice(6).trim();
+          if (data === "[DONE]") continue;
+          try {
+            const j = JSON.parse(data);
+            const delta = j.choices?.[0]?.delta?.content;
+            if (delta) {
+              full += delta;
+              messages[messages.length - 1] = {
+                role: "assistant",
+                content: full,
+              };
+              scrollTick++;
+            }
+          } catch {}
+        }
       }
-      const chunks = fullContent.split(/\n\n+/).filter(Boolean);
+      // Finalize: split into chunks
+      const chunks = full.split(/\n\n+/).filter(Boolean);
       messages = [
-        ...messages,
+        ...messages.slice(0, -1),
         ...chunks.map((c: any) => ({ role: "assistant" as const, content: c })),
       ];
-    } catch {
+      scrollTick++;
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
       messages = [
-        ...messages,
+        ...messages.slice(0, -1),
         {
           role: "assistant",
           content: "Maaf, terjadi kesalahan. Silakan coba lagi.",
         },
       ];
+      scrollTick++;
     } finally {
+      abortCtrl = null;
       loading = false;
     }
   }
@@ -211,26 +289,30 @@
               {msg.content}
             {:else}
               {@html render(msg.content)}
+              {@const urls = extractUrls(msg.content)}
+              {#if urls.length > 0}
+                <div
+                  class="flex flex-wrap gap-1 mt-2 pt-2 border-t border-base-300/50"
+                >
+                  {#each urls as url}
+                    <a
+                      href={url}
+                      class="btn btn-outline btn-primary btn-xs gap-1 normal-case"
+                      onclick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        goto(url);
+                      }}
+                    >
+                      <iconify-icon icon="bx:link-external" class="text-xs"
+                      ></iconify-icon>
+                      {getRouteLabel(url)}
+                    </a>
+                  {/each}
+                </div>
+              {/if}
             {/if}
           </div>
-          {#if msg.role === "assistant"}
-            {@const urls = extractUrls(msg.content)}
-            {#if urls.length > 0}
-              <div class="flex flex-wrap gap-1 mt-1">
-                {#each urls as url}
-                  <a
-                    href={url}
-                    class="btn btn-outline btn-primary btn-xs gap-1 normal-case"
-                    onclick={(e) => e.stopPropagation()}
-                  >
-                    <iconify-icon icon="bx:link-external" class="text-xs"
-                    ></iconify-icon>
-                    {getRouteLabel(url)}
-                  </a>
-                {/each}
-              </div>
-            {/if}
-          {/if}
         </div>
       {/each}
       {#if loading}
@@ -258,13 +340,12 @@
           onkeydown={handleKeydown}
           placeholder="Ketik pesan..."
           class="grow"
-          disabled={loading}
         />
       </label>
       <button
         class="btn btn-primary btn-sm"
         onclick={send}
-        disabled={loading || !input.trim()}
+        disabled={!input.trim()}
         aria-label="Kirim"
       >
         <iconify-icon icon="bx:send"></iconify-icon>
@@ -307,62 +388,7 @@
   .chat-sm {
     font-size: 0.75rem;
   }
-  .chat-sm :global(.chat-template) {
-    border-radius: 0.5rem;
-    padding: 0.5rem 0.75rem;
-    margin: 0.375rem 0;
-    font-size: 0.75rem;
-    line-height: 1.4;
-    border-left: 3px solid;
-  }
-  .chat-sm :global(.chat-template-info) {
-    background: oklch(var(--info) / 0.08);
-    border-color: oklch(var(--info));
-  }
-  .chat-sm :global(.chat-template-warning) {
-    background: oklch(var(--warning) / 0.08);
-    border-color: oklch(var(--warning));
-  }
-  .chat-sm :global(.chat-template-success) {
-    background: oklch(var(--success) / 0.08);
-    border-color: oklch(var(--success));
-  }
-  .chat-sm :global(.chat-template-error) {
-    background: oklch(var(--error) / 0.08);
-    border-color: oklch(var(--error));
-  }
-  .chat-sm :global(.chat-template-tip) {
-    background: oklch(var(--secondary) / 0.08);
-    border-color: oklch(var(--secondary));
-  }
-  .chat-sm :global(.chat-template-step) {
-    background: oklch(var(--primary) / 0.06);
-    border-color: oklch(var(--primary));
-  }
-  .chat-sm :global(.chat-template-note) {
-    background: oklch(var(--neutral) / 0.08);
-    border-color: oklch(var(--neutral-content));
-  }
-  .chat-sm :global(.chat-template-header) {
-    display: flex;
-    align-items: center;
-    gap: 0.375rem;
-    font-weight: 600;
-    font-size: 0.75rem;
-    margin-bottom: 0.25rem;
-  }
-  .chat-sm :global(.chat-template-body) {
-    font-size: 0.6875rem;
-    opacity: 0.9;
-  }
-  .chat-sm :global(.chat-template-body p) {
-    margin: 0.125rem 0;
-  }
-  .chat-sm :global(.chat-template-body ul),
-  .chat-sm :global(.chat-template-body ol) {
-    margin: 0.125rem 0;
-    padding-left: 1rem;
-  }
+
   .chat-sm :global(.chat-heading) {
     display: flex;
     align-items: center;

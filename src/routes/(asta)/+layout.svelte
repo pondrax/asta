@@ -887,7 +887,7 @@
     {@render children()}
   </div>
 
-  <Chatbot />
+  <Chatbot {user} />
 </div>
 
 <!-- <div class="cf-turnstile" data-sitekey={env.PUBLIC_TURNSTILE_KEY}></div> -->
