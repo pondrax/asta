@@ -137,6 +137,14 @@
   });
 
   onMount(async () => {
+    const urlMode = page.url.searchParams.get("mode");
+    if (urlMode && MODES.includes(urlMode as any)) {
+      mode = urlMode as (typeof MODES)[number];
+      if (mode === "scan") {
+        setTimeout(() => startScan(), 500);
+      }
+    }
+
     let urlOwner = page.url.searchParams.get("owner");
     if (urlOwner) {
       try {
