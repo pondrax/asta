@@ -145,7 +145,7 @@ Gunakan blockquote dengan tag tipe:
 > [!info] Judul
 > Isi konten di sini
 
-Tersedia: \[!info\], \[!warning\], \[!success\], \[!error\], \[!tip\], \[!note\]
+Tersedia: [!info], [!warning], [!success], [!error], [!tip], [!note]
 
 ### Heading dengan Icon
 Gunakan \`## [[icon-name]] Judul\` untuk heading bericon:
@@ -182,9 +182,9 @@ Selalu gunakan template ini secara konsisten untuk membuat respons lebih rapi da
 const FAQ: [string, string][] = [
   [
     "cara daftar|cara mendaftar|registrasi|daftar akun|buat akun",
-    `> [!info] Cara Membuat Akun
+    String.raw`> [!info] Cara Membuat Akun
 
-Buka [Tanda Tangan](/sign) atau klik **Masuk** di navbar. Anda akan diarahkan ke halaman SSO Pemerintah Kota Mojokerto. Login dengan akun email pemerintah (\\@mojokertokota.go.id) yang sudah terdaftar.
+Buka [Tanda Tangan](/sign) atau klik **Masuk** di navbar. Anda akan diarahkan ke halaman SSO Pemerintah Kota Mojokerto. Login dengan akun email pemerintah (\@mojokertokota.go.id) yang sudah terdaftar.
 
 Jika belum punya akun SSO, hubungi bagian IT/BKPSDM untuk registrasi.
 
@@ -245,12 +245,12 @@ Dokumen diproses satu per satu dengan indikator progres.`,
   ],
   [
     "bsre|e-sign|tanda tangan digital|sertifikat digital|elektronik bsre",
-    `> [!info] Tanda Tangan Elektronik BSrE
+    String.raw`> [!info] Tanda Tangan Elektronik BSrE
 
 **BSrE** (BSSN Signare) adalah layanan tanda tangan elektronik dari Badan Siber dan Sandi Negara.
 
 Untuk menggunakan mode BSrE:
-- Masukkan email pemerintah (\\@mojokertokota.go.id)
+- Masukkan email pemerintah (\@mojokertokota.go.id)
 - Aplikasi akan mengisi otomatis nama, pangkat, jabatan dari server e-sign
 - Masukkan passphrase saat tanda tangan
 - Dokumen dikirim ke API e-sign nasional
@@ -369,7 +369,6 @@ export const POST: RequestHandler = async ({ request }) => {
   }
 
   const reader = res.body!.getReader();
-  const decoder = new TextDecoder();
 
   const stream = new ReadableStream({
     async pull(controller) {
