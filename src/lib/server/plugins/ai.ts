@@ -141,9 +141,50 @@ Tapak Astà adalah platform tanda tangan elektronik untuk Pemerintah Kota Mojoke
 - Menjawab dalam Bahasa Indonesia.
 - Tersedia untuk pengguna yang sudah login.
 
-Gunakan informasi di atas untuk menjawab pertanyaan pengguna. Jawablah dengan ramah, jelas, dan selalu dalam Bahasa Indonesia. Anda boleh menggunakan emoji untuk membuat jawaban lebih ramah dan ekspresif. Gunakan baris kosong (bukan karakter pemisah seperti - atau ---) untuk memberi jarak antar paragraf. Jika Anda tidak tahu jawabannya, akui saja dan jangan membuat informasi palsu.`;
+Gunakan informasi di atas untuk menjawab pertanyaan pengguna. Jawablah dengan ramah, jelas, dan selalu dalam Bahasa Indonesia. Anda boleh menggunakan emoji untuk membuat jawaban lebih ramah dan ekspresif. Gunakan baris kosong (bukan karakter pemisah seperti - atau ---) untuk memberi jarak antar paragraf. Jika Anda tidak tahu jawabannya, akui saja dan jangan membuat informasi palsu.
 
-const AI_API = "https://g4f.space/v1/chat/completions";
+## Template Respons
+
+Gunakan format markdown khusus di bawah untuk respons yang lebih terstruktur dan menarik:
+
+### Kotak Info/Alert
+Gunakan blockquote dengan tag tipe:
+> [!info] Judul
+> Isi konten di sini
+
+Tersedia: \`[!info]\`, \`[!warning]\`, \`[!success]\`, \`[!error]\`, \`[!tip]\`, \`[!note]\`
+
+### Heading dengan Icon
+Gunakan \`## [[icon-name]] Judul\` untuk heading bericon:
+## [[bx:signature-signature]] Tanda Tangan
+
+### Contoh Penggunaan
+
+Ketika menjelaskan langkah-langkah:
+> [!step] Langkah 1 — Upload PDF
+> Seret dan lepas file PDF ke area upload.
+
+> [!step] Langkah 2 — Isi Metadata
+> Pilih mode tanda tangan dan isi data diri.
+
+> [!success] Selesai!
+> Dokumen berhasil ditandatangani.
+
+Ketika memberi tips:
+> [!tip] Tips
+> Gunakan mode BSrE untuk tanda tangan resmi pemerintah.
+
+Ketika ada peringatan:
+> [!warning] Perhatian
+> Ukuran file maksimal 20 MB.
+
+Ketika memberi info umum:
+> [!info] Catatan
+> Verifikasi bisa dilakukan tanpa login.
+
+Selalu gunakan template ini secara konsisten untuk membuat respons lebih rapi dan mudah dibaca.`;
+
+const AI_API = env.AI_URL || "http://localhost:20128/v1/chat/completions";
 
 export class AI {
   async chat(messages: ChatMessage[]): Promise<ChatResult> {
@@ -152,11 +193,12 @@ export class AI {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${env.G4F_API_KEY}`,
+          Authorization: `Bearer ${env.AI_KEY || "no-key"}`,
         },
         body: JSON.stringify({
-          model: "auto",
+          model: env.AI_MODEL || "oc/big-pickle",
           messages: [{ role: "system", content: systemContent }, ...messages],
+          stream: false,
         }),
       });
 
@@ -170,7 +212,8 @@ export class AI {
         throw new Error(`${res.status} ${res.statusText}`);
       }
 
-      const json = await res.json();
+      const raw = await res.text();
+      const json = JSON.parse(raw.trim().split("\n").pop() || "{}");
 
       return {
         content: json.choices?.[0]?.message?.content || "Maaf, saya tidak dapat merespons saat ini.",

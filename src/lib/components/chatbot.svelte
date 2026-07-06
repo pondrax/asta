@@ -4,6 +4,55 @@
   import Char from "./char.svelte";
   import { app } from "$lib/app/index.svelte";
 
+  const renderer = new marked.Renderer();
+
+  // Custom blockquote: > [!type] title\n> content
+  renderer.blockquote = (tokens: any) => {
+    const text = Array.isArray(tokens)
+      ? tokens.map((t: any) => t.raw || t.text || "").join("")
+      : (tokens as unknown as string);
+    const match = text.match(
+      /^\[!(info|warning|success|error|tip|step|note)\]\s*(.*)/i,
+    );
+    if (match) {
+      const [, type, title] = match;
+      const body = text.replace(/^\[!\w+\]\s*.*\n?/, "").trim();
+      const icons: Record<string, string> = {
+        info: "bx-info-circle",
+        warning: "bx-error",
+        success: "bx-check-circle",
+        error: "bx-x-circle",
+        tip: "bx-bulb",
+        step: "bx-hash",
+        note: "bx-note",
+      };
+      return `<div class="chat-template chat-template-${type.toLowerCase()}"><div class="chat-template-header"><iconify-icon icon="${icons[type.toLowerCase()] || "bx-info-circle"}"></iconify-icon> ${title || type.toUpperCase()}</div>${body ? `<div class="chat-template-body">${marked.parse(body)}</div>` : ""}</div>`;
+    }
+    // Custom heading: ## [icon] title
+    const headingMatch = text.match(/^\[\[(\w[\w:-]*)\]\]\s*(.*)/);
+    if (headingMatch) {
+      const [, icon, title] = headingMatch;
+      return `<div class="chat-template chat-template-card"><div class="chat-template-header"><iconify-icon icon="${icon}"></iconify-icon> ${title}</div></div>`;
+    }
+    return `<blockquote>${text}</blockquote>`;
+  };
+
+  // Custom heading with icon: ## [[icon]] title
+  renderer.heading = (tokens: any) => {
+    const text = Array.isArray(tokens)
+      ? tokens.map((t: any) => t.text || "").join("")
+      : (tokens as unknown as string);
+    const depth = Array.isArray(tokens) ? tokens[0]?.depth || 1 : 1;
+    const match = text.match(/^\[\[(\w[\w:-]*)\]\]\s*(.*)/);
+    if (match) {
+      const [, icon, title] = match;
+      return `<div class="chat-heading"><iconify-icon icon="${icon}"></iconify-icon> <span>${title}</span></div>`;
+    }
+    const tag = `h${Math.min(depth, 3)}`;
+    return `<${tag}>${text}</${tag}>`;
+  };
+
+  marked.setOptions({ renderer });
   const render = (text: string) => marked.parse(text) as string;
 
   let open = $state(false);
@@ -12,13 +61,59 @@
   let loading = $state(false);
 
   let chatbox = $state() as HTMLDivElement | undefined;
+  let chatInput = $state() as HTMLInputElement | undefined;
   let showEmoji = $state(false);
+
+  const routeLabels: Record<string, string> = {
+    "/sign": "Tanda Tangan",
+    "/verify": "Verifikasi",
+    "/me": "Dashboard",
+    "/me/documents": "Dokumen Saya",
+    "/profile": "Profil",
+    "/templates": "Template",
+    "/survey": "Survey",
+    "/main": "Admin",
+    "/user-guide": "Panduan",
+  };
+
+  function getRouteLabel(path: string): string {
+    if (routeLabels[path]) return routeLabels[path];
+    for (const [route, label] of Object.entries(routeLabels)) {
+      if (path.startsWith(route + "/")) return label;
+    }
+    return path;
+  }
+
+  function extractUrls(text: string): string[] {
+    const urlRegex = /\b(https?:\/\/[^\s)}\]]+|\/[a-zA-Z][a-zA-Z0-9\-_/]*)/g;
+    const urls: string[] = [];
+    let match;
+    while ((match = urlRegex.exec(text)) !== null) {
+      const url = match[1];
+      if (url.startsWith("http")) {
+        try {
+          const u = new URL(url);
+          if (u.origin === window.location.origin) urls.push(u.pathname);
+        } catch {}
+      } else if (url.startsWith("/") && !url.startsWith("//")) {
+        urls.push(url);
+      }
+    }
+    return [...new Set(urls)];
+  }
 
   $effect(() => {
     if (open && chatbox) {
+      const len = messages.length;
       requestAnimationFrame(() => {
         chatbox!.scrollTop = chatbox!.scrollHeight;
       });
+    }
+  });
+
+  $effect(() => {
+    if (open && chatInput) {
+      requestAnimationFrame(() => chatInput!.focus());
     }
   });
 
@@ -118,6 +213,24 @@
               {@html render(msg.content)}
             {/if}
           </div>
+          {#if msg.role === "assistant"}
+            {@const urls = extractUrls(msg.content)}
+            {#if urls.length > 0}
+              <div class="flex flex-wrap gap-1 mt-1">
+                {#each urls as url}
+                  <a
+                    href={url}
+                    class="btn btn-outline btn-primary btn-xs gap-1 normal-case"
+                    onclick={(e) => e.stopPropagation()}
+                  >
+                    <iconify-icon icon="bx:link-external" class="text-xs"
+                    ></iconify-icon>
+                    {getRouteLabel(url)}
+                  </a>
+                {/each}
+              </div>
+            {/if}
+          {/if}
         </div>
       {/each}
       {#if loading}
@@ -141,6 +254,7 @@
         <input
           type="text"
           bind:value={input}
+          bind:this={chatInput}
           onkeydown={handleKeydown}
           placeholder="Ketik pesan..."
           class="grow"
@@ -192,5 +306,91 @@
 <style>
   .chat-sm {
     font-size: 0.75rem;
+  }
+  .chat-sm :global(.chat-template) {
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    margin: 0.375rem 0;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    border-left: 3px solid;
+  }
+  .chat-sm :global(.chat-template-info) {
+    background: oklch(var(--info) / 0.08);
+    border-color: oklch(var(--info));
+  }
+  .chat-sm :global(.chat-template-warning) {
+    background: oklch(var(--warning) / 0.08);
+    border-color: oklch(var(--warning));
+  }
+  .chat-sm :global(.chat-template-success) {
+    background: oklch(var(--success) / 0.08);
+    border-color: oklch(var(--success));
+  }
+  .chat-sm :global(.chat-template-error) {
+    background: oklch(var(--error) / 0.08);
+    border-color: oklch(var(--error));
+  }
+  .chat-sm :global(.chat-template-tip) {
+    background: oklch(var(--secondary) / 0.08);
+    border-color: oklch(var(--secondary));
+  }
+  .chat-sm :global(.chat-template-step) {
+    background: oklch(var(--primary) / 0.06);
+    border-color: oklch(var(--primary));
+  }
+  .chat-sm :global(.chat-template-note) {
+    background: oklch(var(--neutral) / 0.08);
+    border-color: oklch(var(--neutral-content));
+  }
+  .chat-sm :global(.chat-template-header) {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-weight: 600;
+    font-size: 0.75rem;
+    margin-bottom: 0.25rem;
+  }
+  .chat-sm :global(.chat-template-body) {
+    font-size: 0.6875rem;
+    opacity: 0.9;
+  }
+  .chat-sm :global(.chat-template-body p) {
+    margin: 0.125rem 0;
+  }
+  .chat-sm :global(.chat-template-body ul),
+  .chat-sm :global(.chat-template-body ol) {
+    margin: 0.125rem 0;
+    padding-left: 1rem;
+  }
+  .chat-sm :global(.chat-heading) {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-weight: 700;
+    font-size: 0.8125rem;
+    margin: 0.5rem 0 0.25rem;
+  }
+  .chat-sm :global(h3) {
+    font-weight: 600;
+    font-size: 0.75rem;
+    margin: 0.375rem 0 0.125rem;
+  }
+  .chat-sm :global(ul),
+  .chat-sm :global(ol) {
+    padding-left: 1rem;
+    margin: 0.25rem 0;
+  }
+  .chat-sm :global(li) {
+    margin: 0.125rem 0;
+  }
+  .chat-sm :global(strong) {
+    font-weight: 600;
+  }
+  .chat-sm :global(code) {
+    font-size: 0.6875rem;
+    padding: 0.0625rem 0.25rem;
+    border-radius: 0.25rem;
+    background: oklch(var(--neutral) / 0.15);
   }
 </style>
