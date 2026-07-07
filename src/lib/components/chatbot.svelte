@@ -38,6 +38,8 @@
   let showEmoji = $state(false);
   let abortCtrl = $state<AbortController | null>(null);
   let scrollTick = $state(0);
+  let ttfb = $state(0); // time to first token (ms)
+  let totalTime = $state(0); // total response time (ms)
 
   let {
     user = $bindable(undefined),
@@ -169,6 +171,10 @@ Silakan tanyakan apa saja tentang layanan ini! 😊`,
     scrollTick++;
     scrollChat(true);
     loading = true;
+    ttfb = 0;
+    totalTime = 0;
+    const t0 = performance.now();
+    let firstToken = true;
     try {
       const userCtx = user
         ? {
@@ -214,6 +220,10 @@ Silakan tanyakan apa saja tentang layanan ini! 😊`,
             const delta = j.choices?.[0]?.delta?.content;
             if (delta) {
               full += delta;
+              if (firstToken) {
+                ttfb = Math.round(performance.now() - t0);
+                firstToken = false;
+              }
               messages[messages.length - 1] = {
                 role: "assistant",
                 content: full,
@@ -223,6 +233,7 @@ Silakan tanyakan apa saja tentang layanan ini! 😊`,
           } catch {}
         }
       }
+      totalTime = Math.round(performance.now() - t0);
       // Finalize: split into chunks
       const chunks = full.split(/\n\n+/).filter(Boolean);
       messages = [
@@ -289,6 +300,11 @@ Silakan tanyakan apa saja tentang layanan ini! 😊`,
               {msg.content}
             {:else}
               {@html render(msg.content)}
+              {#if !loading && totalTime > 0 && i === messages.length - 1}
+                <div class="text-[10px] text-base-content/40 mt-1 select-none">
+                  ⚡ {ttfb}ms first token · {totalTime}ms total
+                </div>
+              {/if}
               {@const urls = extractUrls(msg.content)}
               {#if urls.length > 0}
                 <div

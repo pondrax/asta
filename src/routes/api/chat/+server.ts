@@ -368,7 +368,11 @@ export const POST: RequestHandler = async ({ request }) => {
     return json({ error: `${res.status} ${res.statusText}` }, { status: res.status });
   }
 
-  const reader = res.body!.getReader();
+  if (!res.body) {
+    return json({ error: "Response body is null" }, { status: 502 });
+  }
+
+  const reader = res.body.getReader();
 
   const stream = new ReadableStream({
     async pull(controller) {
@@ -377,7 +381,9 @@ export const POST: RequestHandler = async ({ request }) => {
         controller.close();
         return;
       }
-      controller.enqueue(value);
+      if (value) {
+        controller.enqueue(value);
+      }
     },
   });
 
