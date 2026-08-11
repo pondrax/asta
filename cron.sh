@@ -72,7 +72,7 @@ if [ "$LOCAL_HASH" != "$REMOTE_HASH" ]; then
 
   log "🚀 Restarting app..."
   if pm2 describe asta > /dev/null 2>&1; then
-    pm2 restart asta
+    pm2 restart asta --update-env
   else
     pm2 start bun --name asta -- run start
   fi 2>&1 | tee -a "$LOG_FILE"

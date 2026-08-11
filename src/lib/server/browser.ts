@@ -71,9 +71,29 @@ async function getOrCreateBrowser(): Promise<{ browser: Browser; mode: string }>
       try { sharedBrowser.close().catch(() => { }); } catch (_) { }
       sharedBrowser = null;
     }
-    sharedBrowser = await chromium.connectOverCDP(remoteUrl);
-    sharedBrowserMode = `remote:${remoteUrl}`;
-    return { browser: sharedBrowser, mode: sharedBrowserMode };
+    try {
+      // connectOverCDP can hang forever at the WS handshake stage (no effective
+      // timeout) when the remote browser is unreachable or the network drops
+      // packets. Wrap it in a hard deadline so the cron never stalls.
+      sharedBrowser = await new Promise<Browser>((resolve, reject) => {
+        const timer = setTimeout(
+          () => reject(new Error("CDP connect timed out after 15s")),
+          15_000,
+        );
+        chromium
+          .connectOverCDP(remoteUrl, { timeout: 15_000 })
+          .then((b) => { clearTimeout(timer); resolve(b); })
+          .catch((e) => { clearTimeout(timer); reject(e); });
+      });
+      sharedBrowserMode = `remote:${remoteUrl}`;
+      return { browser: sharedBrowser, mode: sharedBrowserMode };
+    } catch (err) {
+      // NO local fallback — if the remote CDP browser is unreachable, stop.
+      // The sync must run against the shared, logged-in CDP browser only.
+      throw new Error(
+        `CDP browser ${remoteUrl} unreachable: ${(err as Error)?.message ?? err}`,
+      );
+    }
   }
 
   // Local headless: launch a fresh one each time (will be fully closed later)
