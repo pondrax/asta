@@ -1,6 +1,7 @@
 import { getRequestEvent, query } from "$app/server";
 import { db } from "$lib/server/db";
 import { __logs } from "$lib/server/db/schema";
+import { FileStorage } from "$lib/server/storage";
 import dayjs from "dayjs";
 import isoWeek from "dayjs/plugin/isoWeek";
 import { promises as fs } from "fs";
@@ -294,6 +295,25 @@ export const getAdminDashboard = query("unchecked", async () => {
 
 export const getDiskUsage = query("unchecked", async () => {
   try {
+    const storage = new FileStorage();
+
+    // S3 (rustfs/MinIO): sum object sizes; use S3_QUOTA as capacity if set.
+    if (storage.provider === "s3") {
+      const used = await storage.getUsage();
+      if (used === null) return null;
+
+      const quota = Number(env.S3_QUOTA) || 0;
+      if (quota > 0) {
+        const total = quota;
+        const free = Math.max(total - used, 0);
+        const usagePercent = Math.round((used / total) * 1000) / 10;
+        return { total, used, free, usagePercent };
+      }
+
+      // No quota configured — report usage only (total = used, 0% "full")
+      return { total: used, used, free: 0, usagePercent: 0 };
+    }
+
     const targetDir = path.resolve(env.STORAGE_BASE_DIR || "./uploads");
     const stats = await fs.statfs(targetDir);
 
