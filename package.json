@@ -19,6 +19,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "db:seed": "bun src/lib/server/db/seed.ts",
+    "cron": "bun scripts/cron.ts",
     "test:load": "ab -n 1000 -c 50 http://127.0.0.1:3000/"
   },
   "devDependencies": {

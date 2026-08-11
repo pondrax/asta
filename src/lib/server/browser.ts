@@ -3,13 +3,18 @@
  * Handles session management, BeID auto-login, and TOTP.
  */
 import { chromium, type Browser, type Page } from "playwright-core";
-import { env } from "$env/dynamic/private";
 import * as OTPAuth from "otpauth";
+import { resolveEnv } from "./db/utils";
+import { sendWhatsAppText } from "./notify";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { mkdirSync } from "node:fs";
 
 const BEID_HOST = "beid.bssn.go.id";
+
+// Guards against duplicate WhatsApp alerts when handleBeIDLogin is invoked
+// twice for the same failed login (framenavigated handler + acquireToken).
+let lastBeidFailureNotifiedAt = 0;
 
 // ---------------------------------------------------------------------------
 // Session store
@@ -31,7 +36,8 @@ export const tokenStore = new Map<string, string>();
 // TOTP
 // ---------------------------------------------------------------------------
 
-export function getTOTP(): OTPAuth.TOTP {
+export async function getTOTP(): Promise<OTPAuth.TOTP> {
+  const env = await resolveEnv();
   const raw = env.PORTAL_OTP_AUTH ?? "";
   const uri = raw.startsWith("otpauth:") ? raw : `otpauth:${raw}`;
   if (raw.startsWith("//totp/") || raw.startsWith("otpauth://totp/")) {
@@ -40,8 +46,8 @@ export function getTOTP(): OTPAuth.TOTP {
   return new OTPAuth.TOTP({ secret: OTPAuth.Secret.fromBase32(raw) });
 }
 
-export function generateTOTP(): string {
-  return getTOTP().generate();
+export async function generateTOTP(): Promise<string> {
+  return (await getTOTP()).generate();
 }
 
 // ---------------------------------------------------------------------------
@@ -52,6 +58,7 @@ let sharedBrowser: Browser | null = null;
 let sharedBrowserMode = "";
 
 async function getOrCreateBrowser(): Promise<{ browser: Browser; mode: string }> {
+  const env = await resolveEnv();
   const remoteUrl = env.BROWSER_REMOTE_DEBUG_URL;
 
   if (remoteUrl) {
@@ -165,9 +172,29 @@ export async function openSession(userId: string): Promise<BrowserSession> {
 // BeID auto-login
 // ---------------------------------------------------------------------------
 
-export async function handleBeIDLogin(page: Page): Promise<void> {
+// Re-entrancy guard — BeID login is triggered both explicitly (acquireToken /
+// navigateBsre) AND by the framenavigated auto-login handler in openSession.
+// Keycloak submits the login form via POST → full page navigation on every
+// failed attempt → framenavigated fires → a *nested* handleBeIDLogin starts,
+// which spawns more on its own submits → unbounded loop. Joining the in-flight
+// flow (per page) fixes it: nested calls just await the same promise.
+const loginFlows = new WeakMap<Page, Promise<void>>();
+
+export function handleBeIDLogin(page: Page): Promise<void> {
+  const existing = loginFlows.get(page);
+  if (existing) {
+    console.log("[browser] BeID login already in progress — joining existing flow");
+    return existing;
+  }
+  const flow = runBeIDLogin(page).finally(() => loginFlows.delete(page));
+  loginFlows.set(page, flow);
+  return flow;
+}
+
+async function runBeIDLogin(page: Page): Promise<void> {
   if (!new URL(page.url()).hostname.includes(BEID_HOST)) return;
   console.log("[browser] BeID detected — auto-login...");
+  const env = await resolveEnv();
 
   // Wait for full page load (all resources + JS rendering) before looking for fields
   await page.waitForLoadState("load", { timeout: 8_000 }).catch(() => { });
@@ -189,58 +216,128 @@ export async function handleBeIDLogin(page: Page): Promise<void> {
     'input[placeholder*="email" i]',
     'input[placeholder*="akun" i]',
   ].join(", ");
-
-  try {
-    await page.waitForSelector(usernameSelectors, { timeout: 8_000 });
-  } catch (err) {
-    // Debug: dump page state to understand the actual structure
-    const html = await page.evaluate(() => document.body?.innerHTML?.slice(0, 5000) ?? "no body");
-    console.log("[browser] ⛔ Could not find username field. Page HTML (first 5k chars):\n", html);
-    try {
-      const tmpDir = join(tmpdir(), "asta-browser");
-      mkdirSync(tmpDir, { recursive: true });
-      await page.screenshot({ path: join(tmpDir, "beid-login-fail.png"), fullPage: false });
-      console.log("[browser] Screenshot saved to", join(tmpDir, "beid-login-fail.png"));
-    } catch (_) { }
-    throw err;
-  }
-
-  // Fill username — try specific selectors, fallback to first visible text input
-  const usernameField = await page.$(
-    'input[name="username"], input#username, input[autocomplete="username"], input[type="email"], input[name="email"]'
-  );
-  if (usernameField) {
-    await usernameField.fill(env.PORTAL_BSRE_USERNAME);
-  } else {
-    // Grab the first visible text/email input as a last resort
-    await page.fill('input[type="text"], input:not([type])', env.PORTAL_BSRE_USERNAME);
-  }
-
-  // Password
   const pwSelectors = 'input[name="password"], input[type="password"], input#password';
-  await page.waitForSelector(pwSelectors, { timeout: 5_000 });
-  await page.fill(pwSelectors, env.PORTAL_BSRE_PASSWORD);
-
-  // Submit button
   const submitBtn = 'button[type="submit"], input[type="submit"], button:has-text("Masuk"), button:has-text("Login"), button:has-text("Sign in")';
-  await page.click(submitBtn);
-  await page.waitForLoadState("load", { timeout: 10_000 }).catch(() => { });
-
-  // OTP step (Google Authenticator / TOTP)
-  await page.waitForTimeout(800);
   const otpSelectors = 'input[name="otp"], input[name="token"], input[placeholder*="OTP" i], input[placeholder*="authenticator" i], input[maxlength="6"], input#otp, input#token';
-  const otpInput = await page.$(otpSelectors);
-  if (otpInput) {
-    const token = generateTOTP();
-    console.log("[browser] Submitting TOTP:", token);
-    await otpInput.fill(token);
+
+  const username = env.PORTAL_BSRE_USERNAME ?? "";
+  const password = env.PORTAL_BSRE_PASSWORD ?? "";
+  const MAX_ATTEMPTS = 5;
+  let lastErrorText = "";
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    console.log(`[browser] BeID login attempt ${attempt}/${MAX_ATTEMPTS} — ${page.url()}`);
+
+    // 1. Wait for the login form to render (Keycloak re-renders it after each
+    //    failed submit, so we must re-acquire the fields every attempt)
+    try {
+      await page.waitForSelector(usernameSelectors, { timeout: 10_000 });
+    } catch (err) {
+      lastErrorText = "Form login tidak ditemukan";
+      console.log(`[browser] Attempt ${attempt}: username field not found`);
+      if (attempt === MAX_ATTEMPTS) {
+        // Debug: dump page state to understand the actual structure
+        const html = await page.evaluate(() => document.body?.innerHTML?.slice(0, 5000) ?? "no body");
+        console.log("[browser] ⛔ Could not find username field. Page HTML (first 5k chars):\n", html);
+        try {
+          const tmpDir = join(tmpdir(), "asta-browser");
+          mkdirSync(tmpDir, { recursive: true });
+          await page.screenshot({ path: join(tmpDir, "beid-login-fail.png"), fullPage: false });
+          console.log("[browser] Screenshot saved to", join(tmpDir, "beid-login-fail.png"));
+        } catch (_) { }
+      }
+      continue;
+    }
+
+    // 2. Fill username — try specific selectors, fallback to first visible text input
+    const usernameField = await page.$(
+      'input[name="username"], input#username, input[autocomplete="username"], input[type="email"], input[name="email"]'
+    );
+    if (usernameField) {
+      await usernameField.fill(username);
+    } else {
+      // Grab the first visible text/email input as a last resort
+      await page.fill('input[type="text"], input:not([type])', username);
+    }
+
+    // 3. Password + submit
+    await page.waitForSelector(pwSelectors, { timeout: 5_000 });
+    await page.fill(pwSelectors, password);
     await page.click(submitBtn);
     await page.waitForLoadState("load", { timeout: 10_000 }).catch(() => { });
-  } else {
-    console.log("[browser] No OTP input found — proceeding");
+
+    // If the page already left BEID, login succeeded without OTP — done
+    if (!new URL(page.url()).hostname.includes(BEID_HOST)) {
+      console.log("[browser] Login complete (redirected off BEID) —", page.url());
+      return;
+    }
+
+    // 4. OTP step (Google Authenticator / TOTP) — wait up to 3s for it to appear
+    let otpInput: Awaited<ReturnType<Page["$"]>> = null;
+    try {
+      otpInput = await page.waitForSelector(otpSelectors, { timeout: 3_000 });
+    } catch { }
+
+    if (otpInput) {
+      const token = await generateTOTP();
+      console.log("[browser] Submitting TOTP:", token);
+      await otpInput.fill(token);
+      await page.click(submitBtn);
+      await page.waitForLoadState("load", { timeout: 10_000 }).catch(() => { });
+      console.log("[browser] Login complete —", page.url());
+      return;
+    }
+
+    // No OTP step — login did NOT advance. Capture the page error and retry.
+    lastErrorText = await page
+      .evaluate(() => {
+        const sels = [
+          ".alert-error",
+          ".kc-feedback-text",
+          "#input-error",
+          ".alert-danger",
+          "[class*='error']",
+          ".alert",
+        ];
+        for (const sel of sels) {
+          const el = document.querySelector(sel);
+          const text = el?.textContent?.trim();
+          if (text) return text.slice(0, 500);
+        }
+        return "";
+      })
+      .catch(() => "");
+    console.error(
+      `[browser] Attempt ${attempt}/${MAX_ATTEMPTS}: no OTP step reached.`,
+      lastErrorText ? "Page error: " + lastErrorText : "",
+      "URL:",
+      page.url(),
+    );
   }
 
-  console.log("[browser] Login complete —", page.url());
+  // All attempts exhausted — stop and notify admin via WhatsApp (at most once/min)
+  console.error(`[browser] ⛔ BeID login failed after ${MAX_ATTEMPTS} attempts (no OTP step reached).`);
+  const now = Date.now();
+  if (now - lastBeidFailureNotifiedAt > 60_000) {
+    lastBeidFailureNotifiedAt = now;
+    await sendWhatsAppText(
+      [
+        "*⚠️ BSrE Auto-Sync Gagal*",
+        "",
+        `Login ke portal BSrE gagal setelah ${MAX_ATTEMPTS} kali percobaan (tidak sampai ke langkah OTP).`,
+        "Kemungkinan *password portal BSrE telah berubah* atau akun terkendala.",
+        "",
+        lastErrorText ? `Pesan dari halaman: ${lastErrorText}` : "",
+        "",
+        `URL: ${page.url()}`,
+        `Waktu: ${new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })}`,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    );
+  }
+
+  throw new Error(`BeID login failed after ${MAX_ATTEMPTS} attempts: no OTP step reached (password changed?)`);
 }
 
 // ---------------------------------------------------------------------------
