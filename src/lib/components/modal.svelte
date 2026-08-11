@@ -35,8 +35,11 @@
     }
     const toast = document.querySelector("#main-toast") as HTMLElement;
     const dialog = el as HTMLDialogElement;
-    if (data) {
-      dialog.showModal();
+    if (data && dialog) {
+      // Guard: a dialog that survived teardown with a lingering `open`
+      // attribute (or was opened non-modally) cannot be re-opened with
+      // showModal() — reset it first.
+      if (!dialog.open) dialog.showModal();
       if (toast) dialog.appendChild(toast);
       const focusElement = document.querySelector("[data-autofocus]");
       if (focusElement instanceof HTMLInputElement) {
@@ -44,6 +47,12 @@
       }
     }
     return () => {
+      // Reset any lingering open state so a later showModal() doesn't throw.
+      if (dialog?.open) {
+        try {
+          dialog.close();
+        } catch {}
+      }
       if (toast) document.body.appendChild(toast);
     };
   });
@@ -63,7 +72,7 @@
       {#if closeable}
         <form method="dialog">
           <button
-            class="btn btn-sm btn-circle btn-ghost absolute top-4 right-2"
+            class="btn btn-sm btn-circle btn-ghost absolute top-4 right-2 z-20"
             onclick={() => {
               onClose?.();
               data = undefined;

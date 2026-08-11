@@ -140,7 +140,8 @@
       }
       throw err;
     } finally {
-      loadingTask = null;
+      // Keep the loading task reference so cleanup() can destroy it later
+      // (pdfjs-dist v4+ relies on loadingTask.destroy(), not pdfDoc.destroy()).
     }
 
     pageCount = pdfDoc.numPages;
@@ -172,7 +173,12 @@
       loadingTask = null;
     }
     if (pdfDoc) {
-      pdfDoc.destroy();
+      // pdfjs-dist v4+ removed PDFDocumentProxy.destroy(); the loading
+      // task is the canonical destroy entrypoint (it also destroys the
+      // document). Guard anyway so teardown never throws.
+      try {
+        pdfDoc.destroy?.();
+      } catch {}
       pdfDoc = null;
     }
     pageCount = 0;
