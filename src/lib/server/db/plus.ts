@@ -1,4 +1,4 @@
-import { sql, getTableColumns, relationsFilterToSQL, type BuildQueryResult, type DBQueryConfig, type TablesRelationalConfig } from 'drizzle-orm';
+import { sql, getColumns, relationsFilterToSQL, type BuildQueryResult, type DBQueryConfig, type TablesRelationalConfig } from 'drizzle-orm';
 //@ts-ignore - drizzle internal module, no public type export available
 import { RelationalQueryBuilder } from "drizzle-orm/pg-core/query-builders/query";
 
@@ -43,9 +43,7 @@ export const withPlus = <TSchema extends TablesRelationalConfig>() => <T extends
           this.table,
           args.where,
           this.tableConfig.relations,
-          this.schema,
-          this.tableNamesMap,
-          this.dialect.casing
+          this.schema
         ) : undefined;
         if (filter) query.where(filter);
         countPromise = query.execute().then((r: any) => r[0].count);
@@ -66,9 +64,7 @@ export const withPlus = <TSchema extends TablesRelationalConfig>() => <T extends
         this.table,
         args.where,
         this.tableConfig.relations,
-        this.schema,
-        this.tableNamesMap,
-        this.dialect.casing
+        this.schema
       ) : undefined;
 
       if (filter) query.where(filter);
@@ -84,7 +80,7 @@ export const withPlus = <TSchema extends TablesRelationalConfig>() => <T extends
         updateValues = update(this.table);
       }
 
-      const columns = getTableColumns(this.table);
+      const columns = getColumns(this.table);
       const queryBuilder = _db.insert(this.table).values(data);
 
       // Smart conflict target detection
@@ -117,9 +113,7 @@ export const withPlus = <TSchema extends TablesRelationalConfig>() => <T extends
           this.table,
           where,
           this.tableConfig.relations,
-          this.schema,
-          this.tableNamesMap,
-          this.dialect.casing
+          this.schema
         ) : undefined;
 
         finalQuery = queryBuilder.onConflictDoUpdate({

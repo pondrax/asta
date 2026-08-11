@@ -108,6 +108,7 @@ export const getData = query(
 
 export const delData = form('unchecked', async ({ table, id }: { table: keyof Tables, id: string[] }) => {
   if (!id || !table) return;
+
   const time = performance.now();
   const schemaTable = db._.relations[table].table;
   // await delay(10000)

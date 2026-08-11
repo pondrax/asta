@@ -129,10 +129,11 @@
 
 <Modal bind:data={forms.del} title="Delete Data">
   <form
-    {...delData.enhance(async ({ form, data, submit }) => {
+    {...delData.enhance(async (form) => {
       try {
-        await submit();
+        const data = await form.submit();
         forms.del = false;
+        console.log(data);
       } catch (e) {
         console.error(e);
       }
