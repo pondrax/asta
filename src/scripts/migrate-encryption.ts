@@ -2,9 +2,9 @@
  * Re-encrypt all CBC-encrypted metadata to AES-256-GCM.
  * Runs once on server start — skips if no legacy data found.
  */
-import { db } from '.';
-import { documents } from './schema';
-import { isLegacyCBC, reEncryptToGCM } from './utils';
+import { db } from '../lib/server/db';
+import { documents } from '../lib/server/db/schema';
+import { isLegacyCBC, reEncryptToGCM } from '../lib/server/db/utils';
 import { sql } from 'drizzle-orm';
 
 export async function migrateEncryption(): Promise<void> {
