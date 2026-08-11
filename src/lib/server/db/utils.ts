@@ -1,8 +1,60 @@
 import { init } from '@paralleldrive/cuid2';
 import crypto from 'node:crypto';
+import { basename, join } from 'node:path';
 import { customType, text, timestamp } from 'drizzle-orm/pg-core';
-// // import { env } from '$env/dynamic/private';
-// console.log(process.env.APP_SECRET)
+
+/**
+ * Bun-compatible access to private environment variables.
+ *
+ * Prefers SvelteKit's `$env/dynamic/private` (resolved by Vite); falls back to
+ * `process.env` (loading `.env` from disk for Node processes, since Bun
+ * auto-loads it).
+ */
+export async function resolveEnv(): Promise<Record<string, string | undefined>> {
+  try {
+    const { env } = await import(/* @vite-ignore */ '$env/dynamic/private');
+    return env;
+  } catch {
+    // Not running under Vite — load .env if needed (Node ≥20.12), then use process.env
+    if (!process.env.DATABASE_URL) {
+      (process as NodeJS.Process & { loadEnvFile?: (path?: string) => void }).loadEnvFile?.();
+    }
+    return process.env;
+  }
+}
+
+/**
+ * Glob `.ts` files in a directory and import them.
+ *
+ * Prefers `import.meta.glob` when available (Vite); falls back to `node:fs`.
+ * Returns a map of `name -> module` where `name` is the filename without the
+ * `.ts` extension.
+ */
+export async function globTs<T = unknown>(dir: string): Promise<Record<string, T>> {
+  // Vite-only API: requires a static pattern, keys come back as relative paths.
+  const glob = (import.meta as ImportMeta & {
+    glob?: (pattern: string, options?: { eager?: boolean }) => Record<string, unknown>;
+  }).glob;
+  if (glob) {
+    return Object.fromEntries(
+      Object.entries(glob(`${dir}/*.ts`, { eager: true })).map(([path, mod]) => [
+        basename(path).replace(/\.ts$/, ''),
+        mod as T
+      ])
+    );
+  }
+
+  // Runtime fallback: read the directory with node:fs.
+  const files = (await import('node:fs')).readdirSync(dir).filter((f) => f.endsWith('.ts'));
+
+  const modules: Record<string, T> = {};
+  for (const file of files) {
+    const key = file.replace(/\.ts$/, '');
+    // @vite-ignore — dynamic import path can't be statically analyzed.
+    modules[key] = await import(/* @vite-ignore */ join(dir, file));
+  }
+  return modules;
+}
 
 const key = crypto.createHash('sha256').update(String(process.env.APP_SECRET)).digest(); // 32 bytes
 const GCM_IV_LENGTH = 12; // GCM recommended IV length

@@ -63,12 +63,19 @@ export const handleRedirect: Handle = ({ event, resolve }) => {
 export const handle: Handle = sequence(handleParaglide, handleAuth, handleRedirect);
 
 
-startCron();
-try {
-  await migrateEncryption();
-} catch (err) {
-  console.error('[migration] Encryption migration failed:', err);
+// Encapsulated migration: only runs when invoked via `bun run start -- migrate`
+const [, , ...cliArgs] = process.argv;
+if (cliArgs.includes('migrate')) {
+  console.log('[migration] Starting...');
+  try {
+    await migrateEncryption();
+    console.log('[migration] Done.');
+  } catch (err) {
+    console.error('[migration] Encryption migration failed:', err);
+  }
 }
+
+startCron();
 
 export const handleValidationError: HandleValidationError = ({ issues }) => {
   return {

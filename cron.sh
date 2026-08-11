@@ -65,16 +65,16 @@ if [ "$LOCAL_HASH" != "$REMOTE_HASH" ]; then
   git pull origin "$BRANCH" 2>&1 | tee -a "$LOG_FILE"
 
   log "📦 Installing dependencies..."
-  pnpm install --frozen-lockfile 
+  bun install --frozen-lockfile
   
   log "🔨 Building..."
-  pnpm run build
+  bun run build
 
   log "🚀 Restarting app..."
   if pm2 describe asta > /dev/null 2>&1; then
     pm2 restart asta
   else
-    pm2 start pnpm --name asta -- run start
+    pm2 start bun --name asta -- run start
   fi 2>&1 | tee -a "$LOG_FILE"
 
 
