@@ -418,7 +418,6 @@
             type="password"
             class="input input-bordered w-full"
             bind:value={passwordInput}
-            autofocus
             autocomplete="off"
           />
         </label>

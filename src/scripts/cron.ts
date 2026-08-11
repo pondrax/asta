@@ -1,3 +1,4 @@
+/// <reference types="node" />
 /**
  * Manual cron trigger — runs the same sync the daily node-cron job would run,
  * but outside any HTTP request.
@@ -11,8 +12,8 @@
  *   bun run cron                 # run every registered sync
  *   bun run cron -- portal-bsre  # run one sync
  */
-import { closeSession } from "../src/lib/server/browser";
-import { fetchBsreUsersCore } from "../src/lib/server/bsre-sync";
+import { closeSession } from "../lib/server/browser";
+import { fetchBsreUsersCore } from "../lib/server/bsre-sync";
 
 const SYSTEM_USER_ID = "auto-sync";
 
@@ -25,12 +26,13 @@ const SYNC_ACTIONS: Record<string, () => Promise<SyncResult>> = {
 async function main() {
   const [, , ...args] = process.argv;
   const requested = args.length > 0 ? args : Object.keys(SYNC_ACTIONS);
+  let failed = false;
 
   for (const name of requested) {
     const action = SYNC_ACTIONS[name];
     if (!action) {
       console.error(`[cron] Unknown sync "${name}". Available: ${Object.keys(SYNC_ACTIONS).join(", ")}`);
-      process.exitCode = 1;
+      failed = true;
       continue;
     }
 
@@ -44,11 +46,18 @@ async function main() {
       );
     } catch (err) {
       console.error("[cron] Sync failed:", err);
+      failed = true;
     } finally {
       // Clean up any browser session left open by acquireToken / fetchBsreUsersCore
       await closeSession(SYSTEM_USER_ID);
     }
   }
+
+  // Force-exit: the playwright CDP WebSocket (and any other open handle) keeps
+  // the event loop alive after the sync finishes, so without this the process
+  // hangs instead of terminating. Syncs are done — nothing left to await.
+  console.log("[cron] Done — exiting.");
+  process.exit(failed ? 1 : 0);
 }
 
 main().catch((err) => {
