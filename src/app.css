@@ -10,6 +10,7 @@
 .select {
   @apply w-full;
 }
+
 /* Hide both by default */
 .light-logo,
 .dark-logo {
@@ -19,16 +20,22 @@
 [data-theme="light"] .light-logo {
   display: inline;
 }
+
 [data-theme="dark"] .dark-logo {
   display: inline;
 }
+
 iconify-icon {
   display: inline-block;
   width: 1em;
   height: 1em;
 }
 
-.floating-label > span {
+.floating-label {
+  display: block;
+}
+
+.floating-label>span {
   opacity: 100%;
   top: 0;
   translate: -12.5% calc(-50% - 0.125em);
@@ -67,9 +74,11 @@ iconify-icon {
 .tooltip-content {
   @apply select-none;
 }
+
 .kbd {
   @apply text-base-content;
 }
+
 .background {
   position: absolute;
   left: 0;
@@ -100,6 +109,7 @@ iconify-icon {
   transform-origin: -6vw -24vh;
   box-shadow: 2vmin 0 0.9074217035847909vmin currentColor;
 }
+
 .background span:nth-child(1) {
   color: #e45a84;
   top: 46%;
@@ -109,6 +119,7 @@ iconify-icon {
   transform-origin: -24vw -7vh;
   box-shadow: -2vmin 0 1.0671611480881609vmin currentColor;
 }
+
 .background span:nth-child(2) {
   color: #583c87;
   top: 45%;
@@ -118,6 +129,7 @@ iconify-icon {
   transform-origin: 0vw 10vh;
   box-shadow: -2vmin 0 1.1765259655579692vmin currentColor;
 }
+
 .background span:nth-child(3) {
   color: #e45a84;
   top: 67%;
@@ -127,6 +139,7 @@ iconify-icon {
   transform-origin: -12vw -2vh;
   box-shadow: 2vmin 0 1.1569911056859141vmin currentColor;
 }
+
 .background span:nth-child(4) {
   color: #ffacac;
   top: 15%;
@@ -136,6 +149,7 @@ iconify-icon {
   transform-origin: -17vw -4vh;
   box-shadow: 2vmin 0 0.93041085416587vmin currentColor;
 }
+
 .background span:nth-child(5) {
   color: #ffacac;
   top: 26%;
@@ -145,6 +159,7 @@ iconify-icon {
   transform-origin: 11vw 16vh;
   box-shadow: 2vmin 0 0.8606289506881641vmin currentColor;
 }
+
 .background span:nth-child(6) {
   color: #583c87;
   top: 96%;
@@ -154,6 +169,7 @@ iconify-icon {
   transform-origin: -22vw -19vh;
   box-shadow: -2vmin 0 0.6165584666643062vmin currentColor;
 }
+
 .background span:nth-child(7) {
   color: #583c87;
   top: 92%;
@@ -163,6 +179,7 @@ iconify-icon {
   transform-origin: -16vw -5vh;
   box-shadow: 2vmin 0 1.017466849155884vmin currentColor;
 }
+
 .background span:nth-child(8) {
   color: #ffacac;
   top: 72%;
@@ -172,6 +189,7 @@ iconify-icon {
   transform-origin: -24vw 6vh;
   box-shadow: -2vmin 0 0.9450558617465195vmin currentColor;
 }
+
 .background span:nth-child(9) {
   color: #e45a84;
   top: 88%;
@@ -181,6 +199,7 @@ iconify-icon {
   transform-origin: -16vw 6vh;
   box-shadow: 2vmin 0 0.7582643279890755vmin currentColor;
 }
+
 .background span:nth-child(10) {
   color: #583c87;
   top: 81%;
@@ -190,6 +209,7 @@ iconify-icon {
   transform-origin: -23vw -12vh;
   box-shadow: 2vmin 0 0.8054504076730586vmin currentColor;
 }
+
 .background span:nth-child(11) {
   color: #e45a84;
   top: 59%;
@@ -199,6 +219,7 @@ iconify-icon {
   transform-origin: -15vw -20vh;
   box-shadow: -2vmin 0 0.32559230505524184vmin currentColor;
 }
+
 .background span:nth-child(12) {
   color: #e45a84;
   top: 16%;
@@ -208,6 +229,7 @@ iconify-icon {
   transform-origin: 6vw 3vh;
   box-shadow: -2vmin 0 0.9386686852587212vmin currentColor;
 }
+
 .background span:nth-child(13) {
   color: #583c87;
   top: 79%;
@@ -217,6 +239,7 @@ iconify-icon {
   transform-origin: -8vw -21vh;
   box-shadow: 2vmin 0 0.2898216612760657vmin currentColor;
 }
+
 .background span:nth-child(14) {
   color: #583c87;
   top: 67%;
@@ -226,6 +249,7 @@ iconify-icon {
   transform-origin: 19vw 22vh;
   box-shadow: 2vmin 0 1.1465377557032284vmin currentColor;
 }
+
 .background span:nth-child(15) {
   color: #e45a84;
   top: 49%;
@@ -235,6 +259,7 @@ iconify-icon {
   transform-origin: -7vw -6vh;
   box-shadow: -2vmin 0 1.1022676071407007vmin currentColor;
 }
+
 .background span:nth-child(16) {
   color: #e45a84;
   top: 2%;
@@ -244,6 +269,7 @@ iconify-icon {
   transform-origin: -17vw -2vh;
   box-shadow: -2vmin 0 0.4009476261416781vmin currentColor;
 }
+
 .background span:nth-child(17) {
   color: #e45a84;
   top: 84%;
@@ -253,6 +279,7 @@ iconify-icon {
   transform-origin: -20vw -24vh;
   box-shadow: -2vmin 0 0.6999832880362264vmin currentColor;
 }
+
 .background span:nth-child(18) {
   color: #583c87;
   top: 62%;
@@ -262,6 +289,7 @@ iconify-icon {
   transform-origin: 18vw 7vh;
   box-shadow: 2vmin 0 1.2284567955250334vmin currentColor;
 }
+
 .background span:nth-child(19) {
   color: #e45a84;
   top: 84%;
