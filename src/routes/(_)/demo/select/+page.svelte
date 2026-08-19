@@ -40,7 +40,7 @@
 </script>
 
 <div class="min-h-screen bg-base-200 py-12 px-4">
-  <div class="max-w-7xl mx-auto space-y-12">
+  <div class="mx-auto space-y-12">
     <!-- Header -->
     <div class="text-center space-y-4">
       <div class="badge badge-primary badge-outline font-black py-3 px-6">

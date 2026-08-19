@@ -69,7 +69,7 @@
   </form>
 </Modal>
 
-<div class="px-6 py-4 space-y-3 max-w-7xl mx-auto">
+<div class="px-6 py-4 space-y-3 mx-auto">
   <div class="flex items-center justify-between gap-4">
     <div>
       <h1
@@ -77,7 +77,9 @@
       >
         Daftar Pengguna
       </h1>
-      <p class="text-sm opacity-60">Kelola akun dan hak akses pengguna sistem</p>
+      <p class="text-sm opacity-60">
+        Kelola akun dan hak akses pengguna sistem
+      </p>
     </div>
   </div>
 
@@ -109,7 +111,9 @@
         <div class="form-control w-full max-w-xs">
           <!-- svelte-ignore a11y_label_has_associated_control -->
           <label class="label py-1">
-            <span class="label-text font-bold text-xs opacity-75">Cari Email</span>
+            <span class="label-text font-bold text-xs opacity-75"
+              >Cari Email</span
+            >
           </label>
           <input
             bind:value={where.email}
@@ -154,16 +158,22 @@
             <tr>
               <td colspan="5" class="py-12 text-center">
                 <div class="flex flex-col items-center justify-center gap-2">
-                  <span class="loading loading-spinner loading-md text-primary"></span>
-                  <span class="text-sm opacity-55 font-medium">Memuat data pengguna...</span>
+                  <span class="loading loading-spinner loading-md text-primary"
+                  ></span>
+                  <span class="text-sm opacity-55 font-medium"
+                    >Memuat data pengguna...</span
+                  >
                 </div>
               </td>
             </tr>
           {:else if records.error}
             <tr>
               <td colspan="5" class="py-12 text-center">
-                <div class="flex flex-col items-center justify-center gap-3 text-error">
-                  <iconify-icon icon="bx:error-circle" class="text-3xl"></iconify-icon>
+                <div
+                  class="flex flex-col items-center justify-center gap-3 text-error"
+                >
+                  <iconify-icon icon="bx:error-circle" class="text-3xl"
+                  ></iconify-icon>
                   <div class="text-sm font-semibold">
                     Gagal memuat data: {records.error.message}
                   </div>
@@ -179,9 +189,14 @@
           {:else if !items.data?.length}
             <tr>
               <td colspan="5" class="py-12 text-center">
-                <div class="flex flex-col items-center justify-center gap-2 opacity-40">
-                  <iconify-icon icon="bx:user-x" class="text-3xl"></iconify-icon>
-                  <span class="text-sm font-medium">Tidak ada data pengguna</span>
+                <div
+                  class="flex flex-col items-center justify-center gap-2 opacity-40"
+                >
+                  <iconify-icon icon="bx:user-x" class="text-3xl"
+                  ></iconify-icon>
+                  <span class="text-sm font-medium"
+                    >Tidak ada data pengguna</span
+                  >
                 </div>
               </td>
             </tr>
@@ -198,8 +213,12 @@
                 </td>
                 <td class="font-medium">{item.email}</td>
                 <td>
-                  <span class="badge badge-sm {item.role?.name === 'admin' ? 'badge-primary' : 'badge-ghost'}">
-                    {item.role?.name ?? '-'}
+                  <span
+                    class="badge badge-sm {item.role?.name === 'admin'
+                      ? 'badge-primary'
+                      : 'badge-ghost'}"
+                  >
+                    {item.role?.name ?? "-"}
                   </span>
                 </td>
                 <td class="text-xs opacity-60 whitespace-nowrap">

@@ -12,8 +12,10 @@
   }
 </script>
 
-<div class="px-6 py-4 space-y-4 max-w-7xl mx-auto">
-  <h1 class="text-2xl font-bold bg-linear-to-r from-primary to-secondary bg-clip-text text-transparent">
+<div class="px-6 py-4 space-y-4 mx-auto">
+  <h1
+    class="text-2xl font-bold bg-linear-to-r from-primary to-secondary bg-clip-text text-transparent"
+  >
     Survey Kepuasan
   </h1>
 
@@ -69,7 +71,10 @@
         />
       </div>
       <div class="space-y-2">
-        <span class="text-[8px] font-black uppercase tracking-[0.2em] opacity-30">Detail Rating</span>
+        <span
+          class="text-[8px] font-black uppercase tracking-[0.2em] opacity-30"
+          >Detail Rating</span
+        >
         {#each [5, 4, 3, 2, 1] as n}
           <div class="flex items-center gap-3">
             <span class="text-xs font-mono w-16 text-right">{n} Bintang</span>
@@ -80,10 +85,14 @@
                   : n === 3
                     ? 'bg-warning'
                     : 'bg-success'}"
-                style="width: {data.total > 0 ? ((data.ratingCounts[n] || 0) / data.total) * 100 : 0}%"
+                style="width: {data.total > 0
+                  ? ((data.ratingCounts[n] || 0) / data.total) * 100
+                  : 0}%"
               ></div>
             </div>
-            <span class="text-xs font-mono w-8">{data.ratingCounts[n] || 0}</span>
+            <span class="text-xs font-mono w-8"
+              >{data.ratingCounts[n] || 0}</span
+            >
           </div>
         {/each}
       </div>
@@ -91,7 +100,8 @@
 
     {#if data.responses.length > 0}
       <div class="bg-base-100/50 p-4 rounded-2xl border border-base-300">
-        <span class="text-[8px] font-black uppercase tracking-[0.2em] opacity-30 mb-3 block"
+        <span
+          class="text-[8px] font-black uppercase tracking-[0.2em] opacity-30 mb-3 block"
           >Feedback & Kritik</span
         >
         <div class="space-y-2">
@@ -99,8 +109,12 @@
             {#if r.feedback}
               <div class="bg-base-200/50 p-3 rounded-xl text-sm">
                 <div class="flex items-center gap-2 mb-1">
-                  <span class="text-warning font-mono text-xs">{r.rating}/5</span>
-                  <span class="text-[10px] opacity-40 font-mono">{formatDate(r.created)}</span>
+                  <span class="text-warning font-mono text-xs"
+                    >{r.rating}/5</span
+                  >
+                  <span class="text-[10px] opacity-40 font-mono"
+                    >{formatDate(r.created)}</span
+                  >
                 </div>
                 <p class="opacity-80">{r.feedback}</p>
               </div>

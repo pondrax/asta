@@ -386,7 +386,7 @@
       filterModal = false;
     }}
   >
-    <div class="space-y-2 min-h-30 overflow-y-auto px-1">
+    <div class="space-y-2 min-h-30 overflow-y-auto px-1 pb-3">
       {@render filter?.(filterWhere)}
     </div>
     <div class="flex gap-2">

@@ -111,7 +111,7 @@
   let bsreChartEnd = $state("");
 
   const ALL_USER_STATUSES = ["VERIFIED", "NEW", "UPDATE"];
-  const ALL_CERT_STATUSES = ["ISSUE", "NEW", "REVOKE", "EXPIRED"];
+  const ALL_CERT_STATUSES = ["ISSUE", "NEW", "REVOKE", "EXPIRED", "DENIED"];
 
   const bsreStats = $derived(
     getBsreStats({
@@ -149,9 +149,11 @@
       Total: "bg-primary/10",
       VERIFIED: "bg-success/10",
       NEW: "bg-info/10",
+      UPDATE: "bg-info/10",
       ISSUE: "bg-success/10",
       REVOKE: "bg-error/10",
       EXPIRED: "bg-warning/10",
+      DENIED: "bg-neutral/10",
     };
     return map[label] ?? "bg-base-200/50";
   }
@@ -178,7 +180,7 @@
     <p>Memuat data dashboard...</p>
   </div>
 {:else}
-  <div class="px-6 py-4 space-y-4 max-w-7xl mx-auto">
+  <div class="px-6 py-4 space-y-4 mx-auto">
     <div>
       <h1
         class="text-2xl font-bold bg-linear-to-r from-primary to-secondary bg-clip-text text-transparent"
@@ -219,15 +221,6 @@
         <div class="stat-title">Draft</div>
         <div class="stat-value text-4xl text-warning">
           {formatNumber(dash.totalCounts.draft || 0)}
-        </div>
-      </div>
-      <div class="stat">
-        <div class="stat-figure text-info text-3xl">
-          <iconify-icon icon="bx:time"></iconify-icon>
-        </div>
-        <div class="stat-title">Antrean</div>
-        <div class="stat-value text-4xl text-info">
-          {formatNumber(dash.totalCounts.queue || 0)}
         </div>
       </div>
       <div class="stat">
@@ -341,18 +334,6 @@
             {formatNumber(dash.totalCounts.draft || 0)}
           </div>
         </div>
-        <div class="bg-base-100/50 p-3 rounded-2xl border border-base-300">
-          <div class="flex items-center gap-3">
-            <div class="w-1.5 h-1.5 rounded-full bg-info"></div>
-            <span
-              class="text-[8px] font-black uppercase tracking-[0.2em] opacity-40"
-              >Antrean</span
-            >
-          </div>
-          <div class="text-2xl font-black font-mono tracking-tighter mt-1">
-            {formatNumber(dash.totalCounts.queue || 0)}
-          </div>
-        </div>
       </div>
     </div>
 
@@ -450,8 +431,8 @@
         </button>
       </div>
       {#if !bsreChartCollapsed}
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div class="lg:col-span-2">
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+          <div class="lg:col-span-3">
             <Chart
               title=""
               subtitle=""
@@ -508,7 +489,7 @@
               >
               <div class="grid grid-cols-2 gap-1.5">
                 <div
-                  class="rounded-lg px-2 py-1 text-center cursor-pointer hover:ring-2 hover:ring-base-content/30 transition-all {bsreStatusBg(
+                  class="rounded-lg px-2 py-0 text-center cursor-pointer hover:ring-2 hover:ring-base-content/30 transition-all {bsreStatusBg(
                     'Total',
                   )} {!bsreStatusFilter && !bsreCertFilter
                     ? 'ring-2 ring-primary/60'
@@ -530,7 +511,7 @@
                 </div>
                 {#each bsreUserStatusData as d}
                   <div
-                    class="rounded-lg px-2 py-1 text-center cursor-pointer hover:ring-2 hover:ring-base-content/30 transition-all {bsreStatusBg(
+                    class="rounded-lg px-2 py-0 text-center cursor-pointer hover:ring-2 hover:ring-base-content/30 transition-all {bsreStatusBg(
                       d.label,
                     )} {bsreStatusFilter === d.label
                       ? 'ring-2 ring-primary/60'
@@ -561,7 +542,7 @@
               <div class="grid grid-cols-2 gap-1.5">
                 {#each bsreCertStatusData as d}
                   <div
-                    class="rounded-lg px-2 py-1 text-center cursor-pointer hover:ring-2 hover:ring-base-content/30 transition-all {bsreStatusBg(
+                    class="rounded-lg px-2 py-0 text-center cursor-pointer hover:ring-2 hover:ring-base-content/30 transition-all {bsreStatusBg(
                       d.label,
                     )} {bsreCertFilter === d.label
                       ? 'ring-2 ring-primary/60'
@@ -803,8 +784,6 @@
         </div>
       {/if}
     </div>
-
-
 
     {#if app.showTour}
       <Tour

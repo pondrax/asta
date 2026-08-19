@@ -37,7 +37,37 @@
 
   // Reactive records from local DB
   const records = $derived(getData({ ...query }));
-  const items = $derived(records.current ?? { data: [], count: 0 });
+  const rawItems = $derived(records.current ?? { data: [], count: 0 });
+
+  // Client-side cert date range filter (dates are in JSONB details)
+  let certStartFrom = $state("");
+  let certStartTo = $state("");
+  let certEndFrom = $state("");
+  let certEndTo = $state("");
+
+  const items = $derived.by(() => {
+    const data = rawItems.data ?? [];
+    const hasFilter = certStartFrom || certStartTo || certEndFrom || certEndTo;
+    if (!hasFilter) return rawItems;
+    const filtered = data.filter((user: any) => {
+      const certs: any[] = user?.details?.data?.sertifikat ?? [];
+      if (!certs.length) return false;
+      const latest = [...certs].sort(
+        (a: any, b: any) =>
+          new Date(b.notAfterDate).getTime() -
+          new Date(a.notAfterDate).getTime(),
+      )[0];
+      if (!latest) return false;
+      const start = latest.notBeforeDate?.split(" ")[0] ?? "";
+      const end = latest.notAfterDate?.split(" ")[0] ?? "";
+      if (certStartFrom && start < certStartFrom) return false;
+      if (certStartTo && start > certStartTo) return false;
+      if (certEndFrom && end < certEndFrom) return false;
+      if (certEndTo && end > certEndTo) return false;
+      return true;
+    });
+    return { data: filtered, count: filtered.length, time: rawItems.time };
+  });
 
   // Sync state
   let syncing = $state(false);
@@ -53,7 +83,7 @@
   let sessionCollapsed = $state(true);
 
   const ALL_USER_STATUSES = ["VERIFIED", "NEW", "UPDATE"];
-  const ALL_CERT_STATUSES = ["ISSUE", "NEW", "REVOKE", "EXPIRED"];
+  const ALL_CERT_STATUSES = ["ISSUE", "NEW", "REVOKE", "EXPIRED", "DENIED"];
 
   const stats = $derived(
     getBsreStats({
@@ -101,6 +131,7 @@
       REVOKE: "bg-error/10",
       NEW: "bg-info/10",
       EXPIRED: "bg-warning/10",
+      DENIED: "bg-neutral/10",
     };
     return map[label] ?? "bg-base-200/50";
   }
@@ -240,7 +271,7 @@
   }
 </script>
 
-<div class="px-6 py-4 space-y-4 max-w-7xl mx-auto">
+<div class="px-6 py-4 space-y-4 mx-auto">
   <div class="flex items-start justify-between gap-4">
     <div>
       <h1
@@ -290,8 +321,8 @@
         ? 'max-h-0 overflow-hidden p-0'
         : 'p-4'}"
     >
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div class="lg:col-span-2">
+      <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        <div class="lg:col-span-3">
           <Chart
             title="Status Sertifikat"
             subtitle=""
@@ -355,7 +386,7 @@
             >
             <div class="grid grid-cols-2 gap-1.5">
               <div
-                class="rounded-lg px-2 py-1 text-center cursor-pointer hover:ring-2 hover:ring-base-content/30 transition-all {statusBg(
+                class="rounded-lg px-2 py-0 text-center cursor-pointer hover:ring-2 hover:ring-base-content/30 transition-all {statusBg(
                   'Total',
                 )} {!query.where?.status && !query.where?.certificateStatus
                   ? 'ring-2 ring-primary/60'
@@ -377,7 +408,7 @@
               </div>
               {#each userStatusChartData as d}
                 <div
-                  class="rounded-lg px-2 py-1 text-center cursor-pointer hover:ring-2 hover:ring-base-content/30 transition-all {statusBg(
+                  class="rounded-lg px-2 py-0 text-center cursor-pointer hover:ring-2 hover:ring-base-content/30 transition-all {statusBg(
                     d.label,
                   )} {query.where?.status === d.label
                     ? 'ring-2 ring-primary/60'
@@ -408,7 +439,7 @@
             <div class="grid grid-cols-2 gap-1.5">
               {#each certStatusChartData as d}
                 <div
-                  class="rounded-lg px-2 py-1 text-center cursor-pointer hover:ring-2 hover:ring-base-content/30 transition-all {statusBg(
+                  class="rounded-lg px-2 py-0 text-center cursor-pointer hover:ring-2 hover:ring-base-content/30 transition-all {statusBg(
                     d.label,
                   )} {query.where?.certificateStatus === d.label
                     ? 'ring-2 ring-primary/60'
@@ -548,29 +579,102 @@
   >
     <Toolbar bind:query {records}>
       {#snippet filter(where)}
-        <div class="form-control w-full max-w-xs">
-          <label class="label py-1" for="filter-cert-status">
-            <span class="label-text font-bold text-xs opacity-75"
-              >Status Sertifikat</span
-            >
+        <label class="floating-label mt-2">
+          <span>NIK</span>
+          <div class="input input-sm">
+            <input bind:value={where.nik} placeholder="NIK" />
+          </div>
+        </label>
+        <label class="floating-label mt-2">
+          <span>NIP</span>
+          <div class="input input-sm">
+            <input bind:value={where.nip} placeholder="NIP" />
+          </div>
+        </label>
+        <label class="floating-label mt-2">
+          <span>Email</span>
+          <div class="input input-sm">
+            <input bind:value={where.emailAddress} placeholder="Email" />
+          </div>
+        </label>
+        <label class="floating-label mt-2">
+          <span>Nama</span>
+          <div class="input input-sm">
+            <input bind:value={where.nama} placeholder="Nama" />
+          </div>
+        </label>
+
+        <div class="mt-2">
+          <span class="label-text text-[10px]">Sertifikat Mulai</span>
+          <div class="flex gap-1 items-center mt-1">
+            <input
+              type="date"
+              class="input input-sm input-bordered text-xs w-full"
+              bind:value={certStartFrom}
+            />
+            <span class="text-[10px] opacity-40">–</span>
+            <input
+              type="date"
+              class="input input-sm input-bordered text-xs w-full"
+              bind:value={certStartTo}
+            />
+          </div>
+        </div>
+        <div class="mt-2">
+          <span class="label-text text-[10px]">Sertifikat Berakhir</span>
+          <div class="flex gap-1 items-center mt-1">
+            <input
+              type="date"
+              class="input input-sm input-bordered text-xs w-full"
+              bind:value={certEndFrom}
+            />
+            <span class="text-[10px] opacity-40">–</span>
+            <input
+              type="date"
+              class="input input-sm input-bordered text-xs w-full"
+              bind:value={certEndTo}
+            />
+          </div>
+        </div>
+
+        <div class="">
+          <label class="label" for="filter-user-status">
+            <span class="label-text text-[10px]">Status User</span>
           </label>
-          <input
-            id="filter-cert-status"
-            bind:value={where.certificateStatus}
-            class="input input-sm input-bordered"
-            placeholder="ISSUE, REVOKED..."
-          />
+          <div class="flex flex-wrap gap-1">
+            {#each ALL_USER_STATUSES as s}
+              <button
+                type="button"
+                class="btn btn-xs {where.status === s
+                  ? 'btn-primary'
+                  : 'btn-soft'}"
+                onclick={() =>
+                  (where.status = where.status === s ? undefined : s)}
+              >
+                {s}
+              </button>
+            {/each}
+          </div>
         </div>
         <div class="form-control w-full max-w-xs">
-          <label class="label py-1" for="filter-nik">
-            <span class="label-text font-bold text-xs opacity-75">NIK</span>
+          <label class="label" for="filter-cert-status">
+            <span class="label-text text-[10px]">Status Sertifikat</span>
           </label>
-          <input
-            id="filter-nik"
-            bind:value={where.nik}
-            class="input input-sm input-bordered"
-            placeholder="Cari NIK..."
-          />
+          <div class="flex flex-wrap gap-1">
+            {#each ALL_CERT_STATUSES as s}
+              <button
+                type="button"
+                class="btn btn-xs {where.certificateStatus === s
+                  ? 'btn-primary'
+                  : 'btn-soft'}"
+                onclick={() =>
+                  (where.certificateStatus =
+                    where.certificateStatus === s ? undefined : s)}
+              >
+                {s}
+              </button>
+            {/each}
+          </div>
         </div>
       {/snippet}
       {#snippet actions()}

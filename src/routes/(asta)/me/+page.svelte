@@ -87,7 +87,7 @@
   }
 </script>
 
-<div class="px-5 overflow-x-clip pt-2 pb-10 space-y-6 max-w-7xl mx-auto">
+<div class="px-5 overflow-x-clip pt-2 pb-10 space-y-6 mx-auto">
   {#if dash}
     <div>
       <h3 class="text-xl font-bold">Overview</h3>
@@ -131,7 +131,6 @@
           {formatNumber(dash.userDocCounts.draft || 0)}
         </div>
       </div>
-
     </div>
 
     <div class="flex flex-wrap items-end gap-3">
@@ -186,27 +185,31 @@
               queue: "var(--color-info)",
               failed: "var(--color-error)",
             };
-            return dash.docStatuses.filter((s) => s.status !== "queue").map((s) => ({
-              label: statusLabel(s.status),
-              value: s.count,
-              color: colorMap[s.status] || "var(--color-primary)",
-            }));
+            return dash.docStatuses
+              .filter((s) => s.status !== "queue")
+              .map((s) => ({
+                label: statusLabel(s.status),
+                value: s.count,
+                color: colorMap[s.status] || "var(--color-primary)",
+              }));
           })()}
           height={200}
           type="donut"
-          categories={dash.docStatuses.filter((s) => s.status !== "queue").map((s) => {
-            const cm: Record<string, string> = {
-              signed: "var(--color-success)",
-              draft: "var(--color-warning)",
-              queue: "var(--color-info)",
-              failed: "var(--color-error)",
-            };
-            return {
-              key: "",
-              color: cm[s.status] || "var(--color-primary)",
-              label: statusLabel(s.status),
-            };
-          })}
+          categories={dash.docStatuses
+            .filter((s) => s.status !== "queue")
+            .map((s) => {
+              const cm: Record<string, string> = {
+                signed: "var(--color-success)",
+                draft: "var(--color-warning)",
+                queue: "var(--color-info)",
+                failed: "var(--color-error)",
+              };
+              return {
+                key: "",
+                color: cm[s.status] || "var(--color-primary)",
+                label: statusLabel(s.status),
+              };
+            })}
         />
       </div>
       <div class="flex flex-col gap-4">
@@ -222,7 +225,6 @@
             {formatNumber(dash.userDocCounts.draft || 0)}
           </div>
         </div>
-
       </div>
     </div>
 

@@ -68,7 +68,7 @@
   </form>
 </Modal> -->
 
-<div class="px-6 py-4 space-y-3 max-w-7xl mx-auto">
+<div class="px-6 py-4 space-y-3 mx-auto">
   <div class="flex items-center justify-between gap-4">
     <div>
       <h1
