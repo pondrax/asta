@@ -385,8 +385,19 @@
           class="input input-sm"
         />
       </label>
-      <!-- {JSON.stringify(Object.keys(fields))}
-      {JSON.stringify(Object.keys(form))} -->
+    </li>
+    <li class="p-2">
+      <label
+        class="btn btn-xs btn-ghost tooltip flex gap-2 items-center justify-start"
+        data-tip="Simpan dokumen yang sudah ditandatangani ke server"
+      >
+        <input
+          type="checkbox"
+          class="checkbox checkbox-xs checkbox-success"
+          bind:checked={form.save_document}
+        />
+        Simpan Dokumen
+      </label>
     </li>
 
     {#each Object.keys(fields) as key}

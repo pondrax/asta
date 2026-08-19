@@ -246,6 +246,7 @@
       location: "",
       note: "Tanda Tangan Elektronik",
       send_file: true,
+      save_document: true,
     };
 
     const lastShown = localStorage.getItem("tour-sign-last-shown");
@@ -323,7 +324,7 @@
     form.footer = true;
     activeIndex = docId;
     forms.template = undefined;
-    saveDocument = true;
+    saveDocument = form.save_document ?? true;
   }
 
   //@ts-ignore - debounce return type doesn't match the debounced function signature
@@ -336,7 +337,7 @@
       documents = Object.fromEntries(files.map((file) => [createId(10), file]));
       activeIndex = Object.keys(documents)[0];
       files = [];
-      saveDocument = !!data.user;
+      saveDocument = form.save_document ?? !!data.user;
     }
   });
 
