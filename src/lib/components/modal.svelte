@@ -83,7 +83,7 @@
         </form>
       {/if}
       <h3 class="text-lg font-bold sticky">{title}</h3>
-      <div class="flex-1 overflow-y-auto">
+      <div class="flex-1 overflow-y-auto p-1">
         {@render children?.(data)}
       </div>
       <div class="modal-action mt-0 justify-start p-0">

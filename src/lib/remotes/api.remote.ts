@@ -55,6 +55,11 @@ const getAuthGuard = (name: keyof Tables) => {
       get: () => {
         // return search ? { OR: searchable(name, search) } : {}
       }
+    },
+    templates: {
+      get: () => {
+        // no guard - admin-only via route protection
+      }
     }
   }
   return GUARD[name]

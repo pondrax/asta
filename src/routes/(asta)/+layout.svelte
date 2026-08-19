@@ -63,11 +63,11 @@
               <li class="menu-title mt-2">Overview</li>
               <li><a href="/me">Overview</a></li>
               <li><a href="/me/documents">Dokumen Saya</a></li>
+              <li><a href="/templates">Template</a></li>
+              <li class="menu-title mt-2">Konfigurasi</li>
               <li><a href="/profile">Profil</a></li>
+              <li><a href="/me/templates">Kelola Template</a></li>
               <li><a href="/survey">Survey Kepuasan</a></li>
-              {#if user.role?.name === "admin"}
-                <li><a href="/templates">Templates</a></li>
-              {/if}
               {#if user.role?.name === "admin"}
                 <li class="menu-title mt-2">Administration</li>
                 <li><a href="/main">Dashboard</a></li>
@@ -447,6 +447,24 @@
                       <span>Draft & Antrean TTE</span>
                     </a>
                   </li>
+                  <li>
+                    <a
+                      href="/templates"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
+                        .url.pathname === '/templates'
+                        ? 'text-primary font-bold bg-primary/5'
+                        : 'text-base-content/75'}"
+                    >
+                      <iconify-icon
+                        icon="bx:chevron-right"
+                        class="text-xs transition-all {page.url.pathname ===
+                        '/templates'
+                          ? 'text-primary opacity-100'
+                          : 'opacity-40 group-hover:opacity-100'}"
+                      ></iconify-icon>
+                      <span>Template</span>
+                    </a>
+                  </li>
                 </ul>
               </div>
               <div>
@@ -677,6 +695,24 @@
                       <span>Dokumen Saya</span>
                     </a>
                   </li>
+                  <li>
+                    <a
+                      href="/templates"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
+                        .url.pathname === '/templates'
+                        ? 'text-primary font-bold bg-primary/5'
+                        : 'text-base-content/75'}"
+                    >
+                      <iconify-icon
+                        icon="bx:chevron-right"
+                        class="text-xs transition-all {page.url.pathname ===
+                        '/templates'
+                          ? 'text-primary opacity-100'
+                          : 'opacity-40 group-hover:opacity-100'}"
+                      ></iconify-icon>
+                      <span>Template</span>
+                    </a>
+                  </li>
                 </ul>
               </div>
               <div>
@@ -706,20 +742,20 @@
                   </li>
                   <li>
                     <a
-                      href="/templates"
+                      href="/me/templates"
                       class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
-                        .url.pathname === '/templates'
+                        .url.pathname === '/me/templates'
                         ? 'text-primary font-bold bg-primary/5'
                         : 'text-base-content/75'}"
                     >
                       <iconify-icon
                         icon="bx:chevron-right"
                         class="text-xs transition-all {page.url.pathname ===
-                        '/templates'
+                        '/me/templates'
                           ? 'text-primary opacity-100'
                           : 'opacity-40 group-hover:opacity-100'}"
                       ></iconify-icon>
-                      <span>Dokumen Templates</span>
+                      <span>Template</span>
                     </a>
                   </li>
                 </ul>
@@ -768,6 +804,24 @@
                           : 'opacity-40 group-hover:opacity-100'}"
                       ></iconify-icon>
                       <span>Dashboard Utama</span>
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href="/me/templates"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
+                        .url.pathname === '/me/templates'
+                        ? 'text-primary font-bold bg-primary/5'
+                        : 'text-base-content/75'}"
+                    >
+                      <iconify-icon
+                        icon="bx:chevron-right"
+                        class="text-xs transition-all {page.url.pathname ===
+                        '/me/templates'
+                          ? 'text-primary opacity-100'
+                          : 'opacity-40 group-hover:opacity-100'}"
+                      ></iconify-icon>
+                      <span>Kelola Template</span>
                     </a>
                   </li>
                   <li>
