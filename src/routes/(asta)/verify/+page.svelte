@@ -180,7 +180,7 @@
 
     const lastShown = localStorage.getItem("tour-verify-last-shown");
     const now = Date.now();
-    if (!lastShown || now - Number(lastShown) > 3600000) {
+    if (!lastShown || now - Number(lastShown) > 86400000) {
       setTimeout(() => (app.showTour = true), 1000);
     }
   });

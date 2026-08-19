@@ -531,12 +531,13 @@
                               <!-- svelte-ignore a11y_click_events_have_key_events -->
                               <!-- svelte-ignore a11y_no_static_element_interactions -->
                               <div
-                                class="absolute top-0 left-0 z-500 bg-base-100 shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-primary/30 overflow-hidden flex flex-col w-sm h-30"
+                                class="absolute top-0 left-0 z-500 bg-base-100 shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-primary/30 flex flex-col min-w-xs w-sm"
                                 onclick={(e) => e.stopPropagation()}
                                 onmousedown={(e) => e.stopPropagation()}
                               >
                                 <textarea
-                                  class="textarea textarea-ghost flex-1 font-mono text-[10px] px-3 leading-relaxed resize-none focus:outline-none bg-transparent"
+                                  class="textarea textarea-ghost w-full font-mono text-[10px] px-3 leading-relaxed resize-y overflow-auto focus:outline-none bg-transparent"
+                                  rows="6"
                                   bind:value={cell.value}
                                   onkeydown={(e) => {
                                     if (
@@ -619,7 +620,8 @@
   <form
     {...upsertData.enhance(async ({ submit }: any) => {
       await submit();
-      app.showToast("success",
+      app.showToast(
+        "success",
         editingRow?.id
           ? "Row updated successfully"
           : "New row created successfully",

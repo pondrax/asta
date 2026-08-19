@@ -2,6 +2,7 @@ import { query, form } from "$app/server";
 import { db } from '$lib/server/db';
 import { checkAdmin } from '$lib/utils/server';
 import { eq, inArray, getColumns } from 'drizzle-orm';
+import * as schema from '$lib/server/db/schema';
 
 export interface CollectionSchema {
   name: string;
@@ -20,12 +21,12 @@ export const getCollections = query('unchecked', async () => {
   checkAdmin();
   // In Drizzle RQB, db.query keys are our tables
   const tableNames = Object.keys(db.query);
-  const result = tableNames.map(name => {
-    // Find the table object from the schema
-    // In this setup, it's usually at db._.fullSchema[name]
-    const table = (db._ as any).fullSchema[name];
+  const result = tableNames.map((name) => {
+    // Use the schema import directly (fullSchema removed in drizzle-orm 1.0.0-rc.4)
+    const table = (schema as any)[name];
     const columns = table ? getColumns(table) : {};
 
+    // console.log(table);
     return {
       name,
       columns: Object.entries(columns).map(([key, col]: [string, any]) => ({
@@ -55,28 +56,52 @@ export const getCollectionData = query('unchecked', async (params: {
 }) => {
 
   checkAdmin();
-  const { table, limit, offset, where = {}, orderBy = {} } = params;
+  const { table, limit, offset, where = {}, orderBy = {}, search } = params;
+  const time = performance.now();
 
   //@ts-ignore - db.query[table] is a dynamic index access on the query builder
   const qb = db.query[table];
   if (!qb) return { data: [], count: 0 };
 
-  const filter = buildWhere(where);
+  // Build search conditions using RQB object filter format (for relationsFilterToSQL)
+  const conditions: any[] = [];
 
-  // Drizzle Plus supports findManyAndCount
-  const result = await qb.findManyAndCount({
+  if (where && Object.keys(where).length > 0) {
+    const filterWhere: Record<string, any> = {};
+    for (const [k, v] of Object.entries(where)) {
+      if (v == null || v === '') continue;
+      filterWhere[k] = typeof v === 'string' ? { ilike: `%${v}%` } : { eq: v };
+    }
+    if (Object.keys(filterWhere).length > 0) conditions.push(filterWhere);
+  }
+
+  if (search && search.trim()) {
+    const term = `%${search.trim()}%`;
+    const tableObj = (schema as any)[table];
+    if (tableObj) {
+      const columns = getColumns(tableObj);
+      const orSearch = Object.entries(columns)
+        .filter(([, col]: [string, any]) => col.columnType === 'PgText')
+        .map(([key]) => ({ [key]: { ilike: term } }));
+      if (orSearch.length > 0) conditions.push({ OR: orSearch });
+    }
+  }
+
+  const mergedWhere = conditions.length === 0 ? undefined
+    : conditions.length === 1 ? conditions[0]
+      : { AND: conditions };
+
+  const data = await qb.findManyAndCount({
     limit,
     offset,
-    where: filter ? (t: any, ops: any) => filter(t, ops) : undefined,
-    orderBy: (t: any, { asc, desc }: any) => {
-      return Object.entries(orderBy).map(([k, v]) => v === 'desc' ? desc(t[k]) : asc(t[k]));
-    }
+    where: mergedWhere,
+    orderBy,
   });
 
   return JSON.parse(JSON.stringify({
-    data: result.data,
-    count: result.count,
-    time: result.time || '0ms'
+    data: data.data,
+    count: data.count,
+    time: `${(performance.now() - time).toFixed(2)}ms`
   }));
 });
 
@@ -84,8 +109,7 @@ export const upsertData = form('unchecked', async (params: { table: string, data
   checkAdmin();
   const { table, data } = params;
 
-  //@ts-ignore - db._.fullSchema is an internal drizzle property
-  const tableObj = db._.fullSchema[table];
+  const tableObj = (schema as any)[table];
   if (!tableObj) throw new Error('Table not found');
 
   if (data.id) {
@@ -102,11 +126,9 @@ export const upsertData = form('unchecked', async (params: { table: string, data
 export const batchUpdate = form('unchecked', async (params: { table: string, ids: string[], data: any }) => {
   checkAdmin();
   const { table, ids, data } = params;
-  //@ts-ignore - db._.fullSchema is an internal drizzle property
-  const tableObj = db._.fullSchema[table];
+  const tableObj = (schema as any)[table];
   if (!tableObj) throw new Error('Table not found');
 
-  //@ts-ignore - dynamic table reference for db.update
   await db.update(tableObj).set(data).where(inArray(tableObj.id, ids));
   return { success: true };
 });
@@ -114,11 +136,9 @@ export const batchUpdate = form('unchecked', async (params: { table: string, ids
 export const deleteCollectionRows = form('unchecked', async (params: { table: string, ids: string[] }) => {
   checkAdmin();
   const { table, ids } = params;
-  //@ts-ignore - db._.fullSchema is an internal drizzle property
-  const tableObj = db._.fullSchema[table];
+  const tableObj = (schema as any)[table];
   if (!tableObj) throw new Error('Table not found');
 
-  //@ts-ignore - dynamic table reference for db.delete
   await db.delete(tableObj).where(inArray(tableObj.id, ids));
   return { success: true };
 });
