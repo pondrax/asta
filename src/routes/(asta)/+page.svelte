@@ -18,9 +18,17 @@
 <div class="overflow-y-auto">
   <!-- Hero -->
   <div
-    class="flex justify-center items-center min-h-[calc(100vh-12rem)] px-4 py-6"
+    class="relative flex justify-center items-center min-h-[calc(100vh-12rem)] px-4 py-6 overflow-hidden"
   >
-    <div class="max-w-xl text-center">
+    <!-- Animated background dots -->
+    <div class="background">
+      <span></span><span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span><span></span>
+    </div>
+
+    <div class="relative z-1 max-w-xl text-center">
       <!-- Lottie: smaller on short screens via max-h -->
       <div class="h-50vh overflow-hidden flex justify-center">
         <div class="h-full w-full max-w-[280px] sm:max-w-[400px]">
