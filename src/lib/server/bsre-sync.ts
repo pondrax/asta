@@ -286,6 +286,8 @@ async function paginateAll(userId: string, search: string, totalRecords: number,
               phoneVerified: merged.phoneVerified ?? null,
               verifiedVerifikator: merged.verifiedVerifikator ?? null,
               details: detailData,
+              certStart: latestCert?.notBeforeDate?.split(' ')[0] ?? null,
+              certEnd: latestCert?.notAfterDate?.split(' ')[0] ?? null,
             };
             await db.insert(bsreUsers).values({ id: user.id, ...record }).onConflictDoUpdate({
               target: bsreUsers.id,

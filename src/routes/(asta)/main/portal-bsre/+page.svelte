@@ -9,6 +9,7 @@
     navigateBsre,
     debugBsreSession,
     getBsreStats,
+    syncCertDates,
   } from "$lib/remotes/bsre.remote";
   import { getData, type GetParams } from "$lib/remotes/api.remote";
   import { d } from "$lib/utils";
@@ -37,37 +38,34 @@
 
   // Reactive records from local DB
   const records = $derived(getData({ ...query }));
-  const rawItems = $derived(records.current ?? { data: [], count: 0 });
+  const items = $derived(records.current ?? { data: [], count: 0 });
 
-  // Client-side cert date range filter (dates are in JSONB details)
-  let certStartFrom = $state("");
-  let certStartTo = $state("");
-  let certEndFrom = $state("");
-  let certEndTo = $state("");
+  function setCertRange(
+    where: Record<string, any>,
+    field: "certStart" | "certEnd",
+    bound: "from" | "to",
+    value: string,
+  ) {
+    const existing = where[field] ?? {};
+    const key = bound === "from" ? "gte" : "lte";
+    if (value) {
+      where[field] = { ...existing, [key]: value };
+    } else {
+      const next = { ...existing };
+      delete next[key];
+      if (Object.keys(next).length === 0) delete where[field];
+      else where[field] = next;
+    }
+  }
 
-  const items = $derived.by(() => {
-    const data = rawItems.data ?? [];
-    const hasFilter = certStartFrom || certStartTo || certEndFrom || certEndTo;
-    if (!hasFilter) return rawItems;
-    const filtered = data.filter((user: any) => {
-      const certs: any[] = user?.details?.data?.sertifikat ?? [];
-      if (!certs.length) return false;
-      const latest = [...certs].sort(
-        (a: any, b: any) =>
-          new Date(b.notAfterDate).getTime() -
-          new Date(a.notAfterDate).getTime(),
-      )[0];
-      if (!latest) return false;
-      const start = latest.notBeforeDate?.split(" ")[0] ?? "";
-      const end = latest.notAfterDate?.split(" ")[0] ?? "";
-      if (certStartFrom && start < certStartFrom) return false;
-      if (certStartTo && start > certStartTo) return false;
-      if (certEndFrom && end < certEndFrom) return false;
-      if (certEndTo && end > certEndTo) return false;
-      return true;
-    });
-    return { data: filtered, count: filtered.length, time: rawItems.time };
-  });
+  function certRangeVal(
+    where: Record<string, any>,
+    field: "certStart" | "certEnd",
+    bound: "from" | "to",
+  ): string {
+    const key = bound === "from" ? "gte" : "lte";
+    return where?.[field]?.[key] ?? "";
+  }
 
   // Sync state
   let syncing = $state(false);
@@ -516,6 +514,27 @@
             {/if}
             Sync
           </button>
+          <button
+            class="btn btn-sm btn-accent gap-1"
+            onclick={async () => {
+              const res = await syncCertDates({});
+              if (res?.success) {
+                app.showToast(
+                  "success",
+                  `Sertifikat diperbarui (${res.updated}/${res.total}).`,
+                );
+                records.refresh();
+              }
+            }}
+            disabled={!!syncCertDates.pending}
+          >
+            {#if syncCertDates.pending}
+              <span class="loading loading-spinner loading-xs"></span>
+            {:else}
+              <iconify-icon icon="bx:calendar-check"></iconify-icon>
+            {/if}
+            Update Tanggal
+          </button>
           <button class="btn btn-primary btn-sm gap-1" onclick={launch}>
             {#if launchBsre.pending}
               <span class="loading loading-spinner loading-xs"></span>
@@ -579,67 +598,75 @@
   >
     <Toolbar bind:query {records}>
       {#snippet filter(where)}
-        <label class="floating-label mt-2">
+        <label class="floating-label mt-3">
           <span>NIK</span>
           <div class="input input-sm">
             <input bind:value={where.nik} placeholder="NIK" />
           </div>
         </label>
-        <label class="floating-label mt-2">
+        <label class="floating-label mt-3">
           <span>NIP</span>
           <div class="input input-sm">
             <input bind:value={where.nip} placeholder="NIP" />
           </div>
         </label>
-        <label class="floating-label mt-2">
+        <label class="floating-label mt-3">
           <span>Email</span>
           <div class="input input-sm">
             <input bind:value={where.emailAddress} placeholder="Email" />
           </div>
         </label>
-        <label class="floating-label mt-2">
+        <label class="floating-label mt-3">
           <span>Nama</span>
           <div class="input input-sm">
             <input bind:value={where.nama} placeholder="Nama" />
           </div>
         </label>
 
-        <div class="mt-2">
+        <div class="">
           <span class="label-text text-[10px]">Sertifikat Mulai</span>
-          <div class="flex gap-1 items-center mt-1">
+          <div class="flex gap-1 items-center">
             <input
               type="date"
               class="input input-sm input-bordered text-xs w-full"
-              bind:value={certStartFrom}
+              value={certRangeVal(where, "certStart", "from")}
+              oninput={(e) =>
+                setCertRange(where, "certStart", "from", e.currentTarget.value)}
             />
             <span class="text-[10px] opacity-40">–</span>
             <input
               type="date"
               class="input input-sm input-bordered text-xs w-full"
-              bind:value={certStartTo}
+              value={certRangeVal(where, "certStart", "to")}
+              oninput={(e) =>
+                setCertRange(where, "certStart", "to", e.currentTarget.value)}
             />
           </div>
         </div>
-        <div class="mt-2">
+        <div class="">
           <span class="label-text text-[10px]">Sertifikat Berakhir</span>
-          <div class="flex gap-1 items-center mt-1">
+          <div class="flex gap-1 items-center">
             <input
               type="date"
               class="input input-sm input-bordered text-xs w-full"
-              bind:value={certEndFrom}
+              value={certRangeVal(where, "certEnd", "from")}
+              oninput={(e) =>
+                setCertRange(where, "certEnd", "from", e.currentTarget.value)}
             />
             <span class="text-[10px] opacity-40">–</span>
             <input
               type="date"
               class="input input-sm input-bordered text-xs w-full"
-              bind:value={certEndTo}
+              value={certRangeVal(where, "certEnd", "to")}
+              oninput={(e) =>
+                setCertRange(where, "certEnd", "to", e.currentTarget.value)}
             />
           </div>
         </div>
 
         <div class="">
           <label class="label" for="filter-user-status">
-            <span class="label-text text-[10px]">Status User</span>
+            <span class="text-[10px]">Status User</span>
           </label>
           <div class="flex flex-wrap gap-1">
             {#each ALL_USER_STATUSES as s}
@@ -658,7 +685,7 @@
         </div>
         <div class="form-control w-full max-w-xs">
           <label class="label" for="filter-cert-status">
-            <span class="label-text text-[10px]">Status Sertifikat</span>
+            <span class="text-[10px]">Status Sertifikat</span>
           </label>
           <div class="flex flex-wrap gap-1">
             {#each ALL_CERT_STATUSES as s}

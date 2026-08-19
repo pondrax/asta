@@ -150,6 +150,8 @@ export const bsreUsers = pgTable('bsre_users', {
   phoneVerified: boolean('phone_verified'),
   verifiedVerifikator: boolean('verified_verifikator'),
   details: jsonb('details'),
+  certStart: text('cert_start'),
+  certEnd: text('cert_end'),
   fetchedAt: timestamp('fetched_at', { mode: 'string', withTimezone: true }).defaultNow(),
 })
 

@@ -158,6 +158,28 @@ export const fetchBsreUsers = command(
   fetchBsreUsersCore
 );
 
+export const syncCertDates = command(
+  type({}),
+  async () => {
+    const all = await db.select({ id: bsreUsers.id, details: bsreUsers.details }).from(bsreUsers);
+    let updated = 0;
+    for (const row of all) {
+      const certs: any[] = (row.details as any)?.data?.sertifikat ?? [];
+      if (!certs.length) continue;
+      const latest = [...certs].sort(
+        (a: any, b: any) => new Date(b.notAfterDate).getTime() - new Date(a.notAfterDate).getTime(),
+      )[0];
+      const certStart = latest?.notBeforeDate?.split(" ")[0] ?? null;
+      const certEnd = latest?.notAfterDate?.split(" ")[0] ?? null;
+      await db.update(bsreUsers)
+        .set({ certStart, certEnd })
+        .where(eq(bsreUsers.id, row.id));
+      updated++;
+    }
+    return { success: true, total: all.length, updated };
+  }
+);
+
 type StatsFilter = {
   status?: string;
   certificateStatus?: string;
