@@ -143,8 +143,14 @@ export const saveData = form('unchecked', async (formData: any) => {
 
   for (const [key, value] of Object.entries(formData)) {
     if (reserved.has(key)) continue;
-    if (value instanceof File && value.size > 0) {
-      files[key] = value;
+    // Duck-type file detection: works with both native File and SvelteKit's LazyFile proxy
+    const v = value as any;
+    const isFile = value instanceof File ||
+      (v && typeof v === 'object' && typeof v.name === 'string' &&
+       typeof v.size === 'number' && v.size > 0 &&
+       typeof v.arrayBuffer === 'function');
+    if (isFile) {
+      files[key] = v as File;
     } else if (typeof value === 'string' && value.trim() !== '') {
       // Try parsing JSON arrays/objects (from Select hidden inputs)
       if (value.startsWith('[') || value.startsWith('{')) {
