@@ -5,6 +5,7 @@
     saveData,
     type GetParams,
   } from "$lib/remotes/api.remote";
+  import { impersonate } from "$lib/remotes/user.remote";
   import { Modal, Toolbar, Select } from "$lib/components";
   import { d } from "$lib/utils";
 
@@ -38,20 +39,33 @@
   function startEdit(item: any) {
     forms.edit = JSON.parse(JSON.stringify(item));
   }
+
+  async function handleImpersonate(email: string) {
+    try {
+      const result = await impersonate(email);
+      if (result?.token) {
+        document.cookie = `impersonate-token=${result.token}; path=/; max-age=3600`;
+        window.location.href = "/";
+      }
+    } catch (e) {
+      console.error("Impersonate failed:", e);
+    }
+  }
 </script>
 
 <Modal bind:data={forms.del} title="Delete Data">
   <form
-    {...delData.enhance(async ({ form, data, submit }) => {
+    {...delData.enhance(async (form) => {
       try {
-        await submit();
+        await form.submit();
         forms.del = false;
+        records.refresh();
       } catch (e) {
         console.error(e);
       }
     })}
   >
-    <input type="hidden" name="table" value="documents" />
+    <input type="hidden" name="table" value="users" />
     <p class="sticky top-0 bg-base-100 py-2">
       Apakah Anda yakin ingin menghapus data ini?
     </p>
@@ -306,13 +320,24 @@
                   {d(item.updated).format("HH:mm, DD MMM YYYY")}
                 </td>
                 <td>
-                  <button
-                    class="btn btn-xs btn-ghost btn-square"
-                    onclick={() => startEdit(item)}
-                    aria-label="Edit Pengguna"
-                  >
-                    <iconify-icon icon="bx:edit"></iconify-icon>
-                  </button>
+                  <div class="flex gap-0.5">
+                    <button
+                      class="btn btn-xs btn-ghost btn-square"
+                      onclick={() => startEdit(item)}
+                      aria-label="Edit Pengguna"
+                    >
+                      <iconify-icon icon="bx:edit"></iconify-icon>
+                    </button>
+                    <button
+                      class="btn btn-xs btn-ghost btn-square text-primary"
+                      onclick={() =>
+                        item.email && handleImpersonate(item.email)}
+                      aria-label="Impersonate"
+                      title="Masuk sebagai {item.email ?? ''}"
+                    >
+                      <iconify-icon icon="bx:user-voice"></iconify-icon>
+                    </button>
+                  </div>
                 </td>
               </tr>
             {/each}

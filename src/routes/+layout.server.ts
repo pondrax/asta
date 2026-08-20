@@ -8,6 +8,7 @@ export async function load({ locals, url }) {
 
   return {
     user: locals.user,
+    impersonated: locals.impersonated === true,
     baseURL: url.origin,
     baseURLSSO: `${env.OPENID_BASE_URL}/realms/${env.OPENID_REALM}`
   };

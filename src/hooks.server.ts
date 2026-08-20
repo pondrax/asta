@@ -16,7 +16,9 @@ const handleParaglide: Handle = ({ event, resolve }) => paraglideMiddleware(even
 
 
 export const handleAuth: Handle = async ({ event, resolve }) => {
-  const token = event.cookies.get('auth-token');
+  // Impersonate-token takes priority — original auth-token stays for reverting
+  const impersonateToken = event.cookies.get('impersonate-token');
+  const token = impersonateToken || event.cookies.get('auth-token');
 
   if (token) {
     try {
@@ -32,6 +34,8 @@ export const handleAuth: Handle = async ({ event, resolve }) => {
         },
       });
 
+      event.locals.impersonated = !!impersonateToken;
+
       if (event.url.pathname.startsWith('/main')) {
         if (event.locals.user?.role.name !== 'admin') {
           return error(403, 'Forbidden. Anda tidak memiliki akses ke halaman ini');
@@ -39,6 +43,7 @@ export const handleAuth: Handle = async ({ event, resolve }) => {
       }
     } catch {
       event.cookies.delete('auth-token', { path: '/' });
+      if (impersonateToken) event.cookies.delete('impersonate-token', { path: '/' });
     }
   } else {
     if (event.url.pathname.startsWith('/main')) {

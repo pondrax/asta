@@ -201,10 +201,21 @@
         {#if user}
           <div class="dropdown dropdown-end">
             <div tabindex="0" role="button" class="btn btn-ghost">
-              <div class="avatar rounded-full bg-secondary w-12 -ml-6">
-                <img src="/ava.svg" alt={user.email} />
+              <div class="indicator">
+                {#if data.impersonated}
+                  <span class="indicator-item badge badge-warning badge-xs mt-1"
+                    >impersonate</span
+                  >
+                {/if}
+                <div class="avatar rounded-full bg-secondary w-12 -ml-6">
+                  <img src="/ava.svg" alt={user.email} />
+                </div>
               </div>
-              <div>{user.email?.split("@")[0]}</div>
+              <div>
+                <div>
+                  {user.email?.split("@")[0]}
+                </div>
+              </div>
             </div>
             <ul
               tabindex="-1"
@@ -245,6 +256,21 @@
                   Account
                 </a>
               </li>
+              {#if data.impersonated}
+                <li></li>
+                <li>
+                  <button
+                    onclick={() => {
+                      document.cookie = "impersonate-token=; path=/; max-age=0";
+                      window.location.href = "/main/users";
+                    }}
+                  >
+                    <iconify-icon icon="bx:exit-fullscreen" class="mr-2"
+                    ></iconify-icon>
+                    Kembali ke Admin
+                  </button>
+                </li>
+              {/if}
               <li></li>
               <li>
                 <a href="/auth/logout">
