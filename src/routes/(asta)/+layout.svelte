@@ -431,24 +431,6 @@
                   </li>
                   <li>
                     <a
-                      href="/me/documents"
-                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
-                        .url.pathname === '/me/documents'
-                        ? 'text-primary font-bold bg-primary/5'
-                        : 'text-base-content/75'}"
-                    >
-                      <iconify-icon
-                        icon="bx:chevron-right"
-                        class="text-xs transition-all {page.url.pathname ===
-                        '/me/documents'
-                          ? 'text-primary opacity-100'
-                          : 'opacity-40 group-hover:opacity-100'}"
-                      ></iconify-icon>
-                      <span>Draft & Antrean TTE</span>
-                    </a>
-                  </li>
-                  <li>
-                    <a
                       href="/templates"
                       class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
                         .url.pathname === '/templates'
@@ -695,24 +677,6 @@
                       <span>Dokumen Saya</span>
                     </a>
                   </li>
-                  <li>
-                    <a
-                      href="/templates"
-                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
-                        .url.pathname === '/templates'
-                        ? 'text-primary font-bold bg-primary/5'
-                        : 'text-base-content/75'}"
-                    >
-                      <iconify-icon
-                        icon="bx:chevron-right"
-                        class="text-xs transition-all {page.url.pathname ===
-                        '/templates'
-                          ? 'text-primary opacity-100'
-                          : 'opacity-40 group-hover:opacity-100'}"
-                      ></iconify-icon>
-                      <span>Template</span>
-                    </a>
-                  </li>
                 </ul>
               </div>
               <div>
@@ -755,7 +719,7 @@
                           ? 'text-primary opacity-100'
                           : 'opacity-40 group-hover:opacity-100'}"
                       ></iconify-icon>
-                      <span>Template</span>
+                      <span>Kelola Template</span>
                     </a>
                   </li>
                 </ul>
@@ -804,24 +768,6 @@
                           : 'opacity-40 group-hover:opacity-100'}"
                       ></iconify-icon>
                       <span>Dashboard Utama</span>
-                    </a>
-                  </li>
-                  <li>
-                    <a
-                      href="/me/templates"
-                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
-                        .url.pathname === '/me/templates'
-                        ? 'text-primary font-bold bg-primary/5'
-                        : 'text-base-content/75'}"
-                    >
-                      <iconify-icon
-                        icon="bx:chevron-right"
-                        class="text-xs transition-all {page.url.pathname ===
-                        '/me/templates'
-                          ? 'text-primary opacity-100'
-                          : 'opacity-40 group-hover:opacity-100'}"
-                      ></iconify-icon>
-                      <span>Kelola Template</span>
                     </a>
                   </li>
                   <li>

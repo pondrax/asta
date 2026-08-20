@@ -1,6 +1,9 @@
 import { form, getRequestEvent, query } from "$app/server";
 import { db } from "$lib/server/db";
-import { inArray, type BuildQueryResult, type DBQueryConfig } from "drizzle-orm";
+import { eq, inArray, type BuildQueryResult, type DBQueryConfig } from "drizzle-orm";
+import { FileStorage } from "$lib/server/storage";
+
+const storage = new FileStorage;
 import type { relations } from "$lib/server/db/relations";
 
 export type Tables = typeof db.query;
@@ -124,14 +127,75 @@ export const delData = form('unchecked', async ({ table, id }: { table: keyof Ta
   });
 })
 
-export const saveData = form('unchecked', async ({ table, id }: { table: keyof Tables, id: string[] }) => {
-  if (!id || !table) return;
-  const time = performance.now();
-  const schemaTable = db._.relations[table].table;
-  // await delay(10000)
-  const data = await db.update(schemaTable).set({}).where(inArray(schemaTable.id, id));
+export const saveData = form('unchecked', async (formData: any) => {
+  const table = formData.table as keyof Tables;
+  const id = formData.id as string | undefined;
 
-  Object.assign(data, {
+  if (!table) return;
+
+  const time = performance.now();
+  const schemaTable = (db._ as any).relations[table].table;
+
+  // Build data from named form fields, skipping reserved keys
+  const reserved = new Set(['table', 'id']);
+  const flat: Record<string, any> = {};
+  const files: Record<string, File> = {};
+
+  for (const [key, value] of Object.entries(formData)) {
+    if (reserved.has(key)) continue;
+    if (value instanceof File && value.size > 0) {
+      files[key] = value;
+    } else if (typeof value === 'string' && value.trim() !== '') {
+      // Try parsing JSON arrays/objects (from Select hidden inputs)
+      if (value.startsWith('[') || value.startsWith('{')) {
+        try { flat[key] = JSON.parse(value); } catch { flat[key] = value; }
+      } else if (value === 'true') {
+        flat[key] = true;
+      } else if (value === 'false') {
+        flat[key] = false;
+      } else {
+        flat[key] = value;
+      }
+    }
+  }
+
+  // Save all files
+  for (const [key, file] of Object.entries(files)) {
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const result = await storage.save(`${table}/${key}/${file.name}`, buffer);
+    if (result.success) {
+      flat[key] = result.url;
+    }
+  }
+
+  // Reconstruct nested objects from dot-notation keys (e.g. properties.description)
+  const data: Record<string, any> = {};
+  for (const [key, value] of Object.entries(flat)) {
+    const parts = key.split('.');
+    if (parts.length === 1) {
+      data[key] = value;
+    } else {
+      let current = data;
+      for (let i = 0; i < parts.length - 1; i++) {
+        if (!(parts[i] in current) || typeof current[parts[i]] !== 'object') {
+          current[parts[i]] = {};
+        }
+        current = current[parts[i]];
+      }
+      current[parts[parts.length - 1]] = value;
+    }
+  }
+
+  if (!Object.keys(data).length) return { success: false, message: 'No data to save' };
+
+  let result;
+  if (id) {
+    result = await db.update(schemaTable).set(data).where(inArray(schemaTable.id, [id]));
+  } else {
+    result = await db.insert(schemaTable).values(data);
+  }
+
+  return Object.assign(result, {
     time: `${(performance.now() - time).toFixed(2)}ms`
   });
 })

@@ -263,10 +263,22 @@ export const getDocument = query(type({
 })
 
 export const getTemplates = query(type({ id: 'string?' }), async ({ id }) => {
+  const event = getRequestEvent();
+  const user = event.locals.user;
+  const orgId = user?.organization_id;
+
   const templates = await db.query.templates.findMany({
     where: {
-      id
+      id,
+      status: true,
     }
   });
-  return templates;
+
+  if (!orgId) return templates;
+
+  // Show templates that have no org restriction or include user's org
+  return templates.filter(t => {
+    const orgs = t.organization_id;
+    return !orgs || orgs.length === 0 || orgs.includes(orgId);
+  });
 })

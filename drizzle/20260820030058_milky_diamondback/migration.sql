@@ -1,0 +1,1 @@
+ALTER TABLE "templates" ADD COLUMN "status" boolean DEFAULT true;

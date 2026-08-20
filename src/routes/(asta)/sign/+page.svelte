@@ -320,7 +320,7 @@
 
     bsre = item.properties.type == "bsre";
     form.note = item.properties.description || "Tanda Tangan Elektronik";
-    form.to = item.properties.to || null;
+    form.to = item.to || null;
     form.footer = true;
     activeIndex = docId;
     forms.template = undefined;

@@ -28,6 +28,7 @@ export const handleAuth: Handle = async ({ event, resolve }) => {
         },
         with: {
           role: true,
+          organization: true,
         },
       });
 

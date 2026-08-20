@@ -63,7 +63,7 @@
 {#if data}
   <dialog bind:this={el} class="modal modal-open">
     <div
-      class="modal-box relative w-11/12 flex flex-col"
+      class="modal-box relative w-11/12 flex flex-col overflow-visible"
       class:max-w-md={size == "sm"}
       class:max-w-xl={size == "md"}
       class:max-w-2xl={size == "lg"}
@@ -83,7 +83,7 @@
         </form>
       {/if}
       <h3 class="text-lg font-bold sticky">{title}</h3>
-      <div class="flex-1 overflow-y-auto p-1">
+      <div class="flex-1 px-1 py-2">
         {@render children?.(data)}
       </div>
       <div class="modal-action mt-0 justify-start p-0">

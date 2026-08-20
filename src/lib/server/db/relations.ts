@@ -14,6 +14,10 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.users.role_id,
       to: r.roles.id
     }),
+    organization: r.one.organizations({
+      from: r.users.organization_id,
+      to: r.organizations.id
+    }),
     posts: r.many.posts({
       from: r.users.id,
       to: r.posts.user_id

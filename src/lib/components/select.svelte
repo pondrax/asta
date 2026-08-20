@@ -40,6 +40,7 @@
     onSelect?: (option: Item) => void;
     children?: Snippet<[Item]>;
     selected?: Snippet<[Item]>;
+    mapOptions?: (options: Item[]) => Item[];
   };
 
   let {
@@ -65,6 +66,7 @@
     onSelect,
     children,
     selected,
+    mapOptions,
   }: Props = $props();
 
   let isOpen = $state(false);
@@ -93,9 +95,18 @@
   }
 
   let displayOptions = $derived(
-    (table && table !== "local" ? remoteOptions : options).filter((opt) =>
+    (mapOptions
+      ? mapOptions(table && table !== "local" ? remoteOptions : options)
+      : table && table !== "local"
+        ? remoteOptions
+        : options
+    ).filter((opt) =>
       getLabel(opt).toLowerCase().includes(searchQuery.toLowerCase()),
     ),
+  );
+
+  let displayObjects = $derived(
+    mapOptions && Array.isArray(object) ? mapOptions(object as Item[]) : object,
   );
 
   function isSelected(opt: Item): boolean {
@@ -184,7 +195,48 @@
         }
       } else {
         // Remote sync: if we have a value but no corresponding object (or wrong object)
-        if (!currentMultiple && currentValue != null) {
+        if (
+          currentMultiple &&
+          Array.isArray(currentValue) &&
+          currentValue.length > 0
+        ) {
+          const currentObjects = Array.isArray(object) ? object : [];
+          const mismatch =
+            currentObjects.length !== currentValue.length ||
+            !currentValue.every((v: any) =>
+              currentObjects.some((o: any) => getValue(o) === v),
+            );
+          if (mismatch) {
+            isLoading = true;
+            try {
+              const queryKey =
+                lookupKey || (typeof valueKey === "string" ? valueKey : "id");
+              const result = await getData({
+                table: currentTable as TableName,
+                where: { [queryKey]: { in: currentValue } },
+                limit: currentValue.length,
+                offset: 0,
+                ...params,
+              });
+              if (result.data) {
+                object = result.data as Item[];
+                for (const item of result.data as Item[]) {
+                  if (
+                    !remoteOptions.find(
+                      (o: any) => getValue(o) === getValue(item),
+                    )
+                  ) {
+                    remoteOptions = [...remoteOptions, item as Item];
+                  }
+                }
+              }
+            } catch (error) {
+              console.error("Failed to sync remote Select values:", error);
+            } finally {
+              isLoading = false;
+            }
+          }
+        } else if (!currentMultiple && currentValue != null) {
           const currentBoundVal = object ? getValue(object as Item) : null;
           if (currentBoundVal !== currentValue) {
             // Check if it's already in our fetched options
@@ -424,19 +476,23 @@
     onfocusin={handleFocus}
     onkeydown={handleKeydown}
   >
-    <div class="flex {multiple ? 'flex-wrap' : 'min-w-0 overflow-hidden'} gap-1.5 items-center">
-      {#if multiple && Array.isArray(object) && object.length > 0}
+    <div
+      class="flex {multiple
+        ? 'flex-wrap'
+        : 'min-w-0 overflow-hidden'} gap-1.5 items-center"
+    >
+      {#if multiple && Array.isArray(displayObjects) && displayObjects.length > 0}
         {#if collapse}
           <div class="flex items-center gap-2 px-1 text-nowrap">
             <div class="badge badge-primary font-bold">
-              {object.length}
+              {displayObjects.length}
             </div>
             <span class="text-sm font-medium text-base-content/70">
-              {object.length === 1 ? "item" : "items"} selected
+              {displayObjects.length === 1 ? "item" : "items"} selected
             </span>
           </div>
         {:else}
-          {#each object as item (getValue(item))}
+          {#each displayObjects as item (getValue(item))}
             <div
               class="badge badge-primary gap-1 pl-2 pr-1 h-7 animate-in fade-in zoom-in duration-200"
               role="presentation"

@@ -1,0 +1,2 @@
+ALTER TABLE "templates" ADD COLUMN "organization_id" text;--> statement-breakpoint
+ALTER TABLE "templates" ADD CONSTRAINT "templates_organization_id_organizations_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id");

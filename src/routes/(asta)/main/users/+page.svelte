@@ -1,11 +1,17 @@
 <script lang="ts">
-  import { delData, getData, type GetParams } from "$lib/remotes/api.remote";
-  import { Modal, Toolbar } from "$lib/components";
+  import {
+    delData,
+    getData,
+    saveData,
+    type GetParams,
+  } from "$lib/remotes/api.remote";
+  import { Modal, Toolbar, Select } from "$lib/components";
   import { d } from "$lib/utils";
 
   const expand = {
     with: {
       role: {},
+      organization: {},
     },
   };
   let query: GetParams<"users"> = $state({
@@ -28,6 +34,10 @@
       selections = [];
     }
   });
+
+  function startEdit(item: any) {
+    forms.edit = JSON.parse(JSON.stringify(item));
+  }
 </script>
 
 <Modal bind:data={forms.del} title="Delete Data">
@@ -67,6 +77,69 @@
       </button>
     </div>
   </form>
+</Modal>
+
+<Modal bind:data={forms.edit} title="Edit Pengguna" size="lg">
+  {#snippet children(item)}
+    <form
+      {...saveData.enhance(async (form) => {
+        try {
+          await form.submit();
+          forms.edit = false;
+          records.refresh();
+        } catch (e) {
+          console.error(e);
+        }
+      })}
+      class="space-y-4"
+    >
+      <input type="hidden" name="table" value="users" />
+      <input type="hidden" name="id" value={item.id} />
+      <label class="floating-label">
+        <span>Email</span>
+        <input
+          type="email"
+          class="input input-sm"
+          value={item.email}
+          readonly
+        />
+      </label>
+      <Select
+        table="organizations"
+        params={{ limit: 100, offset: 0 }}
+        labelKey="name"
+        valueKey="id"
+        bind:value={item.organization_id}
+        name="organization_id"
+        label="Organisasi"
+        placeholder="Pilih organisasi..."
+        inputClass="input-sm"
+        mapOptions={(opts) =>
+          opts.map((opt) =>
+            opt.name === "-" ? { ...opt, name: "Semua Perangkat Daerah" } : opt,
+          )}
+      />
+      <div class="flex justify-end gap-2 pt-2 border-t border-base-200">
+        <button
+          type="button"
+          class="btn btn-sm btn-ghost"
+          onclick={() => (forms.edit = false)}>Batal</button
+        >
+        <button
+          type="submit"
+          class="btn btn-sm btn-primary"
+          disabled={!!saveData.pending}
+        >
+          {#if saveData.pending}
+            <span class="loading loading-spinner loading-xs"></span>
+          {:else}
+            <iconify-icon icon="bx:save" class="text-sm"></iconify-icon>
+          {/if}
+          Simpan
+        </button>
+      </div>
+    </form>
+  {/snippet}
 </Modal>
 
 <div class="px-6 py-4 space-y-3 mx-auto">
@@ -149,14 +222,16 @@
             </th>
             <th class="min-w-64">Email</th>
             <th class="w-32">Role</th>
+            <th class="w-44">Organisasi</th>
             <th class="w-44">Dibuat</th>
             <th class="w-44">Diperbarui</th>
+            <th class="w-20"></th>
           </tr>
         </thead>
         <tbody>
           {#if records.loading}
             <tr>
-              <td colspan="5" class="py-12 text-center">
+              <td colspan="6" class="py-12 text-center">
                 <div class="flex flex-col items-center justify-center gap-2">
                   <span class="loading loading-spinner loading-md text-primary"
                   ></span>
@@ -168,7 +243,7 @@
             </tr>
           {:else if records.error}
             <tr>
-              <td colspan="5" class="py-12 text-center">
+              <td colspan="6" class="py-12 text-center">
                 <div
                   class="flex flex-col items-center justify-center gap-3 text-error"
                 >
@@ -188,7 +263,7 @@
             </tr>
           {:else if !items.data?.length}
             <tr>
-              <td colspan="5" class="py-12 text-center">
+              <td colspan="6" class="py-12 text-center">
                 <div
                   class="flex flex-col items-center justify-center gap-2 opacity-40"
                 >
@@ -221,11 +296,23 @@
                     {item.role?.name ?? "-"}
                   </span>
                 </td>
+                <td class="text-xs">
+                  {item.organization?.name ?? "-"}
+                </td>
                 <td class="text-xs opacity-60 whitespace-nowrap">
                   {d(item.created).format("HH:mm, DD MMM YYYY")}
                 </td>
                 <td class="text-xs opacity-60 whitespace-nowrap">
                   {d(item.updated).format("HH:mm, DD MMM YYYY")}
+                </td>
+                <td>
+                  <button
+                    class="btn btn-xs btn-ghost btn-square"
+                    onclick={() => startEdit(item)}
+                    aria-label="Edit Pengguna"
+                  >
+                    <iconify-icon icon="bx:edit"></iconify-icon>
+                  </button>
                 </td>
               </tr>
             {/each}

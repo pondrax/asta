@@ -16,6 +16,7 @@ export const users = pgTable('users', {
   email: text('email').unique(),
   password: text('password'),
   role_id: text('role_id').references(() => roles.id).default('member'),
+  organization_id: text('organization_id').references(() => organizations.id),
   created,
   updated,
 });
@@ -83,10 +84,12 @@ export const templates = pgTable('templates', {
   id,
   name: text('name').unique(),
   file: text('file'),
+  status: boolean('status').default(true),
+  organization_id: json('organization_id').$type<string[]>(),
+  to: json('to').$type<string[]>(),
   properties: json('properties').$type<{
     description: string;
     type: string;
-    to?: string[]
   }>(),
   created,
   updated,

@@ -1,6 +1,11 @@
 <script lang="ts">
-  import { delData, getData, type GetParams } from "$lib/remotes/api.remote";
-  import { Modal, Toolbar } from "$lib/components";
+  import {
+    delData,
+    getData,
+    saveData,
+    type GetParams,
+  } from "$lib/remotes/api.remote";
+  import { Modal, Toolbar, Select } from "$lib/components";
   import { d } from "$lib/utils";
 
   let query: GetParams<"templates"> = $state({
@@ -9,6 +14,18 @@
     offset: 0,
     where: {},
   });
+  const roleMap = Object.fromEntries(
+    (
+      getData({ table: "roles", limit: 100, offset: 0 }).current?.data ?? []
+    ).map((r: any) => [r.id, r.name]),
+  );
+  const orgMap = Object.fromEntries(
+    (
+      getData({ table: "organizations", limit: 100, offset: 0 }).current
+        ?.data ?? []
+    ).map((o: any) => [o.id, o.name]),
+  );
+
   const records = $derived(getData({ ...query }));
   const items = $derived(records.current ?? { data: [], count: 0 });
   const forms: Record<string, any> = $state({});
@@ -23,17 +40,24 @@
     }
   });
 
-  let editItem = $state<any>(null);
-  let editForm = $state<any>({});
+  let templateFile = $state<File | null>(null);
+  let previewFile = $state<string | null>(null);
 
-  function openEdit(item: any) {
-    editItem = item;
-    editForm = {
-      name: item.name,
-      description: item.properties?.description || "",
-      type: item.properties?.type || "bsre",
+  function startEdit(item: any) {
+    templateFile = null;
+    forms.edit = JSON.parse(JSON.stringify(item));
+    if (!forms.edit.properties) forms.edit.properties = {};
+  }
+
+  function startCreate() {
+    templateFile = null;
+    forms.edit = {
+      name: "",
+      status: true,
+      properties: { description: "", type: "bsre" },
+      to: [],
+      organization_id: [],
     };
-    forms.edit = true;
   }
 </script>
 
@@ -97,74 +121,178 @@
   </form>
 </Modal>
 
-<Modal bind:data={forms.edit} title="Detail Template" size="lg">
-  {#if editItem}
-    <div class="space-y-4">
+<Modal
+  bind:data={forms.edit}
+  title={forms.edit?.id ? "Edit Template" : "Tambah Template"}
+  size="lg"
+>
+  {#snippet children(item)}
+    <form
+      {...saveData.enhance(async (form) => {
+        try {
+          const data = await form.submit();
+          forms.edit = false;
+          templateFile = null;
+          records.refresh();
+          console.log(data);
+        } catch (e) {
+          console.error(e);
+        }
+      })}
+      class="space-y-4"
+      enctype="multipart/form-data"
+    >
+      <input type="hidden" name="table" value="templates" />
+      {#if item?.id}
+        <input type="hidden" name="id" value={item.id} />
+      {/if}
+      <input type="hidden" name="name" value={item.name} />
+      <input
+        type="hidden"
+        name="properties.description"
+        value={item.properties?.description}
+      />
+      <input
+        type="hidden"
+        name="properties.type"
+        value={item.properties?.type}
+      />
+      <input
+        type="hidden"
+        name="status"
+        value={item.status ? "true" : "false"}
+      />
       <div class="grid grid-cols-2 gap-4">
         <label class="floating-label">
           <span>Nama</span>
-          <input
-            type="text"
-            class="input"
-            value={editForm.name}
-            readonly
-          />
+          <input type="text" class="input input-sm" bind:value={item.name} />
         </label>
         <label class="floating-label">
           <span>Tipe</span>
-          <input
-            type="text"
-            class="input"
-            value={editForm.type === "bsre" ? "Tanda Tangan Elektronik" : "Tanda Tangan Manual"}
-            readonly
-          />
+          <select class="select select-sm" bind:value={item.properties.type}>
+            <option value="bsre">Tanda Tangan Elektronik</option>
+            <option value="manual">Tanda Tangan Manual</option>
+          </select>
         </label>
       </div>
-      <label class="floating-label">
-        <span>Deskripsi</span>
+      <label class="flex items-center gap-2 cursor-pointer">
         <input
-          type="text"
-          class="input"
-          value={editForm.description}
-          readonly
+          type="checkbox"
+          class="toggle toggle-sm toggle-primary"
+          checked={item.status}
+          onchange={(e) =>
+            (item.status = (e.target as HTMLInputElement).checked)}
         />
+        <span class="text-sm">{item.status ? "Aktif" : "Nonaktif"}</span>
       </label>
-      <div>
-        <div class="text-xs font-bold opacity-70 mb-1">File</div>
-        {#if editItem.file}
-          <div class="flex items-center gap-2">
-            <a
-              href={editItem.file}
-              target="_blank"
-              class="btn btn-xs btn-primary"
-            >
-              <iconify-icon icon="bx:link-external" class="text-sm"></iconify-icon>
-              Lihat File
-            </a>
-            <span class="text-xs opacity-50 font-mono truncate max-w-xs">
-              {editItem.file.split("/").pop()}
-            </span>
-          </div>
-        {:else}
-          <span class="text-xs opacity-50 italic">Tidak ada file</span>
+      {#if item.file && !templateFile}
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="btn btn-xs btn-primary"
+            onclick={() => (previewFile = item.file)}
+          >
+            <iconify-icon icon="bx:link-external" class="text-sm"
+            ></iconify-icon>
+            Lihat File
+          </button>
+          <span class="text-xs opacity-50 font-mono truncate max-w-xs">
+            {item.file.split("/").pop()}
+          </span>
+        </div>
+      {/if}
+      <div class="flex items-center gap-2">
+        <input
+          type="file"
+          name="file"
+          class="file-input file-input-sm file-input-bordered w-full"
+          accept=".pdf"
+          onchange={(e) => {
+            const f = (e.target as HTMLInputElement).files?.[0];
+            if (f) templateFile = f;
+          }}
+        />
+        {#if templateFile}
+          <button
+            type="button"
+            class="btn btn-xs btn-ghost"
+            onclick={() => (templateFile = null)}
+            aria-label="Hapus file"
+          >
+            <iconify-icon icon="bx:x"></iconify-icon>
+          </button>
         {/if}
       </div>
-      {#if editItem.properties?.to?.length}
-        <div>
-          <div class="text-xs font-bold opacity-70 mb-1">Ditujukan Untuk</div>
-          <div class="flex flex-wrap gap-1">
-            {#each editItem.properties.to as role}
-              <span class="badge badge-sm badge-outline">{role}</span>
-            {/each}
+      {#if templateFile}
+        <span class="text-xs opacity-60">File baru: {templateFile.name}</span>
+      {/if}
+      <Select
+        table="roles"
+        params={{ limit: 100, offset: 0 }}
+        labelKey="name"
+        valueKey="id"
+        multiple
+        bind:value={item.to}
+        name="to"
+        label="Ditujukan Untuk"
+        placeholder="Pilih roles..."
+        inputClass="input-sm"
+      />
+      <Select
+        table="organizations"
+        params={{ limit: 100, offset: 0 }}
+        labelKey="name"
+        valueKey="id"
+        multiple
+        bind:value={item.organization_id}
+        name="organization_id"
+        label="Organisasi"
+        placeholder="Pilih organisasi..."
+        inputClass="input-sm"
+        mapOptions={(opts) =>
+          opts.map((opt) =>
+            opt.name === "-" ? { ...opt, name: "Semua Perangkat Daerah" } : opt,
+          )}
+      />
+      <label class="floating-label">
+        <span>Deskripsi</span>
+        <textarea
+          class="textarea textarea-sm w-full"
+          bind:value={item.properties.description}
+        ></textarea>
+      </label>
+
+      {#if item?.id}
+        <div class="grid grid-cols-2 gap-4 text-xs opacity-60">
+          <div>
+            Dibuat: {d(item.created).format("DD MMM YYYY HH:mm")}
+          </div>
+          <div>
+            Diperbarui: {d(item.updated).format("DD MMM YYYY HH:mm")}
           </div>
         </div>
       {/if}
-      <div class="grid grid-cols-2 gap-4 text-xs opacity-60">
-        <div>Dibuat: {d(editItem.created).format("DD MMM YYYY HH:mm")}</div>
-        <div>Diperbarui: {d(editItem.updated).format("DD MMM YYYY HH:mm")}</div>
+      <div class="flex justify-end gap-2 pt-2 border-t border-base-200">
+        <button
+          type="button"
+          class="btn btn-sm btn-ghost"
+          onclick={() => (forms.edit = false)}>Batal</button
+        >
+        <button
+          type="submit"
+          class="btn btn-sm btn-primary"
+          disabled={!!saveData.pending}
+        >
+          {#if saveData.pending}
+            <span class="loading loading-spinner loading-xs"></span>
+          {:else}
+            <iconify-icon icon="bx:save" class="text-sm"></iconify-icon>
+          {/if}
+          Simpan
+        </button>
       </div>
-    </div>
-  {/if}
+    </form>
+  {/snippet}
 </Modal>
 
 <div class="px-6 py-4 space-y-3 mx-auto">
@@ -179,6 +307,13 @@
         Kelola template dokumen untuk proses penandatanganan
       </p>
     </div>
+    <button
+      class="btn btn-sm btn-primary gap-1.5"
+      onclick={() => startCreate()}
+    >
+      <iconify-icon icon="bx:plus" class="text-sm"></iconify-icon>
+      Tambah Template
+    </button>
   </div>
 
   <div
@@ -207,11 +342,11 @@
       {/if}
       {#snippet filter(where)}
         <div class="form-control w-full max-w-xs">
-          <label class="label py-1">
+          <div class="label py-1">
             <span class="label-text font-bold text-xs opacity-75"
               >Cari Nama</span
             >
-          </label>
+          </div>
           <input
             bind:value={where.name}
             class="input input-sm input-bordered"
@@ -246,15 +381,19 @@
             <th class="min-w-48">Nama</th>
             <th class="min-w-48">Deskripsi</th>
             <th class="w-44">Tipe</th>
+            <th class="w-28">Status</th>
+            <th class="w-44">File</th>
+            <th class="w-44">Ditujukan Untuk</th>
+            <th class="w-44">Organisasi</th>
             <th class="w-44">Dibuat</th>
             <th class="w-44">Diperbarui</th>
-            <th class="w-20"></th>
+            <th class="w-20 sticky right-0 bg-base-100"></th>
           </tr>
         </thead>
         <tbody>
           {#if records.loading}
             <tr>
-              <td colspan="7" class="py-12 text-center">
+              <td colspan="8" class="py-12 text-center">
                 <div class="flex flex-col items-center justify-center gap-2">
                   <span class="loading loading-spinner loading-md text-primary"
                   ></span>
@@ -266,7 +405,7 @@
             </tr>
           {:else if records.error}
             <tr>
-              <td colspan="7" class="py-12 text-center">
+              <td colspan="8" class="py-12 text-center">
                 <div
                   class="flex flex-col items-center justify-center gap-3 text-error"
                 >
@@ -286,12 +425,11 @@
             </tr>
           {:else if !items.data?.length}
             <tr>
-              <td colspan="7" class="py-12 text-center">
+              <td colspan="8" class="py-12 text-center">
                 <div
                   class="flex flex-col items-center justify-center gap-2 opacity-40"
                 >
-                  <iconify-icon icon="bx:file" class="text-3xl"
-                  ></iconify-icon>
+                  <iconify-icon icon="bx:file" class="text-3xl"></iconify-icon>
                   <span class="text-sm font-medium"
                     >Tidak ada data template</span
                   >
@@ -322,16 +460,57 @@
                     {item.properties?.type === "bsre" ? "TTE" : "Manual"}
                   </span>
                 </td>
+                <td>
+                  <span
+                    class="badge badge-sm {item.status !== false
+                      ? 'badge-success'
+                      : 'badge-ghost'}"
+                  >
+                    {item.status !== false ? "Aktif" : "Nonaktif"}
+                  </span>
+                </td>
+                <td class="text-xs">
+                  {#if item.file}
+                    <button
+                      type="button"
+                      class="link link-primary link-hover truncate block max-w-[10rem] text-left"
+                      onclick={() => (previewFile = item.file)}
+                    >
+                      {item.file.split("/").pop()}
+                    </button>
+                  {:else}
+                    <span class="opacity-40">-</span>
+                  {/if}
+                </td>
+                <td class="text-xs">
+                  {#if item.to?.length}
+                    {item.to.map((id: string) => roleMap[id] || id).join(", ")}
+                  {:else}
+                    <span class="opacity-40 italic">-</span>
+                  {/if}
+                </td>
+                <td class="text-xs">
+                  {#if item.organization_id?.length}
+                    {item.organization_id
+                      .map((id: string) =>
+                        id === "---"
+                          ? "Semua Perangkat Daerah"
+                          : orgMap[id] || id,
+                      )
+                      .join(", ")}
+                  {/if}
+                </td>
                 <td class="text-xs opacity-60 whitespace-nowrap">
                   {d(item.created).format("HH:mm, DD MMM YYYY")}
                 </td>
                 <td class="text-xs opacity-60 whitespace-nowrap">
                   {d(item.updated).format("HH:mm, DD MMM YYYY")}
                 </td>
-                <td>
+                <td class="sticky right-0 bg-base-100">
                   <button
                     class="btn btn-xs btn-ghost btn-square"
-                    onclick={() => openEdit(item)}
+                    onclick={() => startEdit(item)}
+                    aria-label="Ubah Template"
                   >
                     <iconify-icon icon="bx:info-circle"></iconify-icon>
                   </button>
@@ -344,3 +523,13 @@
     </div>
   </div>
 </div>
+
+<Modal bind:data={previewFile} title="Preview File" size="xl">
+  {#snippet children(url)}
+    <iframe
+      src={url}
+      class="w-full h-[70vh] rounded-lg border border-base-300"
+      title="Preview"
+    ></iframe>
+  {/snippet}
+</Modal>

@@ -9,10 +9,10 @@ export async function GET({ params }) {
     const storage = new FileStorage();
     const arrayBuffer = await storage.read(params.uri);
 
-    // Determine content type (you might want to store this info when saving)
-    const extension = params.uri.split('.').pop()?.toLowerCase();
+    // Determine content type from the original extension (before .enc suffix)
+    const originalName = params.uri.split('/').pop()?.replace(/\.[a-z0-9]{4}\.enc$/, '').replace(/\.enc$/, '') || '';
+    const extension = originalName.split('.').pop()?.toLowerCase() || params.uri.split('.').shift()?.toLowerCase();
     const contentType = getContentType(extension);
-    // console.log(extension, contentType);
 
     const cleanName = params.uri.split('/').pop()?.replace(/\.[a-z0-9]{4}\.enc$/, '').replace(/\.enc$/, '') || 'document.pdf';
 
