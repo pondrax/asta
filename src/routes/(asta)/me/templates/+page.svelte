@@ -147,11 +147,6 @@
       {#if item?.id}
         <input type="hidden" name="id" value={item.id} />
       {/if}
-      <!-- <input
-        type="hidden"
-        name="status"
-        value={item.status ? "true" : "false"}
-      /> -->
       <div class="grid grid-cols-2 gap-4">
         <label class="floating-label">
           <span>Nama</span>
@@ -175,13 +170,11 @@
         </label>
       </div>
       <label class="flex items-center gap-2 cursor-pointer">
+        <input type="hidden" name="status" value={!!item.status} />
         <input
           type="checkbox"
-          name="status"
           class="toggle toggle-sm toggle-primary"
-          checked={item.status}
-          onchange={(e) =>
-            (item.status = (e.target as HTMLInputElement).checked)}
+          bind:checked={item.status}
         />
         <span class="text-sm">{item.status ? "Aktif" : "Nonaktif"}</span>
       </label>
