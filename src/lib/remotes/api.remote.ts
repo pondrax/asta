@@ -147,8 +147,8 @@ export const saveData = form('unchecked', async (formData: any) => {
     const v = value as any;
     const isFile = value instanceof File ||
       (v && typeof v === 'object' && typeof v.name === 'string' &&
-       typeof v.size === 'number' && v.size > 0 &&
-       typeof v.arrayBuffer === 'function');
+        typeof v.size === 'number' && v.size > 0 &&
+        typeof v.arrayBuffer === 'function');
     if (isFile) {
       files[key] = v as File;
     } else if (typeof value === 'string' && value.trim() !== '') {
