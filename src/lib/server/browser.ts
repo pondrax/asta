@@ -94,15 +94,23 @@ function parseOtpauthUri(uri: string): TotpConfig {
 
 function makeTotpConfig(raw: string): TotpConfig {
   const trimmed = raw.trim();
+
+  // Full otpauth:// URI — parse directly
   if (trimmed.startsWith("otpauth://")) {
     return parseOtpauthUri(trimmed);
   }
-  // Raw base32 secret (may have otpauth: prefix but not //)
+
+  // "//totp/Label?secret=..." format (missing scheme) — reconstruct full URI
+  if (trimmed.startsWith("//totp/") || trimmed.startsWith("//otp/")) {
+    return parseOtpauthUri("otpauth:" + trimmed);
+  }
+
+  // Raw base32 secret or "totp/Label?secret=..." fragment
   const cleaned = trimmed.replace(/^otpauth:/, "").replace(/^totp\/[^?]*\?/, "").trim();
-  // If it looks like it has query params, parse as URI fragment
   if (cleaned.includes("secret=")) {
     return parseOtpauthUri("otpauth://totp/?" + cleaned);
   }
+
   return {
     secret: base32Decode(cleaned || trimmed),
     digits: 6,
@@ -292,21 +300,25 @@ async function runBeIDLogin(page: Page): Promise<void> {
   const pageUrl = page.url();
   console.log("[browser] BeID page URL:", pageUrl);
 
-  // Try a broader set of selectors for the username/email field
+  // OTP selectors — check FIRST so we don't misidentify OTP input as username
+  const otpSelectors = 'input[name="otp"], input[name="token"], input[placeholder*="OTP" i], input[placeholder*="authenticator" i], input[maxlength="6"], input#otp, input#token';
+
+  // Exclude OTP fields from username selectors (OTP input is often type="text"
+  // with maxlength="6", which would otherwise match the broad text selectors)
+  const otpExclusion = ':not([maxlength="6"]):not([name="otp"]):not([name="token"]):not([id="otp"]):not([id="token"])';
   const usernameSelectors = [
     'input[name="username"]',
-    'input[type="text"]',
+    `input[type="text"]${otpExclusion}`,
     'input#username',
     'input[autocomplete="username"]',
     'input[name="email"]',
     'input[type="email"]',
-    'input[placeholder*="user" i]',
-    'input[placeholder*="email" i]',
-    'input[placeholder*="akun" i]',
+    `input[placeholder*="user" i]${otpExclusion}`,
+    `input[placeholder*="email" i]${otpExclusion}`,
+    `input[placeholder*="akun" i]${otpExclusion}`,
   ].join(", ");
   const pwSelectors = 'input[name="password"], input[type="password"], input#password';
   const submitBtn = 'button[type="submit"], input[type="submit"], button:has-text("Masuk"), button:has-text("Login"), button:has-text("Sign in")';
-  const otpSelectors = 'input[name="otp"], input[name="token"], input[placeholder*="OTP" i], input[placeholder*="authenticator" i], input[maxlength="6"], input#otp, input#token';
 
   const username = env.PORTAL_BSRE_USERNAME ?? "";
   const password = env.PORTAL_BSRE_PASSWORD ?? "";
@@ -365,13 +377,13 @@ async function runBeIDLogin(page: Page): Promise<void> {
 
     // 2. Fill username — try specific selectors, fallback to first visible text input
     const usernameField = await page.$(
-      'input[name="username"], input#username, input[autocomplete="username"], input[type="email"], input[name="email"]'
+      `input[name="username"], input#username, input[autocomplete="username"], input[type="email"], input[name="email"]`
     );
     if (usernameField) {
       await usernameField.fill(username);
     } else {
-      // Grab the first visible text/email input as a last resort
-      await page.fill('input[type="text"], input:not([type])', username);
+      // Grab the first visible text/email input as a last resort (skip OTP inputs)
+      await page.fill(`input[type="text"]${otpExclusion}, input:not([type]):not([maxlength="6"])`, username);
     }
 
     // 3. Password + submit
