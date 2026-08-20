@@ -14,16 +14,17 @@
     offset: 0,
     where: {},
   });
-  const roleMap = Object.fromEntries(
-    (
-      getData({ table: "roles", limit: 100, offset: 0 }).current?.data ?? []
-    ).map((r: any) => [r.id, r.name]),
+  const roles = getData({ table: "roles", limit: 100, offset: 0 });
+  const orgs = getData({ table: "organizations", limit: 100, offset: 0 });
+  const roleMap = $derived(
+    Object.fromEntries(
+      (roles.current?.data ?? []).map((r: any) => [r.id, r.name]),
+    ),
   );
-  const orgMap = Object.fromEntries(
-    (
-      getData({ table: "organizations", limit: 100, offset: 0 }).current
-        ?.data ?? []
-    ).map((o: any) => [o.id, o.name]),
+  const orgMap = $derived(
+    Object.fromEntries(
+      (orgs.current?.data ?? []).map((o: any) => [o.id, o.name]),
+    ),
   );
 
   const records = $derived(getData({ ...query }));
