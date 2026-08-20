@@ -3,7 +3,7 @@
  * Handles session management, BeID auto-login, and TOTP.
  */
 import { chromium, type Browser, type Page } from "playwright-core";
-import * as OTPAuth from "otpauth";
+import { createHmac } from "node:crypto";
 import { resolveEnv } from "./db/utils";
 import { sendWhatsAppText } from "./notify";
 import { tmpdir } from "node:os";
@@ -33,21 +33,89 @@ export const sessions = new Map<string, BrowserSession>();
 export const tokenStore = new Map<string, string>();
 
 // ---------------------------------------------------------------------------
-// TOTP
+// TOTP (RFC 6238) — zero dependencies, uses Node.js crypto
 // ---------------------------------------------------------------------------
 
-export async function getTOTP(): Promise<OTPAuth.TOTP> {
-  const env = await resolveEnv();
-  const raw = env.PORTAL_OTP_AUTH ?? "";
-  const uri = raw.startsWith("otpauth:") ? raw : `otpauth:${raw}`;
-  if (raw.startsWith("//totp/") || raw.startsWith("otpauth://totp/")) {
-    return OTPAuth.URI.parse(uri) as OTPAuth.TOTP;
+const BASE32_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+
+function base32Decode(input: string): Uint8Array {
+  const str = input.toUpperCase().replace(/[^A-Z2-7]/g, "");
+  let bits = "";
+  for (const ch of str) {
+    const val = BASE32_CHARS.indexOf(ch);
+    if (val === -1) continue;
+    bits += val.toString(2).padStart(5, "0");
   }
-  return new OTPAuth.TOTP({ secret: OTPAuth.Secret.fromBase32(raw) });
+  const bytes = new Uint8Array(Math.floor(bits.length / 8));
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(bits.slice(i * 8, i * 8 + 8), 2);
+  }
+  return bytes;
+}
+
+function hmacSha1(key: Uint8Array, msg: Uint8Array): Uint8Array {
+  const hmac = createHmac("sha1", Buffer.from(key));
+  hmac.update(Buffer.from(msg));
+  return new Uint8Array(hmac.digest());
+}
+
+function generateHOTP(secret: Uint8Array, counter: number, digits = 6): string {
+  // counter → 8-byte big-endian
+  const buf = new ArrayBuffer(8);
+  const view = new DataView(buf);
+  view.setUint32(0, Math.floor(counter / 0x100000000), false);
+  view.setUint32(4, counter >>> 0, false);
+  const counterBytes = new Uint8Array(buf);
+
+  const hash = hmacSha1(secret, counterBytes);
+  const offset = hash[hash.length - 1] & 0x0f;
+  const code =
+    ((hash[offset] & 0x7f) << 24) |
+    ((hash[offset + 1] & 0xff) << 16) |
+    ((hash[offset + 2] & 0xff) << 8) |
+    (hash[offset + 3] & 0xff);
+  return (code % 10 ** digits).toString().padStart(digits, "0");
+}
+
+interface TotpConfig {
+  secret: Uint8Array;
+  digits: number;
+  period: number;
+}
+
+function parseOtpauthUri(uri: string): TotpConfig {
+  const url = new URL(uri);
+  const params = url.searchParams;
+  const secret = base32Decode(params.get("secret") ?? "");
+  const digits = parseInt(params.get("digits") ?? "6", 10);
+  const period = parseInt(params.get("period") ?? "30", 10);
+  return { secret, digits, period };
+}
+
+function makeTotpConfig(raw: string): TotpConfig {
+  const trimmed = raw.trim();
+  if (trimmed.startsWith("otpauth://")) {
+    return parseOtpauthUri(trimmed);
+  }
+  // Raw base32 secret (may have otpauth: prefix but not //)
+  const cleaned = trimmed.replace(/^otpauth:/, "").replace(/^totp\/[^?]*\?/, "").trim();
+  // If it looks like it has query params, parse as URI fragment
+  if (cleaned.includes("secret=")) {
+    return parseOtpauthUri("otpauth://totp/?" + cleaned);
+  }
+  return {
+    secret: base32Decode(cleaned || trimmed),
+    digits: 6,
+    period: 30,
+  };
 }
 
 export async function generateTOTP(): Promise<string> {
-  return (await getTOTP()).generate();
+  const env = await resolveEnv();
+  const raw = env.PORTAL_OTP_AUTH ?? "";
+  const config = makeTotpConfig(raw);
+  const counter = Math.floor(Date.now() / 1000 / config.period);
+  return generateHOTP(config.secret, counter, config.digits);
 }
 
 // ---------------------------------------------------------------------------
@@ -253,6 +321,32 @@ async function runBeIDLogin(page: Page): Promise<void> {
     try {
       await page.waitForSelector(usernameSelectors, { timeout: 10_000 });
     } catch (err) {
+      // The username field might not exist because we're already on the OTP page
+      // (e.g. after a previous submit succeeded but page reloaded on BEID)
+      let otpInput: Awaited<ReturnType<Page["$"]>> = null;
+      try {
+        otpInput = await page.waitForSelector(otpSelectors, { timeout: 2_000 });
+      } catch { }
+
+      if (otpInput) {
+        const token = await generateTOTP();
+        console.log(`[browser] Attempt ${attempt}: no username field but OTP input found — submitting TOTP`);
+        await otpInput.fill(token);
+        await page.click(submitBtn);
+        await page.waitForLoadState("load", { timeout: 10_000 }).catch(() => { });
+        if (!new URL(page.url()).hostname.includes(BEID_HOST)) {
+          console.log("[browser] Login complete via OTP —", page.url());
+          return;
+        }
+        // Still on BEID after OTP submit — let the loop continue
+      }
+
+      // No username field AND no OTP — but maybe the page already left BEID
+      if (!new URL(page.url()).hostname.includes(BEID_HOST)) {
+        console.log("[browser] Login complete (no form found, already redirected) —", page.url());
+        return;
+      }
+
       lastErrorText = "Form login tidak ditemukan";
       console.log(`[browser] Attempt ${attempt}: username field not found`);
       if (attempt === MAX_ATTEMPTS) {
