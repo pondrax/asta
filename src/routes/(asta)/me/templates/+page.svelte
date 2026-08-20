@@ -47,7 +47,6 @@
   function startEdit(item: any) {
     templateFile = null;
     forms.edit = JSON.parse(JSON.stringify(item));
-    if (!forms.edit.properties) forms.edit.properties = {};
   }
 
   function startCreate() {
@@ -55,7 +54,8 @@
     forms.edit = {
       name: "",
       status: true,
-      properties: { description: "", type: "bsre" },
+      description: "",
+      sign_type: "bsre",
       to: [],
       organization_id: [],
     };
@@ -147,30 +147,28 @@
       {#if item?.id}
         <input type="hidden" name="id" value={item.id} />
       {/if}
-      <input type="hidden" name="name" value={item.name} />
-      <input
-        type="hidden"
-        name="properties.description"
-        value={item.properties?.description}
-      />
-      <input
-        type="hidden"
-        name="properties.type"
-        value={item.properties?.type}
-      />
-      <input
+      <!-- <input
         type="hidden"
         name="status"
         value={item.status ? "true" : "false"}
-      />
+      /> -->
       <div class="grid grid-cols-2 gap-4">
         <label class="floating-label">
           <span>Nama</span>
-          <input type="text" class="input input-sm" bind:value={item.name} />
+          <input
+            name="name"
+            type="text"
+            class="input input-sm"
+            bind:value={item.name}
+          />
         </label>
         <label class="floating-label">
           <span>Tipe</span>
-          <select class="select select-sm" bind:value={item.properties.type}>
+          <select
+            name="sign_type"
+            class="select select-sm"
+            bind:value={item.sign_type}
+          >
             <option value="bsre">Tanda Tangan Elektronik</option>
             <option value="manual">Tanda Tangan Manual</option>
           </select>
@@ -179,6 +177,7 @@
       <label class="flex items-center gap-2 cursor-pointer">
         <input
           type="checkbox"
+          name="status"
           class="toggle toggle-sm toggle-primary"
           checked={item.status}
           onchange={(e) =>
@@ -259,7 +258,8 @@
         <span>Deskripsi</span>
         <textarea
           class="textarea textarea-sm w-full"
-          bind:value={item.properties.description}
+          name="description"
+          bind:value={item.description}
         ></textarea>
       </label>
 
@@ -326,7 +326,7 @@
       mapper={{
         export: (item) => ({
           ...item,
-          properties: JSON.stringify(item.properties),
+          description: item.description,
         }),
       }}
     >
@@ -450,15 +450,15 @@
                 </td>
                 <td class="font-medium">{item.name}</td>
                 <td class="text-sm opacity-70 truncate max-w-xs">
-                  {item.properties?.description || "-"}
+                  {item.description || "-"}
                 </td>
                 <td>
                   <span
-                    class="badge badge-sm {item.properties?.type === 'bsre'
+                    class="badge badge-sm {item.sign_type === 'bsre'
                       ? 'badge-primary'
                       : 'badge-secondary'}"
                   >
-                    {item.properties?.type === "bsre" ? "TTE" : "Manual"}
+                    {item.sign_type === "bsre" ? "TTE" : "Manual"}
                   </span>
                 </td>
                 <td>

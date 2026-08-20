@@ -29,9 +29,9 @@
       {#each records as item}
         <tr>
           <td>{item.name}</td>
-          <td>{item.properties?.description}</td>
+          <td>{item.description}</td>
           <td
-            >{item.properties?.type === "bsre"
+            >{item.sign_type === "bsre"
               ? "Tanda Tangan Elektronik"
               : "Tanda Tangan Manual"}</td
           >

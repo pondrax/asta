@@ -87,10 +87,9 @@ export const templates = pgTable('templates', {
   status: boolean('status').default(true),
   organization_id: json('organization_id').$type<string[]>(),
   to: json('to').$type<string[]>(),
-  properties: json('properties').$type<{
-    description: string;
-    type: string;
-  }>(),
+  properties: json('properties').$type<Record<string, unknown>>(),
+  description: text('description'),
+  sign_type: text('sign_type'),
   created,
   updated,
 })

@@ -318,8 +318,8 @@
     );
     documents = { [docId]: file };
 
-    bsre = item.properties.type == "bsre";
-    form.note = item.properties.description || "Tanda Tangan Elektronik";
+    bsre = item.sign_type == "bsre";
+    form.note = item.description || "Tanda Tangan Elektronik";
     form.to = item.to || null;
     form.footer = true;
     activeIndex = docId;
