@@ -224,6 +224,15 @@
         </div>
       </div>
       <div class="stat">
+        <div class="stat-figure text-info text-3xl">
+          <iconify-icon icon="bx:time-five"></iconify-icon>
+        </div>
+        <div class="stat-title">Antrean</div>
+        <div class="stat-value text-4xl text-info">
+          {formatNumber(dash.totalQueue || 0)}
+        </div>
+      </div>
+      <div class="stat">
         <div class="stat-figure text-secondary text-3xl">
           <iconify-icon icon="bx:user"></iconify-icon>
         </div>
@@ -278,6 +287,7 @@
           data={filteredDailyStats}
           height={250}
           type="area"
+          filled={false}
           categories={[
             { key: "signed", color: "var(--color-primary)", label: "Signed" },
             {
@@ -332,6 +342,18 @@
           </div>
           <div class="text-2xl font-black font-mono tracking-tighter mt-1">
             {formatNumber(dash.totalCounts.draft || 0)}
+          </div>
+        </div>
+        <div class="bg-base-100/50 p-3 rounded-2xl border border-base-300">
+          <div class="flex items-center gap-3">
+            <div class="w-1.5 h-1.5 rounded-full bg-info"></div>
+            <span
+              class="text-[8px] font-black uppercase tracking-[0.2em] opacity-40"
+              >Antrean</span
+            >
+          </div>
+          <div class="text-2xl font-black font-mono tracking-tighter mt-1">
+            {formatNumber(dash.totalQueue || 0)}
           </div>
         </div>
       </div>
@@ -431,8 +453,8 @@
         </button>
       </div>
       {#if !bsreChartCollapsed}
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
-          <div class="lg:col-span-3">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div class="lg:col-span-2">
             <Chart
               title=""
               subtitle=""
@@ -487,7 +509,7 @@
                 class="label-text text-[10px] uppercase tracking-widest opacity-40 font-black block mb-1"
                 >Status User</span
               >
-              <div class="grid grid-cols-2 gap-1.5">
+              <div class="grid grid-cols-3 gap-1.5">
                 <div
                   class="rounded-lg px-2 py-0 text-center cursor-pointer hover:ring-2 hover:ring-base-content/30 transition-all {bsreStatusBg(
                     'Total',
@@ -539,7 +561,7 @@
                 class="label-text text-[10px] uppercase tracking-widest opacity-40 font-black block mb-1"
                 >Status Sertifikat</span
               >
-              <div class="grid grid-cols-2 gap-1.5">
+              <div class="grid grid-cols-3 gap-1.5">
                 {#each bsreCertStatusData as d}
                   <div
                     class="rounded-lg px-2 py-0 text-center cursor-pointer hover:ring-2 hover:ring-base-content/30 transition-all {bsreStatusBg(

@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { version } from "$app/environment";
   import { env } from "$env/dynamic/public";
   import { app } from "$lib/app/index.svelte";
   import type { SignatureType } from "./types";
@@ -364,7 +363,7 @@
 
 <!-- <div class="px-5"> -->
 <div
-  class="px-5 flex gap-5 h-full flex-col md:flex-row overflow-y-auto md:overflow-y-hidden"
+  class="px-5 pb-24 md:pb-0 flex gap-5 flex-col md:h-full md:flex-row md:overflow-y-hidden"
 >
   <div class="rounded-2xl grow min-h-0 md:order-2 flex flex-col">
     <div
@@ -548,11 +547,6 @@
             <Visualizer bind:signatures />
           </Metadata>
         </div>
-      </div>
-    </div>
-    <div class="text-sm flex items-end relative z-30">
-      <div class="mr-auto flex items-center gap-2">
-        Tapak Astà v2.0.1 #{version.slice(0, 7)}
       </div>
     </div>
   </div>

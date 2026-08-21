@@ -10,6 +10,7 @@ export const ROUTE_TITLES: Record<string, string> = {
   "/verify": "Verifikasi Dokumen",
   "/me": "Dashboard",
   "/me/documents": "Dokumen Saya",
+  "/me/documents/administrative": "Dokumen Administratif",
   "/me/templates": "Template Saya",
   "/templates": "Template Dokumen",
   "/profile": "Profil Pengguna",

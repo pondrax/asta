@@ -289,7 +289,7 @@
   {/snippet}
 </Modal>
 
-<div class="px-6 py-4 space-y-3 mx-auto">
+<div class="px-6 py-4 space-y-3 mx-auto flex flex-col h-[calc(100vh-4rem)]">
   <div class="flex items-center justify-between gap-4">
     <div>
       <h1
@@ -311,7 +311,7 @@
   </div>
 
   <div
-    class="bg-base-100/40 border border-base-200/60 rounded-2xl p-4 shadow-sm backdrop-blur space-y-4"
+    class="bg-base-100/40 border border-base-200/60 rounded-2xl p-3 shadow-sm backdrop-blur space-y-0 flex-1 min-h-0 flex flex-col"
   >
     <Toolbar
       bind:query
@@ -351,17 +351,17 @@
     </Toolbar>
 
     <div
-      class="overflow-x-auto border border-base-300/60 rounded-xl bg-base-100/50 backdrop-blur-md h-[calc(100vh-17.5rem)] relative shadow-inner"
+      class="overflow-x-auto border border-base-300/60 rounded-xl bg-base-100/50 backdrop-blur-md flex-1 min-h-0 relative shadow-inner"
     >
-      <table class="table table-md table-pin-rows table-pin-cols">
-        <thead>
+      <table class="table table-xs table-pin-rows table-pin-cols">
+        <thead class="z-30">
           <tr
-            class="bg-base-200/50 text-base-content/80 font-bold border-b border-base-300"
+            class="bg-base-200 text-base-content/80 font-bold border-b border-base-300"
           >
-            <th class="w-12 text-center bg-base-200/50 z-20">
+            <th class="w-12 text-center bg-base-200 z-20">
               <input
                 type="checkbox"
-                class="checkbox checkbox-sm checkbox-primary"
+                class="checkbox checkbox-xs checkbox-primary"
                 bind:checked={
                   () =>
                     !!selections.length &&
@@ -372,16 +372,16 @@
                 }
               />
             </th>
-            <th class="min-w-48">Nama</th>
-            <th class="min-w-48">Deskripsi</th>
-            <th class="w-44">Tipe</th>
-            <th class="w-28">Status</th>
-            <th class="w-44">File</th>
-            <th class="w-44">Ditujukan Untuk</th>
-            <th class="w-44">Organisasi</th>
-            <th class="w-44">Dibuat</th>
-            <th class="w-44">Diperbarui</th>
-            <th class="w-20 sticky right-0 bg-base-100"></th>
+            <th class="min-w-48 bg-base-200">Nama</th>
+            <th class="min-w-48 bg-base-200">Deskripsi</th>
+            <th class="w-44 bg-base-200">Tipe</th>
+            <th class="w-28 bg-base-200">Status</th>
+            <th class="w-44 bg-base-200">File</th>
+            <th class="w-44 bg-base-200">Ditujukan Untuk</th>
+            <th class="w-44 bg-base-200">Organisasi</th>
+            <th class="w-44 bg-base-200">Dibuat</th>
+            <th class="w-44 bg-base-200">Diperbarui</th>
+            <th class="w-20 sticky right-0 bg-base-200"></th>
           </tr>
         </thead>
         <tbody>
@@ -436,7 +436,7 @@
                 <td class="text-center">
                   <input
                     type="checkbox"
-                    class="checkbox checkbox-sm checkbox-primary"
+                    class="checkbox checkbox-xs checkbox-primary"
                     bind:group={selections}
                     value={item.id}
                   />
@@ -467,7 +467,7 @@
                   {#if item.file}
                     <button
                       type="button"
-                      class="link link-primary link-hover truncate block max-w-[10rem] text-left"
+                      class="link link-primary link-hover truncate block max-w-40 text-left"
                       onclick={() => (previewFile = item.file)}
                     >
                       {item.file.split("/").pop()}

@@ -68,7 +68,7 @@
   </form>
 </Modal> -->
 
-<div class="px-6 py-4 space-y-3 mx-auto">
+<div class="px-6 py-4 space-y-3 mx-auto flex flex-col h-[calc(100vh-4rem)]">
   <div class="flex items-center justify-between gap-4">
     <div>
       <h1
@@ -81,7 +81,7 @@
   </div>
 
   <div
-    class="bg-base-100/40 border border-base-200/60 rounded-2xl p-4 shadow-sm backdrop-blur space-y-4"
+    class="bg-base-100/40 border border-base-200/60 rounded-2xl p-4 shadow-sm backdrop-blur space-y-4 flex-1 min-h-0 flex flex-col"
   >
     <Toolbar
       bind:query
@@ -112,17 +112,17 @@
 
     <!-- Table Container -->
     <div
-      class="overflow-x-auto border border-base-300/60 rounded-xl bg-base-100/50 backdrop-blur-md h-[calc(100vh-17.5rem)] relative shadow-inner"
+      class="overflow-x-auto border border-base-300/60 rounded-xl bg-base-100/50 backdrop-blur-md flex-1 min-h-0 relative shadow-inner"
     >
-      <table class="table table-md table-pin-rows table-pin-cols">
-        <thead>
+      <table class="table table-xs table-pin-rows table-pin-cols">
+        <thead class="z-30">
           <tr
-            class="bg-base-200/50 text-base-content/80 font-bold border-b border-base-300"
+            class="bg-base-200 text-base-content/80 font-bold border-b border-base-300"
           >
-            <th class="w-12 text-center bg-base-200/50 z-20">
+            <th class="w-12 text-center bg-base-200 z-20 py-2">
               <input
                 type="checkbox"
-                class="checkbox checkbox-sm checkbox-primary"
+                class="checkbox checkbox-xs checkbox-primary"
                 bind:checked={
                   () =>
                     !!selections.length &&
@@ -133,11 +133,11 @@
                 }
               />
             </th>
-            <th class="w-24">Level</th>
-            <th class="min-w-[280px]">Pesan</th>
-            <th class="w-48">URL</th>
-            <th class="w-24">Method</th>
-            <th class="w-44">Waktu</th>
+            <th class="w-24 bg-base-200">Level</th>
+            <th class="min-w-[280px] bg-base-200">Pesan</th>
+            <th class="w-48 bg-base-200">URL</th>
+            <th class="w-24 bg-base-200">Method</th>
+            <th class="w-44 bg-base-200">Waktu</th>
           </tr>
         </thead>
         <tbody>
@@ -191,7 +191,7 @@
                 <td class="text-center">
                   <input
                     type="checkbox"
-                    class="checkbox checkbox-sm checkbox-primary"
+                    class="checkbox checkbox-xs checkbox-primary"
                     bind:group={selections}
                     value={item.id}
                   />
@@ -207,7 +207,7 @@
                   </span>
                 </td>
                 <td
-                  class="font-mono text-xs max-w-sm leading-relaxed whitespace-pre-wrap"
+                  class="font-mono text-[10px] max-w-sm leading-relaxed whitespace-pre-wrap"
                 >
                   {item.message}
                   {#if item.metadata}

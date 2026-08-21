@@ -131,6 +131,15 @@
           {formatNumber(dash.userDocCounts.draft || 0)}
         </div>
       </div>
+      <div class="stat">
+        <div class="stat-figure text-info text-3xl">
+          <iconify-icon icon="bx:time-five"></iconify-icon>
+        </div>
+        <div class="stat-title">Antrean</div>
+        <div class="stat-value text-4xl text-info">
+          {formatNumber(dash.totalQueue || 0)}
+        </div>
+      </div>
     </div>
 
     <div class="flex flex-wrap items-end gap-3">
@@ -170,6 +179,7 @@
           data={filteredDailyStats}
           height={250}
           type="area"
+          filled={false}
           categories={[
             { key: "signed", color: "var(--color-primary)", label: "Signed" },
           ]}

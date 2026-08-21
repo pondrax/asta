@@ -4,6 +4,7 @@
   import Char from "./char.svelte";
   import { app } from "$lib/app/index.svelte";
   import { ROUTE_TITLES } from "$lib/app/titles";
+  import { version } from "$app/environment";
 
   const renderer = new marked.Renderer();
 
@@ -124,7 +125,7 @@
   $effect(() => {
     if (open && chatbox) {
       scrollTick; // track all scroll triggers (new msg + stream updates)
-      requestAnimationFrame(scrollChat);
+      requestAnimationFrame(() => scrollChat());
     }
   });
 
@@ -265,7 +266,10 @@ Silakan tanyakan apa saja tentang layanan ini! 😊`,
     >
       <span class="font-semibold text-sm flex items-center gap-2">
         <iconify-icon icon="bx:bot"></iconify-icon>
-        Asisten AI
+        Asisten AI &middot; Tapak Astà
+        <span class="text-[10px] font-mono font-normal opacity-70"
+          >v2.0.1 #{version.slice(0, 7)}</span
+        >
       </span>
       <button
         class="btn btn-ghost btn-xs btn-circle text-primary-content"

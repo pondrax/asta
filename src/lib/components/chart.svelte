@@ -12,6 +12,7 @@
     collapsible = true,
     isCollapsed = $bindable(false),
     type = "area",
+    filled = true,
     card = true,
     legendPosition = "bottom" as "bottom" | "top" | "left" | "right",
     categories = [
@@ -73,7 +74,7 @@
         fontFamily: "inherit",
       },
       colors: categories.map((cat) => cat.color),
-      fill: {},
+      fill: filled ? {} : { type: "solid", opacity: 0 },
       stroke:
         type === "bar"
           ? { show: true, width: 0, colors: categories.map((c) => c.color) }

@@ -298,7 +298,7 @@
   </div>
 
   <div
-    class="bg-base-100/40 border border-base-200/60 rounded-2xl p-4 shadow-sm backdrop-blur space-y-4 flex-1 min-h-0 flex flex-col"
+    class="bg-base-100/40 border border-base-200/60 rounded-2xl p-3 shadow-sm backdrop-blur space-y-0 flex-1 min-h-0 flex flex-col"
   >
     <Toolbar
       bind:query
@@ -387,14 +387,14 @@
       class="overflow-x-auto border border-base-300/60 rounded-xl bg-base-100/50 backdrop-blur-md flex-1 min-h-0 relative shadow-inner"
     >
       <table class="table table-xs table-pin-rows table-pin-cols">
-        <thead>
+        <thead class="z-30">
           <tr
-            class="bg-base-200/50 text-base-content/80 font-bold border-b border-base-300"
+            class="bg-base-200 text-base-content/80 font-bold border-b border-base-300"
           >
-            <th class="w-12 text-center bg-base-200/50 z-20">
+            <th class="w-12 text-center bg-base-200 z-20">
               <input
                 type="checkbox"
-                class="checkbox checkbox-sm checkbox-primary"
+                class="checkbox checkbox-xs checkbox-primary"
                 bind:checked={
                   () =>
                     !!selections.length &&
@@ -405,15 +405,15 @@
                 }
               />
             </th>
-            <th class="min-w-[280px] py-2">Nama Dokumen</th>
-            <th class="w-72">File Terlampir</th>
-            <th class="w-32 text-center">Metode</th>
-            <th class="w-32 text-center">Status</th>
-            <th class="w-48">Signer</th>
-            <th class="w-48">Owner</th>
-            <th class="w-44">Diperbarui</th>
-            <th class="w-64">Metadata</th>
-            <th class="w-24 text-center bg-base-200/50 z-20">Aksi</th>
+            <th class="min-w-[280px] py-2 bg-base-200">Nama Dokumen</th>
+            <th class="w-72 bg-base-200">File Terlampir</th>
+            <th class="w-32 text-center bg-base-200">Metode</th>
+            <th class="w-32 text-center bg-base-200">Status</th>
+            <th class="w-48 bg-base-200">Signer</th>
+            <th class="w-48 bg-base-200">Owner</th>
+            <th class="w-44 bg-base-200">Diperbarui</th>
+            <th class="w-64 bg-base-200">Histories</th>
+            <th class="w-24 text-center bg-base-200 z-20">Aksi</th>
           </tr>
         </thead>
         <tbody>
@@ -471,7 +471,7 @@
                 <td class="text-center">
                   <input
                     type="checkbox"
-                    class="checkbox checkbox-sm checkbox-primary"
+                    class="checkbox checkbox-xs checkbox-primary"
                     bind:group={selections}
                     value={item.id}
                   />
@@ -551,16 +551,31 @@
                   {d(item.updated).format("HH:mm, DD MMM YYYY")}
                 </td>
                 <td>
-                  {#if item.metadata && Object.keys(item.metadata).length > 0}
-                    <div class="flex flex-wrap gap-1 max-w-xs">
-                      {#each Object.entries(item.metadata) as [key, val]}
-                        <span
-                          class="badge badge-xs bg-base-200/80 border-0 text-[9px] font-mono text-base-content/60"
+                  {#if item.histories && item.histories.length > 0}
+                    <div class="flex flex-col gap-1 max-w-xs">
+                      {#each item.histories as h}
+                        <div
+                          class="flex items-center gap-1.5 text-[10px] font-mono text-base-content/60"
                         >
-                          {key}: {typeof val === "object"
-                            ? JSON.stringify(val)
-                            : val}
-                        </span>
+                          <span
+                            class="badge badge-xs border-0 font-bold uppercase {h.status ===
+                            'signed'
+                              ? 'bg-success/10 text-success'
+                              : h.status === 'failed'
+                                ? 'bg-error/10 text-error'
+                                : 'bg-info/10 text-info'}"
+                          >
+                            {h.status}
+                          </span>
+                          <span class="truncate"
+                            >{h.signer?.split("@")[0] || "-"}</span
+                          >
+                          <span class="opacity-40 whitespace-nowrap"
+                            >{h.signedAt
+                              ? d(h.signedAt).format("DD MMM HH:mm")
+                              : ""}</span
+                          >
+                        </div>
                       {/each}
                     </div>
                   {:else}
@@ -577,7 +592,7 @@
                         aria-label="Tanda Tangan"
                         data-tip="Tanda Tangan"
                       >
-                        <iconify-icon icon="bx:pen" class="text-base"
+                        <iconify-icon icon="bx:pen" class="text-sm"
                         ></iconify-icon>
                       </button>
                     </form>

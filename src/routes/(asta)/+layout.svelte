@@ -76,35 +76,183 @@
           </div>
           <ul
             tabindex="-1"
-            class="menu dropdown-content bg-base-100 rounded-box z-1 mt-3 w-52 p-2 shadow"
+            class="menu dropdown-content bg-base-100 rounded-box z-1 mt-3 w-60 p-2 shadow text-sm"
           >
-            <li><a href="/">Beranda</a></li>
-            <li><a href="/sign">Tanda Tangan</a></li>
-            <li><a href="/verify">Verifikasi</a></li>
+            <li>
+              <details open>
+                <summary>Beranda</summary>
+                <ul>
+                  <li><a href="/">Beranda Utama</a></li>
+                  <li><a href="/user-guide">Panduan Pengguna</a></li>
+                  <li><a href="/user-guide#faq">Pertanyaan Umum (FAQ)</a></li>
+                  <li><a href="/user-guide#legal">Legalitas Hukum TTE</a></li>
+                </ul>
+              </details>
+            </li>
+            <li>
+              <details>
+                <summary>Tanda Tangan</summary>
+                <ul>
+                  <li><a href="/sign">Upload & Tanda Tangan</a></li>
+                  <li><a href="/templates">Template Dokumen</a></li>
+                  <li>
+                    <a href="/services/register">Registrasi Layanan TTE</a>
+                  </li>
+                </ul>
+              </details>
+            </li>
+            <li>
+              <details>
+                <summary>Verifikasi</summary>
+                <ul>
+                  <li><a href="/verify">Unggah File PDF</a></li>
+                  <li><a href="/verify#!/id">Cari Berdasarkan ID</a></li>
+                  <li><a href="/verify#!/scan">Pindai QR Code TTE</a></li>
+                  <li>
+                    <a
+                      href="https://cekdokumen.id/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Verifikasi - Cek Dokumen
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href="https://tte.komdigi.go.id/verifyPDF"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Verifikasi - Komdigi
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href="https://bsre.bssn.go.id/pdf-verification"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Verifikasi - BSrE BSSN
+                    </a>
+                  </li>
+                </ul>
+              </details>
+            </li>
             {#if user}
-              <li class="menu-title mt-2">Dashboard</li>
-              <li><a href="/me">Dashboard</a></li>
-              <li><a href="/me/documents">Dokumen Saya</a></li>
-              <li><a href="/templates">Template</a></li>
-              <li class="menu-title mt-2">Konfigurasi</li>
-              <li><a href="/profile">Profil</a></li>
-              <li><a href="/me/templates">Kelola Template</a></li>
-              <li><a href="/survey">Survey Kepuasan</a></li>
+              <li>
+                <details open>
+                  <summary>Dashboard</summary>
+                  <ul>
+                    <li><a href="/me">Overview</a></li>
+                    <li>
+                      <a
+                        href="/me/documents#!/mine"
+                        class="flex items-center gap-2"
+                      >
+                        Dokumen Saya
+                        <span
+                          class="badge badge-xs badge-ghost font-mono ml-auto"
+                        >
+                          {statusCounts.mine}
+                        </span>
+                      </a>
+                    </li>
+                    <li>
+                      <a
+                        href="/me/documents#!/request"
+                        class="flex items-center gap-2"
+                      >
+                        Perlu Ditandatangani
+                        <span
+                          class="badge badge-xs badge-ghost font-mono ml-auto"
+                        >
+                          {statusCounts.requests}
+                        </span>
+                      </a>
+                    </li>
+                    <li>
+                      <a
+                        href="/me/documents#!/signed"
+                        class="flex items-center gap-2"
+                      >
+                        Riwayat Tanda Tangan Saya
+                        <span
+                          class="badge badge-xs badge-ghost font-mono ml-auto"
+                        >
+                          {statusCounts.signed}
+                        </span>
+                      </a>
+                    </li>
+                    <li>
+                      <a
+                        href="/me/documents/administrative"
+                        class="flex items-center gap-2"
+                      >
+                        Dokumen Administratif
+                        <span
+                          class="badge badge-xs badge-ghost font-mono ml-auto"
+                        >
+                          {statusCounts.administrative}
+                        </span>
+                      </a>
+                    </li>
+                    <li><a href="/profile">Profil Saya</a></li>
+                    <li><a href="/me/templates">Kelola Template</a></li>
+                  </ul>
+                </details>
+              </li>
               {#if user.role?.name === "admin"}
-                <li class="menu-title mt-2">Administrasi</li>
-                <li><a href="/main">Dashboard Administrasi</a></li>
                 <li>
-                  <a href="/main/documents" class="flex items-center gap-2">
-                    Dokumen Administratif
-                    <span class="badge badge-xs badge-ghost font-mono ml-auto">
-                      {statusCounts.administrative}
-                    </span>
-                  </a>
+                  <details>
+                    <summary>Administrasi</summary>
+                    <ul>
+                      <li><a href="/main">Dashboard Admin</a></li>
+                      <li>
+                        <a href="/main/users" class="flex items-center gap-2">
+                          Daftar Pengguna
+                          <span
+                            class="badge badge-xs badge-ghost font-mono ml-auto"
+                          >
+                            {adminCounts.users}
+                          </span>
+                        </a>
+                      </li>
+                      <li>
+                        <a href="/main/logs" class="flex items-center gap-2">
+                          Log Aktivitas
+                          <span
+                            class="badge badge-xs badge-ghost font-mono ml-auto"
+                          >
+                            {adminCounts.logs}
+                          </span>
+                        </a>
+                      </li>
+                      <li>
+                        <a
+                          href="/main/portal-bsre"
+                          class="flex items-center gap-2"
+                        >
+                          Portal BSrE
+                          <span
+                            class="badge badge-xs badge-ghost font-mono ml-auto"
+                          >
+                            {adminCounts.bsreUsers}
+                          </span>
+                        </a>
+                      </li>
+                      <li>
+                        <a href="/main/survey" class="flex items-center gap-2">
+                          Survey Kepuasan
+                          <span
+                            class="badge badge-xs badge-ghost font-mono ml-auto"
+                          >
+                            {adminCounts.surveys}
+                          </span>
+                        </a>
+                      </li>
+                    </ul>
+                  </details>
                 </li>
-                <li><a href="/main/users">Daftar Pengguna</a></li>
-                <li><a href="/main/logs">Logs</a></li>
-                <li><a href="/main/portal-bsre">BSrE Portal</a></li>
-                <li><a href="/main/survey">Survey</a></li>
               {/if}
             {/if}
           </ul>
@@ -339,7 +487,7 @@
                 </h3>
                 <p class="text-xs opacity-70 mt-2 leading-relaxed">
                   Platform tanda tangan elektronik terpercaya, aman, dan sah
-                  secara hukum untuk seluruh dokumen digital Anda.
+                  untuk Anda.
                 </p>
                 <a href="/" class="btn btn-primary btn-sm mt-4 gap-1">
                   <span>Ke Beranda</span>
@@ -452,8 +600,8 @@
                   Tanda Tangan TTE
                 </h3>
                 <p class="text-xs opacity-70 mt-2 leading-relaxed">
-                  Lakukan penandatanganan dokumen secara elektronik yang
-                  terintegrasi langsung dengan BSrE BSSN.
+                  Tandatanganan dokumen secara elektronik terintegrasi langsung
+                  dengan BSrE BSSN.
                 </p>
                 <a href="/sign" class="btn btn-primary btn-sm mt-4 gap-1">
                   <span>Mulai Tanda Tangan</span>
@@ -503,6 +651,24 @@
                       <span>Template Dokumen</span>
                     </a>
                   </li>
+                  <li>
+                    <a
+                      href="#devel"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
+                        .url.pathname === '/templates'
+                        ? 'text-primary font-bold bg-primary/5'
+                        : 'text-base-content/75'}"
+                    >
+                      <iconify-icon
+                        icon="bx:chevron-right"
+                        class="text-xs transition-all {page.url.pathname ===
+                        '/templates'
+                          ? 'text-primary opacity-100'
+                          : 'opacity-40 group-hover:opacity-100'}"
+                      ></iconify-icon>
+                      <span>Buat Dokumen (dalam pengembangan)</span>
+                    </a>
+                  </li>
                 </ul>
               </div>
               <div>
@@ -527,25 +693,44 @@
                           ? 'text-primary opacity-100'
                           : 'opacity-40 group-hover:opacity-100'}"
                       ></iconify-icon>
-                      <span>Registrasi Layanan TTE</span>
+                      <span>Registrasi Layanan dan Bantuan TTE</span>
+                    </a>
+                  </li>
+
+                  <li>
+                    <a
+                      href="https://mail.mojokertokota.go.id"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 text-base-content/75"
+                    >
+                      <iconify-icon
+                        icon="bx:link-external"
+                        class="text-xs opacity-40 group-hover:opacity-100 transition-all"
+                      ></iconify-icon>
+                      <span>Email Dinas Pemerintah Kota Mojokerto</span>
+                      <iconify-icon
+                        icon="bx:external-link"
+                        class="ml-auto text-[10px] opacity-40"
+                      ></iconify-icon>
                     </a>
                   </li>
                   <li>
                     <a
-                      href="/services/register"
-                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
-                        .url.pathname === '/services/register'
-                        ? 'text-primary font-bold bg-primary/5'
-                        : 'text-base-content/75'}"
+                      href="https://bsre.bssn.go.id/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 text-base-content/75"
                     >
                       <iconify-icon
-                        icon="bx:chevron-right"
-                        class="text-xs transition-all {page.url.pathname ===
-                        '/services/register'
-                          ? 'text-primary opacity-100'
-                          : 'opacity-40 group-hover:opacity-100'}"
+                        icon="bx:link-external"
+                        class="text-xs opacity-40 group-hover:opacity-100 transition-all"
                       ></iconify-icon>
-                      <span>Cek Status Penerbitan</span>
+                      <span>Website BSrE BSSN</span>
+                      <iconify-icon
+                        icon="bx:external-link"
+                        class="ml-auto text-[10px] opacity-40"
+                      ></iconify-icon>
                     </a>
                   </li>
                 </ul>
@@ -565,7 +750,7 @@
                 </h3>
                 <p class="text-xs opacity-70 mt-2 leading-relaxed">
                   Periksa keaslian dokumen PDF dan sertifikat digital tanda
-                  tangan elektronik BSSN Anda.
+                  tangan elektronik Anda.
                 </p>
                 <a href="/verify" class="btn btn-primary btn-sm mt-4 gap-1">
                   <span>Mulai Verifikasi</span>
@@ -711,7 +896,7 @@
                 >
                   <iconify-icon icon="bx:user-circle" class="text-xl"
                   ></iconify-icon>
-                  Akun & Berkas
+                  Data Saya
                 </h3>
                 <p class="text-xs opacity-70 mt-2 leading-relaxed">
                   Kelola profil pengguna, histori dokumen yang Anda buat, dan
@@ -801,7 +986,7 @@
                           ? 'text-primary opacity-100'
                           : 'opacity-40 group-hover:opacity-100'}"
                       ></iconify-icon>
-                      <span>Riwayat Tanda Tangan</span>
+                      <span>Riwayat Tanda Tangan Saya</span>
                       <span
                         class="ml-auto badge badge-xs font-mono {page.url
                           .pathname === '/me/documents' &&
@@ -810,6 +995,32 @@
                           : 'badge-ghost'}"
                       >
                         {statusCounts.signed}
+                      </span>
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href="/me/documents/administrative"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
+                        .url.pathname === '/me/documents/administrative'
+                        ? 'text-primary font-bold bg-primary/5'
+                        : 'text-base-content/75'}"
+                    >
+                      <iconify-icon
+                        icon="bx:chevron-right"
+                        class="text-xs transition-all {page.url.pathname ===
+                          '/me/documents/administrative'
+                          ? 'text-primary opacity-100'
+                          : 'opacity-40 group-hover:opacity-100'}"
+                      ></iconify-icon>
+                      <span>Dokumen Administratif</span>
+                      <span
+                        class="ml-auto badge badge-xs font-mono {page.url
+                          .pathname === '/me/documents/administrative'
+                          ? 'badge-primary'
+                          : 'badge-ghost'}"
+                      >
+                        {statusCounts.administrative}
                       </span>
                     </a>
                   </li>
@@ -911,32 +1122,6 @@
                           : 'badge-ghost'}"
                       >
                         {adminCounts.users}
-                      </span>
-                    </a>
-                  </li>
-                  <li>
-                    <a
-                      href="/main/documents"
-                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
-                        .url.pathname === '/main/documents'
-                        ? 'text-primary font-bold bg-primary/5'
-                        : 'text-base-content/75'}"
-                    >
-                      <iconify-icon
-                        icon="bx:chevron-right"
-                        class="text-xs transition-all {page.url.pathname ===
-                        '/main/documents'
-                          ? 'text-primary opacity-100'
-                          : 'opacity-40 group-hover:opacity-100'}"
-                      ></iconify-icon>
-                      <span>Dokumen Administratif</span>
-                      <span
-                        class="ml-auto badge badge-xs font-mono {page.url
-                          .pathname === '/main/documents'
-                          ? 'badge-primary'
-                          : 'badge-ghost'}"
-                      >
-                        {statusCounts.administrative}
                       </span>
                     </a>
                   </li>

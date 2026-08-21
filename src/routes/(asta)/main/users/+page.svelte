@@ -156,7 +156,7 @@
   {/snippet}
 </Modal>
 
-<div class="px-6 py-4 space-y-3 mx-auto">
+<div class="px-6 py-4 space-y-3 mx-auto flex flex-col h-[calc(100vh-4rem)]">
   <div class="flex items-center justify-between gap-4">
     <div>
       <h1
@@ -171,7 +171,7 @@
   </div>
 
   <div
-    class="bg-base-100/40 border border-base-200/60 rounded-2xl p-4 shadow-sm backdrop-blur space-y-4"
+    class="bg-base-100/40 border border-base-200/60 rounded-2xl p-3 shadow-sm backdrop-blur space-y-0 flex-1 min-h-0 flex flex-col"
   >
     <Toolbar
       bind:query
@@ -213,17 +213,17 @@
 
     <!-- Table Container -->
     <div
-      class="overflow-x-auto border border-base-300/60 rounded-xl bg-base-100/50 backdrop-blur-md h-[calc(100vh-17.5rem)] relative shadow-inner"
+      class="overflow-x-auto border border-base-300/60 rounded-xl bg-base-100/50 backdrop-blur-md flex-1 min-h-0 relative shadow-inner"
     >
-      <table class="table table-md table-pin-rows table-pin-cols">
-        <thead>
+      <table class="table table-xs table-pin-rows table-pin-cols">
+        <thead class="z-30">
           <tr
-            class="bg-base-200/50 text-base-content/80 font-bold border-b border-base-300"
+            class="bg-base-200 text-base-content/80 font-bold border-b border-base-300"
           >
-            <th class="w-12 text-center bg-base-200/50 z-20">
+            <th class="w-12 text-center bg-base-200 z-20 py-2">
               <input
                 type="checkbox"
-                class="checkbox checkbox-sm checkbox-primary"
+                class="checkbox checkbox-xs checkbox-primary"
                 bind:checked={
                   () =>
                     !!selections.length &&
@@ -234,12 +234,12 @@
                 }
               />
             </th>
-            <th class="min-w-64">Email</th>
-            <th class="w-32">Role</th>
-            <th class="w-44">Organisasi</th>
-            <th class="w-44">Dibuat</th>
-            <th class="w-44">Diperbarui</th>
-            <th class="w-20"></th>
+            <th class="min-w-64 bg-base-200">Email</th>
+            <th class="w-32 bg-base-200">Role</th>
+            <th class="w-44 bg-base-200">Organisasi</th>
+            <th class="w-44 bg-base-200">Dibuat</th>
+            <th class="w-44 bg-base-200">Diperbarui</th>
+            <th class="w-20 bg-base-200"></th>
           </tr>
         </thead>
         <tbody>
@@ -295,7 +295,7 @@
                 <td class="text-center">
                   <input
                     type="checkbox"
-                    class="checkbox checkbox-sm checkbox-primary"
+                    class="checkbox checkbox-xs checkbox-primary"
                     bind:group={selections}
                     value={item.id}
                   />
@@ -319,23 +319,27 @@
                 <td class="text-xs opacity-60 whitespace-nowrap">
                   {d(item.updated).format("HH:mm, DD MMM YYYY")}
                 </td>
-                <td>
-                  <div class="flex gap-0.5">
+                <td class="text-center">
+                  <div class="flex justify-center gap-1.5">
                     <button
-                      class="btn btn-xs btn-ghost btn-square"
+                      class="btn btn-sm btn-circle btn-ghost text-primary hover:bg-primary/10 tooltip tooltip-left"
                       onclick={() => startEdit(item)}
                       aria-label="Edit Pengguna"
+                      data-tip="Edit Pengguna"
                     >
-                      <iconify-icon icon="bx:edit"></iconify-icon>
+                      <iconify-icon icon="bx:edit" class="text-base"
+                      ></iconify-icon>
                     </button>
                     <button
-                      class="btn btn-xs btn-ghost btn-square text-primary"
+                      class="btn btn-sm btn-circle btn-ghost text-secondary hover:bg-secondary/10 tooltip tooltip-left"
                       onclick={() =>
                         item.email && handleImpersonate(item.email)}
                       aria-label="Impersonate"
                       title="Masuk sebagai {item.email ?? ''}"
+                      data-tip="Masuk sebagai pengguna ini"
                     >
-                      <iconify-icon icon="bx:user-voice"></iconify-icon>
+                      <iconify-icon icon="bx:user-voice" class="text-base"
+                      ></iconify-icon>
                     </button>
                   </div>
                 </td>

@@ -30,10 +30,8 @@
   // Toolbar query state
   let query: GetParams<"bsreUsers"> = $state({
     table: "bsreUsers",
-    limit: 10,
+    limit: 20,
     offset: 0,
-    search: "",
-    where: {},
   });
 
   // Reactive records from local DB
@@ -269,7 +267,7 @@
   }
 </script>
 
-<div class="px-6 py-4 space-y-4 mx-auto">
+<div class="px-6 py-4 space-y-4 mx-auto flex flex-col h-[calc(100vh-4rem)]">
   <div class="flex items-start justify-between gap-4">
     <div>
       <h1
@@ -277,9 +275,7 @@
       >
         Portal BSrE
       </h1>
-      <p class="text-sm opacity-60">
-        Buka Portal BSrE BSSN — login otomatis via BeID + TOTP
-      </p>
+      <p class="text-sm opacity-60">Integrasi data dengan portal BSrE BSSN</p>
     </div>
     <div class="flex items-center gap-2 shrink-0">
       <a
@@ -317,12 +313,27 @@
     <div
       class="bg-base-100/40 border border-base-200/60 rounded-2xl shadow-sm backdrop-blur transition-all duration-500 {chartCollapsed
         ? 'max-h-0 overflow-hidden p-0'
-        : 'p-4'}"
+        : 'p-3'}"
     >
-      <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        <div class="lg:col-span-3">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div class="lg:col-span-2 relative">
+          <div class="absolute z-1 px-5 py-2">
+            <div class="flex items-center gap-3">
+              <span class="text-lg">Status Sertifikat</span>
+
+              {#if status.current?.lastSync}
+                <div
+                  class="flex gap-1 items-center mt-1 text-[10px] font-bold opacity-40"
+                >
+                  <iconify-icon icon="bx:time-five"></iconify-icon>
+                  Sync: {d(status.current.lastSync).format(
+                    "DD MMM YYYY, HH:mm",
+                  )}
+                </div>
+              {/if}
+            </div>
+          </div>
           <Chart
-            title="Status Sertifikat"
             subtitle=""
             data={chartData}
             height={250}
@@ -340,14 +351,6 @@
               },
             ]}
           />
-          {#if status.current?.lastSync}
-            <div
-              class="flex gap-1 items-center mt-1 text-[10px] font-bold opacity-40"
-            >
-              <iconify-icon icon="bx:time-five"></iconify-icon>
-              Sync: {d(status.current.lastSync).format("DD MMM YYYY, HH:mm")}
-            </div>
-          {/if}
         </div>
         <div class="flex flex-col gap-3">
           <div>
@@ -382,7 +385,7 @@
               class="label-text text-[10px] uppercase tracking-widest opacity-40 font-black block mb-1"
               >Status User</span
             >
-            <div class="grid grid-cols-2 gap-1.5">
+            <div class="grid grid-cols-3 gap-1.5">
               <div
                 class="rounded-lg px-2 py-0 text-center cursor-pointer hover:ring-2 hover:ring-base-content/30 transition-all {statusBg(
                   'Total',
@@ -430,11 +433,13 @@
             </div>
           </div>
           <div>
-            <span
-              class="label-text text-[10px] uppercase tracking-widest opacity-40 font-black block mb-1"
-              >Status Sertifikat</span
-            >
-            <div class="grid grid-cols-2 gap-1.5">
+            <div>
+              <span
+                class="label-text text-[10px] uppercase tracking-widest opacity-40 font-black block mb-1"
+                >Status Sertifikat</span
+              >
+            </div>
+            <div class="grid grid-cols-3 gap-1.5">
               {#each certStatusChartData as d}
                 <div
                   class="rounded-lg px-2 py-0 text-center cursor-pointer hover:ring-2 hover:ring-base-content/30 transition-all {statusBg(
@@ -594,7 +599,7 @@
 
   <!-- Users Table -->
   <div
-    class="bg-base-100/40 border border-base-200/60 rounded-2xl p-4 shadow-sm backdrop-blur space-y-4"
+    class="bg-base-100/40 border border-base-200/60 rounded-2xl p-3 shadow-sm backdrop-blur space-y-0 flex-1 min-h-0 flex flex-col"
   >
     <Toolbar bind:query {records}>
       {#snippet filter(where)}
@@ -715,25 +720,26 @@
     </Toolbar>
 
     <div
-      class="overflow-x-auto border border-base-300/60 rounded-xl bg-base-100/50 backdrop-blur-md h-[calc(100vh-20rem)] relative shadow-inner"
+      class="overflow-x-auto border border-base-300/60 rounded-xl bg-base-100/50 backdrop-blur-md flex-1 min-h-0 relative shadow-inner"
     >
-      <table class="table table-md table-pin-rows table-pin-cols">
-        <thead>
+      <table class="table table-xs table-pin-rows table-pin-cols">
+        <thead class="z-30">
           <tr
-            class="bg-base-200/50 text-base-content/80 font-bold border-b border-base-300"
+            class="bg-base-200 text-base-content/80 font-bold border-b border-base-300"
           >
-            <th class="w-10 text-center bg-base-200/50 sticky left-0 z-2">#</th>
-            <th class="min-w-[180px] bg-base-200/50 sticky left-10 z-2">Nama</th
+            <th class="w-10 text-center bg-base-200 sticky left-0 z-20 py-2"
+              >#</th
             >
-            <th class="w-56">Email</th>
-            <th class="w-36">NIK</th>
-            <th class="w-36">NIP</th>
-            <th class="w-24 text-center">Sertifikat</th>
-            <th class="w-28">Mulai</th>
-            <th class="w-28">Berakhir</th>
-            <th class="w-48">Jabatan</th>
-            <th class="w-28 text-center">Status</th>
-            <th class="w-20 text-center bg-base-200/50">Aksi</th>
+            <th class="min-w-[180px] bg-base-200 sticky left-10 z-20">Nama</th>
+            <th class="w-56 bg-base-200">Email</th>
+            <th class="w-36 bg-base-200">NIK</th>
+            <th class="w-36 bg-base-200">NIP</th>
+            <th class="w-24 text-center bg-base-200">Sertifikat</th>
+            <th class="w-28 bg-base-200">Mulai</th>
+            <th class="w-28 bg-base-200">Berakhir</th>
+            <th class="w-48 bg-base-200">Jabatan</th>
+            <th class="w-28 text-center bg-base-200">Status</th>
+            <th class="w-20 text-center bg-base-200">Aksi</th>
           </tr>
         </thead>
         <tbody>
@@ -851,7 +857,7 @@
                   <td class="text-center sticky right-0 z-1 bg-base-100">
                     <div class="flex items-center justify-center gap-1">
                       <button
-                        class="btn btn-ghost btn-xs text-primary tooltip tooltip-left"
+                        class="btn btn-sm btn-circle btn-ghost text-primary hover:bg-primary/10 tooltip tooltip-left"
                         data-tip="Lihat Detail"
                         aria-label="Lihat Detail"
                         onclick={(e) => {
@@ -859,7 +865,7 @@
                           selectedUser = user;
                         }}
                       >
-                        <iconify-icon icon="bx:show" class="text-sm"
+                        <iconify-icon icon="bx:show" class="text-base"
                         ></iconify-icon>
                       </button>
                       {#if user?.id}
@@ -867,12 +873,14 @@
                           href="https://portal-bsre.bssn.go.id/app/users/{user.id}"
                           target="_blank"
                           rel="noopener noreferrer"
-                          class="btn btn-ghost btn-xs text-accent tooltip tooltip-left"
+                          class="btn btn-sm btn-circle btn-ghost text-accent hover:bg-accent/10 tooltip tooltip-left"
                           data-tip="Buka Profil BSrE"
                           aria-label="Buka Profil BSrE"
                           onclick={(e) => e.stopPropagation()}
                         >
-                          <iconify-icon icon="bx:link-external" class="text-sm"
+                          <iconify-icon
+                            icon="bx:link-external"
+                            class="text-base"
                           ></iconify-icon>
                         </a>
                       {/if}

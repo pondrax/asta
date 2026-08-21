@@ -42,7 +42,7 @@
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <div
   id="tour-upload"
-  class="h-full w-full flex justify-center items-center border-2 border-dashed rounded-2xl
+  class="h-full w-full flex justify-center items-center border-2 border-dashed rounded-2xl min-h-[60vh]
     {dragging
     ? 'bg-primary/10 border-primary shadow-lg'
     : 'bg-base-200 border-base-300'}"

@@ -166,6 +166,8 @@ export const getDashboard = query("unchecked", async () => {
     .sort((a, b) => (b.updated || "").localeCompare(a.updated || ""))
     .slice(0, 5);
 
+  const totalQueue = userDocs.filter((doc) => doc.signer === email).length;
+
   return {
     userDocCounts,
     dailyStats,
@@ -174,6 +176,7 @@ export const getDashboard = query("unchecked", async () => {
     weeklyComparison: { thisWeek: thisWeekSigned, lastWeek: lastWeekSigned },
     recentDocs,
     recentLogs,
+    totalQueue,
   };
 });
 
@@ -322,6 +325,8 @@ export const getAdminDashboard = query("unchecked", async () => {
 
   const topSigners = computeTopSigners(allDocs, allSigners);
 
+  const totalQueue = allDocs.filter((doc) => doc.signer).length;
+
   return {
     totalCounts,
     dailyStats,
@@ -333,6 +338,7 @@ export const getAdminDashboard = query("unchecked", async () => {
     totalUsers: allUsers.length,
     totalSigners: allSigners.length,
     totalDocs: allDocs.length,
+    totalQueue,
   };
 });
 
