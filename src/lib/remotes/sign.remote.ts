@@ -40,8 +40,32 @@ export const verifyTurnstile = command(type({
   await validateTurnstile(props.__token, event.getClientAddress());
   return { success: true }
 })
+
+/** Increment today's counter for the given statistic type (creates the row if missing). */
+async function bumpStatistic(type: 'signed' | 'verified') {
+  const stat = await db.query.documentStatistics.findFirst({
+    where: {
+      type,
+      created: {
+        lt: dayjs().endOf('day').toString(),
+        gt: dayjs().startOf('day').toString(),
+      },
+    },
+  });
+
+  await db.query.documentStatistics.upsert({
+    data: {
+      id: stat?.id || createId(),
+      type,
+      value: 1,
+    },
+    update: row => ({
+      value: sql`${row.value} + 1`,
+    }),
+  });
+}
+
 export const signDocument = command(type({
-  // __token: 'string',
   __manual: 'boolean?',
   __asDraft: 'boolean?',
   __saveDocument: 'boolean?',
@@ -76,14 +100,8 @@ export const signDocument = command(type({
       },
     };
 
-    if (props.__manual) {
-      response = {
-        status: 200,
-        data: {
-          file: [props.fileBase64],
-        },
-      }
-    } else if (props.__asDraft) {
+    if (props.__manual || props.__asDraft) {
+      // Manual signing and drafts skip BSrE — reuse the uploaded file as-is
       response = {
         status: 200,
         data: {
@@ -114,17 +132,16 @@ export const signDocument = command(type({
     }
 
     if (response.data.file && response.data.file.length > 0) {
-      console.log('size', response.data.file[0].length);
+      const history = {
+        signer: props.email,
+        signedAt: new Date().toISOString(),
+        status: 'signed'
+      };
       if (props.__saveDocument) {
         const blob = base64ToBlob(response.data.file[0]);
         const buffer = Buffer.from(await blob.arrayBuffer());
         const checksum = await calculateFileChecksum(buffer);
         const saved = await storage.save(`documents/${props.__asDraft ? 'draft_' : 'signed_'}${props.fileName}`, buffer);
-        const history = {
-          signer: props.email,
-          signedAt: new Date().toISOString(),
-          status: 'signed'
-        };
         if (saved.url) {
           await db.query.documents.upsert({
             data: {
@@ -175,7 +192,6 @@ export const signDocument = command(type({
         })
       }
 
-      // const { fileBase64, fileName, ...metadata } = props
       await db.query.signers.upsert({
         data: {
           nik: props.nik,
@@ -188,25 +204,7 @@ export const signDocument = command(type({
         }
       })
 
-      const id = (await db.query.documentStatistics.findFirst({
-        where: {
-          type: 'signed',
-          created: {
-            lt: dayjs().endOf('day').toString(),
-            gt: dayjs().startOf('day').toString(),
-          }
-        }
-      }))?.id || createId();
-      await db.query.documentStatistics.upsert({
-        data: {
-          id,
-          type: 'signed',
-          value: 1,
-        },
-        update: stat => ({
-          value: sql`${stat.value} + 1`,
-        })
-      })
+      await bumpStatistic('signed');
     }
 
     return response.data;
@@ -223,25 +221,7 @@ export const verifyDocument = command(type({
     const response = await esign.verifyPDF(props)
 
     if (response.status === 200) {
-      const id = (await db.query.documentStatistics.findFirst({
-        where: {
-          type: 'verified',
-          created: {
-            lt: dayjs().endOf('day').toString(),
-            gt: dayjs().startOf('day').toString(),
-          }
-        }
-      }))?.id || createId();
-      await db.query.documentStatistics.upsert({
-        data: {
-          id,
-          type: 'verified',
-          value: 1,
-        },
-        update: stat => ({
-          value: sql`${stat.value} + 1`,
-        })
-      })
+      await bumpStatistic('verified');
       return response.data;
     }
 
@@ -262,43 +242,11 @@ export const getDocument = query(type({
   checksum: 'string?',
 }), async (props) => {
   const ids = Array.isArray(props.id) ? props.id : [props.id];
-  const document = await db.query.documents.findMany({
+  return db.query.documents.findMany({
     where: {
-      OR: [
-        // {
-        //   checksums: {
-        //     arrayContains: [props.checksum || '-'],
-        //   }
-        // },
-        {
-          id: {
-            in: ids,
-          }
-        }
-      ]
-    }
-  })
-  // console.log(document);
-  return document;
-})
-
-export const getTemplates = query(type({ id: 'string?' }), async ({ id }) => {
-  const event = getRequestEvent();
-  const user = event.locals.user;
-  const orgId = user?.organization_id;
-
-  const templates = await db.query.templates.findMany({
-    where: {
-      id,
-      status: true,
-    }
-  });
-
-  if (!orgId) return templates;
-
-  // Show templates that have no org restriction or include user's org
-  return templates.filter(t => {
-    const orgs = t.organization_id;
-    return !orgs || orgs.length === 0 || orgs.includes(orgId);
+      id: {
+        in: ids,
+      },
+    },
   });
 })

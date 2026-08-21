@@ -23,10 +23,10 @@
   } from "$lib/utils";
   import {
     getDocument,
-    getTemplates,
     signDocument,
     verifyTurnstile,
   } from "$lib/remotes/sign.remote";
+  import { getData } from "$lib/remotes/api.remote";
 
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
@@ -304,8 +304,13 @@
       );
     }
     if (templateId) {
-      const existing = await getTemplates({ id: templateId });
-      if (existing.length > 0) initTemplate(existing[0]);
+      const existing = await getData({
+        table: "templates",
+        limit: 1,
+        offset: 0,
+        where: { id: templateId, status: true },
+      });
+      if (existing.data.length > 0) initTemplate(existing.data[0]);
     }
   }
 
