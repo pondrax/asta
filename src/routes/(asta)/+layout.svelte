@@ -1009,7 +1009,7 @@
                       <iconify-icon
                         icon="bx:chevron-right"
                         class="text-xs transition-all {page.url.pathname ===
-                          '/me/documents/administrative'
+                        '/me/documents/administrative'
                           ? 'text-primary opacity-100'
                           : 'opacity-40 group-hover:opacity-100'}"
                       ></iconify-icon>
