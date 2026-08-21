@@ -93,7 +93,7 @@ Tapak Astà adalah platform tanda tangan elektronik untuk Pemerintah Kota Mojoke
 - Setiap baris: nama, file terlampir (klik untuk preview), metode (esign/manual), badge status, penandatangan, terakhir diperbarui, metadata, tombol aksi.
 
 ## Dokumen Administratif (/main/documents)
-- Halaman admin: daftar dokumen yang ditujukan ke peran pengguna (kolom `to`).
+- Halaman admin: daftar dokumen yang ditujukan ke peran pengguna (kolom "to").
 
 ## Profil (/profile)
 - Lihat dan edit nama dan NIK. Email read-only.
