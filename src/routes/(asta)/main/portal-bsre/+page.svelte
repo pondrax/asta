@@ -32,6 +32,7 @@
     table: "bsreUsers",
     limit: 20,
     offset: 0,
+    where: {},
   });
 
   // Reactive records from local DB
@@ -138,7 +139,7 @@
   }
 
   function selectFilter(field: string, value: string) {
-    const w = query.where as Record<string, any>;
+    const w = (query.where ??= {}) as Record<string, any>;
     if (field === "reset") {
       query.where = {};
     } else if (w[field] === value) {

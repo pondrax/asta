@@ -239,7 +239,9 @@
             <th class="w-44 bg-base-200">Organisasi</th>
             <th class="w-44 bg-base-200">Dibuat</th>
             <th class="w-44 bg-base-200">Diperbarui</th>
-            <th class="w-20 bg-base-200"></th>
+            <th
+              class="w-20 text-center bg-base-200 z-20 sticky right-0 left-auto"
+            ></th>
           </tr>
         </thead>
         <tbody>
@@ -319,7 +321,9 @@
                 <td class="text-xs opacity-60 whitespace-nowrap">
                   {d(item.updated).format("HH:mm, DD MMM YYYY")}
                 </td>
-                <td class="text-center">
+                <td
+                  class="text-center sticky right-0 left-auto bg-base-100 z-10"
+                >
                   <div class="flex justify-center gap-1.5">
                     <button
                       class="btn btn-sm btn-circle btn-ghost text-primary hover:bg-primary/10 tooltip tooltip-left"

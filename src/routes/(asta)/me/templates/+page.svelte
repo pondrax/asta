@@ -381,7 +381,9 @@
             <th class="w-44 bg-base-200">Organisasi</th>
             <th class="w-44 bg-base-200">Dibuat</th>
             <th class="w-44 bg-base-200">Diperbarui</th>
-            <th class="w-20 sticky right-0 bg-base-200"></th>
+            <th
+              class="w-20 text-center bg-base-200 z-20 sticky right-0 left-auto"
+            ></th>
           </tr>
         </thead>
         <tbody>
@@ -500,7 +502,9 @@
                 <td class="text-xs opacity-60 whitespace-nowrap">
                   {d(item.updated).format("HH:mm, DD MMM YYYY")}
                 </td>
-                <td class="sticky right-0 bg-base-100">
+                <td
+                  class="text-center sticky right-0 left-auto bg-base-100 z-10"
+                >
                   <button
                     class="btn btn-xs btn-ghost btn-square"
                     onclick={() => startEdit(item)}

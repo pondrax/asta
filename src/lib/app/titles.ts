@@ -18,7 +18,6 @@ export const ROUTE_TITLES: Record<string, string> = {
   "/user-guide": "Panduan Pengguna",
   "/services/register": "Registrasi Akun BSRE",
   "/main": "Panel Manajemen",
-  "/main/documents": "Dokumen Administratif",
   "/main/users": "Kelola Pengguna",
   "/main/logs": "Log Aktivitas",
   "/main/survey": "Data Survey",

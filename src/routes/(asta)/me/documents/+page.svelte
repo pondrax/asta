@@ -413,7 +413,11 @@
             <th class="w-48 bg-base-200">Owner</th>
             <th class="w-44 bg-base-200">Diperbarui</th>
             <th class="w-64 bg-base-200">Histories</th>
-            <th class="w-24 text-center bg-base-200 z-20">Aksi</th>
+            <th
+              class="w-24 text-center bg-base-200 z-20 sticky right-0 left-auto"
+            >
+              Aksi
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -582,7 +586,7 @@
                     <span class="text-xs opacity-30 italic">-</span>
                   {/if}
                 </td>
-                <td class="text-center">
+                <td class="text-center sticky right-0 left-auto bg-base-100 z-10">
                   <div class="flex justify-center gap-1.5">
                     <form action="/sign" method="POST" target="_blank">
                       <input type="hidden" name="id" value={item.id} />
