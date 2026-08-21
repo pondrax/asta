@@ -3,6 +3,7 @@
   import { goto } from "$app/navigation";
   import Char from "./char.svelte";
   import { app } from "$lib/app/index.svelte";
+  import { ROUTE_TITLES } from "$lib/app/titles";
 
   const renderer = new marked.Renderer();
 
@@ -45,17 +46,7 @@
     user = $bindable(undefined),
   }: { user?: { email?: string; role?: { name?: string } } | null } = $props();
 
-  const routeLabels: Record<string, string> = {
-    "/sign": "Tanda Tangan",
-    "/verify": "Verifikasi",
-    "/me": "Dashboard",
-    "/me/documents": "Dokumen Saya",
-    "/profile": "Profil",
-    "/templates": "Template",
-    "/survey": "Survey",
-    "/main": "Admin",
-    "/user-guide": "Panduan",
-  };
+  const routeLabels: Record<string, string> = ROUTE_TITLES;
 
   function getRouteLabel(path: string): string {
     if (routeLabels[path]) return routeLabels[path];

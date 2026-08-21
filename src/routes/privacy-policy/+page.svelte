@@ -3,7 +3,7 @@
 </script>
 
 <svelte:head>
-  <title>Kebijakan Privasi</title>
+  <title>Kebijakan Privasi – Tapak Astà</title>
   <meta
     name="description"
     content="Kebijakan Privasi – Pedoman pengumpulan, pengolahan, dan perlindungan data pribadi pengguna."

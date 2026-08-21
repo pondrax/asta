@@ -41,10 +41,6 @@
   const currentPage = $derived(pages[path]);
 </script>
 
-<svelte:head>
-  <title>{currentPage?.title ?? "Halaman"} – Tapak Astà</title>
-</svelte:head>
-
 <div class="overflow-y-auto">
   <div class="max-w-4xl mx-auto px-4 py-10 sm:py-16">
     {#if currentPage}

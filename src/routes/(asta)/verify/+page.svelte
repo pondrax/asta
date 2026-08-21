@@ -17,9 +17,15 @@
   let tempEmail = $state("");
   let emailError = $state("");
 
-  const MODES = ["upload", "search", "scan"] as const;
+  const MODES = ["upload", "id", "scan"] as const;
+  type Mode = (typeof MODES)[number];
 
-  let mode: (typeof MODES)[number] = $state("upload");
+  function parseModeHash(hash: string): Mode | null {
+    const key = hash.replace(/^#!?\/?/, "");
+    return MODES.includes(key as Mode) ? (key as Mode) : null;
+  }
+
+  const mode = $derived(parseModeHash(page.url.hash) ?? ("upload" as Mode));
   let previewFile: File | null = $state(null);
   let fileURL: string | undefined = $state();
   let verifyStatus: SignatureVerificationResponse | undefined = $state();
@@ -137,12 +143,9 @@
   });
 
   onMount(async () => {
-    const urlMode = page.url.searchParams.get("mode");
-    if (urlMode && MODES.includes(urlMode as any)) {
-      mode = urlMode as (typeof MODES)[number];
-      if (mode === "scan") {
-        setTimeout(() => startScan(), 500);
-      }
+    const urlMode = parseModeHash(page.url.hash);
+    if (urlMode === "scan") {
+      setTimeout(() => startScan(), 500);
     }
 
     let urlOwner = page.url.searchParams.get("owner");
@@ -415,7 +418,8 @@
           type="radio"
           name="verify-nav"
           value="upload"
-          bind:group={mode}
+          checked={mode === "upload"}
+          onchange={() => (location.hash = "!/upload")}
           class="hidden"
         />
         <iconify-icon icon="bx:upload"></iconify-icon>
@@ -427,8 +431,9 @@
         <input
           type="radio"
           name="verify-nav"
-          value="search"
-          bind:group={mode}
+          value="id"
+          checked={mode === "id"}
+          onchange={() => (location.hash = "!/id")}
           class="hidden"
         />
         <iconify-icon icon="bx:search"></iconify-icon>
@@ -441,7 +446,8 @@
           type="radio"
           name="verify-nav"
           value="scan"
-          bind:group={mode}
+          checked={mode === "scan"}
+          onchange={() => (location.hash = "!/scan")}
           class="hidden"
         />
         <iconify-icon icon="bx:qr-scan"></iconify-icon>
@@ -478,7 +484,7 @@
               />
             </label>
           </div>
-        {:else if mode === "search"}
+        {:else if mode === "id"}
           <div class="space-y-4">
             <div class="alert alert-info text-xs py-2 shadow-sm">
               <iconify-icon icon="bx:search" class="text-xl"></iconify-icon>

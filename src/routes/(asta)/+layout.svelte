@@ -5,9 +5,12 @@
   import { app } from "$lib/app/index.svelte";
   import Lottie from "$lib/components/lottie.svelte";
   import Chatbot from "$lib/components/chatbot.svelte";
+  import { getPageTitle } from "$lib/app/titles";
+  import { getStatus, getAdminCounts } from "$lib/remotes/stats.remote";
   let { children, data } = $props();
 
   const user = $derived(data.user);
+  const pageTitle = $derived(getPageTitle(page.url.pathname));
 
   let activeMenu = $state<string | null>(null);
   let hideTimer: ReturnType<typeof setTimeout>;
@@ -31,10 +34,29 @@
   );
 
   const isManageActive = $derived(page.url.pathname.startsWith("/main"));
+
+  // Per-scope document counts for nav badges
+  const status = $derived(user ? getStatus({}) : undefined);
+  const statusCounts = $derived(
+    status?.current ?? {
+      mine: 0,
+      requests: 0,
+      signed: 0,
+      administrative: 0,
+    },
+  );
+
+  // Admin nav counts (users, BSrE users, survey responses)
+  const admin = $derived(
+    user?.role?.name === "admin" ? getAdminCounts({}) : undefined,
+  );
+  const adminCounts = $derived(
+    admin?.current ?? { users: 0, bsreUsers: 0, surveys: 0, logs: 0 },
+  );
 </script>
 
 <svelte:head>
-  <title>Tapak Astà</title>
+  <title>{pageTitle}</title>
   <link rel="preconnect" href="https://challenges.cloudflare.com" />
   <script
     src="https://challenges.cloudflare.com/turnstile/v0/api.js"
@@ -60,8 +82,8 @@
             <li><a href="/sign">Tanda Tangan</a></li>
             <li><a href="/verify">Verifikasi</a></li>
             {#if user}
-              <li class="menu-title mt-2">Overview</li>
-              <li><a href="/me">Overview</a></li>
+              <li class="menu-title mt-2">Dashboard</li>
+              <li><a href="/me">Dashboard</a></li>
               <li><a href="/me/documents">Dokumen Saya</a></li>
               <li><a href="/templates">Template</a></li>
               <li class="menu-title mt-2">Konfigurasi</li>
@@ -69,9 +91,17 @@
               <li><a href="/me/templates">Kelola Template</a></li>
               <li><a href="/survey">Survey Kepuasan</a></li>
               {#if user.role?.name === "admin"}
-                <li class="menu-title mt-2">Administration</li>
-                <li><a href="/main">Dashboard</a></li>
-                <li><a href="/main/users">Users</a></li>
+                <li class="menu-title mt-2">Administrasi</li>
+                <li><a href="/main">Dashboard Administrasi</a></li>
+                <li>
+                  <a href="/main/documents" class="flex items-center gap-2">
+                    Dokumen Administratif
+                    <span class="badge badge-xs badge-ghost font-mono ml-auto">
+                      {statusCounts.administrative}
+                    </span>
+                  </a>
+                </li>
+                <li><a href="/main/users">Daftar Pengguna</a></li>
                 <li><a href="/main/logs">Logs</a></li>
                 <li><a href="/main/portal-bsre">BSrE Portal</a></li>
                 <li><a href="/main/survey">Survey</a></li>
@@ -148,7 +178,7 @@
                 class:bg-base-200={activeMenu === "me" && !isMeActive}
                 class:text-base-content={activeMenu === "me" && !isMeActive}
               >
-                Overview
+                Dashboard
               </a>
             </li>
           {/if}
@@ -167,7 +197,7 @@
                 class:text-base-content={activeMenu === "manage" &&
                   !isManageActive}
               >
-                Administration
+                Administrasi
               </a>
             </li>
           {/if}
@@ -434,7 +464,7 @@
                 <h4
                   class="font-semibold mb-3 text-sm opacity-80 uppercase tracking-wider"
                 >
-                  Fitur TTE
+                  Fitur Tanda Tangan
                 </h4>
                 <ul class="space-y-1">
                   <li>
@@ -470,7 +500,7 @@
                           ? 'text-primary opacity-100'
                           : 'opacity-40 group-hover:opacity-100'}"
                       ></iconify-icon>
-                      <span>Template</span>
+                      <span>Template Dokumen</span>
                     </a>
                   </li>
                 </ul>
@@ -553,14 +583,15 @@
                     <a
                       href="/verify"
                       class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
-                        .url.pathname === '/verify' && !page.url.search
+                        .url.pathname === '/verify' &&
+                      !page.url.hash.startsWith('#!')
                         ? 'text-primary font-bold bg-primary/5'
                         : 'text-base-content/75'}"
                     >
                       <iconify-icon
                         icon="bx:chevron-right"
                         class="text-xs transition-all {page.url.pathname ===
-                          '/verify' && !page.url.search
+                          '/verify' && !page.url.hash.startsWith('#!')
                           ? 'text-primary opacity-100'
                           : 'opacity-40 group-hover:opacity-100'}"
                       ></iconify-icon>
@@ -569,22 +600,39 @@
                   </li>
                   <li>
                     <a
-                      href="/verify?mode=id"
-                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page.url.search.includes(
-                        'mode=id',
-                      )
+                      href="/verify#!/id"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
+                        .url.pathname === '/verify' && page.url.hash === '#!/id'
                         ? 'text-primary font-bold bg-primary/5'
                         : 'text-base-content/75'}"
                     >
                       <iconify-icon
                         icon="bx:chevron-right"
-                        class="text-xs transition-all {page.url.search.includes(
-                          'mode=id',
-                        )
+                        class="text-xs transition-all {page.url.pathname ===
+                          '/verify' && page.url.hash === '#!/id'
                           ? 'text-primary opacity-100'
                           : 'opacity-40 group-hover:opacity-100'}"
                       ></iconify-icon>
                       <span>Cari Berdasarkan ID</span>
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href="/verify#!/scan"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
+                        .url.pathname === '/verify' &&
+                      page.url.hash === '#!/scan'
+                        ? 'text-primary font-bold bg-primary/5'
+                        : 'text-base-content/75'}"
+                    >
+                      <iconify-icon
+                        icon="bx:chevron-right"
+                        class="text-xs transition-all {page.url.pathname ===
+                          '/verify' && page.url.hash === '#!/scan'
+                          ? 'text-primary opacity-100'
+                          : 'opacity-40 group-hover:opacity-100'}"
+                      ></iconify-icon>
+                      <span>Pindai QR Code TTE</span>
                     </a>
                   </li>
                 </ul>
@@ -598,42 +646,56 @@
                 <ul class="space-y-1">
                   <li>
                     <a
-                      href="/verify?mode=scan"
-                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page.url.search.includes(
-                        'mode=scan',
-                      )
-                        ? 'text-primary font-bold bg-primary/5'
-                        : 'text-base-content/75'}"
+                      href="https://cekdokumen.id/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 text-base-content/75"
                     >
                       <iconify-icon
-                        icon="bx:chevron-right"
-                        class="text-xs transition-all {page.url.search.includes(
-                          'mode=scan',
-                        )
-                          ? 'text-primary opacity-100'
-                          : 'opacity-40 group-hover:opacity-100'}"
+                        icon="bx:link-external"
+                        class="text-xs opacity-40 group-hover:opacity-100 transition-all"
                       ></iconify-icon>
-                      <span>Pindai QR Code TTE</span>
+                      <span>Verifikasi PDF - Cek Dokumen</span>
+                      <iconify-icon
+                        icon="bx:external-link"
+                        class="ml-auto text-[10px] opacity-40"
+                      ></iconify-icon>
                     </a>
                   </li>
                   <li>
                     <a
-                      href="/user-guide#verify-info"
-                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page.url.pathname.includes(
-                        '#verify-info',
-                      )
-                        ? 'text-primary font-bold bg-primary/5'
-                        : 'text-base-content/75'}"
+                      href="https://tte.komdigi.go.id/verifyPDF"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 text-base-content/75"
                     >
                       <iconify-icon
-                        icon="bx:chevron-right"
-                        class="text-xs transition-all {page.url.pathname.includes(
-                          '#verify-info',
-                        )
-                          ? 'text-primary opacity-100'
-                          : 'opacity-40 group-hover:opacity-100'}"
+                        icon="bx:link-external"
+                        class="text-xs opacity-40 group-hover:opacity-100 transition-all"
                       ></iconify-icon>
-                      <span>Cara Cek Validitas</span>
+                      <span>Verifikasi PDF - Komdigi</span>
+                      <iconify-icon
+                        icon="bx:external-link"
+                        class="ml-auto text-[10px] opacity-40"
+                      ></iconify-icon>
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href="https://bsre.bssn.go.id/pdf-verification"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 text-base-content/75"
+                    >
+                      <iconify-icon
+                        icon="bx:link-external"
+                        class="text-xs opacity-40 group-hover:opacity-100 transition-all"
+                      ></iconify-icon>
+                      <span>Verifikasi PDF - BSrE BSSN</span>
+                      <iconify-icon
+                        icon="bx:external-link"
+                        class="ml-auto text-[10px] opacity-40"
+                      ></iconify-icon>
                     </a>
                   </li>
                 </ul>
@@ -656,7 +718,7 @@
                   templates surat Anda.
                 </p>
                 <a href="/me" class="btn btn-primary btn-sm mt-4 gap-1">
-                  <span>Ke Overview</span>
+                  <span>Dashboard Saya</span>
                   <iconify-icon icon="bx:layout"></iconify-icon>
                 </a>
               </div>
@@ -669,38 +731,86 @@
                 <ul class="space-y-1">
                   <li>
                     <a
-                      href="/me"
+                      href="/me/documents#!/mine"
                       class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
-                        .url.pathname === '/me'
+                        .url.pathname === '/me/documents' &&
+                      page.url.hash === '#!/mine'
                         ? 'text-primary font-bold bg-primary/5'
                         : 'text-base-content/75'}"
                     >
                       <iconify-icon
                         icon="bx:chevron-right"
                         class="text-xs transition-all {page.url.pathname ===
-                        '/me'
-                          ? 'text-primary opacity-100'
-                          : 'opacity-40 group-hover:opacity-100'}"
-                      ></iconify-icon>
-                      <span>Overview Akun</span>
-                    </a>
-                  </li>
-                  <li>
-                    <a
-                      href="/me/documents"
-                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
-                        .url.pathname === '/me/documents'
-                        ? 'text-primary font-bold bg-primary/5'
-                        : 'text-base-content/75'}"
-                    >
-                      <iconify-icon
-                        icon="bx:chevron-right"
-                        class="text-xs transition-all {page.url.pathname ===
-                        '/me/documents'
+                          '/me/documents' && page.url.hash === '#!/mine'
                           ? 'text-primary opacity-100'
                           : 'opacity-40 group-hover:opacity-100'}"
                       ></iconify-icon>
                       <span>Dokumen Saya</span>
+                      <span
+                        class="ml-auto badge badge-xs font-mono {page.url
+                          .pathname === '/me/documents' &&
+                        page.url.hash === '#!/mine'
+                          ? 'badge-primary'
+                          : 'badge-ghost'}"
+                      >
+                        {statusCounts.mine}
+                      </span>
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href="/me/documents#!/request"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
+                        .url.pathname === '/me/documents' &&
+                      page.url.hash === '#!/request'
+                        ? 'text-primary font-bold bg-primary/5'
+                        : 'text-base-content/75'}"
+                    >
+                      <iconify-icon
+                        icon="bx:chevron-right"
+                        class="text-xs transition-all {page.url.pathname ===
+                          '/me/documents' && page.url.hash === '#!/request'
+                          ? 'text-primary opacity-100'
+                          : 'opacity-40 group-hover:opacity-100'}"
+                      ></iconify-icon>
+                      <span>Perlu Ditandatangani</span>
+                      <span
+                        class="ml-auto badge badge-xs font-mono {page.url
+                          .pathname === '/me/documents' &&
+                        page.url.hash === '#!/request'
+                          ? 'badge-primary'
+                          : 'badge-ghost'}"
+                      >
+                        {statusCounts.requests}
+                      </span>
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href="/me/documents#!/signed"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
+                        .url.pathname === '/me/documents' &&
+                      page.url.hash === '#!/signed'
+                        ? 'text-primary font-bold bg-primary/5'
+                        : 'text-base-content/75'}"
+                    >
+                      <iconify-icon
+                        icon="bx:chevron-right"
+                        class="text-xs transition-all {page.url.pathname ===
+                          '/me/documents' && page.url.hash === '#!/signed'
+                          ? 'text-primary opacity-100'
+                          : 'opacity-40 group-hover:opacity-100'}"
+                      ></iconify-icon>
+                      <span>Riwayat Tanda Tangan</span>
+                      <span
+                        class="ml-auto badge badge-xs font-mono {page.url
+                          .pathname === '/me/documents' &&
+                        page.url.hash === '#!/signed'
+                          ? 'badge-primary'
+                          : 'badge-ghost'}"
+                      >
+                        {statusCounts.signed}
+                      </span>
                     </a>
                   </li>
                 </ul>
@@ -780,24 +890,6 @@
                 <ul class="space-y-1">
                   <li>
                     <a
-                      href="/main"
-                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
-                        .url.pathname === '/main'
-                        ? 'text-primary font-bold bg-primary/5'
-                        : 'text-base-content/75'}"
-                    >
-                      <iconify-icon
-                        icon="bx:chevron-right"
-                        class="text-xs transition-all {page.url.pathname ===
-                        '/main'
-                          ? 'text-primary opacity-100'
-                          : 'opacity-40 group-hover:opacity-100'}"
-                      ></iconify-icon>
-                      <span>Dashboard Utama</span>
-                    </a>
-                  </li>
-                  <li>
-                    <a
                       href="/main/users"
                       class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
                         .url.pathname === '/main/users'
@@ -812,6 +904,40 @@
                           : 'opacity-40 group-hover:opacity-100'}"
                       ></iconify-icon>
                       <span>Daftar Pengguna</span>
+                      <span
+                        class="ml-auto badge badge-xs font-mono {page.url
+                          .pathname === '/main/users'
+                          ? 'badge-primary'
+                          : 'badge-ghost'}"
+                      >
+                        {adminCounts.users}
+                      </span>
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href="/main/documents"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
+                        .url.pathname === '/main/documents'
+                        ? 'text-primary font-bold bg-primary/5'
+                        : 'text-base-content/75'}"
+                    >
+                      <iconify-icon
+                        icon="bx:chevron-right"
+                        class="text-xs transition-all {page.url.pathname ===
+                        '/main/documents'
+                          ? 'text-primary opacity-100'
+                          : 'opacity-40 group-hover:opacity-100'}"
+                      ></iconify-icon>
+                      <span>Dokumen Administratif</span>
+                      <span
+                        class="ml-auto badge badge-xs font-mono {page.url
+                          .pathname === '/main/documents'
+                          ? 'badge-primary'
+                          : 'badge-ghost'}"
+                      >
+                        {statusCounts.administrative}
+                      </span>
                     </a>
                   </li>
                   <li>
@@ -830,6 +956,14 @@
                           : 'opacity-40 group-hover:opacity-100'}"
                       ></iconify-icon>
                       <span>Log Aktivitas</span>
+                      <span
+                        class="ml-auto badge badge-xs font-mono {page.url
+                          .pathname === '/main/logs'
+                          ? 'badge-primary'
+                          : 'badge-ghost'}"
+                      >
+                        {adminCounts.logs}
+                      </span>
                     </a>
                   </li>
                 </ul>
@@ -856,7 +990,15 @@
                           ? 'text-primary opacity-100'
                           : 'opacity-40 group-hover:opacity-100'}"
                       ></iconify-icon>
-                      <span>Portal BSrE Portal</span>
+                      <span>Portal BSrE</span>
+                      <span
+                        class="ml-auto badge badge-xs font-mono {page.url
+                          .pathname === '/main/portal-bsre'
+                          ? 'badge-primary'
+                          : 'badge-ghost'}"
+                      >
+                        {adminCounts.bsreUsers}
+                      </span>
                     </a>
                   </li>
                   <li>
@@ -875,6 +1017,14 @@
                           : 'opacity-40 group-hover:opacity-100'}"
                       ></iconify-icon>
                       <span>Survey Kepuasan</span>
+                      <span
+                        class="ml-auto badge badge-xs font-mono {page.url
+                          .pathname === '/main/survey'
+                          ? 'badge-primary'
+                          : 'badge-ghost'}"
+                      >
+                        {adminCounts.surveys}
+                      </span>
                     </a>
                   </li>
                 </ul>

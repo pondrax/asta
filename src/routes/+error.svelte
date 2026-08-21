@@ -3,7 +3,7 @@
 </script>
 
 <svelte:head>
-  <title>Oh No! | {page.status}</title>
+  <title>Error {page.status} – Tapak Astà</title>
 </svelte:head>
 
 <div

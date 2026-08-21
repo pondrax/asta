@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { page } from "$app/state";
   import { delData, getData, type GetParams } from "$lib/remotes/api.remote";
   import { Modal, Toolbar, Preview } from "$lib/components";
   import { d } from "$lib/utils";
@@ -10,44 +9,6 @@
     },
   };
 
-  const TABS = ["mine", "request", "signed"] as const;
-  type Tab = (typeof TABS)[number];
-
-  const TAB_META: Record<
-    Tab,
-    { label: string; icon: string; title: string; subtitle: string }
-  > = {
-    mine: {
-      label: "Dokumen Saya",
-      icon: "bx:folder-open",
-      title: "Dokumen Saya",
-      subtitle: "Kelola dan tandatangani dokumen elektronik Anda",
-    },
-    request: {
-      label: "Perlu Ditandatangani",
-      icon: "bx:pen",
-      title: "Perlu Ditandatangani",
-      subtitle: "Dokumen yang menunggu tanda tangan Anda",
-    },
-    signed: {
-      label: "Riwayat Tanda Tangan",
-      icon: "bx:check-circle",
-      title: "Riwayat Tanda Tangan",
-      subtitle: "Semua dokumen yang pernah Anda tandatangani",
-    },
-  };
-
-  const hashKey = $derived(page.url.hash.replace(/^#!?\/?/, ""));
-  const activeTab = $derived(
-    TABS.includes(hashKey as Tab) ? (hashKey as Tab) : ("mine" as Tab),
-  );
-  // Tab key "request" maps to server scope "requests"
-  const TAB_SCOPE: Record<Tab, "mine" | "requests" | "signed"> = {
-    mine: "mine",
-    request: "requests",
-    signed: "signed",
-  };
-  const meta = $derived(TAB_META[activeTab]);
   let query: GetParams<"documents"> = $state({
     table: "documents",
     limit: 20,
@@ -59,21 +20,11 @@
     ...expand,
   });
   const records = $derived(
-    getData({ ...query, ...expand, scope: TAB_SCOPE[activeTab] }),
+    getData({ ...query, ...expand, scope: "administrative" }),
   );
   const items = $derived(records.current ?? { data: [], count: 0 });
   const forms: Record<string, any> = $state({});
   let selections: string[] = $state([]);
-
-  let lastTab = $state<Tab | null>(null);
-  $effect(() => {
-    if (lastTab !== null && lastTab !== activeTab) {
-      query.offset = 0;
-      query.where = {};
-      selections = [];
-    }
-    lastTab = activeTab;
-  });
 
   let lastCount = $state(0);
   $effect(() => {
@@ -83,39 +34,6 @@
       selections = [];
     }
   });
-
-  const tabCounts = $derived.by(() => ({
-    mine:
-      getData({ table: "documents", limit: 1, offset: 0, scope: "mine" })
-        .current?.count ?? 0,
-    request:
-      getData({ table: "documents", limit: 1, offset: 0, scope: "requests" })
-        .current?.count ?? 0,
-    signed:
-      getData({ table: "documents", limit: 1, offset: 0, scope: "signed" })
-        .current?.count ?? 0,
-  }));
-
-  const draftCountQuery = $derived(
-    getData({
-      table: "documents",
-      limit: 1,
-      offset: 0,
-      scope: TAB_SCOPE[activeTab],
-      where: { status: "draft" },
-    }),
-  );
-  const signedCountQuery = $derived(
-    getData({
-      table: "documents",
-      limit: 1,
-      offset: 0,
-      scope: TAB_SCOPE[activeTab],
-      where: { status: "signed" },
-    }),
-  );
-  const draftCount = $derived(draftCountQuery.current?.count ?? 0);
-  const signedCount = $derived(signedCountQuery.current?.count ?? 0);
 
   // States for Preview Modal
   let previewFile = $state<File | null>(null);
@@ -261,39 +179,11 @@
       <h1
         class="text-2xl font-bold bg-linear-to-r from-primary to-secondary bg-clip-text text-transparent"
       >
-        {meta.title}
+        Dokumen Administratif
       </h1>
-      <p class="text-sm opacity-60">{meta.subtitle}</p>
-    </div>
-    <div class="flex items-center gap-2 flex-wrap">
-      <!-- Scope Tabs -->
-      <div role="tablist" class="tabs tabs-box tabs-sm p-0">
-        {#each TABS as tab (tab)}
-          <button
-            role="tab"
-            class="tab gap-1.5 {activeTab === tab ? 'tab-active' : ''}"
-            aria-label={TAB_META[tab].label}
-            onclick={() => (location.hash = `!/${tab}`)}
-          >
-            <iconify-icon icon={TAB_META[tab].icon}></iconify-icon>
-            <span>{TAB_META[tab].label}</span>
-            <span
-              class="badge badge-xs {activeTab === tab
-                ? 'badge-primary'
-                : 'badge-ghost'} font-mono"
-            >
-              {tabCounts[tab]}
-            </span>
-          </button>
-        {/each}
-      </div>
-      <a
-        href="/sign"
-        class="btn btn-sm btn-primary gap-1.5 shadow-sm transition-all"
-      >
-        <iconify-icon icon="bx:plus" class="text-base"></iconify-icon>
-        <span>Unggah Dokumen</span>
-      </a>
+      <p class="text-sm opacity-60">
+        Dokumen yang ditujukan ke peran Anda untuk administrasi
+      </p>
     </div>
   </div>
 
@@ -322,48 +212,17 @@
               Tandatangani ({selections.length})
             </button>
           </form>
-          {#if activeTab === "mine"}
-            <button
-              class="btn btn-sm btn-error btn-outline gap-1.5"
-              onclick={() => (forms.del = true)}
-            >
-              <iconify-icon icon="bx:trash" class="text-sm"></iconify-icon>
-              Hapus
-            </button>
-          {/if}
+          <button
+            class="btn btn-sm btn-error btn-outline gap-1.5"
+            onclick={() => (forms.del = true)}
+          >
+            <iconify-icon icon="bx:trash" class="text-sm"></iconify-icon>
+            Hapus
+          </button>
         </div>
       {/if}
       {#snippet extended()}
-        {#if activeTab === "mine"}
-          <div class="flex gap-2">
-            <div class="filter">
-              <input
-                bind:group={query.where!.status}
-                value="draft"
-                class="btn btn-sm"
-                type="radio"
-                name="status"
-                aria-label="Draft ({draftCount})"
-              />
-              <input
-                bind:group={query.where!.status}
-                value="signed"
-                class="btn btn-sm"
-                type="radio"
-                name="status"
-                aria-label="Ditandatangani ({signedCount})"
-              />
-              <input
-                bind:group={query.where!.status}
-                value={{}}
-                class="btn btn-sm filter-reset"
-                type="radio"
-                name="status"
-                aria-label="x"
-              />
-            </div>
-          </div>
-        {/if}
+        <div></div>
       {/snippet}
       {#snippet filter(where)}
         <div class="form-control w-full max-w-xs">

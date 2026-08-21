@@ -1,14 +1,57 @@
 import { getRequestEvent, query } from "$app/server";
 import { db } from "$lib/server/db";
-import { __logs } from "$lib/server/db/schema";
+import { __logs, documents, surveyResponses } from "$lib/server/db/schema";
 import { FileStorage } from "$lib/server/storage";
 import dayjs from "dayjs";
 import isoWeek from "dayjs/plugin/isoWeek";
 import { promises as fs } from "fs";
 import path from "path";
 import { env } from "$env/dynamic/private";
+import { sql } from "drizzle-orm";
+import { bsreUsers } from "$lib/server/db/schema";
+import { users } from "$lib/server/db/schema";
 
 dayjs.extend(isoWeek);
+
+/** Per-scope document counts for the current user (nav badges etc.).
+ *  Runs all counts in a single round-trip using conditional aggregation. */
+export const getStatus = query('unchecked', async () => {
+  const user = getRequestEvent().locals.user;
+  const email = user?.email ?? '-';
+  const role = user?.role?.name ?? '-';
+
+  const [row] = await db
+    .select({
+      mine: sql<number>`count(*) filter (where ${documents.owner} = ${email})`.mapWith(Number),
+      requests: sql<number>`count(*) filter (where ${documents.signer} = ${email})`.mapWith(Number),
+      signed: sql<number>`count(*) filter (where exists (
+        select 1
+        from jsonb_array_elements(coalesce(${documents.histories}, '[]'::jsonb)) h
+        where h->>'signer' = ${email}
+      ))`.mapWith(Number),
+      administrative: sql<number>`count(*) filter (where ${documents.to} @> array[${role}]::text[])`.mapWith(Number),
+    })
+    .from(documents);
+
+  return row ?? { mine: 0, requests: 0, signed: 0, administrative: 0 };
+});
+
+/** Admin-only nav counts (users, BSrE users, survey responses). */
+export const getAdminCounts = query('unchecked', async () => {
+  const user = getRequestEvent().locals.user;
+  if (user?.role?.name !== 'admin') {
+    return { users: 0, bsreUsers: 0, surveys: 0, logs: 0 };
+  }
+
+  const [[u], [b], [s], [l]] = await Promise.all([
+    db.select({ count: sql<number>`count(*)`.mapWith(Number) }).from(users),
+    db.select({ count: sql<number>`count(*)`.mapWith(Number) }).from(bsreUsers),
+    db.select({ count: sql<number>`count(*)`.mapWith(Number) }).from(surveyResponses),
+    db.select({ count: sql<number>`count(*)`.mapWith(Number) }).from(__logs),
+  ]);
+
+  return { users: u?.count ?? 0, bsreUsers: b?.count ?? 0, surveys: s?.count ?? 0, logs: l?.count ?? 0 };
+});
 
 const empty = () => ({
   today: 0,

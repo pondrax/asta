@@ -1,6 +1,7 @@
 import { form, getRequestEvent, query } from "$app/server";
 import { db } from "$lib/server/db";
-import { eq, inArray, type BuildQueryResult, type DBQueryConfig } from "drizzle-orm";
+import { documents } from "$lib/server/db/schema";
+import { eq, inArray, sql, type BuildQueryResult, type DBQueryConfig, type SQL } from "drizzle-orm";
 import { FileStorage } from "$lib/server/storage";
 
 const storage = new FileStorage;
@@ -43,6 +44,7 @@ const getAuthGuard = (name: keyof Tables) => {
         return {
           OR: [
             { owner: user?.email ?? '-', },
+            { signer: user?.email ?? '-' },
             { to: { arrayContains: [user?.role?.name] } },
           ]
         }
@@ -73,13 +75,50 @@ export type GetParams<T extends TableName> = DBQueryConfig<'many', TFullSchema, 
   limit: number;
   offset: number;
   search?: string;
+  /** Server-side document scope filter (never trust client-built where for scoping). */
+  scope?: 'mine' | 'requests' | 'signed' | 'administrative';
+};
+
+/** Serializable scope → SQL condition, applied server-side in getData.
+ *  Must use the RAW callback form `(table) => SQL` so columns resolve to the
+ *  aliased table (e.g. `d0`) that drizzle builds for relational queries. */
+type DocumentsTable = typeof documents;
+const getScopeCondition = (
+  scope: string | undefined,
+): ((table: DocumentsTable, operators: any) => SQL) | undefined => {
+  if (!scope) return undefined;
+  const user = getRequestEvent().locals.user;
+
+  switch (scope) {
+    // Documents I own
+    case 'mine':
+      return (documents_) => eq(documents_.owner, user?.email ?? '-');
+    // Documents awaiting my signature (e.g. my saved drafts — signer is
+    // cleared once signed)
+    case 'requests':
+      return (documents_) => eq(documents_.signer, user?.email ?? '-');
+    // Documents where my email appears in the signing history
+    case 'signed':
+      return (documents_) =>
+        sql`exists (
+          select 1
+          from jsonb_array_elements(coalesce(${documents_.histories}, '[]'::jsonb)) h
+          where h->>'signer' = ${user?.email ?? '-'}
+        )`;
+    // Administrative documents addressed to my role
+    case 'administrative':
+      return (documents_) =>
+        sql`${documents_.to} @> array[${user?.role?.name ?? '-'}]::text[]`;
+    default:
+      return undefined;
+  }
 };
 
 export const getData = query(
   'unchecked', async <
     T extends TableName,
     Params extends GetParams<T>
-  >({ table, ...params }: { table: T } & Params) => {
+  >({ table, scope, ...params }: { table: T } & Params) => {
   const time = performance.now()
   const conditions = [];
 
@@ -91,6 +130,11 @@ export const getData = query(
   const guard = getAuthGuard(table)?.get?.(params.search);
   if (guard && Object.keys(guard).length > 0) {
     conditions.push(guard);
+  }
+
+  const scopeCondition = getScopeCondition(scope);
+  if (scopeCondition) {
+    conditions.push({ RAW: scopeCondition });
   }
 
   const search = searchable(table, params.search);

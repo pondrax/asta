@@ -114,10 +114,6 @@
   });
 </script>
 
-<svelte:head>
-  <title>Registrasi Akun BSRE - Tapak Astà</title>
-</svelte:head>
-
 <div class="min-h-screen pb-20 px-4">
   <div class="max-w-5xl mx-auto">
     <!-- Hero Section -->
