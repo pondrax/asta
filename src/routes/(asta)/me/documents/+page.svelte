@@ -34,12 +34,21 @@
   });
 
   let administrative = $state(false);
+  let pendingSign = $state(false);
   $effect(() => {
     if (administrative) {
+      pendingSign = false;
       query.where!.to = { arrayContains: [data.user?.role.name] };
+      delete query.where!.owner;
+      delete query.where!.signer;
+    } else if (pendingSign) {
+      administrative = false;
+      query.where!.signer = data.user?.email;
+      delete query.where!.to;
       delete query.where!.owner;
     } else {
       delete query.where!.to;
+      delete query.where!.signer;
       query.where!.owner = data.user?.email;
     }
   });
@@ -79,6 +88,18 @@
     }),
   );
   const adminCount = $derived(adminCountQuery.current?.count ?? 0);
+
+  const pendingSignCountQuery = $derived(
+    getData({
+      table: "documents",
+      limit: 1,
+      offset: 0,
+      where: {
+        signer: data.user?.email,
+      },
+    }),
+  );
+  const pendingSignCount = $derived(pendingSignCountQuery.current?.count ?? 0);
 
   // States for Preview Modal
   let previewFile = $state<File | null>(null);
@@ -230,13 +251,41 @@
         Kelola dan tandatangani dokumen elektronik Anda
       </p>
     </div>
-    <a
-      href="/sign"
-      class="btn btn-sm btn-primary gap-1.5 shadow-sm hover:scale-102 active:scale-98 transition-all"
-    >
-      <iconify-icon icon="bx:plus" class="text-base"></iconify-icon>
-      <span>Unggah Dokumen</span>
-    </a>
+    <div class="flex items-center gap-2">
+      <button
+        type="button"
+        class="btn btn-sm btn-soft gap-1.5 shadow-sm transition-all"
+        onclick={() => (pendingSign = !pendingSign)}
+      >
+        <input
+          bind:checked={pendingSign}
+          type="checkbox"
+          class="checkbox checkbox-xs checkbox-primary pointer-events-none"
+          readonly
+        />
+        <span>Dokumen Perlu Ditandatangani ({pendingSignCount})</span>
+      </button>
+      <button
+        type="button"
+        class="btn btn-sm btn-soft gap-1.5 shadow-sm transition-all"
+        onclick={() => (administrative = !administrative)}
+      >
+        <input
+          bind:checked={administrative}
+          type="checkbox"
+          class="checkbox checkbox-xs checkbox-primary pointer-events-none"
+          readonly
+        />
+        <span>Dokumen Administratif ({adminCount})</span>
+      </button>
+      <a
+        href="/sign"
+        class="btn btn-sm btn-primary gap-1.5 shadow-sm transition-all"
+      >
+        <iconify-icon icon="bx:plus" class="text-base"></iconify-icon>
+        <span>Unggah Dokumen</span>
+      </a>
+    </div>
   </div>
 
   <div
@@ -275,20 +324,6 @@
       {/if}
       {#snippet extended()}
         <div class="flex gap-2">
-          <div class="filter flex items-center">
-            <label
-              class="btn btn-sm btn-soft flex items-center gap-2 cursor-pointer"
-            >
-              <input
-                bind:checked={administrative}
-                type="checkbox"
-                class="checkbox checkbox-xs checkbox-primary"
-              />
-              <span class="text-xs font-semibold"
-                >Administratif ({adminCount})</span
-              >
-            </label>
-          </div>
           <div class="filter">
             <input
               bind:group={query.where!.status}
@@ -338,7 +373,7 @@
     <div
       class="overflow-x-auto border border-base-300/60 rounded-xl bg-base-100/50 backdrop-blur-md h-[calc(100vh-17.5rem)] relative shadow-inner"
     >
-      <table class="table table-md table-pin-rows table-pin-cols">
+      <table class="table table-xs table-pin-rows table-pin-cols">
         <thead>
           <tr
             class="bg-base-200/50 text-base-content/80 font-bold border-b border-base-300"
@@ -362,6 +397,7 @@
             <th class="w-32 text-center">Metode</th>
             <th class="w-32 text-center">Status</th>
             <th class="w-48">Signer</th>
+            <th class="w-48">Owner</th>
             <th class="w-44">Diperbarui</th>
             <th class="w-64">Metadata</th>
             <th class="w-24 text-center bg-base-200/50 z-20">Aksi</th>
@@ -370,7 +406,7 @@
         <tbody>
           {#if records.loading}
             <tr>
-              <td colspan="9" class="py-12 text-center">
+              <td colspan="10" class="py-12 text-center">
                 <div class="flex flex-col items-center justify-center gap-2">
                   <span class="loading loading-spinner loading-md text-primary"
                   ></span>
@@ -382,7 +418,7 @@
             </tr>
           {:else if records.error}
             <tr>
-              <td colspan="9" class="py-12 text-center">
+              <td colspan="10" class="py-12 text-center">
                 <div
                   class="flex flex-col items-center justify-center gap-3 text-error"
                 >
@@ -402,7 +438,7 @@
             </tr>
           {:else if !items.data?.length}
             <tr>
-              <td colspan="9" class="py-16 text-center">
+              <td colspan="10" class="py-16 text-center">
                 <div
                   class="flex flex-col items-center justify-center gap-3 opacity-40"
                 >
@@ -428,15 +464,10 @@
                   />
                 </td>
                 <td>
-                  <div class="flex flex-col gap-0.5">
-                    <span
-                      class="font-bold text-sm text-base-content/90 line-clamp-1"
-                      >{item.title}</span
-                    >
-                    <span class="text-[10px] font-mono opacity-40 select-all"
-                      >{item.id}</span
-                    >
-                  </div>
+                  <span
+                    class="font-bold text-sm text-base-content/90 line-clamp-1"
+                    >{item.title}</span
+                  >
                 </td>
                 <td>
                   <div class="flex flex-col gap-1 max-w-xs">
@@ -497,6 +528,11 @@
                 </td>
                 <td class="text-sm font-medium text-base-content/70">
                   {item.signer?.split("@")[0] || "-"}
+                </td>
+                <td
+                  class="text-xs font-medium text-base-content/60 truncate max-w-[192px]"
+                >
+                  {item.owner || "-"}
                 </td>
                 <td class="text-xs whitespace-nowrap opacity-60 font-medium">
                   {d(item.updated).format("HH:mm, DD MMM YYYY")}

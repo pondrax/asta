@@ -1,0 +1,1 @@
+ALTER TABLE "documents" ALTER COLUMN "histories" SET DATA TYPE jsonb USING "histories"::jsonb;

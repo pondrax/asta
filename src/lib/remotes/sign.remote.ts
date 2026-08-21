@@ -120,23 +120,36 @@ export const signDocument = command(type({
         const buffer = Buffer.from(await blob.arrayBuffer());
         const checksum = await calculateFileChecksum(buffer);
         const saved = await storage.save(`documents/${props.__asDraft ? 'draft_' : 'signed_'}${props.fileName}`, buffer);
+        const history = {
+          signer: props.email,
+          signedAt: new Date().toISOString(),
+          status: 'signed'
+        };
         if (saved.url) {
           await db.query.documents.upsert({
             data: {
               id: props.id,
               owner: props.email,
-              signer: props.email,
               title: props.fileName,
               files: [saved.url],
               checksums: [checksum],
-              status: props.__asDraft ? 'draft' : 'signed',
               esign: !props.__manual,
               to: props.to,
+              signer: props.__asDraft ? props.email : null,
+              status: props.__asDraft ? 'draft' : 'signed',
               signatureProperties: props.__asDraft ? props.signatureProperties : null,
+              histories: props.__asDraft ? null : [history],
             },
             update: doc => ({
               files: sql`array_append(${doc.files}, ${saved.url})`,
               checksums: sql`array_append(${doc.checksums}, ${checksum})`,
+              ...(!props.__asDraft && {
+                signer: null,
+                histories: sql`
+                  COALESCE(${doc.histories}, '[]'::jsonb)
+                  || ${JSON.stringify([history])}::jsonb
+                `,
+              }),
             })
           })
         }
@@ -146,12 +159,19 @@ export const signDocument = command(type({
           data: {
             id: props.id,
             owner: props.email,
-            signer: props.email,
             title: props.fileName,
             status: 'signed',
             esign: !props.__manual,
             to: props.to,
+            histories: [history],
           },
+          update: doc => ({
+            signer: null,
+            histories: sql`
+              COALESCE(${doc.histories}, '[]'::jsonb)
+              || ${JSON.stringify([history])}::jsonb
+            `,
+          })
         })
       }
 
@@ -192,7 +212,7 @@ export const signDocument = command(type({
     return response.data;
   } catch (err) {
     //@ts-ignore - err is unknown type, accessing .message requires suppression
-    return { error: `[Server Esign Error] ${err?.message}.\nHarap mencoba lagi dalam beberapa saat` }
+    return { error: `[Server Esign Error]${err?.message}.\nHarap mencoba lagi dalam beberapa saat` }
   }
 })
 
@@ -227,7 +247,7 @@ export const verifyDocument = command(type({
 
   } catch (err) {
     //@ts-ignore - err is unknown type, accessing .message requires suppression
-    return { error: `[Server Esign Error] ${err?.message}.\nHarap mencoba lagi dalam beberapa saat` }
+    return { error: `[Server Esign Error]${err?.message}.\nHarap mencoba lagi dalam beberapa saat` }
   }
 
   return {

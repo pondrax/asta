@@ -55,6 +55,7 @@ export const documents = pgTable('documents', {
   signatures: text('signatures').array(),
   checksums: text('checksums').array(),
   metadata: encryptedJson('metadata'),
+  histories: jsonb('histories').$type<{ signer: string; signedAt: string; status: string }[]>(),
   status: text('status').default('draft').$type<'draft' | 'queue' | 'failed' | 'signed'>(),
   esign: boolean('esign').default(true),
   signatureProperties: json('signature_properties'),
