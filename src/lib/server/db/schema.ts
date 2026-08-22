@@ -131,6 +131,12 @@ export const __setting = pgTable('__setting', {
   updated,
 })
 
+/** Observed BSrE account statuses (bsre_users.status). */
+export type BsreUserStatus = 'VERIFIED' | 'NEW' | 'UPDATE';
+
+/** Observed BSrE certificate statuses (bsre_users.certificate_status). */
+export type BsreCertStatus = 'ISSUE' | 'DENIED' | 'EXPIRED' | 'NEW' | 'REVOKE';
+
 export const bsreUsers = pgTable('bsre_users', {
   id: text('id').primaryKey(),
   nama: text('nama'),
@@ -142,9 +148,9 @@ export const bsreUsers = pgTable('bsre_users', {
   organisasiUnit: text('organisasi_unit'),
   organisasi: text('organisasi'),
   phone: text('phone'),
-  status: text('status'),
+  status: text('status').$type<BsreUserStatus>(),
   aktif: boolean('aktif'),
-  certificateStatus: text('certificate_status'),
+  certificateStatus: text('certificate_status').$type<BsreCertStatus>(),
   products: text('products'),
   createdDate: text('created_date'),
   registeredOrigin: text('registered_origin'),
@@ -164,4 +170,112 @@ export const surveyResponses = pgTable('survey_responses', {
   rating: integer('rating'),
   feedback: text('feedback'),
   created,
+})
+
+// ---------------------------------------------------------------------------
+// Helpdesk / Ticketing
+// ---------------------------------------------------------------------------
+
+export type HelpdeskService = 'email' | 'certificate';
+export type HelpdeskServiceType =
+  | 'email_new'
+  | 'email_password_reset'
+  | 'certificate_registration'
+  | 'certificate_renewal'
+  | 'certificate_revocation'
+  | 'certificate_passphrase_reset';
+export type HelpdeskStatus =
+  | 'open'
+  | 'processing'
+  | 'waiting_user'
+  | 'completed'
+  | 'cancelled'
+  | 'rejected';
+export type HelpdeskStage =
+  | 'submitted'
+  | 'identity_check'
+  | 'bsre_check'
+  | 'waiting_user_activation'
+  | 'processing'
+  | 'final_review'
+  | 'completed';
+
+export const helpdesk = pgTable('helpdesk', {
+  id,
+  service: text('service').$type<HelpdeskService>(),
+  serviceType: text('service_type').$type<HelpdeskServiceType>(),
+  status: text('status').default('open').$type<HelpdeskStatus>(),
+  stage: text('stage').default('submitted').$type<HelpdeskStage>(),
+  subject: text('subject'),
+  description: text('description'),
+  requesterName: text('requester_name'),
+  requesterNip: text('requester_nip'),
+  requesterNik: text('requester_nik'),
+  requesterPhone: text('requester_phone'),
+  requesterEmail: text('requester_email'),
+  organizationId: text('organization_id').references(() => organizations.id),
+  parentId: text('parent_id'),
+  metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+  completedAt: timestamp('completed_at', { mode: 'string', withTimezone: true }),
+  closedAt: timestamp('closed_at', { mode: 'string', withTimezone: true }),
+  created,
+  updated,
+}, table => [
+  index('helpdesk_status_idx').on(table.status),
+  index('helpdesk_service_idx').on(table.service),
+  index('helpdesk_requester_phone_idx').on(table.requesterPhone),
+  index('helpdesk_requester_nik_idx').on(table.requesterNik),
+])
+
+export const helpdeskComments = pgTable('helpdesk_comments', {
+  id,
+  helpdeskId: text('helpdesk_id').references(() => helpdesk.id).notNull(),
+  authorType: text('author_type').$type<'user' | 'admin' | 'system'>(),
+  authorId: text('author_id'),
+  authorName: text('author_name'),
+  message: text('message').notNull(),
+  isInternal: boolean('is_internal').default(false),
+  created,
+  updated,
+}, table => [
+  index('helpdesk_comments_helpdesk_idx').on(table.helpdeskId),
+])
+
+export const helpdeskEvents = pgTable('helpdesk_events', {
+  id,
+  helpdeskId: text('helpdesk_id').references(() => helpdesk.id).notNull(),
+  event: text('event'),
+  actorType: text('actor_type').$type<'user' | 'admin' | 'system'>(),
+  actorId: text('actor_id'),
+  metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+  created,
+  updated,
+}, table => [
+  index('helpdesk_events_helpdesk_idx').on(table.helpdeskId),
+])
+
+export const helpdeskNotifications = pgTable('helpdesk_notifications', {
+  id,
+  helpdeskId: text('helpdesk_id').references(() => helpdesk.id).notNull(),
+  type: text('type'),
+  channel: text('channel').default('whatsapp').$type<'whatsapp' | 'email'>(),
+  recipient: text('recipient'),
+  message: text('message'),
+  status: text('status').default('pending').$type<'pending' | 'sent' | 'failed'>(),
+  sentAt: timestamp('sent_at', { mode: 'string', withTimezone: true }),
+  metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+  created,
+  updated,
+}, table => [
+  index('helpdesk_notifications_helpdesk_idx').on(table.helpdeskId),
+])
+
+export const helpdeskSurveys = pgTable('helpdesk_surveys', {
+  id,
+  helpdeskId: text('helpdesk_id').references(() => helpdesk.id).unique().notNull(),
+  rating: integer('rating'),
+  ease: integer('ease'),
+  comment: text('comment'),
+  created,
+  updated,
 })

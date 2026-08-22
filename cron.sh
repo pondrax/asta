@@ -69,6 +69,7 @@ if [ "$LOCAL_HASH" != "$REMOTE_HASH" ]; then
   
   log "🔨 Building..."
   bun run build
+  bun run db:migrate
 
   log "🚀 Restarting app..."
   if pm2 describe asta > /dev/null 2>&1; then

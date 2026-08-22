@@ -409,10 +409,10 @@
             <th class="w-72 bg-base-200">File Terlampir</th>
             <th class="w-32 text-center bg-base-200">Metode</th>
             <th class="w-32 text-center bg-base-200">Status</th>
-            <th class="w-48 bg-base-200">Signer</th>
-            <th class="w-48 bg-base-200">Owner</th>
-            <th class="w-44 bg-base-200">Diperbarui</th>
+            <th class="w-48 bg-base-200">Penandatangan</th>
+            <th class="w-48 bg-base-200">Pemilik Dokumen</th>
             <th class="w-64 bg-base-200">Histories</th>
+            <th class="w-44 bg-base-200">Diperbarui</th>
             <th
               class="w-24 text-center bg-base-200 z-20 sticky right-0 left-auto"
             >
@@ -551,9 +551,6 @@
                 >
                   {item.owner || "-"}
                 </td>
-                <td class="text-xs whitespace-nowrap opacity-60 font-medium">
-                  {d(item.updated).format("HH:mm, DD MMM YYYY")}
-                </td>
                 <td>
                   {#if item.histories && item.histories.length > 0}
                     <div class="flex flex-col gap-1 max-w-xs">
@@ -586,7 +583,12 @@
                     <span class="text-xs opacity-30 italic">-</span>
                   {/if}
                 </td>
-                <td class="text-center sticky right-0 left-auto bg-base-100 z-10">
+                <td class="text-xs whitespace-nowrap opacity-60 font-medium">
+                  {d(item.updated).format("HH:mm, DD MMM YYYY")}
+                </td>
+                <td
+                  class="text-center sticky right-0 left-auto bg-base-100 z-10"
+                >
                   <div class="flex justify-center gap-1.5">
                     <form action="/sign" method="POST" target="_blank">
                       <input type="hidden" name="id" value={item.id} />

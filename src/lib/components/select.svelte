@@ -533,7 +533,7 @@
         {/if}
       {:else}
         <span class="text-base-content/40 px-1 truncate min-w-0"
-          >{label ? "" : placeholder}</span
+          >{placeholder}</span
         >
       {/if}
     </div>

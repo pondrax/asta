@@ -25,6 +25,7 @@
   let passwordResolve: ((pw: string | null) => void) | null = null;
   let passwordCancelled = $state(false);
   let currentFile: File | null = $state(null);
+  let loadError = $state<string | null>(null);
 
   const GAP = 10;
   const BUFFER = 3;
@@ -98,6 +99,7 @@
   async function openFile(f: File) {
     if (!pdfjsLib) return setTimeout(() => openFile(f), 100);
     cleanup();
+    loadError = null;
 
     console.log("hasSignature", hasSignature);
     const arrayBuffer = await f.arrayBuffer();
@@ -138,7 +140,8 @@
         loadingTask = null;
         return;
       }
-      throw err;
+      loadError =
+        err?.message || "File tidak valid atau rusak, gagal dimuat.";
     } finally {
       // Keep the loading task reference so cleanup() can destroy it later
       // (pdfjs-dist v4+ relies on loadingTask.destroy(), not pdfDoc.destroy()).
@@ -189,6 +192,7 @@
     showPasswordModal = false;
     passwordResolve = null;
     passwordCancelled = false;
+    loadError = null;
   }
 
   // --- Layout calculation ---
@@ -371,6 +375,23 @@
       >
         <iconify-icon icon="bx:key"></iconify-icon>
         Masukkan Kata Sandi
+      </button>
+    </div>
+  {:else if loadError}
+    <div
+      class="absolute inset-0 flex flex-col items-center justify-center gap-4 p-8"
+    >
+      <iconify-icon icon="bx:error-circle" class="text-6xl text-error/60"
+      ></iconify-icon>
+      <h3 class="text-xl font-bold">Gagal Memuat Dokumen</h3>
+      <p class="text-base-content/70 text-center max-w-sm">{loadError}</p>
+      <button
+        type="button"
+        class="btn btn-primary"
+        onclick={() => currentFile && openFile(currentFile)}
+      >
+        <iconify-icon icon="bx:refresh"></iconify-icon>
+        Coba Lagi
       </button>
     </div>
   {:else}

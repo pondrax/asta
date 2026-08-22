@@ -233,11 +233,31 @@
         console.error("Failed to decode owner param", e);
       }
     }
+
+    const qEmail = page.url.searchParams.get("email");
+    const qNik = page.url.searchParams.get("nik");
+    const qNama = page.url.searchParams.get("nama");
+    const qPhone = page.url.searchParams.get("phone");
+
+    if (qNik && !qEmail) {
+      useEmail = false;
+    }
+
+    let formattedPhone = "";
+    if (qPhone) {
+      formattedPhone =
+        "62" +
+        qPhone
+          .replace(/[^0-9]/g, "")
+          .replace(/^0+/, "")
+          .replace(/^62/, "");
+    }
+
     form = {
       footer: true,
-      email: owner || localStorage.getItem("email") || "",
-      nik: "",
-      nama: owner ? owner.split("@")[0] : "",
+      email: qEmail || owner || localStorage.getItem("email") || "",
+      nik: qNik || "",
+      nama: qNama || (owner ? owner.split("@")[0] : ""),
       jabatan: "-",
       pangkat: "-",
       instansi: "-",
@@ -246,6 +266,7 @@
       note: "Tanda Tangan Elektronik",
       send_file: true,
       save_document: true,
+      nomor_telepon: formattedPhone,
     };
 
     const lastShown = localStorage.getItem("tour-sign-last-shown");
@@ -957,6 +978,15 @@
           </div>
 
           <div>
+            {#if page.url.searchParams.get("redirect")}
+              <a
+                href={`${page.url.searchParams.get("redirect")}?documentId=${item.completed.join(",")}`}
+                class="btn btn-sm btn-primary"
+              >
+                <iconify-icon icon="bx:left-arrow-alt"></iconify-icon>
+                Kembali ke Helpdesk
+              </a>
+            {/if}
             {#if asDraft}
               <a
                 href={`/sign?draft=true&id=${item.completed.join(",")}`}

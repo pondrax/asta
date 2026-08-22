@@ -22,6 +22,8 @@ export const ROUTE_TITLES: Record<string, string> = {
   "/main/logs": "Log Aktivitas",
   "/main/survey": "Data Survey",
   "/main/portal-bsre": "Portal BSrE",
+  "/main/helpdesk": "Tiket Helpdesk",
+  "/helpdesk": "Helpdesk Layanan",
 };
 
 /** Content pages served by /pages/[path]. */

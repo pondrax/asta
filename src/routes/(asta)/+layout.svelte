@@ -96,7 +96,7 @@
                   <li><a href="/sign">Upload & Tanda Tangan</a></li>
                   <li><a href="/templates">Template Dokumen</a></li>
                   <li>
-                    <a href="/services/register">Registrasi Layanan TTE</a>
+                    <a href="/helpdesk">Helpdesk Layanan</a>
                   </li>
                 </ul>
               </details>
@@ -198,6 +198,11 @@
                     </li>
                     <li><a href="/profile">Profil Saya</a></li>
                     <li><a href="/me/templates">Kelola Template</a></li>
+                    <li>
+                      <a href="/helpdesk" class="flex items-center gap-2">
+                        Helpdesk Layanan
+                      </a>
+                    </li>
                   </ul>
                 </details>
               </li>
@@ -248,6 +253,14 @@
                           >
                             {adminCounts.surveys}
                           </span>
+                        </a>
+                      </li>
+                      <li>
+                        <a
+                          href="/main/helpdesk"
+                          class="flex items-center gap-2"
+                        >
+                          Tiket Helpdesk
                         </a>
                       </li>
                     </ul>
@@ -585,6 +598,26 @@
                       <span>Legalitas Hukum TTE</span>
                     </a>
                   </li>
+                  <li>
+                    <a
+                      href="/helpdesk"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page.url.pathname.startsWith(
+                        '/helpdesk',
+                      )
+                        ? 'text-primary font-bold bg-primary/5'
+                        : 'text-base-content/75'}"
+                    >
+                      <iconify-icon
+                        icon="bx:chevron-right"
+                        class="text-xs transition-all {page.url.pathname.startsWith(
+                          '/helpdesk',
+                        )
+                          ? 'text-primary opacity-100'
+                          : 'opacity-40 group-hover:opacity-100'}"
+                      ></iconify-icon>
+                      <span>Helpdesk & Bantuan Layanan</span>
+                    </a>
+                  </li>
                 </ul>
               </div>
             </div>
@@ -680,20 +713,20 @@
                 <ul class="space-y-1">
                   <li>
                     <a
-                      href="/services/register"
+                      href="/helpdesk"
                       class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
-                        .url.pathname === '/services/register'
+                        .url.pathname === '/helpdesk'
                         ? 'text-primary font-bold bg-primary/5'
                         : 'text-base-content/75'}"
                     >
                       <iconify-icon
                         icon="bx:chevron-right"
                         class="text-xs transition-all {page.url.pathname ===
-                        '/services/register'
+                        '/helpdesk'
                           ? 'text-primary opacity-100'
                           : 'opacity-40 group-hover:opacity-100'}"
                       ></iconify-icon>
-                      <span>Registrasi Layanan dan Bantuan TTE</span>
+                      <span>Helpdesk Layanan</span>
                     </a>
                   </li>
 
@@ -1069,6 +1102,26 @@
                       <span>Kelola Template</span>
                     </a>
                   </li>
+                  <li>
+                    <a
+                      href="/helpdesk"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page.url.pathname.startsWith(
+                        '/helpdesk',
+                      )
+                        ? 'text-primary font-bold bg-primary/5'
+                        : 'text-base-content/75'}"
+                    >
+                      <iconify-icon
+                        icon="bx:chevron-right"
+                        class="text-xs transition-all {page.url.pathname.startsWith(
+                          '/helpdesk',
+                        )
+                          ? 'text-primary opacity-100'
+                          : 'opacity-40 group-hover:opacity-100'}"
+                      ></iconify-icon>
+                      <span>Helpdesk Layanan</span>
+                    </a>
+                  </li>
                 </ul>
               </div>
             </div>
@@ -1210,6 +1263,24 @@
                       >
                         {adminCounts.surveys}
                       </span>
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href="/main/helpdesk"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
+                        .url.pathname === '/main/helpdesk'
+                        ? 'text-primary font-bold bg-primary/5'
+                        : 'text-base-content/75'}"
+                    >
+                      <iconify-icon
+                        icon="bx:chevron-right"
+                        class="text-xs transition-all {page.url.pathname ===
+                        '/main/helpdesk'
+                          ? 'text-primary opacity-100'
+                          : 'opacity-40 group-hover:opacity-100'}"
+                      ></iconify-icon>
+                      <span>Tiket Helpdesk</span>
                     </a>
                   </li>
                 </ul>
