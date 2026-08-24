@@ -4,6 +4,9 @@
 
   const id = page.params.id as string;
 
+  // Phone used to access the ticket page (persisted per-tab via sessionStorage)
+  const phone = page.url.searchParams.get("phone") ?? undefined;
+
   let rating = $state(0);
   let ease = $state(0);
   let comment = $state("");
@@ -22,6 +25,7 @@
         rating,
         ease,
         comment: comment || undefined,
+        phone,
       });
       done = true;
     } catch (err: any) {

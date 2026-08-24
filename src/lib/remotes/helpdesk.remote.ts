@@ -17,10 +17,12 @@ import {
 } from "$lib/server/db/schema";
 import {
   SERVICE_TYPE_LABELS,
+  STATUS_LABELS,
   ticketNumber as toTicketNumber,
 } from "$lib/app/helpdesk";
 import { FileStorage } from "$lib/server/storage";
 import { sendWhatsAppText } from "$lib/server/notify";
+import { resolveEnv } from "$lib/server/db/utils";
 import { createId } from "$lib/utils";
 
 const storage = new FileStorage;
@@ -31,6 +33,46 @@ const storage = new FileStorage;
 
 function nowISO() {
   return new Date().toISOString();
+}
+
+/** Absolute ticket URL (uses ORIGIN env), with ?phone= prefill for the requester. */
+async function ticketLink(ticketId: string, phone?: string | null) {
+  const env = await resolveEnv();
+  const origin = env.ORIGIN || "";
+  const qs = phone ? `?phone=${encodeURIComponent(phone)}` : "";
+  return `${origin}/helpdesk/ticket/${ticketId}${qs}`;
+}
+
+export type HelpdeskRequesterEntry = {
+  name?: string;
+  nip?: string;
+  nik?: string;
+  email?: string;
+};
+
+/**
+ * Parse one pasted CSV/text line into a requester entry.
+ * Accepted shapes per line (comma / semicolon / tab separated):
+ *   "Nama", "Nama, NIK/NIP", "Nama, NIK/NIP, email", "email", ...
+ */
+function parseRequesterLine(line: string): HelpdeskRequesterEntry {
+  const parts = line
+    .split(/[,;\t]/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const out: HelpdeskRequesterEntry = {};
+  for (const p of parts) {
+    const digits = p.replace(/\D/g, "");
+    if (!out.email && /^\S@\S+\.\S+$/.test(p)) {
+      out.email = p;
+    } else if (!out.nip && !out.nik && /^\d{16,18}$/.test(digits)) {
+      if (digits.length === 18) out.nip = digits;
+      else out.nik = digits;
+    } else if (!out.name) {
+      out.name = p;
+    }
+  }
+  return out;
 }
 
 async function logEvent(
@@ -95,22 +137,13 @@ function getActor(): { type: 'user' | 'admin'; id: string; name: string } | null
   };
 }
 
-/** Ticket access cookie name (per-ticket, holds an opaque token). */
-const ACCESS_COOKIE = (id: string) => `hd-${id}`;
-
-function randomToken(len = 32) {
-  const bytes = new Uint8Array(len);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-}
-
 /**
  * Verify that the current request may read this ticket:
  * - admin always
  * - authenticated requester whose email matches requesterEmail
- * - request carrying the per-ticket access token (set at creation / claim)
+ * - phone number verified (for unauthenticated public access)
  */
-async function assertTicketAccess(ticketId: string) {
+async function assertTicketAccess(ticketId: string, phone?: string) {
   const event = getRequestEvent();
   const user = event.locals.user;
 
@@ -131,24 +164,26 @@ async function assertTicketAccess(ticketId: string) {
     return ticket;
   }
 
-  const cookieToken = event.cookies.get(ACCESS_COOKIE(ticketId));
-  const expected = (ticket.metadata as any)?.accessToken;
-  if (cookieToken && expected && cookieToken === expected) return ticket;
+  // Phone verification for unauthenticated access
+  if (phone && ticket.requesterPhone) {
+    const cleanPhone = phone.replace(/\D/g, "");
+    const cleanTicketPhone = ticket.requesterPhone.replace(/\D/g, "");
+    if (cleanPhone === cleanTicketPhone) {
+      return ticket;
+    }
+  }
 
-  error(403, "Anda tidak memiliki akses ke tiket ini");
+  error(403, "Anda tidak memiliki akses ke tiket ini. Masukkan nomor telepon yang terdaftar pada tiket ini.");
 }
 
-/** Grant the current browser access to a ticket via its access cookie. */
-function grantAccess(ticketId: string, metadata: unknown) {
-  const token = (metadata as any)?.accessToken;
-  if (!token) return;
-  getRequestEvent().cookies.set(ACCESS_COOKIE(ticketId), token, {
-    path: `/helpdesk/ticket/${ticketId}`,
-    httpOnly: true,
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 30,
-  });
-}
+/** Public phone verification to access ticket */
+export const verifyPhoneAccess = command(
+  type({ ticketId: "string", phone: "string>0" }),
+  async ({ ticketId, phone }) => {
+    const ticket = await assertTicketAccess(ticketId, phone);
+    return { success: true as const, ticketNumber: toTicketNumber(ticket.id) };
+  }
+);
 
 // ---------------------------------------------------------------------------
 // Public queries
@@ -162,8 +197,8 @@ export const getServiceCatalog = query("unchecked", async () => {
   }));
 });
 
-export const getTicket = query(type({ id: "string" }), async ({ id }) => {
-  const ticket = await assertTicketAccess(id);
+export const getTicket = query(type({ id: "string", phone: "string?" }), async ({ id, phone }) => {
+  const ticket = await assertTicketAccess(id, phone);
 
   const [comments, events, survey] = await Promise.all([
     db.query.helpdeskComments.findMany({
@@ -245,14 +280,13 @@ export const lookupTicket = command(
       where: {
         id: { ilike: `${raw}%` }
       },
-      columns: { id: true, requesterPhone: true, metadata: true },
+      columns: { id: true, requesterPhone: true },
     });
 
     if (!ticket)
       return { success: false as const, message: "Tiket tidak ditemukan." };
 
-    grantAccess(ticket.id, ticket.metadata);
-    return { success: true as const, id: ticket.id };
+    return { success: true as const, id: ticket.id, hasPhone: !!ticket.requesterPhone };
   },
 );
 
@@ -426,21 +460,56 @@ const createTicketSchema = type({
   organizationId: "string|undefined",
   parentId: "string|undefined",
   documentId: "string|undefined",
+  // Bulk request: raw text/CSV lines (one requester per line). One ticket
+  // covers them all — the single signed application document applies to every
+  // listed requester.
+  requesters: "string[]|undefined",
+  // Kumulatif mode: name of the official signing the shared document on
+  // behalf of every listed requester.
+  signerName: "string|undefined",
 });
 
 export const createTicket = command(createTicketSchema, async (props) => {
   const event = getRequestEvent();
   const user = event.locals.user;
 
-  const accessToken = randomToken();
+  const { documentId, requesters, signerName, ...insertProps } = props;
 
-  const { documentId, ...insertProps } = props;
+  // Parse the pasted list into structured entries.
+  const list = (requesters ?? [])
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map(parseRequesterLine);
+
+  let description = insertProps.description;
+  const metadata: Record<string, unknown> = {};
+  if (list.length > 0) {
+    metadata.requesters = list;
+    metadata.requesterCount = list.length;
+    description +=
+      `\n\nDaftar Pemohon (${list.length} orang):\n` +
+      list
+        .map((r, i) => {
+          const bits = [`${i + 1}. ${r.name ?? "-"}`];
+          if (r.nip) bits.push(`NIP ${r.nip}`);
+          if (r.nik) bits.push(`NIK ${r.nik}`);
+          if (r.email) bits.push(r.email);
+          return bits.join(" — ");
+        })
+        .join("\n");
+  }
+  if (signerName?.trim()) {
+    metadata.signerName = signerName.trim();
+    description += `\n\nPenandatangan Dokumen: ${signerName.trim()}`;
+  }
 
   const [ticket] = await db.insert(helpdesk).values({
     ...insertProps,
+    description,
     status: "open",
-    stage: "submitted",
-    metadata: { accessToken },
+    // New tickets start at identity verification, not the creation step.
+    stage: "identity_check",
+    metadata,
   }).returning();
 
   const ticketNo = toTicketNumber(ticket.id);
@@ -462,23 +531,19 @@ export const createTicket = command(createTicketSchema, async (props) => {
     serviceType: props.serviceType,
   });
 
-  // Set access cookie so creator lands straight on their ticket
-  event.cookies.set(ACCESS_COOKIE(ticket.id), accessToken, {
-    path: `/helpdesk/ticket/${ticket.id}`,
-    httpOnly: true,
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 30,
-  });
-
   // Notify admin ops number (best-effort)
   notifyTicket({
     helpdeskId: ticket.id,
     type: "ticket_created_admin",
     message:
-      `[Helpdesk] Tiket baru ${ticketNo}\n` +
+      `🎫 *Tiket Helpdesk Baru*\n` +
+      `No: *${ticketNo}*\n` +
+      `\n` +
       `Layanan: ${SERVICE_TYPE_LABELS[props.serviceType]}\n` +
-      `Pemohon: ${props.requesterName}\n` +
-      `Subjek: ${props.subject}`,
+      `Pemohon: ${props.requesterName}${list.length > 1 ? ` (+${list.length - 1} lainnya)` : ""}\n` +
+      `Subjek: ${props.subject}\n` +
+      `\n` +
+      `🔗 ${await ticketLink(ticket.id, props.requesterPhone)}`,
   }).catch(() => { });
 
   return {
@@ -492,14 +557,22 @@ export const addComment = command(
   type({
     ticketId: "string",
     message: "string>0",
+    // Where the comment was posted from determines authorship:
+    // "admin" = staff console (petugas), "public" = ticket page (pemohon)
+    context: "'admin'|'public'",
     isInternal: "boolean?",
+    // Phone for unauthenticated requester verification
+    phone: "string|undefined",
   }),
-  async ({ ticketId, message, isInternal }) => {
+  async ({ ticketId, message, context, isInternal, phone }) => {
     const event = getRequestEvent();
     const user = event.locals.user;
-    const isAdmin = user?.role?.name === "admin";
+    const isAdmin = context === "admin";
+    // Admin replies may only be posted from the staff console (/main/helpdesk)
+    if (isAdmin && user?.role?.name !== "admin")
+      throw error(403, "Hanya admin dapat membalas dari konsol petugas.");
 
-    const ticket = await assertTicketAccess(ticketId);
+    const ticket = await assertTicketAccess(ticketId, phone);
     const ticketNo = toTicketNumber(ticket.id);
 
     const authorType: 'user' | 'admin' = isAdmin ? "admin" : "user";
@@ -525,13 +598,25 @@ export const addComment = command(
         helpdeskId: ticketId,
         type: "comment_reply",
         recipient: ticket.requesterPhone,
-        message: `[Helpdesk] ${ticketNo}: Balasan baru dari petugas. Cek tiket Anda.`,
+        message:
+          `💬 *Balasan Baru dari Petugas*\n` +
+          `Tiket *${ticketNo}*\n` +
+          `\n` +
+          `Petugas telah membalas pesan Anda. Silakan cek tiket untuk detailnya.\n` +
+          `\n` +
+          `🔗 ${await ticketLink(ticketId, ticket.requesterPhone)}`,
       }).catch(() => { });
     } else if (!isAdmin) {
       notifyTicket({
         helpdeskId: ticketId,
         type: "comment_user",
-        message: `[Helpdesk] ${ticketNo}: Pesan baru dari pemohon.`,
+        message:
+          `💬 *Pesan Baru dari Pemohon*\n` +
+          `Tiket *${ticketNo}*\n` +
+          `\n` +
+          `Pemohon: ${ticket.requesterName || "-"}\n` +
+          `\n` +
+          `🔗 ${await ticketLink(ticketId, ticket.requesterPhone)}`,
       }).catch(() => { });
     }
 
@@ -596,9 +681,11 @@ export const submitTicketSurvey = command(
     rating: "1<=number<=5",
     ease: "1<=number<=5",
     comment: "string?",
+    // Phone for unauthenticated requester verification
+    phone: "string|undefined",
   }),
-  async ({ ticketId, rating, ease, comment }) => {
-    await assertTicketAccess(ticketId);
+  async ({ ticketId, rating, ease, comment, phone }) => {
+    await assertTicketAccess(ticketId, phone);
 
     const ticket = await db.query.helpdesk.findFirst({
       where: { id: ticketId },
@@ -638,7 +725,7 @@ export const updateTicketStatus = command(
   type({
     ticketId: "string",
     status: "'open'|'processing'|'waiting_user'|'completed'|'cancelled'|'rejected'",
-    note: "string?",
+    note: "string|undefined",
   }),
   async ({ ticketId, status, note }) => {
     const user = getRequestEvent().locals.user;
@@ -697,7 +784,14 @@ export const updateTicketStatus = command(
         helpdeskId: ticketId,
         type: `status_${status}`,
         recipient: ticket.requesterPhone,
-        message: `[Helpdesk] ${ticketNo}: ${statusMsg[status]}`,
+        message:
+          `🔔 *Status Tiket Diperbarui*\n` +
+          `Tiket *${ticketNo}*\n` +
+          `\n` +
+          `Status: *${STATUS_LABELS[status]}*\n` +
+          `${statusMsg[status]}\n` +
+          `\n` +
+          `🔗 ${await ticketLink(ticketId, ticket.requesterPhone)}`,
       }).catch(() => { });
     }
 
@@ -738,13 +832,13 @@ export const createEmailPrerequisite = command(
   type({
     ticketId: "string",
     requesterEmail: "string?",
+    // Required for public (unauthenticated) access; admins skip it.
+    phone: "string?",
   }),
-  async ({ ticketId, requesterEmail }) => {
+  async ({ ticketId, requesterEmail, phone }) => {
+    // Admins or the phone-verified requester may create the prerequisite.
     const user = getRequestEvent().locals.user;
-    if (user?.role?.name !== "admin") throw error(403, "Hanya admin.");
-
-    const ticket = await db.query.helpdesk.findFirst({ where: { id: ticketId } });
-    if (!ticket) throw error(404, "Tiket tidak ditemukan");
+    const ticket = await assertTicketAccess(ticketId, phone);
 
     // Reuse an existing open child email ticket instead of duplicating.
     const existingChild = await db.query.helpdesk.findFirst({
@@ -752,17 +846,21 @@ export const createEmailPrerequisite = command(
       columns: { id: true, status: true },
     });
     if (existingChild) {
-      return { success: true as const, childId: existingChild.id, reused: true as const };
+      return {
+        success: true as const,
+        childId: existingChild.id,
+        reused: true as const,
+        signUrl: `/sign?template=pengajuan-email&ticket=${existingChild.id}`,
+      };
     }
 
-    const accessToken = randomToken();
     const [child] = await db.insert(helpdesk).values({
       service: "email",
       serviceType: "email_new",
       subject: `Email Dinas untuk ${toTicketNumber(ticket.id)} — ${ticket.subject ?? "Sertifikat Elektronik"}`,
       description:
         `Tiket email dinas prasyarat untuk proses sertifikat elektronik ` +
-        `(tiket induk ${toTicketNumber(ticket.id)}). Dibuat otomatis oleh petugas.`,
+        `(tiket induk ${toTicketNumber(ticket.id)}). Dibuat otomatis.`,
       requesterName: ticket.requesterName,
       requesterNip: ticket.requesterNip,
       requesterNik: ticket.requesterNik,
@@ -771,16 +869,20 @@ export const createEmailPrerequisite = command(
       parentId: ticket.id,
       status: "open",
       stage: "submitted",
-      metadata: { accessToken, prerequisiteFor: ticket.id },
+      metadata: { prerequisiteFor: ticket.id },
     }).returning();
 
-    await logEvent(child.id, "ticket_created", "system", user.id, {
+    await logEvent(child.id, "ticket_created", "system", user?.id ?? null, {
       ticketNumber: toTicketNumber(child.id),
       prerequisiteFor: ticket.id,
     });
-    await logEvent(ticket.id, "email_prerequisite_created", "admin", user.id, {
-      childId: child.id,
-    });
+    await logEvent(
+      ticket.id,
+      "email_prerequisite_created",
+      "system",
+      user?.id ?? null,
+      { childId: child.id },
+    );
 
     // Certificate ticket waits until the email account is active.
     await db.update(helpdesk)
@@ -795,9 +897,13 @@ export const createEmailPrerequisite = command(
       helpdeskId: child.id,
       type: "ticket_created_admin",
       message:
-        `[Helpdesk] Tiket email prasyarat ${toTicketNumber(child.id)} dibuat\n` +
-        `Untuk tiket sertifikat: ${toTicketNumber(ticket.id)}\n` +
-        `Pemohon: ${ticket.requesterName}`,
+        `🎫 *Tiket Email Prasyarat Dibuat*\n` +
+        `No: *${toTicketNumber(child.id)}*\n` +
+        `\n` +
+        `Untuk tiket sertifikat: *${toTicketNumber(ticket.id)}*\n` +
+        `Pemohon: ${ticket.requesterName || "-"}\n` +
+        `\n` +
+        `🔗 ${await ticketLink(child.id, ticket.requesterPhone)}`,
     }).catch(() => { });
 
     return {
@@ -874,6 +980,115 @@ export const markSignatureDone = command(
   },
 );
 
+/**
+ * Admin: record per-user email access data (url/username/default password),
+ * then notify the requester via WhatsApp AND a public ticket comment.
+ *
+ * Message shape depends on the service:
+ * - email service (or accounts provided): full credentials + "password default
+ *   wajib diganti saat login".
+ * - certificate WITH accounts: credentials + "akses untuk aktivasi telah
+ *   dikirimkan ke email tersebut".
+ * - certificate WITHOUT accounts: short "akses telah dikirimkan ke email."
+ */
+export const sendAccountNotification = command(
+  type({
+    ticketId: "string",
+    accounts: [
+      {
+        name: "string?",
+        email: "string",
+        password: "string?",
+      },
+    ],
+  }),
+  async ({ ticketId, accounts }) => {
+    const user = getRequestEvent().locals.user;
+    if (user?.role?.name !== "admin") throw error(403, "Hanya admin.");
+
+    const ticket = await db.query.helpdesk.findFirst({ where: { id: ticketId } });
+    if (!ticket) throw error(404, "Tiket tidak ditemukan");
+
+    const clean = accounts
+      .map((a) => ({
+        name: a.name?.trim() || undefined,
+        email: a.email.trim(),
+        password: a.password?.trim() || undefined,
+      }))
+      .filter((a) => a.email);
+
+    if (ticket.service === "email" && clean.length === 0) {
+      throw error(400, "Isi minimal satu email pemohon.");
+    }
+
+    // Persist for reference (metadata column is encrypted at rest).
+    const metadata = {
+      ...(ticket.metadata as any),
+      emailAccounts: clean,
+    };
+    await db.update(helpdesk)
+      .set({ metadata })
+      .where(eq(helpdesk.id, ticketId));
+
+    const ticketNo = toTicketNumber(ticket.id);
+    let msg = "";
+    if (clean.length > 0) {
+      msg +=
+        `📧 *Akses Email mojokertokota.go.id*\n` +
+        `Tiket *${ticketNo}*\n` +
+        `\n` +
+        `url akses = https://mail.mojokertokota.go.id\n`;
+      if (clean.length > 1) {
+        msg += `\n`;
+        clean.forEach((a, i) => {
+          if (a.name) msg += `${i + 1}. ${a.name}\n`;
+          else msg += `${i + 1}. `;
+          msg += `username/email = ${a.email}\n`;
+          if (a.password) msg += `password = ${a.password}\n`;
+          msg += `\n`;
+        });
+      } else {
+        msg += `username/email = ${clean[0].email}\n`;
+        if (clean[0].password) msg += `password = ${clean[0].password}\n`;
+        msg += `\n`;
+      }
+      msg += `password default wajib diganti saat login`;
+      if (ticket.service === "certificate") {
+        msg += `\n\nAkses untuk aktivasi telah dikirimkan ke email tersebut.`;
+      }
+    } else {
+      // Certificate without account data — short notice only.
+      msg =
+        `🔐 *Tiket ${ticketNo}*\n` +
+        `\n` +
+        `Akses telah dikirimkan ke email.`;
+    }
+    msg += `\n\n🔗 ${await ticketLink(ticketId, ticket.requesterPhone)}`;
+
+    await notifyTicket({
+      helpdeskId: ticketId,
+      type: "manual",
+      recipient: ticket.requesterPhone,
+      message: msg,
+    });
+
+    // Record the same info as a public comment so it stays on the ticket.
+    await db.insert(helpdeskComments).values({
+      helpdeskId: ticketId,
+      authorType: "admin",
+      authorId: user.id,
+      authorName: user.email,
+      message: msg.replace(/\*/g, ""),
+      isInternal: false,
+    });
+    await logEvent(ticketId, "whatsapp_sent", "admin", user.id, {
+      accounts: clean.length,
+    });
+
+    return { success: true as const };
+  },
+);
+
 /** Admin: attach a WhatsApp message manually (e.g. activation instructions). */
 export const sendManualWhatsApp = command(
   type({ ticketId: "string", message: "string>0" }),
@@ -888,7 +1103,13 @@ export const sendManualWhatsApp = command(
       helpdeskId: ticketId,
       type: "manual",
       recipient: ticket.requesterPhone,
-      message: `[Helpdesk] ${toTicketNumber(ticket.id)}: ${message}`,
+      message:
+        `📩 *Pesan dari Petugas*\n` +
+        `Tiket *${toTicketNumber(ticket.id)}*\n` +
+        `\n` +
+        `${message}\n` +
+        `\n` +
+        `🔗 ${await ticketLink(ticketId, ticket.requesterPhone)}`,
     });
 
     await logEvent(ticketId, "whatsapp_sent", "admin", user.id, {});

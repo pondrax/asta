@@ -6,6 +6,7 @@
     createTicket,
     checkIdentity,
   } from "$lib/remotes/helpdesk.remote";
+  import { getData } from "$lib/remotes/api.remote";
   import { SERVICE_TYPE_LABELS, DETERMINATION_LABELS } from "$lib/app/helpdesk";
   import type { BsreDetermination } from "$lib/app/helpdesk";
   import type {
@@ -81,15 +82,139 @@
   let item = $state({
     organization_id: undefined as string | undefined,
     requesterName: "",
+    requesterNip: "",
+    requesterNik: "",
     requesterPhone: "",
     requesterEmail: "",
     subject: "",
     description: "",
     emailAccess: "yes" as "yes" | "no",
   });
+
+  // Request mode: "single" = one applicant (mandiri), "bulk" = cumulative
+  // request — many requesters share ONE ticket & ONE signed document.
+  type RequesterRow = {
+    key: number;
+    name: string;
+    nip: string;
+    nik: string;
+  };
+  let mode = $state<"single" | "bulk">("single");
+  let rowSeq = 0;
+  let rows = $state<RequesterRow[]>([]);
+
+  function addRow() {
+    rows.push({ key: ++rowSeq, name: "", nip: "", nik: "" });
+  }
+
+  function removeRow(key: number) {
+    rows = rows.filter((r) => r.key !== key);
+  }
+
+  /** Import a text/CSV file: one requester per line, comma/semicolon/tab separated. */
+  async function importCsv(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      for (const line of text.split(/\r?\n/)) {
+        const parts = line
+          .split(/[,;\t]/)
+          .map((p) => p.trim())
+          .filter(Boolean);
+        if (!parts.length) continue;
+        // Skip header rows like "Nama,NIK,Email"
+        if (/^\"?nama\"?\s*[,;\t]/i.test(line)) continue;
+        const row: RequesterRow = {
+          key: ++rowSeq,
+          name: "",
+          nip: "",
+          nik: "",
+        };
+        for (const p of parts) {
+          const digits = p.replace(/\D/g, "");
+          if (!row.nip && !row.nik && /^\d{16,18}$/.test(digits)) {
+            if (digits.length === 18) row.nip = digits;
+            else row.nik = digits;
+          } else if (!row.name) row.name = p;
+        }
+        if (row.name || row.nip || row.nik) rows.push(row);
+      }
+    } finally {
+      input.value = "";
+    }
+  }
+
   let documentId = $state<string | undefined>(undefined);
   let submitting = $state(false);
-  let wizardError = $state("");
+  let wizardError = $state("{}");
+
+  // -----------------------------------------------------------------------
+  // Requester prefill — logged-in profile first, else last saved submission
+  // -----------------------------------------------------------------------
+  function readSavedRequester(): {
+    requesterName?: string;
+    requesterPhone?: string;
+    requesterEmail?: string;
+    organization_id?: string;
+  } {
+    try {
+      return JSON.parse(localStorage.getItem("helpdesk_requester") || "{}");
+    } catch {
+      return {};
+    }
+  }
+
+  function saveRequesterProfile() {
+    localStorage.setItem(
+      "helpdesk_requester",
+      JSON.stringify({
+        requesterName: item.requesterName.trim(),
+        requesterPhone: item.requesterPhone.trim(),
+        requesterEmail: item.requesterEmail.trim(),
+        organization_id: item.organization_id,
+      }),
+    );
+  }
+
+  /** Fill only still-empty fields — never overwrite restored/user input. */
+  function prefillRequester() {
+    const saved = readSavedRequester();
+    const u = page.data.user;
+    if (u) {
+      if (!item.requesterEmail && u.email) item.requesterEmail = u.email;
+      if (!item.organization_id && u.organization_id)
+        item.organization_id = u.organization_id;
+    }
+    if (!item.requesterName && saved.requesterName)
+      item.requesterName = saved.requesterName;
+    if (!item.requesterPhone && saved.requesterPhone)
+      item.requesterPhone = saved.requesterPhone;
+    if (!item.requesterEmail && saved.requesterEmail)
+      item.requesterEmail = saved.requesterEmail;
+    if (!item.organization_id && saved.organization_id)
+      item.organization_id = saved.organization_id;
+  }
+
+  // Signers row for the logged-in account (has name/phone; users table doesn't)
+  const signerRow = $derived(
+    page.data.user
+      ? getData({
+          table: "signers",
+          where: { email: page.data.user.email },
+          limit: 1,
+          offset: 0,
+        }).current?.data?.[0]
+      : null,
+  );
+
+  $effect(() => {
+    const s = signerRow;
+    if (!s) return;
+    if (!item.requesterName && s.name) item.requesterName = s.name;
+    if (!item.requesterPhone && s.phone) item.requesterPhone = s.phone;
+  });
 
   onMount(() => {
     const saved = localStorage.getItem("helpdesk_form_state");
@@ -101,6 +226,8 @@
         serviceType = state.serviceType;
         identity = state.identity;
         item = state.item;
+        mode = state.mode ?? "single";
+        rows = state.rows ?? [];
       } catch (e) {
         console.error(e);
       }
@@ -111,6 +238,8 @@
     if (docId) {
       documentId = docId;
     }
+
+    prefillRequester();
   });
 
   function goToSign() {
@@ -122,6 +251,8 @@
         serviceType,
         identity,
         item,
+        mode,
+        rows,
       }),
     );
     const params = new URLSearchParams();
@@ -167,11 +298,15 @@
     bsre = null;
     item.organization_id = undefined;
     item.requesterName = "";
+    item.requesterNip = "";
+    item.requesterNik = "";
     item.requesterPhone = "";
     item.requesterEmail = "";
     item.subject = "";
     item.description = "";
     item.emailAccess = "yes";
+    mode = "single";
+    rows = [];
     documentId = undefined;
     submitting = false;
     wizardError = "";
@@ -202,6 +337,9 @@
       if (res.nama && !item.requesterName) item.requesterName = res.nama;
       if (res.emailAddress && !item.requesterEmail)
         item.requesterEmail = res.emailAddress;
+      // Auto-fill NIP/NIK from the verified identity number.
+      if (id.length === 18 && !item.requesterNip) item.requesterNip = id;
+      if (id.length === 16 && !item.requesterNik) item.requesterNik = id;
     } catch (err: any) {
       bsre = null;
       checkError =
@@ -229,20 +367,30 @@
         description: desc,
         requesterName: item.requesterName.trim(),
         requesterPhone: item.requesterPhone.trim(),
-        requesterNip:
-          identity.replace(/\D/g, "").length === 18
-            ? identity.replace(/\D/g, "")
-            : undefined,
-        requesterNik:
-          identity.replace(/\D/g, "").length === 16
-            ? identity.replace(/\D/g, "")
-            : undefined,
+        requesterNip: item.requesterNip.trim() || undefined,
+        requesterNik: item.requesterNik.trim() || undefined,
         requesterEmail: item.requesterEmail.trim() || undefined,
         organizationId: item.organization_id || undefined,
         documentId: documentId || undefined,
         parentId: undefined,
+        requesters:
+          mode === "bulk" && rows.length > 0
+            ? rows.map((r) =>
+                [r.name.trim(), r.nip.trim(), r.nik.trim()]
+                  .filter(Boolean)
+                  .join(", "),
+              )
+            : undefined,
+        // Kumulatif: the applicant below signs the shared document on
+        // behalf of every listed requester.
+        signerName:
+          mode === "bulk" ? item.requesterName.trim() || undefined : undefined,
       });
-      await goto(`/helpdesk/ticket/${res.id}`);
+      // Remember for next visit (used to prefill the form & ticket access)
+      saveRequesterProfile();
+      await goto(
+        `/helpdesk/ticket/${res.id}?phone=${encodeURIComponent(item.requesterPhone.trim())}`,
+      );
     } catch (err: any) {
       wizardError =
         err?.body?.message || err?.message || "Gagal membuat tiket.";
@@ -431,6 +579,144 @@
           </div>
 
           <form onsubmit={submit} class="mt-3 space-y-4">
+            <!-- Request mode: mandiri (single) vs kumulatif (multiple) -->
+            <fieldset class="space-y-2">
+              <legend class="font-semibold text-sm mb-1">
+                Jenis Pendaftaran
+              </legend>
+              <div class="grid sm:grid-cols-2 gap-2">
+                <label
+                  class={`flex items-center gap-3 rounded-xl border p-3 cursor-pointer transition-colors ${mode === "single" ? "border-primary bg-primary/5" : "border-base-300 hover:border-base-400"}`}
+                >
+                  <input
+                    type="radio"
+                    class="radio radio-primary radio-sm"
+                    name="request-mode"
+                    value="single"
+                    bind:group={mode}
+                  />
+                  <iconify-icon icon="bx:user" class="text-lg"></iconify-icon>
+                  <span class="text-sm font-medium">Pendaftaran Mandiri</span>
+                </label>
+                <label
+                  class={`flex items-center gap-3 rounded-xl border p-3 cursor-pointer transition-colors ${mode === "bulk" ? "border-primary bg-primary/5" : "border-base-300 hover:border-base-400"}`}
+                >
+                  <input
+                    type="radio"
+                    class="radio radio-primary radio-sm"
+                    name="request-mode"
+                    value="bulk"
+                    bind:group={mode}
+                  />
+                  <iconify-icon icon="bx:group" class="text-lg"></iconify-icon>
+                  <span class="text-sm font-medium">Pendaftaran Kumulatif</span>
+                </label>
+              </div>
+            </fieldset>
+
+            {#if mode === "bulk"}
+              <!-- Kumulatif: editable requester table, one ticket for all -->
+              <div class="space-y-2">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <p class="font-semibold text-sm">
+                    Daftar Pemohon
+                    {#if rows.length}
+                      <span class="badge badge-primary badge-sm ml-1"
+                        >{rows.length}</span
+                      >
+                    {/if}
+                  </p>
+                  <div class="flex gap-2">
+                    <button
+                      type="button"
+                      class="btn btn-xs btn-outline"
+                      onclick={addRow}
+                    >
+                      <iconify-icon icon="bx:plus"></iconify-icon>
+                      Tambah Baris
+                    </button>
+                    <label class="btn btn-xs btn-outline cursor-pointer">
+                      <iconify-icon icon="bx:upload"></iconify-icon>
+                      Impor CSV
+                      <input
+                        type="file"
+                        accept=".csv,.txt"
+                        class="hidden"
+                        onchange={importCsv}
+                      />
+                    </label>
+                  </div>
+                </div>
+                <div class="overflow-x-auto rounded-xl border border-base-300">
+                  <table class="table table-sm">
+                    <thead>
+                      <tr class="bg-base-200/50">
+                        <th class="w-10">#</th>
+                        <th>Nama *</th>
+                        <th>NIP (18 digit)</th>
+                        <th>NIK (16 digit)</th>
+                        <th class="w-10"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {#each rows as r (r.key)}
+                        <tr>
+                          <td class="opacity-50">{rows.indexOf(r) + 1}</td>
+                          <td>
+                            <input
+                              bind:value={r.name}
+                              placeholder="Nama lengkap"
+                              class="input input-xs input-bordered w-full min-w-36"
+                            />
+                          </td>
+                          <td>
+                            <input
+                              bind:value={r.nip}
+                              inputmode="numeric"
+                              maxlength={18}
+                              placeholder="18 digit"
+                              class="input input-xs input-bordered w-full min-w-40 font-mono"
+                            />
+                          </td>
+                          <td>
+                            <input
+                              bind:value={r.nik}
+                              inputmode="numeric"
+                              maxlength={16}
+                              placeholder="16 digit"
+                              class="input input-xs input-bordered w-full min-w-40 font-mono"
+                            />
+                          </td>
+                          <td>
+                            <button
+                              type="button"
+                              class="btn btn-ghost btn-xs text-error"
+                              aria-label="Hapus baris"
+                              onclick={() => removeRow(r.key)}
+                            >
+                              <iconify-icon icon="bx:trash" class="text-base"
+                              ></iconify-icon>
+                            </button>
+                          </td>
+                        </tr>
+                      {:else}
+                        <tr>
+                          <td colspan="5" class="text-center py-4 opacity-50">
+                            Belum ada pemohon tambahan — klik
+                            <strong>Tambah Baris</strong> atau impor CSV.
+                          </td>
+                        </tr>
+                      {/each}
+                    </tbody>
+                  </table>
+                </div>
+                <p class="text-[10px] opacity-50 px-1">
+                  Satu tiket & satu dokumen tanda tangan berlaku untuk semua
+                  pemohon yang terdaftar.
+                </p>
+              </div>
+            {/if}
+
             <!-- CERTIFICATE: identity / BSrE check -->
             {#if active === "certificate"}
               <div class="space-y-3">
@@ -583,6 +869,17 @@
               {/if}
 
               <div class="space-y-3">
+                <!-- Penandatangan dokumen pengajuan: identified by the
+                     applicant data below (nama/NIP/NIK). -->
+                {#if mode === "bulk"}
+                  <p class="text-[10px] opacity-50 px-1">
+                    Data di bawah adalah pejabat yang menandatangani dokumen
+                    untuk seluruh pemohon pada daftar.
+                  </p>
+                {/if}
+
+                <h3 class="font-semibold text-sm">Penandatangan Pengajuan</h3>
+
                 <div class="grid sm:grid-cols-2 gap-3">
                   <label class="floating-label">
                     <span>Nama Lengkap *</span>
@@ -602,6 +899,31 @@
                       placeholder="08xxxxxxxxxx"
                       class="input input-bordered w-full"
                       required
+                    />
+                  </label>
+                </div>
+
+                <div class="grid sm:grid-cols-2 gap-3">
+                  <label class="floating-label">
+                    <span>NIP</span>
+                    <input
+                      type="text"
+                      inputmode="numeric"
+                      maxlength={18}
+                      bind:value={item.requesterNip}
+                      placeholder="NIP Pegawai"
+                      class="input input-bordered w-full"
+                    />
+                  </label>
+                  <label class="floating-label">
+                    <span>NIK</span>
+                    <input
+                      type="text"
+                      inputmode="numeric"
+                      maxlength={16}
+                      bind:value={item.requesterNik}
+                      placeholder="NIK KTP"
+                      class="input input-bordered w-full"
                     />
                   </label>
                 </div>

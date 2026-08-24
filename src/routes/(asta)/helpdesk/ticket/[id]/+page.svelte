@@ -3,7 +3,8 @@
   import {
     getTicket,
     addComment,
-    uploadAttachment,
+    verifyPhoneAccess,
+    createEmailPrerequisite,
   } from "$lib/remotes/helpdesk.remote";
   import {
     STATUS_LABELS,
@@ -12,11 +13,62 @@
     stageFlow,
   } from "$lib/app/helpdesk";
   import { Modal, Preview } from "$lib/components";
+  import { onMount } from "svelte";
 
   const id = page.params.id as string;
 
-  const ticketQuery = getTicket({ id });
+  let verifiedPhone = $state<string | null>(null);
+  let phone = $state("");
+  let phoneLoading = $state(false);
+  let phoneError = $state("");
+
+  // Auto-verify: use ?phone= from WA/form links, else last used requester
+  // phone stored locally — so returning visitors don't retype it.
+  onMount(() => {
+    const urlPhone = page.url.searchParams.get("phone");
+    if (urlPhone) {
+      phone = urlPhone;
+    } else {
+      try {
+        const saved = JSON.parse(
+          localStorage.getItem("helpdesk_requester") || "{}",
+        );
+        if (saved.requesterPhone) phone = saved.requesterPhone;
+      } catch {
+        /* ignore malformed storage */
+      }
+    }
+    if (phone.trim()) {
+      verifyPhone();
+    }
+  });
+
+  // Re-created when verifiedPhone changes → refetches with the phone param.
+  const ticketQuery = $derived(
+    getTicket({ id, phone: verifiedPhone ?? undefined }),
+  );
   const data = $derived(ticketQuery.current);
+
+  // Any load error before verification → ask for the registered phone.
+  // (Deliberately not tied to a specific error status/payload shape.)
+  const needsPhoneVerification = $derived(
+    !verifiedPhone && !data && !!ticketQuery.error,
+  );
+
+  async function verifyPhone() {
+    if (!phone.trim() || phoneLoading) return;
+    phoneLoading = true;
+    phoneError = "";
+    try {
+      await verifyPhoneAccess({ ticketId: id, phone: phone.trim() });
+      // Success → re-create getTicket query including the verified phone
+      verifiedPhone = phone.trim();
+    } catch (err: any) {
+      phoneError = err?.body?.message || err?.message || "Verifikasi gagal.";
+    } finally {
+      phoneLoading = false;
+    }
+  }
 
   let message = $state("");
   let sending = $state(false);
@@ -46,50 +98,51 @@
       data.description?.includes("Email Dinas tidak dapat diakses"),
   );
 
+  // Certificate flow: requester creates the email-prerequisite ticket
+  // themselves (public action, verified by phone).
+  let prereqBusy = $state(false);
+  let prereqSignUrl = $state<string | null>(null);
+  let prereqMsg = $state("");
+  const hasPrereqChild = $derived(
+    Boolean(data?.linked?.some((l) => l.serviceType === "email_new")),
+  );
+
+  async function makeEmailPrerequisite() {
+    if (!data || prereqBusy) return;
+    prereqBusy = true;
+    prereqMsg = "";
+    try {
+      const res = await createEmailPrerequisite({
+        ticketId: id,
+        phone: verifiedPhone ?? undefined,
+      });
+      if (res.signUrl) prereqSignUrl = res.signUrl;
+      prereqMsg = res.reused
+        ? "Tiket email prasyarat sudah ada — lanjutkan tanda tangan di bawah."
+        : "Tiket email prasyarat dibuat. Silakan lakukan tanda tangan.";
+      await ticketQuery.refresh();
+    } catch (err: any) {
+      prereqMsg =
+        err?.body?.message || err?.message || "Gagal membuat tiket prasyarat.";
+    } finally {
+      prereqBusy = false;
+    }
+  }
+
   async function send() {
     if (!message.trim() || sending) return;
     sending = true;
     try {
-      await addComment({ ticketId: id, message });
+      await addComment({
+        ticketId: id,
+        message,
+        context: "public",
+        phone: verifiedPhone ?? undefined,
+      });
       message = "";
       await ticketQuery.refresh();
     } finally {
       sending = false;
-    }
-  }
-
-  // attachment upload
-  let uploading = $state(false);
-  let uploadError = $state("");
-  let fileInput: HTMLInputElement | null = $state(null);
-
-  async function onFileChosen(e: Event) {
-    const input = e.target as HTMLInputElement;
-    const file = input.files?.[0];
-    input.value = "";
-    if (!file || uploading) return;
-
-    uploadError = "";
-    uploading = true;
-    try {
-      const bytes = new Uint8Array(await file.arrayBuffer());
-      let binary = "";
-      const CHUNK = 0x8000;
-      for (let i = 0; i < bytes.length; i += CHUNK) {
-        binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
-      }
-      await uploadAttachment({
-        ticketId: id,
-        fileName: file.name,
-        mimeType: file.type || "application/octet-stream",
-        fileBase64: btoa(binary),
-      });
-      await ticketQuery.refresh();
-    } catch (err: any) {
-      uploadError =
-        err?.body?.message || err?.message || "Gagal mengunggah lampiran.";
-    } finally {
-      uploading = false;
     }
   }
 
@@ -153,8 +206,7 @@
       previewFile = new File([blob], cleanName, { type: "application/pdf" });
     } catch (e: any) {
       console.error(e);
-      previewError =
-        e?.message || "Gagal memuat pratinjau dokumen.";
+      previewError = e?.message || "Gagal memuat pratinjau dokumen.";
     } finally {
       previewLoading = false;
     }
@@ -169,11 +221,61 @@
       previewUrl = "";
     }
   });
-
 </script>
 
 <div class="max-w-7xl mx-auto px-5 py-10">
-  {#if !data}
+  {#if needsPhoneVerification}
+    <div class="card bg-base-100/50 border border-base-300 max-w-md mx-auto">
+      <div class="card-body p-8 text-center">
+        <iconify-icon
+          icon="bx:lock-alt"
+          class="text-4xl text-primary mx-auto mb-4"
+        ></iconify-icon>
+        <h2 class="card-title text-xl justify-center">
+          Verifikasi Akses Tiket
+        </h2>
+        <p class="text-sm opacity-70 mb-6">
+          Masukkan nomor telepon yang terdaftar pada tiket ini untuk melihat
+          detail.
+        </p>
+        <form
+          onsubmit={async (e) => {
+            e.preventDefault();
+            await verifyPhone();
+          }}
+          class="space-y-4"
+        >
+          <div class="form-control w-full">
+            <label class="label" for="hd-phone">
+              <span class="label-text">Nomor Telepon</span>
+            </label>
+            <input
+              id="hd-phone"
+              type="tel"
+              bind:value={phone}
+              class="input input-bordered w-full"
+              placeholder="08xxxxxxxxxx"
+              autocomplete="tel"
+            />
+          </div>
+          {#if phoneError}
+            <div class="alert alert-error text-sm">{phoneError}</div>
+          {/if}
+          <button
+            type="submit"
+            class="btn btn-primary w-full"
+            disabled={phoneLoading}
+          >
+            {#if phoneLoading}
+              <span class="loading loading-spinner loading-sm"></span> Memverifikasi...
+            {:else}
+              Verifikasi & Lihat Tiket
+            {/if}
+          </button>
+        </form>
+      </div>
+    </div>
+  {:else if !data}
     <div class="flex justify-center py-20">
       <span class="loading loading-spinner loading-lg text-primary"></span>
     </div>
@@ -395,32 +497,7 @@
             class="textarea textarea-bordered w-full min-h-24"
             placeholder="Tulis pesan untuk petugas..."
           ></textarea>
-          <div class="flex items-center justify-between gap-2">
-            <input
-              type="file"
-              class="sr-only"
-              aria-label="Unggah lampiran"
-              bind:this={fileInput}
-              onchange={onFileChosen}
-            />
-            {#if !cantAccessEmail}
-              <button
-                type="button"
-                class="btn btn-ghost btn-sm text-primary"
-                disabled={uploading}
-                onclick={() => fileInput?.click()}
-              >
-                {#if uploading}
-                  <span class="loading loading-spinner loading-xs"></span>
-                  Mengunggah...
-                {:else}
-                  <iconify-icon icon="bx:paperclip"></iconify-icon>
-                  Unggah Lampiran
-                {/if}
-              </button>
-            {:else}
-              <div></div>
-            {/if}
+          <div class="flex items-center justify-end gap-2">
             <button
               type="submit"
               class="btn btn-primary btn-sm"
@@ -437,13 +514,6 @@
         </form>
       {/if}
 
-      {#if uploadError}
-        <div class="alert alert-error text-sm py-2">
-          <iconify-icon icon="bx:error-circle"></iconify-icon>
-          {uploadError}
-        </div>
-      {/if}
-
       <!-- Survey prompt -->
       {#if data.status === "completed"}
         {#if data.survey}
@@ -453,7 +523,7 @@
           </div>
         {:else}
           <a
-            href={`/helpdesk/ticket/${id}/survey`}
+            href={`/helpdesk/ticket/${id}/survey${verifiedPhone ? `?phone=${encodeURIComponent(verifiedPhone)}` : ""}`}
             class="btn btn-success w-full"
           >
             <iconify-icon icon="bx:star"></iconify-icon>
@@ -475,9 +545,7 @@
     </div>
   {:else if previewError}
     <div class="flex flex-col items-center justify-center gap-3 h-96">
-      <iconify-icon
-        icon="bx:error-circle"
-        class="text-5xl text-error/60"
+      <iconify-icon icon="bx:error-circle" class="text-5xl text-error/60"
       ></iconify-icon>
       <p class="font-semibold">Gagal Memuat Pratinjau</p>
       <p class="text-sm opacity-60 text-center max-w-sm">{previewError}</p>
