@@ -481,31 +481,19 @@ export const createTicket = command(createTicketSchema, async (props) => {
     .filter(Boolean)
     .map(parseRequesterLine);
 
-  let description = insertProps.description;
+  // Requester list & signer live in metadata only — the description stays
+  // clean (the admin table renders them from metadata).
   const metadata: Record<string, unknown> = {};
   if (list.length > 0) {
     metadata.requesters = list;
     metadata.requesterCount = list.length;
-    description +=
-      `\n\nDaftar Pemohon (${list.length} orang):\n` +
-      list
-        .map((r, i) => {
-          const bits = [`${i + 1}. ${r.name ?? "-"}`];
-          if (r.nip) bits.push(`NIP ${r.nip}`);
-          if (r.nik) bits.push(`NIK ${r.nik}`);
-          if (r.email) bits.push(r.email);
-          return bits.join(" — ");
-        })
-        .join("\n");
   }
   if (signerName?.trim()) {
     metadata.signerName = signerName.trim();
-    description += `\n\nPenandatangan Dokumen: ${signerName.trim()}`;
   }
 
   const [ticket] = await db.insert(helpdesk).values({
     ...insertProps,
-    description,
     status: "open",
     // New tickets start at identity verification, not the creation step.
     stage: "identity_check",
@@ -592,21 +580,8 @@ export const addComment = command(
       internal,
     });
 
-    // Notify the other party
-    if (isAdmin && !internal) {
-      notifyTicket({
-        helpdeskId: ticketId,
-        type: "comment_reply",
-        recipient: ticket.requesterPhone,
-        message:
-          `💬 *Balasan Baru dari Petugas*\n` +
-          `Tiket *${ticketNo}*\n` +
-          `\n` +
-          `Petugas telah membalas pesan Anda. Silakan cek tiket untuk detailnya.\n` +
-          `\n` +
-          `🔗 ${await ticketLink(ticketId, ticket.requesterPhone)}`,
-      }).catch(() => { });
-    } else if (!isAdmin) {
+    // Comments are only stored on the web — no WhatsApp notification.
+    if (!isAdmin) {
       notifyTicket({
         helpdeskId: ticketId,
         type: "comment_user",
@@ -982,14 +957,8 @@ export const markSignatureDone = command(
 
 /**
  * Admin: record per-user email access data (url/username/default password),
- * then notify the requester via WhatsApp AND a public ticket comment.
- *
- * Message shape depends on the service:
- * - email service (or accounts provided): full credentials + "password default
- *   wajib diganti saat login".
- * - certificate WITH accounts: credentials + "akses untuk aktivasi telah
- *   dikirimkan ke email tersebut".
- * - certificate WITHOUT accounts: short "akses telah dikirimkan ke email."
+ * then notify the requester via WhatsApp. A short public comment (without
+ * any credentials) is recorded so the ticket shows access was granted.
  */
 export const sendAccountNotification = command(
   type({
@@ -997,8 +966,11 @@ export const sendAccountNotification = command(
     accounts: [
       {
         name: "string?",
+        nip: "string?",
+        nik: "string?",
         email: "string",
         password: "string?",
+        keterangan: "string?",
       },
     ],
   }),
@@ -1012,8 +984,11 @@ export const sendAccountNotification = command(
     const clean = accounts
       .map((a) => ({
         name: a.name?.trim() || undefined,
+        nip: a.nip?.trim() || undefined,
+        nik: a.nik?.trim() || undefined,
         email: a.email.trim(),
         password: a.password?.trim() || undefined,
+        keterangan: a.keterangan?.trim() || undefined,
       }))
       .filter((a) => a.email);
 
@@ -1043,13 +1018,20 @@ export const sendAccountNotification = command(
         clean.forEach((a, i) => {
           if (a.name) msg += `${i + 1}. ${a.name}\n`;
           else msg += `${i + 1}. `;
+          if (a.nip) msg += `nip = ${a.nip}\n`;
+          if (a.nik) msg += `nik = ${a.nik}\n`;
           msg += `username/email = ${a.email}\n`;
           if (a.password) msg += `password = ${a.password}\n`;
+          if (a.keterangan) msg += `keterangan = ${a.keterangan}\n`;
           msg += `\n`;
         });
       } else {
         msg += `username/email = ${clean[0].email}\n`;
+        if (clean[0].nip) msg += `nip = ${clean[0].nip}\n`;
+        if (clean[0].nik) msg += `nik = ${clean[0].nik}\n`;
         if (clean[0].password) msg += `password = ${clean[0].password}\n`;
+        if (clean[0].keterangan)
+          msg += `keterangan = ${clean[0].keterangan}\n`;
         msg += `\n`;
       }
       msg += `password default wajib diganti saat login`;
@@ -1072,13 +1054,14 @@ export const sendAccountNotification = command(
       message: msg,
     });
 
-    // Record the same info as a public comment so it stays on the ticket.
+    // Record a short public comment (no credentials) so the ticket shows
+    // that access was granted — sensitive data stays on WhatsApp only.
     await db.insert(helpdeskComments).values({
       helpdeskId: ticketId,
       authorType: "admin",
       authorId: user.id,
       authorName: user.email,
-      message: msg.replace(/\*/g, ""),
+      message: "Akses email telah dikirimkan ke WhatsApp Anda.",
       isInternal: false,
     });
     await logEvent(ticketId, "whatsapp_sent", "admin", user.id, {

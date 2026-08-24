@@ -8,8 +8,6 @@
     getTicket,
     updateTicketStatus,
     updateTicketStage,
-    checkIdentity,
-    sendManualWhatsApp,
     completeEmailPrerequisite,
     markSignatureDone,
     sendAccountNotification,
@@ -55,9 +53,6 @@
 
   function openDetail(id: string) {
     if (detailId !== id) {
-      bsreResult = null;
-      prereqSignUrl = null;
-      waMessage = "";
       actionMsg = "";
       adminReply = "";
       accountRows = [];
@@ -102,44 +97,12 @@
     await detailQuery.refresh();
   }
 
-  // BSrE pre-check
-  let bsreResult = $state<Awaited<ReturnType<typeof checkIdentity>> | null>(
-    null,
-  );
-  let checking = $state(false);
-  async function runBsreCheck() {
-    if (!detail) return;
-    const identity = detail.requesterNip || detail.requesterNik;
-    if (!identity) return;
-    checking = true;
-    try {
-      bsreResult = await checkIdentity({ identity });
-    } finally {
-      checking = false;
-    }
-  }
-
-  // manual WhatsApp
-  let waMessage = $state("");
-  let waSending = $state(false);
-  async function sendWa() {
-    if (!detailQuery || !waMessage.trim()) return;
-    waSending = true;
-    try {
-      await sendManualWhatsApp({ ticketId: detailId!, message: waMessage });
-      waMessage = "";
-      await detailQuery.refresh();
-    } finally {
-      waSending = false;
-    }
-  }
-
   // certificate flow: signature tracking + resume after email active.
   // Creating the email prerequisite is done by the requester on the public
   // ticket page.
   let prereqBusy = $state<"resume" | "sign" | null>(null);
-  let prereqSignUrl = $state<string | null>(null);
   let actionMsg = $state("");
+  let showPasswords = $state(false);
 
   async function resumeAfterEmailActive() {
     if (!detailQuery || !detailId || prereqBusy) return;
@@ -173,10 +136,18 @@
     }
   }
 
-  // Per-user email access data: one row per requester (main applicant first,
-  // then every kumulatif requester). Admin fills email/password, then sends
-  // credentials via WhatsApp + public comment in one click.
-  type AccountRow = { name: string; email: string; password: string };
+  // Per-user email access data. Kumulatif: rows come ONLY from the requester
+  // table submitted with the ticket (the pengaju/penandatangan is excluded).
+  // Mandiri: a single row for the applicant. Admin fills email/password,
+  // then sends credentials via WhatsApp + public comment in one click.
+  type AccountRow = {
+    name: string;
+    nip: string;
+    nik: string;
+    email: string;
+    password: string;
+    keterangan: string;
+  };
   let accountRows = $state<AccountRow[]>([]);
   let sendingAccounts = $state(false);
   let accountsSent = $state(false);
@@ -186,43 +157,38 @@
     if (!t) return;
     if (accountRows.length > 0) return; // keep admin's edits when refreshing
     const meta = t.metadata as any;
-    const saved: AccountRow[] = Array.isArray(meta?.emailAccounts)
-      ? meta.emailAccounts.map((a: any) => ({
-          name: a.name ?? "",
-          email: a.email ?? "",
-          password: "",
-        }))
-      : [];
-    const list: AccountRow[] = [
-      {
-        name: t.requesterName ?? "",
-        email: saved[0]?.email ?? "",
-        password: "",
-      },
-    ];
-    for (const r of (meta?.requesters as any[]) ?? []) {
-      list.push({ name: r.name ?? "", email: "", password: "" });
-    }
-    // merge saved emails into matching names
-    for (const s of saved.slice(1)) {
-      const hit = list.find((l) => l.name && s.name && l.name === s.name);
-      if (hit) {
-        hit.email = s.email;
-      } else {
-        list.push(s);
+    // previously sent emails, keyed by name
+    const saved: Record<string, string> = {};
+    let savedFirstEmail = "";
+    if (Array.isArray(meta?.emailAccounts)) {
+      for (const a of meta.emailAccounts) {
+        if (a.name) saved[a.name] = a.email ?? "";
+        else if (!savedFirstEmail) savedFirstEmail = a.email ?? "";
       }
+    }
+    const reqs: any[] = Array.isArray(meta?.requesters) ? meta.requesters : [];
+    const list: AccountRow[] = reqs.map((r) => ({
+      name: r.name ?? "",
+      nip: r.nip ?? "",
+      nik: r.nik ?? "",
+      email: saved[r.name ?? ""] ?? "",
+      password: "",
+      keterangan: "",
+    }));
+    // Single (mandiri): just the applicant themself.
+    if (reqs.length === 0) {
+      list.push({
+        name: t.requesterName ?? "",
+        nip: t.requesterNip ?? "",
+        nik: t.requesterNik ?? "",
+        email: saved[t.requesterName ?? ""] || savedFirstEmail || "",
+        password: "",
+        keterangan: "",
+      });
     }
     accountRows = list;
     accountsSent = false;
   });
-
-  function addAccountRow() {
-    accountRows.push({ name: "", email: "", password: "" });
-  }
-
-  function removeAccountRow(i: number) {
-    accountRows.splice(i, 1);
-  }
 
   async function sendAccountData() {
     if (!detailQuery || !detailId || sendingAccounts) return;
@@ -235,8 +201,11 @@
         accounts: accountRows
           .map((r) => ({
             name: r.name.trim() || undefined,
+            nip: r.nip.trim() || undefined,
+            nik: r.nik.trim() || undefined,
             email: r.email.trim(),
             password: r.password.trim() || undefined,
+            keterangan: r.keterangan.trim() || undefined,
           }))
           .filter((a) => a.email) as unknown as [{ email: string }],
       });
@@ -251,6 +220,42 @@
     }
   }
 
+  // Stats tabs double as quick status filters.
+  const STAT_FILTERS = {
+    open: { status: "open" },
+    processing: { status: { in: ["processing", "waiting_user"] } },
+    completed: { status: "completed" },
+  } as const;
+
+  const activeStatTab = $derived.by<keyof typeof STAT_FILTERS | "total" | null>(
+    () => {
+      const s = (query.where as Record<string, any>)?.status;
+      if (s === undefined || s === null || s === "") return "total";
+      if (s === "open") return "open";
+      if (s === "completed") return "completed";
+      if (
+        Array.isArray(s?.in) &&
+        s.in.length === 2 &&
+        s.in.includes("processing") &&
+        s.in.includes("waiting_user")
+      )
+        return "processing";
+      return null;
+    },
+  );
+
+  function applyStatFilter(key: keyof typeof STAT_FILTERS | "total") {
+    const w = (query.where ?? {}) as Record<string, any>;
+    if (key === "total" || activeStatTab === key) {
+      // clear only the status part, keep other filters (e.g. layanan)
+      const next = { ...w };
+      delete next.status;
+      query.where = next as typeof query.where;
+      return;
+    }
+    query.where = { ...w, ...STAT_FILTERS[key] } as typeof query.where;
+  }
+
   const statusBadge: Record<string, string> = {
     open: "badge-info",
     processing: "badge-primary",
@@ -260,14 +265,27 @@
     rejected: "badge-error",
   };
 
-  const statusIcons: Record<HelpdeskStatus, string> = {
-    open: "bx:envelope",
-    processing: "bx:cog",
-    waiting_user: "bx:time-five",
-    completed: "bx:check-circle",
-    cancelled: "bx:x-circle",
-    rejected: "bx:block",
-  };
+  // Whether the workflow step at `index` has been reached (current or done).
+  function isStageReached(
+    serviceType: string | null | undefined,
+    stage: HelpdeskStage,
+    index: number,
+  ) {
+    const flow = stageFlow(serviceType);
+    return index <= flow.indexOf(stage);
+  }
+
+  // Attachment preview modal
+  let previewFile = $state<{ url: string; name: string } | null>(null);
+
+  // Mask "password = xxx" lines in comment text unless revealed.
+  function maskPasswords(text: string, show: boolean) {
+    if (show) return text;
+    return text.replace(
+      /^(\s*password\s*=\s*)(.+)$/gim,
+      (_m, label: string) => `${label}••••••••`,
+    );
+  }
 
   const eventLabels: Record<string, string> = {
     ticket_created: "Tiket dibuat",
@@ -282,10 +300,31 @@
   function fmtDate(v?: string | null) {
     return v ? d(v).format("DD/MM/YYYY HH:mm") : "-";
   }
+
+  // Older tickets had the requester list / signer appended to the
+  // description — strip those blocks for display (they are rendered from
+  // metadata elsewhere).
+  function cleanDescription(desc?: string | null) {
+    if (!desc) return "";
+    return desc
+      .replace(/\n*Penandatangan Dokumen:[^\n]*/g, "")
+      .replace(/\n*Daftar Pemohon \(\d+ orang\):[\s\S]*$/, "")
+      .trim();
+  }
+
+  // Merged events + comments sorted chronologically for the chat UI.
+  function timeline(t: any) {
+    return [
+      ...t.events,
+      ...t.comments.map((c: any) => ({ ...c, __isComment: true })),
+    ].sort(
+      (a, b) => new Date(a.created).getTime() - new Date(b.created).getTime(),
+    );
+  }
 </script>
 
 <div class="px-6 py-4 space-y-3 mx-auto flex flex-col h-[calc(100vh-4rem)]">
-  <div class="flex items-center justify-between gap-4">
+  <div class="flex items-center justify-between gap-4 flex-wrap">
     <div>
       <h1
         class="text-2xl font-bold bg-linear-to-r from-primary to-secondary bg-clip-text text-transparent"
@@ -296,50 +335,66 @@
         Kelola tiket layanan email & sertifikat elektronik
       </p>
     </div>
+    <!-- Stats (click to filter by status) -->
+    {#if stats.current}
+      <div role="tablist" class="tabs tabs-box tabs-sm p-0">
+        <button
+          role="tab"
+          class="tab gap-1.5 {activeStatTab === 'total' ? 'tab-active' : ''}"
+          aria-label="Semua"
+          onclick={() => applyStatFilter("total")}
+        >
+          <iconify-icon icon="bx:support" class="text-primary"></iconify-icon>
+          <span>Semua</span>
+          <span class="badge badge-xs badge-primary">{stats.current.total}</span
+          >
+        </button>
+        <button
+          role="tab"
+          class="tab gap-1.5 {activeStatTab === 'open' ? 'tab-active' : ''}"
+          aria-label="Baru"
+          onclick={() => applyStatFilter("open")}
+        >
+          <iconify-icon icon="bx:envelope-open" class="text-info"
+          ></iconify-icon>
+          <span>Baru</span>
+          <span class="badge badge-xs badge-info"
+            >{stats.current.byStatus["open"] ?? 0}</span
+          >
+        </button>
+        <button
+          role="tab"
+          class="tab gap-1.5 {activeStatTab === 'processing'
+            ? 'tab-active'
+            : ''}"
+          aria-label="Diproses / Menunggu"
+          onclick={() => applyStatFilter("processing")}
+        >
+          <iconify-icon icon="bx:time" class="text-warning"></iconify-icon>
+          <span>Diproses / Menunggu</span>
+          <span class="badge badge-xs badge-warning"
+            >{(stats.current.byStatus["processing"] ?? 0) +
+              (stats.current.byStatus["waiting_user"] ?? 0)}</span
+          >
+        </button>
+        <button
+          role="tab"
+          class="tab gap-1.5 {activeStatTab === 'completed'
+            ? 'tab-active'
+            : ''}"
+          aria-label="Selesai"
+          onclick={() => applyStatFilter("completed")}
+        >
+          <iconify-icon icon="bx:check-double" class="text-success"
+          ></iconify-icon>
+          <span>Selesai</span>
+          <span class="badge badge-xs badge-success"
+            >{stats.current.byStatus["completed"] ?? 0}</span
+          >
+        </button>
+      </div>
+    {/if}
   </div>
-
-  <!-- Stats -->
-  {#if stats.current}
-    <div
-      class="stats stats-vertical sm:stats-horizontal shadow-sm w-full text-sm"
-    >
-      <div class="stat py-3">
-        <div class="stat-figure text-primary text-2xl">
-          <iconify-icon icon="bx:support"></iconify-icon>
-        </div>
-        <div class="stat-title text-xs">Total Tiket</div>
-        <div class="stat-value text-2xl">{stats.current.total}</div>
-      </div>
-      <div class="stat py-3">
-        <div class="stat-figure text-info text-2xl">
-          <iconify-icon icon="bx:envelope-open"></iconify-icon>
-        </div>
-        <div class="stat-title text-xs">Baru</div>
-        <div class="stat-value text-2xl">
-          {stats.current.byStatus["open"] ?? 0}
-        </div>
-      </div>
-      <div class="stat py-3">
-        <div class="stat-figure text-warning text-2xl">
-          <iconify-icon icon="bx:time"></iconify-icon>
-        </div>
-        <div class="stat-title text-xs">Diproses / Menunggu</div>
-        <div class="stat-value text-2xl">
-          {(stats.current.byStatus["processing"] ?? 0) +
-            (stats.current.byStatus["waiting_user"] ?? 0)}
-        </div>
-      </div>
-      <div class="stat py-3">
-        <div class="stat-figure text-success text-2xl">
-          <iconify-icon icon="bx:check-double"></iconify-icon>
-        </div>
-        <div class="stat-title text-xs">Selesai</div>
-        <div class="stat-value text-2xl">
-          {stats.current.byStatus["completed"] ?? 0}
-        </div>
-      </div>
-    </div>
-  {/if}
 
   <Toolbar bind:query {records}>
     {#snippet filter(where)}
@@ -415,7 +470,7 @@
         {:else}
           {#each items.data as item (item.id)}
             <tr class="hover:bg-base-200/30 transition-colors">
-              <td class="font-mono font-medium whitespace-nowrap">
+              <td class="font-medium whitespace-nowrap">
                 {toTicketNumber(item.id)}
                 <div class="text-[10px] opacity-50 font-sans max-w-52 truncate">
                   {item.subject}
@@ -469,25 +524,69 @@
         <span class="loading loading-spinner loading-md text-primary"></span>
       </div>
     {:else}
-      <div class="space-y-4">
-        <!-- header -->
+      <div class="space-y-3 flex flex-col h-[90vh]">
+        <!-- header: id/title left · status dropdown + public link right -->
         <div class="flex flex-wrap justify-between gap-2 items-start">
           <div>
-            <p class="font-mono font-bold text-lg">{t.ticketNumber}</p>
-            <p class="text-sm opacity-60">{t.subject}</p>
+            <span class="font-bold">{t.ticketNumber}</span>
+            <span class="text-xs opacity-60">{t.subject}</span>
           </div>
-          <span class={`badge ${statusBadge[t.status ?? ""] ?? "badge-ghost"}`}>
-            {STATUS_LABELS[t.status as keyof typeof STATUS_LABELS] ?? t.status}
-          </span>
+          <div class="join">
+            <select
+              class="select select-sm select-bordered join-item"
+              aria-label="Ubah Status"
+              value={t.status ?? ""}
+              onchange={(e) =>
+                setStatus(e.currentTarget.value as HelpdeskStatus)}
+            >
+              {#each Object.entries(STATUS_LABELS) as [value, label] (value)}
+                <option {value}>{label}</option>
+              {/each}
+            </select>
+            <a
+              href={`/helpdesk/ticket/${id}`}
+              target="_blank"
+              class="btn btn-sm join-item"
+            >
+              <iconify-icon icon="bx:link-external"></iconify-icon>
+              Lihat Tiket
+            </a>
+          </div>
         </div>
 
-        <div class="grid lg:grid-cols-2 gap-4 items-start">
-          <!-- left: ticket info & controls -->
-          <div class="space-y-4 min-w-0">
-            <!-- requester info -->
-            <div
-              class="grid grid-cols-2 gap-2 text-sm bg-base-200/40 rounded-xl p-3"
+        <!-- tahap workflow steps -->
+        <ul class="steps steps-horizontal w-full text-[10px] overflow-x-auto">
+          {#each stageFlow(t.serviceType) as s, i (s)}
+            <li
+              class={`step ${
+                isStageReached(t.serviceType, t.stage as HelpdeskStage, i)
+                  ? "step-primary"
+                  : ""
+              }`}
             >
+              <button
+                type="button"
+                class="cursor-pointer hover:text-primary"
+                onclick={() => setStage(s)}
+              >
+                {STAGE_LABELS[s]}
+              </button>
+            </li>
+          {/each}
+        </ul>
+
+        <div
+          class="grid lg:grid-cols-3 lg:grid-rows-[auto_minmax(0,1fr)] gap-3 flex-1 min-h-0"
+        >
+          <!-- penandatangan, detail & lampiran -->
+          <section
+            class="border border-base-300 rounded-xl p-3 space-y-2 min-w-0 max-h-80 overflow-y-auto lg:col-span-2"
+          >
+            <h3 class="font-bold text-sm flex items-center gap-1.5">
+              <iconify-icon icon="bx:detail"></iconify-icon>
+              Detail Pengajuan
+            </h3>
+            <div class="grid grid-cols-3 gap-2 text-xs">
               <div>
                 <span class="opacity-50 text-xs block">Nama</span
                 >{t.requesterName}
@@ -497,6 +596,10 @@
                 >{t.requesterPhone}
               </div>
               <div>
+                <span class="opacity-50 text-xs block">Email</span
+                >{t.requesterEmail || "-"}
+              </div>
+              <div>
                 <span class="opacity-50 text-xs block">NIP</span
                 >{t.requesterNip || "-"}
               </div>
@@ -504,127 +607,46 @@
                 <span class="opacity-50 text-xs block">NIK</span
                 >{t.requesterNik || "-"}
               </div>
-              <div class="col-span-2">
-                <span class="opacity-50 text-xs block">Email</span
-                >{t.requesterEmail || "-"}
+              <div>
+                <span class="opacity-50 text-xs block">Lampiran</span>
+                {#if t.attachments?.length}
+                  <div class="flex flex-wrap gap-1.5">
+                    {#each t.attachments as att (att.id)}
+                      {#each att.files ?? [] as file, fi (fi)}
+                        {@const fileName =
+                          file
+                            ?.split("/")
+                            ?.pop()
+                            ?.replace(/\.[a-z0-9]{4}\.enc$/, "")
+                            ?.replace(/\.enc$/, "") ||
+                          att.title ||
+                          "Lampiran"}
+                        <button
+                          type="button"
+                          class="btn btn-xs btn-outline gap-1.5"
+                          onclick={() =>
+                            (previewFile = { url: file, name: fileName })}
+                        >
+                          <iconify-icon icon="bx:paperclip"></iconify-icon>
+                          <span class="max-w-24 truncate">{fileName}</span>
+                        </button>
+                      {/each}
+                    {/each}
+                  </div>
+                {:else}
+                  <span class="opacity-40">-</span>
+                {/if}
               </div>
-              <div class="col-span-2">
+              <div class="col-span-3">
                 <span class="opacity-50 text-xs block">Deskripsi</span>
-                <p class="whitespace-pre-wrap">{t.description}</p>
+                <p class="whitespace-pre-wrap max-h-24 overflow-y-auto">
+                  {cleanDescription(t.description)}
+                </p>
               </div>
             </div>
 
-            <!-- per-user email access data -->
-            {#if t.service === "email" || accountRows.length > 0}
-              <div
-                class="border border-primary/40 bg-primary/5 rounded-xl p-3 space-y-2"
-              >
-                <div class="flex items-center justify-between gap-2">
-                  <p class="font-bold text-sm flex items-center gap-1.5">
-                    <iconify-icon icon="bx:envelope-open" class="text-primary"
-                    ></iconify-icon>
-                    Data Akses Email Pemohon
-                  </p>
-                  <button
-                    type="button"
-                    class="btn btn-xs btn-ghost"
-                    onclick={addAccountRow}
-                  >
-                    <iconify-icon icon="bx:plus"></iconify-icon>
-                    Baris
-                  </button>
-                </div>
-
-                <div class="overflow-x-auto">
-                  <table class="table table-xs">
-                    <thead>
-                      <tr>
-                        <th>Nama</th>
-                        <th class="w-56">Email</th>
-                        <th class="w-40">Password</th>
-                        <th></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {#each accountRows as row, i (i)}
-                        <tr>
-                          <td>
-                            <input
-                              type="text"
-                              bind:value={row.name}
-                              placeholder="-"
-                              class="input input-xs input-bordered w-full min-w-28"
-                            />
-                          </td>
-                          <td>
-                            <input
-                              type="email"
-                              bind:value={row.email}
-                              placeholder="nama@mojokertokota.go.id"
-                              class="input input-xs input-bordered w-full"
-                            />
-                          </td>
-                          <td>
-                            <input
-                              type="text"
-                              bind:value={row.password}
-                              placeholder="password default"
-                              class="input input-xs input-bordered w-full font-mono"
-                            />
-                          </td>
-                          <td>
-                            {#if i > 0}
-                              <button
-                                type="button"
-                                class="btn btn-ghost btn-xs text-error"
-                                onclick={() => removeAccountRow(i)}
-                                aria-label="Hapus baris"
-                              >
-                                <iconify-icon icon="bx:trash"></iconify-icon>
-                              </button>
-                            {/if}
-                          </td>
-                        </tr>
-                      {/each}
-                    </tbody>
-                  </table>
-                </div>
-
-                <p class="text-[10px] opacity-60">
-                  Pesan otomatis: url akses https://mail.mojokertokota.go.id +
-                  "password default wajib diganti saat login"{#if t.service === "certificate"}
-                    + "akses untuk aktivasi telah dikirimkan ke email tersebut"{/if}.
-                </p>
-
-                <button
-                  type="button"
-                  class="btn btn-sm btn-success w-full"
-                  onclick={sendAccountData}
-                  disabled={sendingAccounts ||
-                    !accountRows.some((r) => r.email.trim())}
-                >
-                  {#if sendingAccounts}
-                    <span class="loading loading-spinner loading-xs"></span>
-                  {:else}
-                    <iconify-icon icon="bx:send"></iconify-icon>
-                  {/if}
-                  Kirim Akses via WhatsApp & Komentar
-                </button>
-
-                {#if accountsSent}
-                  <div class="badge badge-success badge-sm gap-1">
-                    <iconify-icon icon="bx:check-circle"></iconify-icon>
-                    Terkirim
-                  </div>
-                {/if}
-                {#if actionMsg}
-                  <p class="text-xs opacity-70">{actionMsg}</p>
-                {/if}
-              </div>
-            {/if}
-
             <!-- certificate flow controls -->
-            {#if t.service === "certificate"}
+            {#if t.service === "certificate" && t.attachments?.length}
               <div
                 class="border border-accent/40 bg-accent/5 rounded-xl p-3 space-y-2"
               >
@@ -644,9 +666,7 @@
                 {#if t.linked?.length}
                   <div class="flex flex-wrap gap-1">
                     {#each t.linked as l (l.id)}
-                      <span
-                        class="badge badge-outline badge-sm font-mono gap-1"
-                      >
+                      <span class="badge badge-outline badge-sm gap-1">
                         {toTicketNumber(l.id)}
                         <span class="font-sans">
                           {SERVICE_TYPE_LABELS[
@@ -691,211 +711,101 @@
                   </button>
                 </div>
 
-                {#if prereqSignUrl}
-                  <a
-                    href={prereqSignUrl}
-                    target="_blank"
-                    class="btn btn-xs btn-warning w-full"
-                  >
-                    <iconify-icon icon="bx:pen"></iconify-icon>
-                    Buka Form Pengajuan Email (tanda tangan)
-                  </a>
-                {/if}
-
                 {#if actionMsg}
                   <p class="text-xs opacity-70">{actionMsg}</p>
                 {/if}
               </div>
             {/if}
+          </section>
 
-            <!-- BSrE pre-check -->
-            {#if t.requesterNik || t.requesterNip}
-              <div class="border border-base-300 rounded-xl p-3 space-y-2">
-                <button
-                  type="button"
-                  class="btn btn-xs btn-outline"
-                  onclick={runBsreCheck}
-                  disabled={checking}
-                >
-                  {#if checking}
-                    <span class="loading loading-spinner loading-xs"></span>
-                  {:else}
-                    <iconify-icon icon="bx:shield-quarter"></iconify-icon>
-                  {/if}
-                  Cek Data BSrE
-                </button>
-                {#if bsreResult}
-                  {#if !bsreResult.found}
-                    <div class="alert alert-warning text-xs py-2">
-                      <iconify-icon icon="bx:error-circle"></iconify-icon>
-                      Data tidak ditemukan di BSrE.
-                    </div>
-                  {:else}
-                    <div class="grid grid-cols-2 gap-1.5 text-xs">
-                      <div>
-                        <span class="opacity-50 block">Nama BSrE</span
-                        >{bsreResult.nama}
-                      </div>
-                      <div>
-                        <span class="opacity-50 block">Email</span
-                        >{bsreResult.emailAddress}
-                      </div>
-                      <div>
-                        <span class="opacity-50 block">Status Akun</span
-                        >{bsreResult.status} / {bsreResult.aktif
-                          ? "Aktif"
-                          : "Nonaktif"}
-                      </div>
-                      <div>
-                        <span class="opacity-50 block">Status Sertifikat</span
-                        >{bsreResult.certificateStatus ?? "-"}
-                      </div>
-                      <div>
-                        <span class="opacity-50 block">Masa Berlaku</span
-                        >{bsreResult.certStart ?? "-"} s/d {bsreResult.certEnd ??
-                          "-"}
-                      </div>
-                      <div>
-                        <span class="opacity-50 block">Jumlah Sertifikat</span
-                        >{bsreResult.certCount}
-                      </div>
-                    </div>
-                  {/if}
-                {/if}
-              </div>
-            {/if}
-
-            <!-- workflow controls -->
-            <div class="space-y-2">
-              <p class="font-bold text-sm">Tahap Workflow</p>
-              <div class="flex flex-wrap gap-1.5">
-                {#each stageFlow(t.serviceType) as s (s)}
-                  <button
-                    type="button"
-                    class={`btn btn-xs ${t.stage === s ? "btn-primary" : "btn-outline"}`}
-                    onclick={() => setStage(s)}
-                  >
-                    {STAGE_LABELS[s]}
-                  </button>
-                {/each}
-              </div>
-            </div>
-
-            <div class="space-y-2">
-              <p class="font-bold text-sm">Ubah Status</p>
-              <div class="flex flex-wrap gap-1.5">
-                {#each ["processing", "waiting_user", "completed", "rejected", "cancelled"] as st (st)}
-                  {#if st !== t.status}
-                    <button
-                      type="button"
-                      class="btn btn-xs btn-outline"
-                      onclick={() => setStatus(st as HelpdeskStatus)}
-                    >
-                      <iconify-icon icon={statusIcons[st as HelpdeskStatus]}
-                      ></iconify-icon>
-                      {STATUS_LABELS[st as HelpdeskStatus]}
-                    </button>
-                  {/if}
-                {/each}
-              </div>
-            </div>
-
-            <!-- manual WA -->
-            <div class="space-y-2">
-              <p class="font-bold text-sm">Kirim WhatsApp ke Pemohon</p>
-              <textarea
-                bind:value={waMessage}
-                class="textarea textarea-bordered w-full min-h-16 text-sm"
-                placeholder="Pesan yang akan dikirim..."
-              ></textarea>
-              <button
-                type="button"
-                class="btn btn-xs btn-success"
-                onclick={sendWa}
-                disabled={waSending || !waMessage.trim()}
-              >
-                {#if waSending}
-                  <span class="loading loading-spinner loading-xs"></span>
-                {:else}
-                  <iconify-icon icon="bx:message"></iconify-icon>
-                {/if}
-                Kirim
-              </button>
-            </div>
-
-            <!-- survey -->
-            {#if t.survey}
-              <div
-                class="bg-success/10 border border-success/30 rounded-xl p-3 text-sm"
-              >
-                <p class="font-bold mb-1">
-                  <iconify-icon icon="bx:star" class="text-warning"
-                  ></iconify-icon>
-                  Survey Kepuasan
-                </p>
-                <p>
-                  Rating: {t.survey.rating}/5 · Kemudahan: {t.survey.ease}/5
-                </p>
-                {#if t.survey.comment}<p class="opacity-70 italic">
-                    "{t.survey.comment}"
-                  </p>{/if}
-              </div>
-            {/if}
-          </div>
-
-          <!-- right: activity history & admin reply -->
-          <div class="space-y-3 min-w-0">
-            <div class="space-y-2">
-              <p class="font-bold text-sm flex items-center gap-1.5">
+          <!-- aktivitas & komentar -->
+          <section
+            class="border border-base-300 rounded-xl p-3 space-y-2 min-w-0 flex flex-col min-h-0 lg:col-start-3 lg:row-span-2"
+          >
+            <div>
+              <h3 class="font-bold text-sm flex items-center gap-1.5">
                 <iconify-icon icon="bx:comment-detail" class="text-primary"
                 ></iconify-icon>
-                Balas sebagai Petugas
-              </p>
-              <textarea
-                bind:value={adminReply}
-                class="textarea textarea-bordered w-full min-h-20 text-sm"
-                placeholder="Tulis balasan untuk pemohon..."
-              ></textarea>
-              <div class="flex justify-end">
-                <button
-                  type="button"
-                  class="btn btn-xs btn-primary"
-                  onclick={sendAdminReply}
-                  disabled={replying || !adminReply.trim()}
-                >
-                  {#if replying}
-                    <span class="loading loading-spinner loading-xs"></span>
-                  {:else}
-                    <iconify-icon icon="bx:send"></iconify-icon>
-                  {/if}
-                  Kirim Balasan
-                </button>
+                Aktivitas & Komentar
+              </h3>
+
+              <div class="w-full mt-2">
+                <textarea
+                  bind:value={adminReply}
+                  rows="2"
+                  class="textarea textarea-bordered w-full min-h-0 resize-y"
+                  placeholder="Tulis balasan untuk pemohon..."
+                ></textarea>
+                <div class="flex justify-end mt-1">
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-primary"
+                    onclick={sendAdminReply}
+                    disabled={replying || !adminReply.trim()}
+                  >
+                    {#if replying}
+                      <span class="loading loading-spinner loading-xs"></span>
+                    {:else}
+                      <iconify-icon icon="bx:send"></iconify-icon>
+                    {/if}
+                    Kirim
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div class="space-y-2">
-              <p class="font-bold text-sm">Riwayat Aktivitas</p>
-              <ul class="space-y-1 max-h-96 overflow-y-auto text-xs">
-                {#each [...t.events, ...t.comments.map( (c: any) => ({ ...c, __isComment: true }), )] as ev, i (ev.__isComment ? `c-${ev.id}` : `e-${ev.id}`)}
-                  <li
-                    class="flex gap-2 items-baseline border-l-2 border-base-300 pl-2 py-0.5"
-                  >
-                    <span class="opacity-50 whitespace-nowrap"
-                      >{fmtDate(ev.created)}</span
+            <div class="flex-1 min-h-0 flex flex-col">
+              <!-- <p class="font-bold text-sm">Riwayat Aktivitas</p> -->
+              <div
+                class="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1 max-h-72 lg:max-h-none"
+              >
+                {#each timeline(t) as ev (ev.__isComment ? `c-${ev.id}` : `e-${ev.id}`)}
+                  {#if ev.__isComment}
+                    <div
+                      class={`chat ${
+                        ev.authorType === "admin" ? "chat-end" : "chat-start"
+                      }`}
                     >
-                    <span>
-                      {#if ev.__isComment}
-                        <strong
-                          >{ev.authorType === "admin"
-                            ? "Petugas"
-                            : "Pemohon"}:</strong
+                      <div class="chat-image avatar avatar-placeholder">
+                        <div
+                          class={`w-8 rounded-full text-xs ${
+                            ev.authorType === "admin"
+                              ? "bg-primary text-primary-content"
+                              : "bg-neutral text-neutral-content"
+                          }`}
                         >
-                        {ev.message}
-                        {#if ev.isInternal}<span
-                            class="badge badge-warning badge-xs ml-1"
+                          <span>
+                            {ev.authorType === "admin" ? "P" : "A"}
+                          </span>
+                        </div>
+                      </div>
+                      <div class="chat-header text-xs">
+                        {ev.authorType === "admin" ? "Petugas" : "Pemohon"}
+                        <time class="text-[10px] opacity-50 ml-1">
+                          {fmtDate(ev.created)}
+                        </time>
+                      </div>
+                      <div
+                        class={`chat-bubble text-xs whitespace-pre-wrap ${
+                          ev.authorType === "admin" ? "chat-bubble-primary" : ""
+                        }`}
+                      >
+                        {maskPasswords(ev.message, showPasswords)}
+                      </div>
+                      {#if ev.isInternal}
+                        <div class="chat-footer">
+                          <span class="badge badge-warning badge-xs"
                             >internal</span
-                          >{/if}
-                      {:else}
+                          >
+                        </div>
+                      {/if}
+                    </div>
+                  {:else}
+                    <div
+                      class="flex items-center gap-2 text-[10px] opacity-60 py-0.5"
+                    >
+                      <span class="h-px flex-1 bg-base-300"></span>
+                      <span class="whitespace-nowrap">
                         {eventLabels[ev.event] ?? ev.event}
                         {#if ev.event === "status_changed"}
                           ({STATUS_LABELS[
@@ -906,25 +816,167 @@
                             ev.metadata?.to as keyof typeof STATUS_LABELS
                           ] ?? ev.metadata?.to})
                         {/if}
-                      {/if}
-                    </span>
-                  </li>
+                        · {fmtDate(ev.created)}
+                      </span>
+                      <span class="h-px flex-1 bg-base-300"></span>
+                    </div>
+                  {/if}
                 {/each}
-              </ul>
+              </div>
             </div>
-          </div>
-        </div>
+          </section>
 
-        <div class="flex justify-end pt-2 border-t border-base-200">
-          <a
-            href={`/helpdesk/ticket/${id}`}
-            target="_blank"
-            class="btn btn-sm btn-ghost"
-          >
-            <iconify-icon icon="bx:external-link"></iconify-icon>
-            Buka Halaman Publik
-          </a>
+          <!-- update data pengguna -->
+          {#if t.service === "email" || accountRows.length > 0}
+            <section
+              class="border border-primary/40 bg-primary/5 rounded-xl p-3 space-y-2 flex flex-col flex-1 min-h-0 lg:col-span-2"
+            >
+              <h3 class="font-bold text-sm flex items-center gap-1.5">
+                <iconify-icon icon="bx:envelope-open" class="text-primary"
+                ></iconify-icon>
+                Update Data Pengguna
+                <span class="badge badge-sm badge-outline badge-primary"
+                  >{accountRows.length}</span
+                >
+              </h3>
+
+              <div class="overflow-auto flex-1 min-h-0">
+                <table class="table table-xs">
+                  <thead>
+                    <tr>
+                      <th>No</th>
+                      <th class="min-w-40">Nama Lengkap</th>
+                      <th class="min-w-32">NIP</th>
+                      <th class="min-w-32">NIK</th>
+                      <th class="w-56">Email</th>
+                      <th class="w-36">
+                        <button
+                          type="button"
+                          class="flex items-center gap-1"
+                          onclick={() => (showPasswords = !showPasswords)}
+                        >
+                          <iconify-icon
+                            icon={showPasswords ? "bx:hide" : "bx:show"}
+                          ></iconify-icon>
+                          Password
+                        </button>
+                      </th>
+                      <th class="w-44">Keterangan</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {#each accountRows as row, i (i)}
+                      <tr class="[&>td]:p-1">
+                        <td class="opacity-50">{i + 1}</td>
+                        <td>
+                          <input
+                            type="text"
+                            bind:value={row.name}
+                            placeholder="nama"
+                            class="input input-sm input-bordered w-full"
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="text"
+                            bind:value={row.nip}
+                            placeholder="nip"
+                            class="input input-sm input-bordered w-full"
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="text"
+                            bind:value={row.nik}
+                            placeholder="nik"
+                            class="input input-sm input-bordered w-full"
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="email"
+                            bind:value={row.email}
+                            placeholder="nama@mojokertokota.go.id"
+                            class="input input-sm input-bordered w-full"
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type={showPasswords ? "text" : "password"}
+                            bind:value={row.password}
+                            placeholder="password"
+                            class="input input-sm input-bordered w-full"
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="text"
+                            bind:value={row.keterangan}
+                            placeholder="keterangan"
+                            class="input input-sm input-bordered w-full"
+                          />
+                        </td>
+                      </tr>
+                    {/each}
+                  </tbody>
+                </table>
+              </div>
+
+              <p class="text-[10px] opacity-60">
+                Kredensial dikirim via WhatsApp. Komentar tiket hanya berisi:
+                "Akses email telah dikirimkan ke WhatsApp Anda."
+              </p>
+
+              <button
+                type="button"
+                class="btn btn-sm btn-success w-full"
+                onclick={sendAccountData}
+                disabled={sendingAccounts ||
+                  !accountRows.some((r) => r.email.trim())}
+              >
+                {#if sendingAccounts}
+                  <span class="loading loading-spinner loading-xs"></span>
+                {:else}
+                  <iconify-icon icon="bx:send"></iconify-icon>
+                {/if}
+                Kirim Akses via WhatsApp
+              </button>
+
+              {#if accountsSent}
+                <div class="badge badge-success badge-sm gap-1">
+                  <iconify-icon icon="bx:check-circle"></iconify-icon>
+                  Terkirim
+                </div>
+              {/if}
+              {#if actionMsg}
+                <p class="text-xs opacity-70">{actionMsg}</p>
+              {/if}
+            </section>
+          {/if}
         </div>
+      </div>
+    {/if}
+  {/snippet}
+</Modal>
+
+<!-- Attachment preview -->
+<Modal
+  bind:data={previewFile}
+  title={previewFile?.name ?? "Lampiran"}
+  size="lg"
+>
+  {#snippet children(f)}
+    {#if f}
+      <iframe
+        src={f.url}
+        title={f.name}
+        class="w-full h-[70vh] rounded-lg border border-base-300 bg-base-100"
+      ></iframe>
+      <div class="flex justify-end pt-2">
+        <a href={f.url} target="_blank" class="btn btn-sm btn-outline">
+          <iconify-icon icon="bx:download"></iconify-icon>
+          Unduh
+        </a>
       </div>
     {/if}
   {/snippet}
