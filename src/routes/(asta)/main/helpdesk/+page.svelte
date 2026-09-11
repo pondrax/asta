@@ -186,6 +186,14 @@
         keterangan: "",
       });
     }
+    // Kumulatif: keep jabatan/pangkat per pemohon visible in the table.
+    if (reqs.length > 0) {
+      reqs.forEach((r, i) => {
+        if (list[i] && (r.position || r.rank)) {
+          list[i].keterangan = [r.position, r.rank].filter(Boolean).join(" / ");
+        }
+      });
+    }
     accountRows = list;
     accountsSent = false;
   });

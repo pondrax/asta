@@ -24,6 +24,7 @@ import { FileStorage } from "$lib/server/storage";
 import { sendWhatsAppText } from "$lib/server/notify";
 import { resolveEnv } from "$lib/server/db/utils";
 import { createId } from "$lib/utils";
+import { fetchAsnByNip } from "./bkpsdm";
 
 const storage = new FileStorage;
 
@@ -48,6 +49,9 @@ export type HelpdeskRequesterEntry = {
   nip?: string;
   nik?: string;
   email?: string;
+  position?: string;
+  rank?: string;
+  emailAccess?: boolean;
 };
 
 /**
@@ -70,6 +74,12 @@ function parseRequesterLine(line: string): HelpdeskRequesterEntry {
       else out.nik = digits;
     } else if (!out.name) {
       out.name = p;
+    } else if (!out.position) {
+      out.position = p;
+    } else if (!out.rank) {
+      out.rank = p;
+    } else if (out.emailAccess === undefined && /^(yes|no|1|0)$/i.test(p)) {
+      out.emailAccess = /^(yes|1)$/i.test(p);
     }
   }
   return out;
@@ -350,6 +360,12 @@ export type BsreCheckResult = {
   organisasi?: string | null;
   organisasiUnit?: string | null;
   jabatanOrganisasi?: string | null;
+  // BKPSDM ASN data (NIP lookups only)
+  jabatan?: string | null;
+  unitkerja?: string | null;
+  golongan?: string | null;
+  statusPegawai?: string | null;
+  asnFound?: boolean;
   status?: string | null;
   aktif?: boolean | null;
   certificateStatus?: string | null;
@@ -414,11 +430,29 @@ export const checkIdentity = query(type({
   identity: /^\d{16}$|^\d{18}$/,
 }), async ({ identity }) => {
   const isNip = identity.length === 18;
+
+  // NIP → check BKPSDM first for authoritative ASN data (nama, jabatan, unit,
+  // golongan, status). Best-effort: null on failure, never blocks the check.
+  const asn = isNip ? await fetchAsnByNip(identity) : null;
+
   const row = await db.query.bsreUsers.findFirst({
     where: isNip ? { nip: identity } : { nik: identity },
   });
 
-  if (!row) return { found: false, determination: "not_found", suggestedServiceType: "certificate_registration" };
+  if (!row) {
+    return {
+      found: false,
+      determination: "not_found",
+      suggestedServiceType: "certificate_registration",
+      // Still surface BKPSDM data so the form can be prefilled.
+      nama: asn?.nama ?? null,
+      jabatan: asn?.jabatan ?? null,
+      unitkerja: asn?.unitkerja ?? null,
+      golongan: asn?.golongan ?? null,
+      statusPegawai: asn?.StatusPegawai ?? null,
+      asnFound: Boolean(asn),
+    };
+  }
 
   const certs: any[] = (row.details as any)?.data?.sertifikat ?? [];
   const determination = determineAction(row);
@@ -426,12 +460,17 @@ export const checkIdentity = query(type({
     found: true,
     determination,
     suggestedServiceType: suggestedServiceType(determination),
-    nama: row.nama,
+    nama: row.nama ?? asn?.nama ?? null,
     emailAddress: row.emailAddress,
     username: row.username,
     organisasi: row.organisasi,
     organisasiUnit: row.organisasiUnit,
-    jabatanOrganisasi: row.jabatanOrganisasi,
+    jabatanOrganisasi: row.jabatanOrganisasi ?? asn?.jabatan ?? null,
+    jabatan: asn?.jabatan ?? null,
+    unitkerja: asn?.unitkerja ?? null,
+    golongan: asn?.golongan ?? null,
+    statusPegawai: asn?.StatusPegawai ?? null,
+    asnFound: Boolean(asn),
     status: row.status,
     aktif: row.aktif,
     certificateStatus: row.certificateStatus,
@@ -440,6 +479,60 @@ export const checkIdentity = query(type({
     certCount: certs.length,
   };
 })
+
+/** Batch BSrE identity check for kumulatif certificate mode. */
+export const batchCheckBsre = query(type({
+  identities: "string[]",
+}), async ({ identities }) => {
+  const results: Record<string, any> = {};
+  for (const id of identities) {
+    const clean = id.replace(/\D/g, "");
+    if (clean.length !== 16 && clean.length !== 18) continue;
+    const isNip = clean.length === 18;
+
+    // NIP → check BKPSDM first for authoritative ASN data (best-effort).
+    const asn = isNip ? await fetchAsnByNip(clean) : null;
+
+    const row = await db.query.bsreUsers.findFirst({
+      where: isNip ? { nip: clean } : { nik: clean },
+    });
+    if (!row) {
+      results[clean] = {
+        found: false,
+        determination: "not_found",
+        suggestedServiceType: "certificate_registration",
+        nama: asn?.nama ?? null,
+        jabatan: asn?.jabatan ?? null,
+        unitkerja: asn?.unitkerja ?? null,
+        golongan: asn?.golongan ?? null,
+        statusPegawai: asn?.StatusPegawai ?? null,
+        asnFound: Boolean(asn),
+      };
+    } else {
+      const determination = determineAction(row);
+      results[clean] = {
+        found: true,
+        determination,
+        suggestedServiceType: suggestedServiceType(determination),
+        nama: row.nama ?? asn?.nama ?? null,
+        nik: row.nik,
+        nip: row.nip,
+        emailAddress: row.emailAddress,
+        jabatan: row.jabatanOrganisasi ?? asn?.jabatan ?? null,
+        unitkerja: asn?.unitkerja ?? null,
+        golongan: asn?.golongan ?? null,
+        statusPegawai: asn?.StatusPegawai ?? null,
+        asnFound: Boolean(asn),
+        organisasi: row.organisasi,
+        status: row.status,
+        aktif: row.aktif,
+        certStart: row.certStart,
+        certEnd: row.certEnd,
+      };
+    }
+  }
+  return results;
+});
 
 // ---------------------------------------------------------------------------
 // Commands — public
@@ -458,6 +551,8 @@ const createTicketSchema = type({
   requesterPhone: "string>0",
   requesterEmail: "string|undefined",
   organizationId: "string|undefined",
+  requesterPosition: "string|undefined",
+  requesterRank: "string|undefined",
   parentId: "string|undefined",
   documentId: "string|undefined",
   // Bulk request: raw text/CSV lines (one requester per line). One ticket
@@ -490,6 +585,50 @@ export const createTicket = command(createTicketSchema, async (props) => {
   }
   if (signerName?.trim()) {
     metadata.signerName = signerName.trim();
+  }
+  // Jabatan & pangkat pemohon (opsional)
+  if (insertProps.requesterPosition?.trim()) {
+    metadata.requesterPosition = (insertProps.requesterPosition as string).trim();
+  }
+  if (insertProps.requesterRank?.trim()) {
+    metadata.requesterRank = (insertProps.requesterRank as string).trim();
+  }
+  // Remove non-DB props from insertProps
+  delete (insertProps as any).requesterPosition;
+  delete (insertProps as any).requesterRank;
+
+  // Kumulatif certificate: batch-check BSrE for all NIP/NIK in requester rows.
+  if (list.length > 0 && props.service === "certificate") {
+    const identities = list
+      .map((r) => r.nip || r.nik)
+      .filter(Boolean) as string[];
+    if (identities.length > 0) {
+      const bsreResults: Record<string, any> = {};
+      for (const raw of identities) {
+        const id = raw.replace(/\D/g, "");
+        if (id.length !== 16 && id.length !== 18) continue;
+        const isNip = id.length === 18;
+        try {
+          const row = await db.query.bsreUsers.findFirst({
+            where: isNip ? { nip: id } : { nik: id },
+          });
+          if (!row) {
+            bsreResults[id] = { found: false, determination: "not_found" };
+          } else {
+            bsreResults[id] = {
+              found: true,
+              determination: determineAction(row),
+              nama: row.nama,
+              status: row.status,
+              aktif: row.aktif,
+            };
+          }
+        } catch {
+          bsreResults[id] = { found: false, determination: "error" };
+        }
+      }
+      metadata.bsreChecks = bsreResults;
+    }
   }
 
   const [ticket] = await db.insert(helpdesk).values({

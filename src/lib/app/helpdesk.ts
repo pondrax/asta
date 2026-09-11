@@ -78,8 +78,15 @@ export type BsreDetermination =
   | "revoked";
 
 export const DETERMINATION_LABELS: Record<BsreDetermination, string> = {
-  not_found: "Registrasi Sertifikat Baru",
+  not_found: "Penerbitan Baru",
   active_issue: "Reset Passphrase Sertifikat",
   expired: "Perpanjangan Sertifikat",
   revoked: "Pencabutan / Perpanjangan Sertifikat",
+};
+
+export const DETERMINATION_COLORS: Record<BsreDetermination, string> = {
+  not_found: "text-info",
+  active_issue: "text-warning",
+  expired: "text-error",
+  revoked: "text-error",
 };

@@ -5,9 +5,14 @@
     lookupTicket,
     createTicket,
     checkIdentity,
+    batchCheckBsre,
   } from "$lib/remotes/helpdesk.remote";
   import { getData } from "$lib/remotes/api.remote";
-  import { SERVICE_TYPE_LABELS, DETERMINATION_LABELS } from "$lib/app/helpdesk";
+  import {
+    SERVICE_TYPE_LABELS,
+    DETERMINATION_LABELS,
+    DETERMINATION_COLORS,
+  } from "$lib/app/helpdesk";
   import type { BsreDetermination } from "$lib/app/helpdesk";
   import type {
     HelpdeskService,
@@ -35,6 +40,9 @@
     if (active === card && card !== "track") return;
     resetWizard();
     active = card;
+    // Satu formulir untuk pembuatan email & reset password — jenis layanan
+    // ditentukan otomatis; admin dapat menyesuaikan saat proses tiket.
+    if (card === "email") serviceType = "email_new";
   }
 
   // ---------------------------------------------------------------------------
@@ -66,11 +74,6 @@
   // ---------------------------------------------------------------------------
   // Application wizard
   // ---------------------------------------------------------------------------
-  const EMAIL_TYPES: HelpdeskServiceType[] = [
-    "email_new",
-    "email_password_reset",
-  ];
-
   let certStep = $state(0); // certificate wizard: 0 = BSrE check, 1 = form
   let serviceType = $state<HelpdeskServiceType | "">("");
 
@@ -86,6 +89,8 @@
     requesterNik: "",
     requesterPhone: "",
     requesterEmail: "",
+    requesterPosition: "",
+    requesterRank: "",
     subject: "",
     description: "",
     emailAccess: "yes" as "yes" | "no",
@@ -96,20 +101,138 @@
   type RequesterRow = {
     key: number;
     name: string;
-    nip: string;
     nik: string;
+    nip: string;
+    position: string;
+    rank: string | undefined;
+    emailAccess: boolean;
   };
   let mode = $state<"single" | "bulk">("single");
   let rowSeq = 0;
   let rows = $state<RequesterRow[]>([]);
 
+  function makeRow(): RequesterRow {
+    return {
+      key: ++rowSeq,
+      name: "",
+      nik: "",
+      nip: "",
+      position: "",
+      rank: undefined,
+      emailAccess: true,
+    };
+  }
+
   function addRow() {
-    rows.push({ key: ++rowSeq, name: "", nip: "", nik: "" });
+    rows.push(makeRow());
   }
 
   function removeRow(key: number) {
     rows = rows.filter((r) => r.key !== key);
   }
+
+  // Kumulatif table starts with two empty rows for quicker entry.
+  let bulkSeeded = false;
+  let bulkBsreResults = $state<Record<string, any>>({});
+  let bulkChecking = $state(false);
+
+  /** Auto-check BSrE for all NIP/NIK in bulk rows (certificate mode only). */
+  async function autoCheckBulkBsre() {
+    if (active !== "certificate") return;
+    const ids = rows
+      .flatMap((r) => [r.nip.trim(), r.nik.trim()])
+      .filter(Boolean);
+    if (ids.length === 0) return;
+    bulkChecking = true;
+    try {
+      const results = await batchCheckBsre({ identities: ids });
+      bulkBsreResults = results ?? {};
+      fillRowsFromBsre();
+    } catch {
+      bulkBsreResults = {};
+    } finally {
+      bulkChecking = false;
+    }
+  }
+
+  /** Check BSrE for a single row (uses NIP first, falls back to NIK). */
+  async function checkRowBsre(row: RequesterRow) {
+    if (active !== "certificate") return;
+    const id = row.nip.trim() || row.nik.trim();
+    if (!id) return;
+    bulkChecking = true;
+    try {
+      const results = await batchCheckBsre({ identities: [id] });
+      bulkBsreResults = { ...bulkBsreResults, ...results };
+      fillRowsFromBsre();
+    } catch {
+      /* ignore */
+    } finally {
+      bulkChecking = false;
+    }
+  }
+
+  /** Fill row fields from BSrE/BKPSDM results where still empty. */
+  function fillRowsFromBsre() {
+    for (const r of rows) {
+      const nip = r.nip.trim().replace(/\D/g, "");
+      const nik = r.nik.trim().replace(/\D/g, "");
+      const hit = bulkBsreResults[nip] ?? bulkBsreResults[nik];
+      if (!hit) continue;
+      if (!r.name && hit.nama) r.name = hit.nama;
+      if (!r.nik && hit.nik) r.nik = hit.nik;
+      if (!r.position && (hit.jabatan || hit.jabatanOrganisasi))
+        r.position = hit.jabatan || hit.jabatanOrganisasi;
+    }
+  }
+
+  function bsreStatusFor(
+    row: RequesterRow,
+  ): { label: string; color: string } | null {
+    const nip = row.nip.trim().replace(/\D/g, "");
+    const nik = row.nik.trim().replace(/\D/g, "");
+    const r = bulkBsreResults[nip] ?? bulkBsreResults[nik];
+    if (!r) return null;
+    const det = (r.found ? r.determination : "not_found") as BsreDetermination;
+    if (det && det in DETERMINATION_LABELS) {
+      return {
+        label: DETERMINATION_LABELS[det],
+        color: DETERMINATION_COLORS[det],
+      };
+    }
+    return {
+      label: r.aktif ? "Aktif" : "Nonaktif",
+      color: "text-base-content/60",
+    };
+  }
+
+  $effect(() => {
+    if (mode === "bulk" && !bulkSeeded) {
+      bulkSeeded = true;
+      if (rows.length === 0) rows.push(makeRow(), makeRow());
+      // Auto-check BSrE for certificate kumulatif.
+      if (active === "certificate") autoCheckBulkBsre();
+    }
+    // Bulk+cert skips the identity-check step; default serviceType so canSubmit works.
+    if (mode === "bulk" && active === "certificate" && !serviceType) {
+      serviceType = "certificate_registration";
+    }
+    // Clear stale single BSrE state when switching to bulk.
+    if (mode === "bulk" && bsre) bsre = null;
+  });
+
+  // Auto-fill penandatangan fields from the first BSrE hit after bulk check.
+  $effect(() => {
+    if (mode !== "bulk" || active !== "certificate") return;
+    const hits = Object.values(bulkBsreResults).filter(
+      (r: any) => r.found && r.aktif,
+    );
+    if (hits.length === 0) return;
+    const first = hits[0] as any;
+    if (!item.requesterName && first.nama) item.requesterName = first.nama;
+    if (!item.requesterEmail && first.emailAddress)
+      item.requesterEmail = first.emailAddress;
+  });
 
   /** Import a text/CSV file: one requester per line, comma/semicolon/tab separated. */
   async function importCsv(e: Event) {
@@ -129,17 +252,21 @@
         const row: RequesterRow = {
           key: ++rowSeq,
           name: "",
-          nip: "",
           nik: "",
+          nip: "",
+          position: "",
+          rank: "",
+          emailAccess: true,
         };
         for (const p of parts) {
           const digits = p.replace(/\D/g, "");
-          if (!row.nip && !row.nik && /^\d{16,18}$/.test(digits)) {
-            if (digits.length === 18) row.nip = digits;
-            else row.nik = digits;
+          if (!row.nip && /^\d{18}$/.test(digits)) {
+            row.nip = digits;
+          } else if (!row.nik && /^\d{16}$/.test(digits)) {
+            row.nik = digits;
           } else if (!row.name) row.name = p;
         }
-        if (row.name || row.nip || row.nik) rows.push(row);
+        if (row.name || row.nip) rows.push(row);
       }
     } finally {
       input.value = "";
@@ -157,6 +284,8 @@
     requesterName?: string;
     requesterPhone?: string;
     requesterEmail?: string;
+    requesterPosition?: string;
+    requesterRank?: string;
     organization_id?: string;
   } {
     try {
@@ -173,6 +302,8 @@
         requesterName: item.requesterName.trim(),
         requesterPhone: item.requesterPhone.trim(),
         requesterEmail: item.requesterEmail.trim(),
+        requesterPosition: item.requesterPosition.trim(),
+        requesterRank: item.requesterRank.trim(),
         organization_id: item.organization_id,
       }),
     );
@@ -195,6 +326,10 @@
       item.requesterEmail = saved.requesterEmail;
     if (!item.organization_id && saved.organization_id)
       item.organization_id = saved.organization_id;
+    if (!item.requesterPosition && saved.requesterPosition)
+      item.requesterPosition = saved.requesterPosition;
+    if (!item.requesterRank && saved.requesterRank)
+      item.requesterRank = saved.requesterRank;
   }
 
   // Signers row for the logged-in account (has name/phone; users table doesn't)
@@ -228,11 +363,15 @@
         item = state.item;
         mode = state.mode ?? "single";
         rows = state.rows ?? [];
+        if (active === "email" && !serviceType) serviceType = "email_new";
       } catch (e) {
         console.error(e);
       }
       localStorage.removeItem("helpdesk_form_state");
     }
+
+    // Direct link with ?service=email — same single form, type auto-set.
+    if (active === "email" && !serviceType) serviceType = "email_new";
 
     const docId = page.url.searchParams.get("documentId");
     if (docId) {
@@ -283,7 +422,7 @@
         item.subject.trim() &&
         item.description.trim(),
     ) &&
-      (active !== "certificate" || certStep === 1) &&
+      (active !== "certificate" || certStep === 1 || mode === "bulk") &&
       (active === "email"
         ? Boolean(documentId)
         : item.emailAccess !== "no" || documentId),
@@ -302,10 +441,14 @@
     item.requesterNik = "";
     item.requesterPhone = "";
     item.requesterEmail = "";
+    item.requesterPosition = "";
+    item.requesterRank = "";
     item.subject = "";
     item.description = "";
     item.emailAccess = "yes";
     mode = "single";
+    bulkSeeded = false;
+    bulkBsreResults = {};
     rows = [];
     documentId = undefined;
     submitting = false;
@@ -337,6 +480,11 @@
       if (res.nama && !item.requesterName) item.requesterName = res.nama;
       if (res.emailAddress && !item.requesterEmail)
         item.requesterEmail = res.emailAddress;
+      // BKPSDM ASN data → prefill jabatan & golongan (pangkat).
+      if (res.jabatan && !item.requesterPosition)
+        item.requesterPosition = res.jabatan;
+      if (res.golongan && !item.requesterRank)
+        item.requesterRank = res.golongan;
       // Auto-fill NIP/NIK from the verified identity number.
       if (id.length === 18 && !item.requesterNip) item.requesterNip = id;
       if (id.length === 16 && !item.requesterNik) item.requesterNik = id;
@@ -371,13 +519,22 @@
         requesterNik: item.requesterNik.trim() || undefined,
         requesterEmail: item.requesterEmail.trim() || undefined,
         organizationId: item.organization_id || undefined,
+        requesterPosition: item.requesterPosition.trim() || undefined,
+        requesterRank: item.requesterRank.trim() || undefined,
         documentId: documentId || undefined,
         parentId: undefined,
         requesters:
           mode === "bulk" && rows.length > 0
             ? rows.map((r) =>
-                [r.name.trim(), r.nip.trim(), r.nik.trim()]
-                  .filter(Boolean)
+                [
+                  r.name.trim(),
+                  r.nik.trim(),
+                  r.nip.trim(),
+                  r.position.trim(),
+                  r.rank?.trim(),
+                  r.emailAccess ? "yes" : "no",
+                ]
+                  .filter((v) => v !== undefined && v !== "")
                   .join(", "),
               )
             : undefined,
@@ -565,7 +722,7 @@
               <p class="text-xs opacity-60 mt-0.5">
                 {active === "certificate"
                   ? "Data BSrE diperiksa otomatis untuk menentukan jenis layanan."
-                  : "Isi formulir untuk pengajuan layanan email pegawai."}
+                  : "Formulir untuk pengajuan email baru maupun reset password email."}
               </p>
             </div>
             <button
@@ -645,49 +802,135 @@
                         onchange={importCsv}
                       />
                     </label>
+                    {#if active === "certificate"}
+                      <button
+                        type="button"
+                        class="btn btn-xs btn-outline"
+                        disabled={bulkChecking || rows.length === 0}
+                        onclick={() => autoCheckBulkBsre()}
+                      >
+                        <iconify-icon
+                          icon={bulkChecking
+                            ? "bx:loader-alt bx-spin"
+                            : "bx:search"}
+                          class="text-xs"
+                        ></iconify-icon>
+                        Periksa Semua Data BSrE
+                      </button>
+                    {/if}
                   </div>
                 </div>
-                <div class="overflow-x-auto rounded-xl border border-base-300">
+                <div class="rounded-xl border border-base-300">
                   <table class="table table-sm">
                     <thead>
                       <tr class="bg-base-200/50">
                         <th class="w-10">#</th>
                         <th>Nama *</th>
-                        <th>NIP (18 digit)</th>
-                        <th>NIK (16 digit)</th>
+                        <th>NIP *</th>
+                        <th>NIK</th>
+                        <th>Jabatan</th>
+                        <th>Pangkat</th>
+                        {#if active === "certificate"}
+                          <th class="w-40">Layanan BSrE</th>
+                        {/if}
+                        <th
+                          class="w-20 text-center tooltip tooltip-bottom"
+                          data-tip="Centang untuk mereset akses email"
+                          >Reset Email</th
+                        >
                         <th class="w-10"></th>
                       </tr>
                     </thead>
                     <tbody>
                       {#each rows as r (r.key)}
-                        <tr>
+                        <tr class="[&>td]:py-0">
                           <td class="opacity-50">{rows.indexOf(r) + 1}</td>
-                          <td>
+                          <td class="px-1">
                             <input
                               bind:value={r.name}
                               placeholder="Nama lengkap"
-                              class="input input-xs input-bordered w-full min-w-36"
+                              class="input input-sm input-ghost w-full min-w-36"
                             />
                           </td>
-                          <td>
-                            <input
-                              bind:value={r.nip}
-                              inputmode="numeric"
-                              maxlength={18}
-                              placeholder="18 digit"
-                              class="input input-xs input-bordered w-full min-w-40 font-mono"
-                            />
+                          <td class="px-1">
+                            <label class="input input-sm input-ghost">
+                              <input
+                                bind:value={r.nip}
+                                inputmode="numeric"
+                                maxlength={18}
+                                placeholder="NIP (18 digit)"
+                                class="grow"
+                              />
+                              {#if active === "certificate"}
+                                <button
+                                  type="button"
+                                  class="btn btn-ghost btn-xs -mr-2"
+                                  title="Periksa BSrE"
+                                  disabled={bulkChecking || !r.nip}
+                                  onclick={() => checkRowBsre(r)}
+                                >
+                                  <iconify-icon icon="bx:search" class="text-xs"
+                                  ></iconify-icon>
+                                </button>
+                              {/if}
+                            </label>
                           </td>
-                          <td>
+                          <td class="px-1">
                             <input
                               bind:value={r.nik}
                               inputmode="numeric"
                               maxlength={16}
-                              placeholder="16 digit"
-                              class="input input-xs input-bordered w-full min-w-40 font-mono"
+                              placeholder="NIK (16 digit)"
+                              class="input input-sm input-ghost w-full min-w-32"
                             />
                           </td>
-                          <td>
+                          <td class="px-1">
+                            <input
+                              bind:value={r.position}
+                              placeholder="Jabatan"
+                              class="input input-sm input-ghost w-full min-w-36"
+                            />
+                          </td>
+                          <td class="px-1 w-56">
+                            <Select
+                              table="ranks"
+                              params={{ limit: 100, offset: 0 }}
+                              orderBy={{ id: "asc" }}
+                              labelKey={(prop: any) =>
+                                `${prop.grade} ${prop.rank != "-" ? "(" + prop.rank + ")" : ""}`}
+                              valueKey={(prop: any) =>
+                                `${prop.grade} ${prop.rank != "-" ? "(" + prop.rank + ")" : ""}`}
+                              bind:value={r.rank}
+                              placeholder="Pangkat..."
+                              inputClass="input-sm input-ghost"
+                            />
+                          </td>
+                          <td class="px-1">
+                            {#if active === "certificate"}
+                              {@const s = bsreStatusFor(r)}
+                              {#if s}
+                                <span class="text-xs font-medium {s.color}"
+                                  >{s.label}</span
+                                >
+                              {:else if bulkChecking}
+                                <span class="loading loading-spinner loading-xs"
+                                ></span>
+                              {/if}
+                            {/if}
+                          </td>
+                          <td class="px-1 text-center">
+                            <span
+                              class="tooltip tooltip-bottom"
+                              data-tip="Centang untuk mereset akses email"
+                            >
+                              <input
+                                type="checkbox"
+                                class="checkbox checkbox-xs"
+                                bind:checked={r.emailAccess}
+                              />
+                            </span>
+                          </td>
+                          <td class="px-1">
                             <button
                               type="button"
                               class="btn btn-ghost btn-xs text-error"
@@ -701,7 +944,10 @@
                         </tr>
                       {:else}
                         <tr>
-                          <td colspan="5" class="text-center py-4 opacity-50">
+                          <td
+                            colspan={active === "certificate" ? 9 : 8}
+                            class="text-center py-4 opacity-50"
+                          >
                             Belum ada pemohon tambahan — klik
                             <strong>Tambah Baris</strong> atau impor CSV.
                           </td>
@@ -710,15 +956,11 @@
                     </tbody>
                   </table>
                 </div>
-                <p class="text-[10px] opacity-50 px-1">
-                  Satu tiket & satu dokumen tanda tangan berlaku untuk semua
-                  pemohon yang terdaftar.
-                </p>
               </div>
             {/if}
 
-            <!-- CERTIFICATE: identity / BSrE check -->
-            {#if active === "certificate"}
+            <!-- CERTIFICATE: identity / BSrE check (single mode only — bulk checks per-row) -->
+            {#if active === "certificate" && mode !== "bulk"}
               <div class="space-y-3">
                 <label class="floating-label">
                   <span class="">NIK / NIP</span>
@@ -824,32 +1066,8 @@
               </div>
             {/if}
 
-            <!-- EMAIL: service type picker -->
-            {#if active === "email"}
-              <fieldset class="space-y-2">
-                <legend class="font-semibold text-sm mb-1">Jenis Layanan</legend
-                >
-                {#each EMAIL_TYPES as t (t)}
-                  <label
-                    class={`flex items-center gap-3 rounded-xl border p-3 cursor-pointer transition-colors ${serviceType === t ? "border-primary bg-primary/5" : "border-base-300 hover:border-base-400"}`}
-                  >
-                    <input
-                      type="radio"
-                      class="radio radio-primary radio-sm"
-                      name="email-service-type"
-                      value={t}
-                      bind:group={serviceType}
-                    />
-                    <span class="text-sm font-medium">
-                      {SERVICE_TYPE_LABELS[t]}
-                    </span>
-                  </label>
-                {/each}
-              </fieldset>
-            {/if}
-
-            <!-- SHARED FORM (certificate: shown at step 1) -->
-            {#if active !== "certificate" || certStep === 1}
+            <!-- SHARED FORM (certificate single: step 1; bulk/email: always) -->
+            {#if active !== "certificate" || certStep === 1 || mode === "bulk"}
               {#if active === "certificate" && determination}
                 <div class="alert alert-success text-sm py-2">
                   <iconify-icon icon="bx:check-double"></iconify-icon>
@@ -871,15 +1089,22 @@
               <div class="space-y-3">
                 <!-- Penandatangan dokumen pengajuan: identified by the
                      applicant data below (nama/NIP/NIK). -->
+
+                <h3 class="font-semibold text-sm mb-0">
+                  Penandatangan Pengajuan
+                </h3>
+
                 {#if mode === "bulk"}
-                  <p class="text-[10px] opacity-50 px-1">
+                  <p class="text-[10px] opacity-50">
                     Data di bawah adalah pejabat yang menandatangani dokumen
                     untuk seluruh pemohon pada daftar.
                   </p>
+                {:else}
+                  <p class="text-[10px] opacity-50">
+                    Data di bawah ini adalah pemohon yang mengajukan email
+                    secara pribadi.
+                  </p>
                 {/if}
-
-                <h3 class="font-semibold text-sm">Penandatangan Pengajuan</h3>
-
                 <div class="grid sm:grid-cols-2 gap-3">
                   <label class="floating-label">
                     <span>Nama Lengkap *</span>
@@ -889,6 +1114,34 @@
                       placeholder="Nama Lengkap"
                       class="input input-bordered w-full"
                       required
+                    />
+                  </label>
+                  <Select
+                    table="organizations"
+                    params={{ limit: 100, offset: 0 }}
+                    labelKey="name"
+                    valueKey="id"
+                    bind:value={item.organization_id}
+                    name="organization_id"
+                    label="Organisasi"
+                    placeholder="Pilih organisasi..."
+                    mapOptions={(opts) =>
+                      opts.map((opt) =>
+                        opt.name === "-"
+                          ? { ...opt, name: "Semua Perangkat Daerah" }
+                          : opt,
+                      )}
+                  />
+                </div>
+
+                <div class="grid sm:grid-cols-2 gap-3">
+                  <label class="floating-label">
+                    <span>Email (opsional)</span>
+                    <input
+                      type="email"
+                      bind:value={item.requesterEmail}
+                      placeholder="nama@mojokertokota.go.id"
+                      class="input input-bordered w-full"
                     />
                   </label>
                   <label class="floating-label">
@@ -905,38 +1158,28 @@
 
                 <div class="grid sm:grid-cols-2 gap-3">
                   <label class="floating-label">
-                    <span>NIP</span>
+                    <span>Jabatan</span>
                     <input
                       type="text"
-                      inputmode="numeric"
-                      maxlength={18}
-                      bind:value={item.requesterNip}
-                      placeholder="NIP Pegawai"
+                      bind:value={item.requesterPosition}
+                      placeholder="Contoh: Kepala Dinas / Guru"
                       class="input input-bordered w-full"
                     />
                   </label>
-                  <label class="floating-label">
-                    <span>NIK</span>
-                    <input
-                      type="text"
-                      inputmode="numeric"
-                      maxlength={16}
-                      bind:value={item.requesterNik}
-                      placeholder="NIK KTP"
-                      class="input input-bordered w-full"
-                    />
-                  </label>
-                </div>
-
-                <label class="floating-label">
-                  <span>Email (opsional)</span>
-                  <input
-                    type="email"
-                    bind:value={item.requesterEmail}
-                    placeholder="nama@mojokertokota.go.id"
-                    class="input input-bordered w-full"
+                  <Select
+                    table="ranks"
+                    params={{ limit: 100, offset: 0 }}
+                    orderBy={{ id: "asc" }}
+                    labelKey={(prop) =>
+                      `${prop.grade} ${prop.rank != "-" ? "(" + prop.rank + ")" : ""}`}
+                    valueKey={(prop) =>
+                      `${prop.grade} ${prop.rank != "-" ? "(" + prop.rank + ")" : ""}`}
+                    bind:value={item.requesterRank}
+                    name="requester_rank"
+                    label="Pangkat / Golongan"
+                    placeholder="Pilih pangkat..."
                   />
-                </label>
+                </div>
 
                 <label class="floating-label">
                   <span>Subjek Permohonan *</span>
@@ -959,24 +1202,7 @@
                   ></textarea>
                 </label>
 
-                <Select
-                  table="organizations"
-                  params={{ limit: 100, offset: 0 }}
-                  labelKey="name"
-                  valueKey="id"
-                  bind:value={item.organization_id}
-                  name="organization_id"
-                  label="Organisasi"
-                  placeholder="Pilih organisasi..."
-                  mapOptions={(opts) =>
-                    opts.map((opt) =>
-                      opt.name === "-"
-                        ? { ...opt, name: "Semua Perangkat Daerah" }
-                        : opt,
-                    )}
-                />
-
-                {#if active === "certificate"}
+                {#if active === "certificate" && mode !== "bulk"}
                   <fieldset
                     class="space-y-2 rounded-xl border border-base-300 p-3"
                   >
@@ -1075,7 +1301,7 @@
                     ></iconify-icon>
                     <span>
                       Dokumen pengajuan email dinas telah ditandatangani (ID: <span
-                        class="font-mono font-semibold">{documentId}</span
+                        class="font-semibold">{documentId}</span
                       >).
                     </span>
                   </div>
@@ -1090,7 +1316,7 @@
               </div>
             {/if}
 
-            {#if active !== "certificate" || certStep === 1}
+            {#if active !== "certificate" || certStep === 1 || mode === "bulk"}
               <button
                 type="submit"
                 class="btn btn-primary w-full"

@@ -257,13 +257,19 @@ function computeWeekSignedValue(
 }
 
 function computeTopSigners(
-  docs: Array<{ status?: string | null; signer?: string | null }>,
+  docs: Array<{
+    status?: string | null;
+    histories?: { signer?: string | null }[] | null;
+  }>,
   signers: Array<{ email?: string | null; name?: string | null }>
 ): Array<{ email: string; count: number; name: string }> {
   const signerCount: Record<string, number> = {};
   for (const doc of docs) {
-    if (doc.status === "signed" && doc.signer) {
-      signerCount[doc.signer] = (signerCount[doc.signer] || 0) + 1;
+    if (doc.status !== "signed") continue;
+    // `signer` is nulled on save by design — actual signers are recorded in
+    // `histories[].signer`, which is the authoritative source for counting.
+    for (const h of doc.histories ?? []) {
+      if (h.signer) signerCount[h.signer] = (signerCount[h.signer] || 0) + 1;
     }
   }
   const topSignersRaw = Object.entries(signerCount)
