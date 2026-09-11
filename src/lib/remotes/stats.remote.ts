@@ -274,7 +274,7 @@ function computeTopSigners(
   }
   const topSignersRaw = Object.entries(signerCount)
     .sort(([, a], [, b]) => b - a)
-    .slice(0, 10)
+    .slice(0, 25)
     .map(([email, count]) => ({ email, count }));
 
   const signerNames: Record<string, string> = {};

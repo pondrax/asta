@@ -1,17 +1,17 @@
 /**
  * Backfill `documents.histories` for older non-draft documents.
  *
- * The current sign flow recordings are authoritative in `histories[].signer`,
- * but documents created before that had no `histories` AND a `signer` that was
+ * The current sign flow records authoritatively in `histories[].signer`, but
+ * documents created before that had no `histories` AND a `signer` that was
  * deliberately nulled on save. For those rows the only remaining attribution is
  * the document `owner`, which for self-service e-signing equals the signer.
  *
- * Only touches non-draft documents (status != 'draft') that have no histories
- * and no signer. Writes a single history entry attributed to the owner, using
- * the row's `updated` (falling back to `created`) as `signedAt`.
+ * Generic for all users: every non-draft document (status != 'draft') with no
+ * histories and no signer gets a single history entry attributed to its owner,
+ * using `updated` (falling back to `created`) as `signedAt`. Rows without an
+ * owner are skipped (cannot be attributed).
  *
- * Safe to re-run: rows that already have histories are left untouched.
- * Rows without an owner are skipped (cannot be attributed).
+ * Safe to re-run any number of times — filled rows are skipped.
  *
  * Usage:
  *   bun run migrate:histories
