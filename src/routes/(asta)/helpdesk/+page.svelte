@@ -103,6 +103,7 @@
     name: string;
     nik: string;
     nip: string;
+    email: string;
     position: string;
     rank: string | undefined;
     emailAccess: boolean;
@@ -117,6 +118,7 @@
       name: "",
       nik: "",
       nip: "",
+      email: "",
       position: "",
       rank: undefined,
       emailAccess: true,
@@ -140,7 +142,7 @@
   async function autoCheckBulkBsre() {
     if (active !== "certificate") return;
     const ids = rows
-      .flatMap((r) => [r.nip.trim(), r.nik.trim()])
+      .flatMap((r) => [r.nip.trim(), r.nik.trim(), r.email.trim()])
       .filter(Boolean);
     if (ids.length === 0) return;
     bulkChecking = true;
@@ -155,14 +157,18 @@
     }
   }
 
-  /** Check BSrE for a single row (uses NIP first, falls back to NIK). */
+  /** Check BSrE for a single row (NIP first, then NIK, then email). */
   async function checkRowBsre(row: RequesterRow) {
     if (active !== "certificate") return;
-    const id = row.nip.trim() || row.nik.trim();
+    const id = row.nip.trim() || row.nik.trim() || row.email.trim();
     if (!id) return;
     bulkChecking = true;
     try {
-      const results = await batchCheckBsre({ identities: [id] });
+      const results = await batchCheckBsre({
+        identities: [row.nip.trim(), row.nik.trim(), row.email.trim()].filter(
+          Boolean,
+        ),
+      });
       bulkBsreResults = { ...bulkBsreResults, ...results };
       fillRowsFromBsre();
     } catch {
@@ -172,15 +178,29 @@
     }
   }
 
+  /** Best BSrE hit for a row — prefers NIP, then NIK, then email; a "found"
+   * hit always wins over a "not_found" result. */
+  function bsreHitFor(row: RequesterRow): any | null {
+    const nip = row.nip.trim().replace(/\D/g, "");
+    const nik = row.nik.trim().replace(/\D/g, "");
+    const email = row.email.trim().toLowerCase();
+    const candidates = [
+      nip && bulkBsreResults[nip],
+      nik && bulkBsreResults[nik],
+      email && bulkBsreResults[email],
+    ].filter(Boolean);
+    return candidates.find((r) => r.found) ?? candidates[0] ?? null;
+  }
+
   /** Fill row fields from BSrE/BKPSDM results where still empty. */
   function fillRowsFromBsre() {
     for (const r of rows) {
-      const nip = r.nip.trim().replace(/\D/g, "");
-      const nik = r.nik.trim().replace(/\D/g, "");
-      const hit = bulkBsreResults[nip] ?? bulkBsreResults[nik];
+      const hit = bsreHitFor(r);
       if (!hit) continue;
       if (!r.name && hit.nama) r.name = hit.nama;
       if (!r.nik && hit.nik) r.nik = hit.nik;
+      if (!r.email && hit.emailAddress) r.email = hit.emailAddress;
+      if (!r.rank && hit.golongan) r.rank = hit.golongan;
       if (!r.position && (hit.jabatan || hit.jabatanOrganisasi))
         r.position = hit.jabatan || hit.jabatanOrganisasi;
     }
@@ -189,9 +209,7 @@
   function bsreStatusFor(
     row: RequesterRow,
   ): { label: string; color: string } | null {
-    const nip = row.nip.trim().replace(/\D/g, "");
-    const nik = row.nik.trim().replace(/\D/g, "");
-    const r = bulkBsreResults[nip] ?? bulkBsreResults[nik];
+    const r = bsreHitFor(row);
     if (!r) return null;
     const det = (r.found ? r.determination : "not_found") as BsreDetermination;
     if (det && det in DETERMINATION_LABELS) {
@@ -232,6 +250,10 @@
     if (!item.requesterName && first.nama) item.requesterName = first.nama;
     if (!item.requesterEmail && first.emailAddress)
       item.requesterEmail = first.emailAddress;
+    if (!item.requesterRank && first.golongan)
+      item.requesterRank = first.golongan;
+    if (!item.organization_id && first.organisasi)
+      item.organization_id = first.organisasi;
   });
 
   /** Import a text/CSV file: one requester per line, comma/semicolon/tab separated. */
@@ -254,6 +276,7 @@
           name: "",
           nik: "",
           nip: "",
+          email: "",
           position: "",
           rank: "",
           emailAccess: true,
@@ -480,6 +503,9 @@
       if (res.nama && !item.requesterName) item.requesterName = res.nama;
       if (res.emailAddress && !item.requesterEmail)
         item.requesterEmail = res.emailAddress;
+      // BSrE data → prefill organisasi (resolved to org id by the Select).
+      if (res.organisasi && !item.organization_id)
+        item.organization_id = res.organisasi;
       // BKPSDM ASN data → prefill jabatan & golongan (pangkat).
       if (res.jabatan && !item.requesterPosition)
         item.requesterPosition = res.jabatan;
@@ -828,6 +854,7 @@
                         <th>Nama *</th>
                         <th>NIP *</th>
                         <th>NIK</th>
+                        <th>Email</th>
                         <th>Jabatan</th>
                         <th>Pangkat</th>
                         {#if active === "certificate"}
@@ -853,7 +880,7 @@
                             />
                           </td>
                           <td class="px-1">
-                            <label class="input input-sm input-ghost">
+                            <label class="input input-sm input-ghost w-full min-w-40">
                               <input
                                 bind:value={r.nip}
                                 inputmode="numeric"
@@ -886,6 +913,14 @@
                           </td>
                           <td class="px-1">
                             <input
+                              value={r.email}
+                              readonly
+                              placeholder="nama@mojokertokota.go.id"
+                              class="input input-sm input-ghost w-full min-w-36"
+                            />
+                          </td>
+                          <td class="px-1">
+                            <input
                               bind:value={r.position}
                               placeholder="Jabatan"
                               class="input input-sm input-ghost w-full min-w-36"
@@ -900,6 +935,7 @@
                                 `${prop.grade} ${prop.rank != "-" ? "(" + prop.rank + ")" : ""}`}
                               valueKey={(prop: any) =>
                                 `${prop.grade} ${prop.rank != "-" ? "(" + prop.rank + ")" : ""}`}
+                              lookupKey="rank"
                               bind:value={r.rank}
                               placeholder="Pangkat..."
                               inputClass="input-sm input-ghost"
@@ -945,7 +981,7 @@
                       {:else}
                         <tr>
                           <td
-                            colspan={active === "certificate" ? 9 : 8}
+                            colspan={active === "certificate" ? 10 : 9}
                             class="text-center py-4 opacity-50"
                           >
                             Belum ada pemohon tambahan — klik
@@ -1121,6 +1157,7 @@
                     params={{ limit: 100, offset: 0 }}
                     labelKey="name"
                     valueKey="id"
+                    lookupKey="name"
                     bind:value={item.organization_id}
                     name="organization_id"
                     label="Organisasi"
@@ -1174,6 +1211,7 @@
                       `${prop.grade} ${prop.rank != "-" ? "(" + prop.rank + ")" : ""}`}
                     valueKey={(prop) =>
                       `${prop.grade} ${prop.rank != "-" ? "(" + prop.rank + ")" : ""}`}
+                    lookupKey="rank"
                     bind:value={item.requesterRank}
                     name="requester_rank"
                     label="Pangkat / Golongan"

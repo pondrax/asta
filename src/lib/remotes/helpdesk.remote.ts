@@ -24,7 +24,14 @@ import { FileStorage } from "$lib/server/storage";
 import { sendWhatsAppText } from "$lib/server/notify";
 import { resolveEnv } from "$lib/server/db/utils";
 import { createId } from "$lib/utils";
-import { fetchAsnByNip } from "./bkpsdm";
+import { checkNip } from "./bkpsdm.remote";
+import pppk from "$lib/server/db/data/pppk";
+
+// Local PPPK registry → canonical e-mail per NIP. PPPK accounts are keyed by
+// e-mail, so a NIP that hits this list must be matched against bsre_users via
+// e-mail first, not by NIP.
+const pppkByNip = new Map<string, string>();
+for (const p of pppk) pppkByNip.set(p.nip, p.email);
 
 const storage = new FileStorage;
 
@@ -426,6 +433,30 @@ function suggestedServiceType(
   }
 }
 
+/**
+ * Resolve a BSrE user by identity number (NIP/NIK). For NIPs present in the
+ * local PPPK registry the canonical e-mail takes priority — the record is
+ * matched against bsre_users by e-mail first, falling back to the NIP column.
+ */
+async function lookupBsreByIdentity(id: string) {
+  const clean = id.replace(/\D/g, "");
+  const isNip = clean.length === 18;
+
+  if (isNip) {
+    const pppkEmail = pppkByNip.get(clean);
+    if (pppkEmail) {
+      const byEmail = await db.query.bsreUsers.findFirst({
+        where: { emailAddress: pppkEmail.toLowerCase() },
+      });
+      if (byEmail) return byEmail;
+    }
+  }
+
+  return db.query.bsreUsers.findFirst({
+    where: isNip ? { nip: clean } : { nik: clean },
+  });
+}
+
 export const checkIdentity = query(type({
   identity: /^\d{16}$|^\d{18}$/,
 }), async ({ identity }) => {
@@ -433,11 +464,9 @@ export const checkIdentity = query(type({
 
   // NIP → check BKPSDM first for authoritative ASN data (nama, jabatan, unit,
   // golongan, status). Best-effort: null on failure, never blocks the check.
-  const asn = isNip ? await fetchAsnByNip(identity) : null;
+  const asn = isNip ? await checkNip({ nip: identity }) : null;
 
-  const row = await db.query.bsreUsers.findFirst({
-    where: isNip ? { nip: identity } : { nik: identity },
-  });
+  const row = await lookupBsreByIdentity(identity);
 
   if (!row) {
     return {
@@ -485,17 +514,44 @@ export const batchCheckBsre = query(type({
   identities: "string[]",
 }), async ({ identities }) => {
   const results: Record<string, any> = {};
-  for (const id of identities) {
+  for (const raw of identities) {
+    const id = raw.trim();
+    if (!id) continue;
+
+    // Email identity → match BSrE record by (case-insensitive) e-mail address.
+    if (id.includes("@")) {
+      const key = id.toLowerCase();
+      const row = await db.query.bsreUsers.findFirst({
+        where: { emailAddress: key },
+      });
+      results[key] = row
+        ? {
+            found: true,
+            determination: determineAction(row),
+            suggestedServiceType: suggestedServiceType(determineAction(row)),
+            nama: row.nama,
+            nik: row.nik,
+            nip: row.nip,
+            emailAddress: row.emailAddress,
+            jabatan: row.jabatanOrganisasi,
+            organisasi: row.organisasi,
+            status: row.status,
+            aktif: row.aktif,
+            certStart: row.certStart,
+            certEnd: row.certEnd,
+          }
+        : { found: false, determination: "not_found" };
+      continue;
+    }
+
     const clean = id.replace(/\D/g, "");
     if (clean.length !== 16 && clean.length !== 18) continue;
     const isNip = clean.length === 18;
 
     // NIP → check BKPSDM first for authoritative ASN data (best-effort).
-    const asn = isNip ? await fetchAsnByNip(clean) : null;
+    const asn = isNip ? await checkNip({ nip: clean }) : null;
 
-    const row = await db.query.bsreUsers.findFirst({
-      where: isNip ? { nip: clean } : { nik: clean },
-    });
+    const row = await lookupBsreByIdentity(clean);
     if (!row) {
       results[clean] = {
         found: false,
@@ -607,11 +663,8 @@ export const createTicket = command(createTicketSchema, async (props) => {
       for (const raw of identities) {
         const id = raw.replace(/\D/g, "");
         if (id.length !== 16 && id.length !== 18) continue;
-        const isNip = id.length === 18;
         try {
-          const row = await db.query.bsreUsers.findFirst({
-            where: isNip ? { nip: id } : { nik: id },
-          });
+          const row = await lookupBsreByIdentity(id);
           if (!row) {
             bsreResults[id] = { found: false, determination: "not_found" };
           } else {
