@@ -76,9 +76,16 @@ function parseRequesterLine(line: string): HelpdeskRequesterEntry {
     const digits = p.replace(/\D/g, "");
     if (!out.email && /^\S@\S+\.\S+$/.test(p)) {
       out.email = p;
-    } else if (!out.nip && !out.nik && /^\d{16,18}$/.test(digits)) {
-      if (digits.length === 18) out.nip = digits;
-      else out.nik = digits;
+    } else if (/^\d+$/.test(p)) {
+      // Numeric-only token → NIP (18) / NIK (16). Anything shorter/longer
+      // still lands in a number column, never in Nama/Jabatan.
+      if (digits.length === 16) {
+        if (!out.nik) out.nik = digits;
+        else if (!out.nip) out.nip = digits;
+      } else {
+        if (!out.nip) out.nip = digits;
+        else if (!out.nik) out.nik = digits;
+      }
     } else if (!out.name) {
       out.name = p;
     } else if (!out.position) {

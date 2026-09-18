@@ -19,6 +19,7 @@
     HelpdeskServiceType,
   } from "$lib/server/db/schema";
   import Select from "$lib/components/select.svelte";
+  import Modal from "$lib/components/modal.svelte";
   import { onMount } from "svelte";
   import { slide } from "svelte/transition";
 
@@ -178,6 +179,13 @@
     }
   }
 
+  /** Map a BKPSDM golongan value to the ranks "Pangkat" value. "--"/"-"
+   * (unknown) maps to the "-" option. */
+  function golonganRank(g?: string | null): string | undefined {
+    if (!g) return undefined;
+    return g === "--" || g === "-" ? "-" : g;
+  }
+
   /** Best BSrE hit for a row — prefers NIP, then NIK, then email; a "found"
    * hit always wins over a "not_found" result. */
   function bsreHitFor(row: RequesterRow): any | null {
@@ -200,7 +208,8 @@
       if (!r.name && hit.nama) r.name = hit.nama;
       if (!r.nik && hit.nik) r.nik = hit.nik;
       if (!r.email && hit.emailAddress) r.email = hit.emailAddress;
-      if (!r.rank && hit.golongan) r.rank = hit.golongan;
+      const rank = golonganRank(hit.golongan);
+      if ((!r.rank || r.rank === "-") && rank) r.rank = rank;
       if (!r.position && (hit.jabatan || hit.jabatanOrganisasi))
         r.position = hit.jabatan || hit.jabatanOrganisasi;
     }
@@ -214,7 +223,7 @@
     const det = (r.found ? r.determination : "not_found") as BsreDetermination;
     if (det && det in DETERMINATION_LABELS) {
       return {
-        label: DETERMINATION_LABELS[det],
+label: det === "active_issue" ? "Reset" : DETERMINATION_LABELS[det],
         color: DETERMINATION_COLORS[det],
       };
     }
@@ -222,6 +231,20 @@
       label: r.aktif ? "Aktif" : "Nonaktif",
       color: "text-base-content/60",
     };
+  }
+
+  /** Full BSrE status for the tooltip (short label + detail). */
+  function bsreFullStatus(row: RequesterRow): string | null {
+    const r = bsreHitFor(row);
+    if (!r) return null;
+    const det = (r.found ? r.determination : "not_found") as BsreDetermination;
+    const parts = [DETERMINATION_LABELS[det] ?? det];
+    if (r.status) parts.push(`Status akun: ${r.status}`);
+    if (r.aktif != null) parts.push(r.aktif ? "Aktif" : "Nonaktif");
+    if (r.certStart || r.certEnd) {
+      parts.push(`Berlaku: ${fmtCert(r.certStart)} s/d ${fmtCert(r.certEnd)}`);
+    }
+    return parts.join(" · ");
   }
 
   $effect(() => {
@@ -250,55 +273,87 @@
     if (!item.requesterName && first.nama) item.requesterName = first.nama;
     if (!item.requesterEmail && first.emailAddress)
       item.requesterEmail = first.emailAddress;
-    if (!item.requesterRank && first.golongan)
-      item.requesterRank = first.golongan;
+    const rank = golonganRank(first.golongan);
+    if (!item.requesterRank && rank) item.requesterRank = rank;
     if (!item.organization_id && first.organisasi)
       item.organization_id = first.organisasi;
   });
 
-  /** Import a text/CSV file: one requester per line, comma/semicolon/tab separated. */
-  async function importCsv(e: Event) {
+  /** CSV import modal — opens first, sample + paste/upload inside, preview tempelate. */
+  let importOpen = $state(false);
+  let csvText = $state("");
+  let importPreview = $state<RequesterRow[] | null>(null);
+
+  function openImport() {
+    csvText = "";
+    importPreview = null;
+    importOpen = true;
+  }
+
+  /** Parse pasted text or CSV file content into requester rows for preview.
+   * Columns are positional (no content detection): Nama, NIK, NIP, Email, Jabatan.
+   * Pangkat (golongan) is auto-detected from tokens like "III/b"; defaults to "-". */
+  function parseCsvText(text: string): RequesterRow[] {
+    const preview: RequesterRow[] = [];
+    const golonganRe = /^[iv]+[\/\\][a-e]$/i;
+    for (const line of text.split(/\r?\n/)) {
+      const cols = line.split(/[,;\t]/).map((p) => p.trim());
+      if (cols.every((c) => !c)) continue;
+      // Skip header rows like "Nama,NIK,NIP,Email"
+      if (/^\"?nama\"?\s*[,;\t]/i.test(line)) continue;
+      const [nama, nik, nip, email, jabatan, ...rest] = cols;
+
+      let golongan: string | undefined;
+      for (const c of [jabatan, ...rest, nik, nip, nama]) {
+        if (c && golonganRe.test(c)) {
+          golongan = c;
+          break;
+        }
+      }
+      const pos =
+        jabatan && golongan && jabatan.toLowerCase() === golongan.toLowerCase()
+          ? ""
+          : (jabatan ?? "");
+
+      const row: RequesterRow = {
+        key: ++rowSeq,
+        name: nama ?? "",
+        nik: (nik ?? "").replace(/\D/g, ""),
+        nip: (nip ?? "").replace(/\D/g, ""),
+        email: (email ?? "").toLowerCase(),
+        position: pos,
+        rank: golongan ?? undefined,
+        emailAccess: true,
+      };
+      if (row.name || row.nik || row.nip || row.email) preview.push(row);
+    }
+    return preview;
+  }
+
+  async function parseCsvFile(e: Event) {
     const input = e.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
-    try {
-      const text = await file.text();
-      for (const line of text.split(/\r?\n/)) {
-        const parts = line
-          .split(/[,;\t]/)
-          .map((p) => p.trim())
-          .filter(Boolean);
-        if (!parts.length) continue;
-        // Skip header rows like "Nama,NIK,Email"
-        if (/^\"?nama\"?\s*[,;\t]/i.test(line)) continue;
-        const row: RequesterRow = {
-          key: ++rowSeq,
-          name: "",
-          nik: "",
-          nip: "",
-          email: "",
-          position: "",
-          rank: "",
-          emailAccess: true,
-        };
-        for (const p of parts) {
-          const digits = p.replace(/\D/g, "");
-          if (!row.nip && /^\d{18}$/.test(digits)) {
-            row.nip = digits;
-          } else if (!row.nik && /^\d{16}$/.test(digits)) {
-            row.nik = digits;
-          } else if (!row.name) row.name = p;
-        }
-        if (row.name || row.nip) rows.push(row);
-      }
-    } finally {
-      input.value = "";
-    }
+    csvText = await file.text();
+    importPreview = parseCsvText(csvText);
+    input.value = "";
+  }
+
+  function previewCsv() {
+    importPreview = parseCsvText(csvText);
+  }
+
+  function confirmImport() {
+    if (!importPreview || importPreview.length === 0) return;
+    rows = [...rows, ...importPreview];
+    importOpen = false;
+    csvText = "";
+    importPreview = null;
   }
 
   let documentId = $state<string | undefined>(undefined);
   let submitting = $state(false);
-  let wizardError = $state("{}");
+  let wizardError = $state("");
 
   // -----------------------------------------------------------------------
   // Requester prefill — logged-in profile first, else last saved submission
@@ -367,6 +422,31 @@
       : null,
   );
 
+  // Org name for the sign template (Select binds the id, but may briefly hold
+// the raw name before the Select resolves it — handle both).
+  const signerOrganisasi = $derived(
+    (() => {
+      const v = (item.organization_id || "").trim();
+      if (!v) return "";
+      const fromId =
+        getData({
+          table: "organizations",
+          where: { id: v },
+          limit: 1,
+          offset: 0,
+        }).current?.data?.[0];
+      if (fromId?.name) return fromId.name;
+      const fromName =
+        getData({
+          table: "organizations",
+          where: { name: v },
+          limit: 1,
+          offset: 0,
+        }).current?.data?.[0];
+      return fromName?.name ?? v;
+    })(),
+  );
+
   $effect(() => {
     const s = signerRow;
     if (!s) return;
@@ -386,6 +466,10 @@
         item = state.item;
         mode = state.mode ?? "single";
         rows = state.rows ?? [];
+        rowSeq = rows.length
+          ? Math.max(...rows.map((r: RequesterRow) => r.key))
+          : 0;
+        if (state.documentId) documentId = state.documentId;
         if (active === "email" && !serviceType) serviceType = "email_new";
       } catch (e) {
         console.error(e);
@@ -404,7 +488,8 @@
     prefillRequester();
   });
 
-  function goToSign() {
+  /** Persist the current wizard state so a page reload keeps everything. */
+  function saveFormState() {
     localStorage.setItem(
       "helpdesk_form_state",
       JSON.stringify({
@@ -415,17 +500,38 @@
         item,
         mode,
         rows,
+        documentId,
       }),
     );
+  }
+
+  function goToSign() {
+    // Starting a new signature — the old document is no longer valid for this
+    // submission; only a completed signature (via ?documentId=) re-sets it.
+    documentId = undefined;
+    saveFormState();
     const params = new URLSearchParams();
     params.set("template", "pengajuan-email");
     params.set("redirect", "/helpdesk");
     if (item.requesterName) params.set("nama", item.requesterName);
-    if (item.requesterPhone) params.set("phone", item.requesterPhone);
+    if (item.requesterPhone)
+      params.set("phone", item.requesterPhone.replace(/\D/g, ""));
     if (item.requesterEmail) params.set("email", item.requesterEmail);
+    if (item.requesterNip) params.set("nip", item.requesterNip.replace(/\D/g, ""));
+    if (item.requesterNik) params.set("nik", item.requesterNik.replace(/\D/g, ""));
+    if (item.requesterPosition) params.set("jabatan", item.requesterPosition);
+    if (item.requesterRank) params.set("pangkat", item.requesterRank);
+    let instansi = signerOrganisasi || bsre?.organisasi || "";
+    if (!instansi) {
+      const raw = (item.organization_id || "").trim();
+      // Select may briefly hold the raw org name before resolving to its id.
+      if (raw && /^[a-z]/i.test(raw)) instansi = raw;
+    }
+    if (instansi) params.set("instansi", instansi);
+    if (item.subject) params.set("note", item.subject);
 
     const cleanId = identity.replace(/\D/g, "");
-    if (cleanId) {
+    if (cleanId && !params.get("nik")) {
       params.set("nik", cleanId);
     }
 
@@ -509,8 +615,8 @@
       // BKPSDM ASN data → prefill jabatan & golongan (pangkat).
       if (res.jabatan && !item.requesterPosition)
         item.requesterPosition = res.jabatan;
-      if (res.golongan && !item.requesterRank)
-        item.requesterRank = res.golongan;
+      const rank = golonganRank(res.golongan);
+      if (rank && !item.requesterRank) item.requesterRank = rank;
       // Auto-fill NIP/NIK from the verified identity number.
       if (id.length === 18 && !item.requesterNip) item.requesterNip = id;
       if (id.length === 16 && !item.requesterNik) item.requesterNik = id;
@@ -571,6 +677,8 @@
       });
       // Remember for next visit (used to prefill the form & ticket access)
       saveRequesterProfile();
+      // Ticket created — drop any saved wizard state so it isn't restored.
+      localStorage.removeItem("helpdesk_form_state");
       await goto(
         `/helpdesk/ticket/${res.id}?phone=${encodeURIComponent(item.requesterPhone.trim())}`,
       );
@@ -627,6 +735,11 @@
     },
   ];
 </script>
+
+<svelte:window
+  onbeforeunload={saveFormState}
+  onpagehide={saveFormState}
+/>
 
 <div
   class="max-w-7xl mx-auto px-5 py-10 min-h-[calc(100vh-4rem)] flex flex-col w-full"
@@ -818,16 +931,14 @@
                       <iconify-icon icon="bx:plus"></iconify-icon>
                       Tambah Baris
                     </button>
-                    <label class="btn btn-xs btn-outline cursor-pointer">
+                    <button
+                      type="button"
+                      class="btn btn-xs btn-outline"
+                      onclick={openImport}
+                    >
                       <iconify-icon icon="bx:upload"></iconify-icon>
                       Impor CSV
-                      <input
-                        type="file"
-                        accept=".csv,.txt"
-                        class="hidden"
-                        onchange={importCsv}
-                      />
-                    </label>
+                    </button>
                     {#if active === "certificate"}
                       <button
                         type="button"
@@ -851,34 +962,22 @@
                     <thead>
                       <tr class="bg-base-200/50">
                         <th class="w-10">#</th>
-                        <th>Nama *</th>
                         <th>NIP *</th>
+                        <th>Nama *</th>
                         <th>NIK</th>
                         <th>Email</th>
                         <th>Jabatan</th>
                         <th>Pangkat</th>
                         {#if active === "certificate"}
-                          <th class="w-40">Layanan BSrE</th>
+                          <th>Layanan</th>
                         {/if}
-                        <th
-                          class="w-20 text-center tooltip tooltip-bottom"
-                          data-tip="Centang untuk mereset akses email"
-                          >Reset Email</th
-                        >
-                        <th class="w-10"></th>
+                        <th class="w-28 text-center">Aksi</th>
                       </tr>
                     </thead>
                     <tbody>
                       {#each rows as r (r.key)}
                         <tr class="[&>td]:py-0">
                           <td class="opacity-50">{rows.indexOf(r) + 1}</td>
-                          <td class="px-1">
-                            <input
-                              bind:value={r.name}
-                              placeholder="Nama lengkap"
-                              class="input input-sm input-ghost w-full min-w-36"
-                            />
-                          </td>
                           <td class="px-1">
                             <label class="input input-sm input-ghost w-full min-w-40">
                               <input
@@ -901,6 +1000,13 @@
                                 </button>
                               {/if}
                             </label>
+                          </td>
+                          <td class="px-1">
+                            <input
+                              bind:value={r.name}
+                              placeholder="Nama lengkap"
+                              class="input input-sm input-ghost w-full min-w-36"
+                            />
                           </td>
                           <td class="px-1">
                             <input
@@ -945,9 +1051,12 @@
                             {#if active === "certificate"}
                               {@const s = bsreStatusFor(r)}
                               {#if s}
-                                <span class="text-xs font-medium {s.color}"
-                                  >{s.label}</span
+                                <span
+                                  class="tooltip tooltip-bottom text-xs font-medium {s.color}"
+                                  data-tip={bsreFullStatus(r)}
                                 >
+                                  {s.label}
+                                </span>
                               {:else if bulkChecking}
                                 <span class="loading loading-spinner loading-xs"
                                 ></span>
@@ -955,33 +1064,34 @@
                             {/if}
                           </td>
                           <td class="px-1 text-center">
-                            <span
-                              class="tooltip tooltip-bottom"
-                              data-tip="Centang untuk mereset akses email"
-                            >
-                              <input
-                                type="checkbox"
-                                class="checkbox checkbox-xs"
-                                bind:checked={r.emailAccess}
-                              />
-                            </span>
-                          </td>
-                          <td class="px-1">
-                            <button
-                              type="button"
-                              class="btn btn-ghost btn-xs text-error"
-                              aria-label="Hapus baris"
-                              onclick={() => removeRow(r.key)}
-                            >
-                              <iconify-icon icon="bx:trash" class="text-base"
-                              ></iconify-icon>
-                            </button>
+                            <div class="join">
+                              <label
+                                class="btn btn-xs btn-ghost join-item cursor-pointer tooltip tooltip-bottom"
+                                data-tip="Centang untuk mereset akses email"
+                              >
+                                <input
+                                  type="checkbox"
+                                  class="checkbox checkbox-xs"
+                                  bind:checked={r.emailAccess}
+                                />
+                              </label>
+                              <button
+                                type="button"
+                                class="btn btn-xs btn-ghost join-item text-error"
+                                aria-label="Hapus baris"
+                                title="Hapus baris"
+                                onclick={() => removeRow(r.key)}
+                              >
+                                <iconify-icon icon="bx:trash" class="text-sm"
+                                ></iconify-icon>
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       {:else}
                         <tr>
                           <td
-                            colspan={active === "certificate" ? 10 : 9}
+                            colspan={active === "certificate" ? 9 : 8}
                             class="text-center py-4 opacity-50"
                           >
                             Belum ada pemohon tambahan — klik
@@ -994,6 +1104,132 @@
                 </div>
               </div>
             {/if}
+
+            <!-- CSV IMPORT MODAL -->
+            <Modal title="Impor Data Pemohon" size="xl" bind:data={importOpen}>
+              {#snippet children(_)}
+                <div class="space-y-3">
+                  <div class="alert alert-info text-xs flex items-start gap-2">
+                    <iconify-icon icon="bx:info-circle" class="shrink-0 text-lg"
+                    ></iconify-icon>
+                    <div>
+                      <p>
+                        Format per baris (urutan kolom tetap), pisahkan dengan
+                        koma / titik koma / tab:
+                      </p>
+                      <code
+                        class="block mt-1 px-2 py-1 rounded bg-base-200 text-xs"
+                      >
+                        Nama, NIK, NIP, Email, Jabatan, Pangkat
+                      </code>
+                      <p class="mt-1 opacity-80">
+                        Contoh:
+                        <code class="bg-base-200 px-1 rounded break-all"
+                          >Budi
+                          Santoso,3576xxxxxxxxxxxx,1991xxxxxxxxxxxxxx,budi.santoso@mojokertokota.go.id,Kepala
+                          Dinas,III/b</code
+                        >
+                      </p>
+                      <p class="mt-1">
+                        Pilih berkas CSV/TXT atau tempel data pada kolom di
+                        bawah, lalu tekan <strong>Pratinjau</strong>.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div class="flex flex-wrap items-center gap-2">
+                    <label class="btn btn-sm btn-outline cursor-pointer">
+                      <iconify-icon icon="bx:upload"></iconify-icon>
+                      Pilih File
+                      <input
+                        type="file"
+                        accept=".csv,.txt"
+                        class="hidden"
+                        onchange={parseCsvFile}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline"
+                      onclick={previewCsv}
+                      disabled={!csvText.trim()}
+                    >
+                      <iconify-icon icon="bx:search-alt"></iconify-icon>
+                      Pratinjau
+                    </button>
+                  </div>
+
+                  <textarea
+                    bind:value={csvText}
+                    class="textarea textarea-bordered w-full font-mono text-xs min-h-28"
+                    placeholder="Tempel data di sini&#10;Budi Santoso,3576xxxxxxxxxxxx,1991xxxxxxxxxxxxxx,budi@mojokertokota.go.id,Kepala Dinas,III/b"
+                  ></textarea>
+
+                  {#if importPreview}
+                    <div>
+                      <p class="font-semibold text-sm mb-1">
+                        Pratinjau ({importPreview.length} baris)
+                      </p>
+                      <div class="rounded-xl border border-base-300">
+                        <table class="table table-sm">
+                          <thead class="sticky top-0 z-10 bg-base-200">
+                            <tr>
+                              <th class="w-8">#</th>
+                              <th>Nama</th>
+                              <th>NIK</th>
+                              <th>NIP</th>
+                              <th>Email</th>
+                              <th>Jabatan</th>
+                              <th>Pangkat</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {#each importPreview as r, i (r.key)}
+                              <tr>
+                                <td class="opacity-50">{i + 1}</td>
+                                <td class="min-w-36">{r.name || "—"}</td>
+                                <td class="min-w-32">{r.nik || "—"}</td>
+                                <td class="min-w-32">{r.nip || "—"}</td>
+                                <td class="min-w-40 break-all">
+                                  {r.email || "—"}
+                                </td>
+                                <td class="min-w-32">{r.position || "—"}</td>
+                                <td class="min-w-16">{r.rank || "—"}</td>
+                              </tr>
+                            {/each}
+                          </tbody>
+                        </table>
+                      </div>
+                      {#if importPreview.length === 0}
+                        <div class="alert alert-warning text-xs mt-1">
+                          Tidak ada baris valid pada data tersebut.
+                        </div>
+                      {/if}
+                    </div>
+                  {/if}
+                </div>
+              {/snippet}
+              {#snippet action(_)}
+                <div class="flex justify-end gap-2 w-full">
+                  <button
+                    type="button"
+                    class="btn btn-ghost"
+                    onclick={() => (importOpen = false)}
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-primary"
+                    onclick={confirmImport}
+                    disabled={!importPreview || importPreview.length === 0}
+                  >
+                    <iconify-icon icon="bx:import"></iconify-icon>
+                    Impor {importPreview?.length ?? 0} baris
+                  </button>
+                </div>
+              {/snippet}
+            </Modal>
 
             <!-- CERTIFICATE: identity / BSrE check (single mode only — bulk checks per-row) -->
             {#if active === "certificate" && mode !== "bulk"}
@@ -1141,7 +1377,7 @@
                     secara pribadi.
                   </p>
                 {/if}
-                <div class="grid sm:grid-cols-2 gap-3">
+                <div class="grid sm:grid-cols-3 gap-3">
                   <label class="floating-label">
                     <span>Nama Lengkap *</span>
                     <input
@@ -1152,37 +1388,19 @@
                       required
                     />
                   </label>
-                  <Select
-                    table="organizations"
-                    params={{ limit: 100, offset: 0 }}
-                    labelKey="name"
-                    valueKey="id"
-                    lookupKey="name"
-                    bind:value={item.organization_id}
-                    name="organization_id"
-                    label="Organisasi"
-                    placeholder="Pilih organisasi..."
-                    mapOptions={(opts) =>
-                      opts.map((opt) =>
-                        opt.name === "-"
-                          ? { ...opt, name: "Semua Perangkat Daerah" }
-                          : opt,
-                      )}
-                  />
-                </div>
-
-                <div class="grid sm:grid-cols-2 gap-3">
                   <label class="floating-label">
-                    <span>Email (opsional)</span>
+                    <span>NIP / NIK</span>
                     <input
-                      type="email"
-                      bind:value={item.requesterEmail}
-                      placeholder="nama@mojokertokota.go.id"
+                      type="text"
+                      bind:value={item.requesterNip}
+                      inputmode="numeric"
+                      maxlength={18}
+                      placeholder="NIP atau NIK"
                       class="input input-bordered w-full"
                     />
                   </label>
                   <label class="floating-label">
-                    <span>Nomor Telepon / WhatsApp *</span>
+                    <span>Nomor WA *</span>
                     <input
                       type="tel"
                       bind:value={item.requesterPhone}
@@ -1193,7 +1411,7 @@
                   </label>
                 </div>
 
-                <div class="grid sm:grid-cols-2 gap-3">
+                <div class="grid sm:grid-cols-3 gap-3">
                   <label class="floating-label">
                     <span>Jabatan</span>
                     <input
@@ -1217,21 +1435,49 @@
                     label="Pangkat / Golongan"
                     placeholder="Pilih pangkat..."
                   />
+                  <Select
+                    table="organizations"
+                    params={{ limit: 100, offset: 0 }}
+                    labelKey="name"
+                    valueKey="id"
+                    lookupKey="name"
+                    bind:value={item.organization_id}
+                    name="organization_id"
+                    label="Organisasi"
+                    placeholder="Pilih organisasi..."
+                    mapOptions={(opts) =>
+                      opts.map((opt) =>
+                        opt.name === "-"
+                          ? { ...opt, name: "Semua Perangkat Daerah" }
+                          : opt,
+                      )}
+                  />
+                </div>
+
+                <div class="grid sm:grid-cols-3 gap-3">
+                  <label class="floating-label sm:col-span-2">
+                    <span>Subjek Permohonan *</span>
+                    <input
+                      type="text"
+                      bind:value={item.subject}
+                      placeholder="Ringkasan permohonan"
+                      class="input input-bordered w-full"
+                      required
+                    />
+                  </label>
+                  <label class="floating-label">
+                    <span>Email (opsional)</span>
+                    <input
+                      type="email"
+                      bind:value={item.requesterEmail}
+                      placeholder="nama@mojokertokota.go.id"
+                      class="input input-bordered w-full"
+                    />
+                  </label>
                 </div>
 
                 <label class="floating-label">
-                  <span>Subjek Permohonan *</span>
-                  <input
-                    type="text"
-                    bind:value={item.subject}
-                    placeholder="Ringkasan permohonan"
-                    class="input input-bordered w-full"
-                    required
-                  />
-                </label>
-
-                <label class="floating-label">
-                  <span>Deskripsi *</span>
+                  <span>Keterangan *</span>
                   <textarea
                     bind:value={item.description}
                     class="textarea textarea-bordered w-full min-h-24"
@@ -1269,7 +1515,7 @@
                         <span class="text-sm">Tidak bisa diakses</span>
                       </label>
                     </div>
-                    {#if item.emailAccess === "no"}
+                    {#if item.emailAccess === "no" && !documentId}
                       <div
                         class="alert alert-warning text-sm mt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
                       >

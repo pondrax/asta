@@ -353,11 +353,11 @@
     </li>
     <li class="p-2">
       <label class="floating-label p-0 bg-transparent">
-        <span>Catatan Dokumen</span>
+        <span>Keterangan</span>
         <input
           bind:value={form.note}
           type="text"
-          placeholder="Catatan Dokumen"
+          placeholder="Keterangan"
           class="input input-sm"
         />
       </label>

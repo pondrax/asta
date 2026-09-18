@@ -236,8 +236,18 @@
 
     const qEmail = page.url.searchParams.get("email");
     const qNik = page.url.searchParams.get("nik");
+    const qNip = page.url.searchParams.get("nip");
     const qNama = page.url.searchParams.get("nama");
     const qPhone = page.url.searchParams.get("phone");
+    const qJabatan = page.url.searchParams.get("jabatan");
+    const qPangkat = page.url.searchParams.get("pangkat");
+    const qInstansi = page.url.searchParams.get("instansi");
+    const qNote = page.url.searchParams.get("note");
+    // Helpdesk flow → trust query params first. Fall back to localStorage
+    // ONLY when the URL doesn't identify a specific person — never inherit a
+    // stale e-mail saved by a previous signature from someone else.
+    const fromHelpdesk = page.url.searchParams.get("template") !== null;
+    const hasIdentity = Boolean(qNip || qNik || qNama || qPhone);
 
     if (qNik && !qEmail) {
       useEmail = false;
@@ -255,18 +265,25 @@
 
     form = {
       footer: true,
-      email: qEmail || owner || localStorage.getItem("email") || "",
-      nik: qNik || "",
+      email:
+        qEmail ||
+        (fromHelpdesk && hasIdentity
+          ? ""
+          : owner || localStorage.getItem("email") || ""),
+      nik: qNik || qNip || "",
+      nip: qNip || "",
       nama: qNama || (owner ? owner.split("@")[0] : ""),
-      jabatan: "-",
-      pangkat: "-",
-      instansi: "-",
+      jabatan: qJabatan || "-",
+      pangkat: qPangkat || "-",
+      instansi: qInstansi || "-",
+      phone: formattedPhone,
+      nomor_telepon: formattedPhone,
+      keterangan: qNote || "",
+      note: qNote || "Tanda Tangan Elektronik",
       tanggal: d().format("DD MMMM YYYY"),
       location: "",
-      note: "Tanda Tangan Elektronik",
       send_file: true,
       save_document: true,
-      nomor_telepon: formattedPhone,
     };
 
     const lastShown = localStorage.getItem("tour-sign-last-shown");
