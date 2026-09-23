@@ -1,3 +1,4 @@
+import { env } from '$env/dynamic/private';
 import { redirect } from '@sveltejs/kit';
 
 // TEMP store (use Redis/DB in production)
@@ -25,9 +26,9 @@ export const actions = {
 export async function load({ url }) {
   const token = url.searchParams.get('token');
 
-  if (!token) return { id: '' };
+  if (!token) return { id: '', whatsappNotifyDocument: env.WHATSAPP_NOTIFY_DOCUMENT === 'true' };
 
   const id = tempStore.get(token) ?? '';
 
-  return { id };
+  return { id, whatsappNotifyDocument: env.WHATSAPP_NOTIFY_DOCUMENT === 'true' };
 }

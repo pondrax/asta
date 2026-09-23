@@ -282,7 +282,7 @@
       note: qNote || "Tanda Tangan Elektronik",
       tanggal: d().format("DD MMMM YYYY"),
       location: "",
-      send_file: true,
+      send_file: data.whatsappNotifyDocument ?? false,
       save_document: true,
     };
 

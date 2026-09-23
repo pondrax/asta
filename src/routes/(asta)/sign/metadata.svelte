@@ -259,44 +259,46 @@
         </div>
       </label>
     </li>
-    <li class="p-2">
-      <label class="floating-label p-0 bg-transparent">
-        <span>Nomor Telepon (Whatsapp)</span>
-        <div class="flex gap-2 items-center w-full mt-1">
-          <div class="input input-sm grow flex items-center">
-            <span class="text-gray-500 mr-1">+62</span>
-            <input
-              bind:value={
-                () => String(form.nomor_telepon ?? "").replace(/^62/, ""),
-                (value) =>
-                  (form.nomor_telepon =
-                    "62" +
-                    String(value)
-                      .replace(/[^0-9]/g, "")
-                      .replace(/^0+/, "")
-                      .replace(/^62/, ""))
-              }
-              required
-              type="text"
-              placeholder="Nomor Telepon WA"
-              class="w-full bg-transparent outline-none"
-              disabled={locked}
-            />
+    {#if data.whatsappNotifyDocument}
+      <li class="p-2">
+        <label class="floating-label p-0 bg-transparent">
+          <span>Nomor Telepon (Whatsapp)</span>
+          <div class="flex gap-2 items-center w-full mt-1">
+            <div class="input input-sm grow flex items-center">
+              <span class="text-gray-500 mr-1">+62</span>
+              <input
+                bind:value={
+                  () => String(form.nomor_telepon ?? "").replace(/^62/, ""),
+                  (value) =>
+                    (form.nomor_telepon =
+                      "62" +
+                      String(value)
+                        .replace(/[^0-9]/g, "")
+                        .replace(/^0+/, "")
+                        .replace(/^62/, ""))
+                }
+                required
+                type="text"
+                placeholder="Nomor Telepon WA"
+                class="w-full bg-transparent outline-none"
+                disabled={locked}
+              />
+            </div>
+            <label
+              class="btn btn-sm tooltip tooltip-left flex gap-2 items-center"
+              data-tip="Kirim File PDF ke Whatsapp"
+            >
+              <input
+                type="checkbox"
+                class="checkbox checkbox-xs"
+                bind:checked={form.send_file}
+              />
+              Kirim File
+            </label>
           </div>
-          <label
-            class="btn btn-sm tooltip tooltip-left flex gap-2 items-center"
-            data-tip="Kirim File PDF ke Whatsapp"
-          >
-            <input
-              type="checkbox"
-              class="checkbox checkbox-xs"
-              bind:checked={form.send_file}
-            />
-            Kirim File
-          </label>
-        </div>
-      </label>
-    </li>
+        </label>
+      </li>
+    {/if}
     <li class="p-2">
       <label class="floating-label p-0 bg-transparent">
         <span>Jabatan Pegawai</span>
