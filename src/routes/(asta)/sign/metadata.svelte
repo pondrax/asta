@@ -36,6 +36,9 @@
     "tanggal",
     "nomor_telepon",
   ];
+  // Lock identity fields until the BSrE account is verified (ISSUE).
+  // Manual signing always allows editing.
+  const locked = $derived(bsre && status !== "ISSUE");
   let signaturePanel = $state(true);
   let emailFocused = $state(false);
   const checkEmail = async (el: Event) => {
@@ -243,6 +246,7 @@
             required
             type="text"
             placeholder="Nama Lengkap Beserta Gelar"
+            disabled={locked}
           />
           {#if form.nama}
             <iconify-icon icon="bx:check" class="text-success"></iconify-icon>
@@ -276,6 +280,7 @@
               type="text"
               placeholder="Nomor Telepon WA"
               class="w-full bg-transparent outline-none"
+              disabled={locked}
             />
           </div>
           <label
@@ -300,6 +305,7 @@
           type="text"
           placeholder="Jabatan Pegawai"
           class="input input-sm"
+          disabled={locked}
         />
         <div class="text-[10px] text-gray-400">Contoh: Kepala Dinas / Guru</div>
       </label>
@@ -315,6 +321,7 @@
           inputClass="input-sm"
           limit={100}
           orderBy={{ id: "asc" }}
+          disabled={locked}
         />
         <div class="text-[10px] text-gray-400">
           Pilih Eksternal untuk intansi diluar pemerintah kota mojokerto
@@ -335,6 +342,7 @@
             `${prop.grade} ${prop.rank != "-" ? "(" + prop.rank + ")" : ""}`}
           limit={100}
           orderBy={{ id: "asc" }}
+          disabled={locked}
         >
           <!-- {#snippet children(prop)}
             <div class="flex justify-between w-full">
