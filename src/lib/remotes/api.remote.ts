@@ -45,7 +45,8 @@ const getAuthGuard = (name: keyof Tables) => {
           OR: [
             { owner: user?.email ?? '-', },
             { signer: user?.email ?? '-' },
-            { to: { arrayContains: [user?.role?.name] } },
+            // `to` may hold role names or role ids — match either
+            { to: { arrayOverlaps: [user?.role?.name, user?.role?.id].filter(Boolean) } },
           ]
         }
       }
@@ -105,10 +106,10 @@ const getScopeCondition = (
           from jsonb_array_elements(coalesce(${documents_.histories}, '[]'::jsonb)) h
           where h->>'signer' = ${user?.email ?? '-'}
         )`;
-    // Administrative documents addressed to my role
+    // Administrative documents addressed to my role (by name or id)
     case 'administrative':
       return (documents_) =>
-        sql`${documents_.to} @> array[${user?.role?.name ?? '-'}]::text[]`;
+        sql`${documents_.to} && array[${user?.role?.name ?? '-'}, ${user?.role?.id ?? '-'}]::text[]`;
     default:
       return undefined;
   }

@@ -29,7 +29,7 @@ export const getStatus = query('unchecked', async () => {
         from jsonb_array_elements(coalesce(${documents.histories}, '[]'::jsonb)) h
         where h->>'signer' = ${email}
       ))`.mapWith(Number),
-      administrative: sql<number>`count(*) filter (where ${documents.to} @> array[${role}]::text[])`.mapWith(Number),
+      administrative: sql<number>`count(*) filter (where ${documents.to} && array[${role}, ${user?.role?.id ?? '-'}]::text[])`.mapWith(Number),
     })
     .from(documents);
 
