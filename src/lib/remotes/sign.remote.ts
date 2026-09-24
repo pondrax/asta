@@ -129,6 +129,16 @@ export const signDocument = command(type({
         }
         return response.data;
       }
+      // BSrE may return a plain-text error (e.g. "Gagal kirim...") — surface it
+      if (response.data.message && !response.data.file?.length) {
+        if (response.status >= 500) {
+          return {
+            message: response.data.message,
+            retry: true,
+          };
+        }
+        return { error: response.data.message };
+      }
     }
 
     if (response.data.file && response.data.file.length > 0) {

@@ -28,15 +28,17 @@
   import { getData } from "$lib/remotes/api.remote";
 
   import { goto } from "$app/navigation";
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import { page } from "$app/state";
   import Dragresize from "$lib/components/dragresize.svelte";
   import { sendMessage } from "$lib/remotes/whatsapp.remote";
+  import { vault } from "$lib/utils/vault";
 
   const { data } = $props();
   let turnstileSuccess = $state(false);
   let loading = $state(false);
   let signButton: HTMLButtonElement | null = $state(null);
+  let signForm: HTMLFormElement | null = $state(null);
   let activeIndex = $state("");
   let documents: Record<string, File> = $state({});
   let asTemplate = $state(false);
@@ -101,6 +103,85 @@
     base64?: string;
     blob?: Blob;
   }[] = $state([]);
+
+  // ── Passphrase vault (WebAuthn PRF) ───────────────────────────────
+  let vaultSupported = $state(false);
+  let vaultHas = $state(false);
+  let vaultBusy = $state(false);
+  let vaultError = $state("");
+  let vaultSavedAt = $state<number | null>(null);
+
+  async function refreshVaultState(email: string) {
+    if (!email || typeof window === "undefined") {
+      vaultHas = false;
+      vaultSavedAt = null;
+      return;
+    }
+    vaultSupported = await vault.supported();
+    vaultHas = await vault.has(email);
+    const record = await vault.get(email);
+    vaultSavedAt = record?.updatedAt ?? null;
+  }
+
+  async function saveToVault(email: string, passphrase: string) {
+    if (!email || !passphrase) return;
+    vaultBusy = true;
+    vaultError = "";
+    try {
+      const tier = await vault.save(email, passphrase);
+      if (tier === "unsupported") {
+        vaultError =
+          "Perangkat ini tidak mendukung penyimpanan aman. Passphrase tidak disimpan.";
+        return;
+      }
+      vaultHas = true;
+      vaultSavedAt = Date.now();
+    } catch (err) {
+      console.error("[vault] save failed", err);
+      vaultError = "Gagal menyimpan passphrase.";
+    } finally {
+      vaultBusy = false;
+    }
+  }
+
+  async function usePasskey(email: string) {
+    if (!email) return;
+    vaultBusy = true;
+    vaultError = "";
+    try {
+      const passphrase = await vault.unlock(email);
+      if (passphrase == null) {
+        vaultError = "Autentikasi dibatalkan atau gagal. Coba lagi.";
+        return;
+      }
+      if (forms.sign) forms.sign.passphrase = passphrase;
+      // Auto-submit the sign form once the passphrase is filled.
+      await tick();
+      signForm?.requestSubmit();
+    } catch (err) {
+      console.error("[vault] unlock failed", err);
+      vaultError = "Gagal membuka passphrase tersimpan.";
+    } finally {
+      vaultBusy = false;
+    }
+  }
+
+  async function removeFromVault(email: string) {
+    if (!email) return;
+    vaultBusy = true;
+    vaultError = "";
+    try {
+      await vault.clear(email);
+      vaultHas = false;
+      vaultSavedAt = null;
+      app.showToast("success", "Passphrase dihapus dari perangkat.");
+    } catch (err) {
+      console.error("[vault] remove failed", err);
+      vaultError = "Gagal menghapus passphrase.";
+    } finally {
+      vaultBusy = false;
+    }
+  }
 
   // svelte-ignore state_referenced_locally
   let saveDocument = $state(!!data.user);
@@ -611,6 +692,10 @@
         documents,
         completed: [],
       } as any;
+      // Refresh vault state for the signer's email (frozen at modal open)
+      const vaultEmail = useEmail ? form.email : form.nik;
+      vaultError = "";
+      await refreshVaultState(vaultEmail);
       setTimeout(() => {
         //@ts-ignore - window.turnstile is not typed in TS
         turnstileId = window.turnstile.render("#turnstile-container", {
@@ -689,6 +774,7 @@
     {@const total = Object.keys(item.documents).length}
     {@const completed = item.completed.length}
     <form
+      bind:this={signForm}
       class="flex flex-col gap-4 px-1"
       autocomplete="off"
       onsubmit={async (e) => {
@@ -825,6 +911,7 @@
                 }
 
                 if (signing?.file?.at(0)) {
+                  forms.sign!.__error = "";
                   item.completed.push(id);
                   signResults.push({
                     id,
@@ -1106,6 +1193,43 @@
                   class="text-2xl"
                 ></iconify-icon>
               </button>
+              {#if vaultSupported && useEmail && vaultHas}
+                <button
+                  type="button"
+                  class="btn join-item btn-outline btn-secondary"
+                  disabled={vaultBusy || item.completed.length > 0}
+                  onclick={async () => {
+                    await usePasskey(item.email);
+                  }}
+                >
+                  <iconify-icon icon="bx:key" class="text-xl"></iconify-icon>
+                  TTD dengan Passkey
+                </button>
+              {:else if vaultSupported && useEmail}
+                <label
+                  class="join-item flex items-center gap-1.5 px-3 cursor-pointer select-none"
+                  title="Simpan Passphrase dengan Passkey"
+                >
+                  <input
+                    type="checkbox"
+                    class="toggle toggle-secondary toggle-sm"
+                    disabled={vaultBusy || !item.passphrase}
+                    onchange={async (e) => {
+                      if (!e.currentTarget.checked) return;
+                      await saveToVault(item.email, item.passphrase);
+                      if (!vaultError) {
+                        app.showToast(
+                          "success",
+                          "Passphrase tersimpan. Gunakan Passkey untuk tanda tangan berikutnya.",
+                        );
+                      }
+                    }}
+                  />
+                  <span class="text-xs text-base-content/80"
+                    >Simpan Passkey</span
+                  >
+                </label>
+              {/if}
             </div>
 
             <!-- <input
@@ -1116,6 +1240,49 @@
             autocomplete="new-password"
           /> -->
           </label>
+
+          {#if vaultSupported && useEmail && vaultHas && vaultSavedAt}
+            <div
+              class="flex items-center gap-1.5 text-xs text-base-content/50 -mt-3 -mb-1"
+            >
+              <span
+                >Passphrase tersimpan pada
+                {d(vaultSavedAt).format("DD MMM YYYY, HH:mm")}</span
+              >
+              <button
+                type="button"
+                class="btn btn-xs btn-ghost btn-secondary px-2"
+                disabled={vaultBusy || !item.passphrase}
+                onclick={async () => {
+                  await saveToVault(item.email, item.passphrase);
+                  if (!vaultError) {
+                    app.showToast("success", "Passphrase diperbarui.");
+                  }
+                }}
+              >
+                <iconify-icon icon="bx:refresh" class="text-sm"></iconify-icon>
+                Perbarui
+              </button>
+              <button
+                type="button"
+                class="btn btn-xs btn-ghost btn-error px-2"
+                disabled={vaultBusy}
+                onclick={async () => {
+                  await removeFromVault(item.email);
+                }}
+              >
+                <iconify-icon icon="bx:trash" class="text-sm"></iconify-icon>
+                Hapus
+              </button>
+            </div>
+          {/if}
+          {#if vaultError}
+            <div class="alert alert-error text-xs py-1.5 px-3">
+              <iconify-icon icon="bx:error" class="text-xl"></iconify-icon>
+              <span>{vaultError}</span>
+            </div>
+          {/if}
+
           <label class="label cursor-pointer justify-between -my-1 p-0">
             <span class="label-text text-sm"
               >Visualisasi Footer BSrE - BSSN</span

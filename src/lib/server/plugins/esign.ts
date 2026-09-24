@@ -20,7 +20,13 @@ export class Esign {
       throw new Error('[Esign Server Error] ' + htmlText);
     }
 
-    return { status: req.status, data: await req.json() };
+    const text = await req.text();
+    try {
+      return { status: req.status, data: JSON.parse(text) };
+    } catch {
+      // BSrE sometimes returns plain-text errors (e.g. "Gagal kirim...") — surface them as-is
+      return { status: req.status, data: { message: text } };
+    }
   }
 
   async checkUser({ email, nik }: { email?: string, nik?: string }) {
