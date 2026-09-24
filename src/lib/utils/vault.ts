@@ -279,8 +279,7 @@ export const vault = {
     const iv = crypto.getRandomValues(new Uint8Array(12));
 
     try {
-      const credentialId = await ensurePrfCredential(email);
-      const prfKey = await getPrfKey(credentialId, salt);
+      const { credentialId, prfKey } = await ensurePrfCredential(email, salt);
       const key = await importAesKey(prfKey);
       const data = await aesGcmEncrypt(key, iv, toBytes(passphrase));
       const map = await readMap();
@@ -346,9 +345,16 @@ export const vault = {
 /* PRF credential management                                           */
 /* ------------------------------------------------------------------ */
 
-async function ensurePrfCredential(email: string): Promise<string> {
+async function ensurePrfCredential(
+  email: string,
+  salt: Uint8Array,
+): Promise<{ credentialId: string; prfKey: Uint8Array }> {
   const existing = await findPrfCredential(email);
-  if (existing) return existing;
+  if (existing) {
+    // Credential already exists — derive the key via a single auth ceremony.
+    const prfKey = await getPrfKey(existing, salt);
+    return { credentialId: existing, prfKey };
+  }
 
   const challenge = crypto.getRandomValues(new Uint8Array(32));
   const userId = toBytes(email);
@@ -371,16 +377,21 @@ async function ensurePrfCredential(email: string): Promise<string> {
         residentKey: "required",
         userVerification: "required",
       },
-      // Simple PRF request — the authenticator enables PRF for this
-      // credential; the derived key is requested at authentication time.
-      extensions: { prf: {} },
+      // Request the PRF key during creation — supported authenticators return
+      // `results.first` here, avoiding a second prompt.
+      extensions: { prf: { eval: { first: salt as BufferSource } } },
     },
   })) as any;
 
   if (!creation) throw new Error("PRF credential creation cancelled");
 
   const credentialId = b64encode(new Uint8Array(creation.rawId));
-  if (!prfEnabled(creation)) {
+  const prf = creation?.getClientExtensionResults?.()?.prf;
+  const prfKey = prf?.results?.first
+    ? new Uint8Array(prf.results.first)
+    : null;
+
+  if (!prf?.enabled && !prfKey) {
     // PRF not actually supported by the authenticator — clean up and bail.
     await deletePrfCredential(credentialId);
     throw new Error("PRF not supported by authenticator");
@@ -400,7 +411,14 @@ async function ensurePrfCredential(email: string): Promise<string> {
     await writeCredentialMap(creds);
   }
 
-  return credentialId;
+  if (prfKey) {
+    // Authenticator returned the key during creation — no second prompt.
+    return { credentialId, prfKey };
+  }
+
+  // Fallback: derive the key via an authentication ceremony.
+  const derived = await getPrfKey(credentialId, salt);
+  return { credentialId, prfKey: derived };
 }
 
 async function findPrfCredential(email: string): Promise<string | null> {
