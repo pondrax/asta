@@ -38,7 +38,7 @@
     },
   };
 
-  const currentPage = $derived(pages[path]);
+  const currentPage = $derived(pages[path ?? ""]);
 </script>
 
 <div class="overflow-y-auto">

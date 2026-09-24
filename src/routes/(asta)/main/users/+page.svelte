@@ -44,7 +44,6 @@
     try {
       const result = await impersonate(email);
       if (result?.token) {
-        document.cookie = `impersonate-token=${result.token}; path=/; max-age=3600`;
         window.location.href = "/";
       }
     } catch (e) {

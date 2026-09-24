@@ -1,6 +1,6 @@
 import { getRequestEvent, query } from "$app/server";
 import { db } from "$lib/server/db";
-import { __logs, documents, surveyResponses } from "$lib/server/db/schema";
+import { __logs, dailyStatistics, documents, surveyResponses } from "$lib/server/db/schema";
 import { FileStorage } from "$lib/server/storage";
 import dayjs from "dayjs";
 import isoWeek from "dayjs/plugin/isoWeek";
@@ -199,63 +199,6 @@ function buildDateRange(start: dayjs.Dayjs, end: dayjs.Dayjs): string[] {
   return dates;
 }
 
-function buildDailyStatsMap(
-  stats: Array<{ created?: string | null; type?: string | number | null; value?: number | null }>,
-  dates: string[]
-): Record<string, Record<string, number>> {
-  const dailyMap: Record<string, Record<string, number>> = {};
-  for (const date of dates) {
-    dailyMap[date] = {};
-  }
-  for (const row of stats) {
-    if (!row.created || !row.type) continue;
-    const key = dayjs(row.created).format("YYYY-MM-DD");
-    if (dailyMap[key]) dailyMap[key][row.type] = (dailyMap[key][row.type] || 0) + (row.value ?? 0);
-  }
-  return dailyMap;
-}
-
-function buildNewUsersByDate(
-  users: Array<{ created?: string | null }>,
-  earliestDate: string
-): Record<string, number> {
-  const map: Record<string, number> = {};
-  for (const user of users) {
-    if (!user.created) continue;
-    const key = dayjs(user.created).format("YYYY-MM-DD");
-    if (key >= earliestDate) map[key] = (map[key] || 0) + 1;
-  }
-  return map;
-}
-
-function computeMonthlyDocs(
-  docs: Array<{ created?: string | null }>,
-  start: dayjs.Dayjs,
-  end: dayjs.Dayjs
-): Array<{ month: string; count: number }> {
-  const map: Record<string, number> = {};
-  for (const doc of docs) {
-    if (!doc.created) continue;
-    const day = dayjs(doc.created);
-    if (day.isAfter(start.subtract(1, "day")) && day.isBefore(end.add(1, "day"))) {
-      const month = day.format("YYYY-MM");
-      map[month] = (map[month] || 0) + 1;
-    }
-  }
-  return Object.entries(map)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([month, count]) => ({ month, count }));
-}
-
-function computeWeekSignedValue(
-  stats: Array<{ created?: string | null; type?: string | number | null; value?: number | null }>,
-  referenceDay: dayjs.Dayjs
-): number {
-  return stats
-    .filter((row) => row.created && row.type === "signed" && dayjs(row.created).isSame(referenceDay, "isoWeek"))
-    .reduce((sum, row) => sum + (row.value ?? 0), 0);
-}
-
 function computeTopSigners(
   docs: Array<{
     status?: string | null;
@@ -294,40 +237,54 @@ export const getAdminDashboard = query("unchecked", async () => {
   const today = dayjs().startOf("day");
   const start = today.subtract(89, "day");
   const end = today;
+  const startKey = start.format("YYYY-MM-DD");
+  const endKey = end.format("YYYY-MM-DD");
 
-  const [allDocs, allUsers, allSigners, allStats, recentLogs] = await Promise.all([
+  const [allDocs, allUsers, allSigners, dailyRows, recentLogs] = await Promise.all([
     db.query.documents.findMany(),
     db.query.users.findMany(),
     db.query.signers.findMany(),
-    db.query.documentStatistics.findMany(),
+    db
+      .select()
+      .from(dailyStatistics)
+      .where(sql`${dailyStatistics.date} between ${startKey}::date and ${endKey}::date`)
+      .orderBy(dailyStatistics.date),
     db.query.__logs.findMany({ orderBy: { created: "desc" }, limit: 10 }),
   ]);
 
   const totalCounts = computeStatusCounts(allDocs);
   const dates = buildDateRange(start, end);
-  const dailyMap = buildDailyStatsMap(allStats, dates);
-  const newUsersByDate = buildNewUsersByDate(allUsers, dates[0]);
+  const byDate: Record<string, (typeof dailyRows)[number]> = Object.fromEntries(
+    dailyRows.map((row) => [row.date, row]),
+  );
 
   const dailyStats = dates.map((date) => ({
     date,
     label: dayjs(date).format("DD MMM"),
-    signed: dailyMap[date].signed || 0,
-    verified: dailyMap[date].verified || 0,
-    "new-request": dailyMap[date]["new-request"] || 0,
-    newUsers: newUsersByDate[date] || 0,
+    signed: byDate[date]?.signed ?? 0,
+    verified: byDate[date]?.verified ?? 0,
+    "new-request": byDate[date]?.newRequest ?? 0,
+    newUsers: byDate[date]?.newUsers ?? 0,
   }));
 
   const docStatuses = Object.entries(computeStatusCounts(allDocs)).map(([status, count]) => ({ status, count }));
-  const monthlyDocs = computeMonthlyDocs(allDocs, start, end);
 
-  const filteredStats = allStats.filter((row) => {
-    if (!row.created) return false;
-    const day = dayjs(row.created);
-    return day.isAfter(start.subtract(1, "day")) && day.isBefore(end.add(1, "day"));
-  });
+  const monthlyMap: Record<string, number> = {};
+  for (const row of dailyRows) {
+    if (!row.documents) continue;
+    const month = dayjs(row.date).format("YYYY-MM");
+    monthlyMap[month] = (monthlyMap[month] || 0) + row.documents;
+  }
+  const monthlyDocs = Object.entries(monthlyMap)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, count]) => ({ month, count }));
 
-  const thisWeekSigned = computeWeekSignedValue(filteredStats, today);
-  const lastWeekSigned = computeWeekSignedValue(filteredStats, today.subtract(7, "day"));
+  const thisWeekSigned = dailyRows
+    .filter((row) => dayjs(row.date).isSame(today, "isoWeek"))
+    .reduce((sum, row) => sum + row.signed, 0);
+  const lastWeekSigned = dailyRows
+    .filter((row) => dayjs(row.date).isSame(today.subtract(7, "day"), "isoWeek"))
+    .reduce((sum, row) => sum + row.signed, 0);
 
   const topSigners = computeTopSigners(allDocs, allSigners);
 

@@ -36,6 +36,29 @@ export const handleAuth: Handle = async ({ event, resolve }) => {
 
       event.locals.impersonated = !!impersonateToken;
 
+      // Safety net: if an impersonated (non-admin) user hits an admin-only
+      // path, drop the impersonation and fall back to the original admin
+      // session instead of forcing a re-login.
+      if (event.url.pathname.startsWith('/main') && impersonateToken) {
+        event.cookies.delete('impersonate-token', { path: '/' });
+        event.locals.impersonated = false;
+
+        try {
+          const adminToken = event.cookies.get('auth-token');
+          if (adminToken) {
+            const adminJwt = await verifyJWT(adminToken);
+            event.locals.user = await db.query.users.findFirst({
+              where: { email: adminJwt?.email || '-' },
+              with: { role: true, organization: true },
+            });
+          } else {
+            event.locals.user = null;
+          }
+        } catch {
+          event.locals.user = null;
+        }
+      }
+
       if (event.url.pathname.startsWith('/main')) {
         if (event.locals.user?.role.name !== 'admin') {
           return error(403, 'Forbidden. Anda tidak memiliki akses ke halaman ini');

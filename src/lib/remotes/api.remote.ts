@@ -20,7 +20,10 @@ const searchable = (name: keyof Tables, search?: string) => {
 
   return Object.entries(table)
     .filter(([, value]) => value && typeof value === 'object' && 'columnType' in (value as Record<string, unknown>))
-    .map(([key, value]: [string, { columnType: string }]) => {
+    .map(([key, value]: [string, { columnType: string; dimensions?: number }]) => {
+      // Skip array columns — ilike doesn't work on text[] in PostgreSQL
+      if (value.dimensions) return null;
+
       if (value.columnType === 'PgText') {
         return { [key]: { ilike: `%${search}%` } };
       }
@@ -163,7 +166,7 @@ export const delData = form('unchecked', async ({ table, id }: { table: keyof Ta
   if (!id || !table) return;
 
   const time = performance.now();
-  const schemaTable = db._.relations[table].table;
+  const schemaTable = (db._ as any).relations[table].table;
   // await delay(10000)
   const data = await db.delete(schemaTable).where(inArray(schemaTable.id, id));
 

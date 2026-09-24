@@ -845,7 +845,7 @@
                   <td class="text-center">
                     <span
                       class="badge badge-sm {user?.status === 'VERIFIED' ||
-                      user?.status === 'ACTIVE' ||
+                      (user?.status as string) === 'ACTIVE' ||
                       user?.aktif
                         ? 'badge-success'
                         : 'badge-ghost'} font-semibold"

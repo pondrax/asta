@@ -425,7 +425,7 @@
         <span class="mx-2">Unggah</span>
       </label>
       <label
-        class="tab flex-1 {mode === 'search' ? 'tab-active' : ''} bg-base-100"
+        class="tab flex-1 {mode === 'id' ? 'tab-active' : ''} bg-base-100"
       >
         <input
           type="radio"

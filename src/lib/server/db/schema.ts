@@ -1,6 +1,8 @@
 import { pgTable, integer, text, timestamp, json, jsonb } from 'drizzle-orm/pg-core';
 import { id, created, updated, encryptedJson } from './utils';
 import { boolean, index } from 'drizzle-orm/pg-core';
+import { pgView, date } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 
 export const roles = pgTable('roles', {
@@ -279,3 +281,118 @@ export const helpdeskSurveys = pgTable('helpdesk_surveys', {
   created,
   updated,
 })
+
+// ---------------------------------------------------------------------------
+// Statistics views
+// ---------------------------------------------------------------------------
+
+/**
+ * One row per day with all key metrics aggregated from the raw tables:
+ * - e-sign counters (document_statistics): signed / verified / new-request /
+ *   reset-email / reset-passphrase
+ * - documents created per day, broken down by status
+ * - new users & new signers
+ * - helpdesk tickets opened & completed
+ * - survey responses & average rating
+ */
+export const dailyStatistics = pgView('daily_statistics', {
+  date: date('date', { mode: 'string' }).notNull(),
+  signed: integer('signed').notNull(),
+  verified: integer('verified').notNull(),
+  newRequest: integer('new_request').notNull(),
+  resetEmail: integer('reset_email').notNull(),
+  resetPassphrase: integer('reset_passphrase').notNull(),
+  documents: integer('documents').notNull(),
+  docSigned: integer('doc_signed').notNull(),
+  docDraft: integer('doc_draft').notNull(),
+  docQueue: integer('doc_queue').notNull(),
+  docFailed: integer('doc_failed').notNull(),
+  newUsers: integer('new_users').notNull(),
+  newSigners: integer('new_signers').notNull(),
+  tickets: integer('tickets').notNull(),
+  ticketsCompleted: integer('tickets_completed').notNull(),
+  surveys: integer('surveys').notNull(),
+  avgRating: text('avg_rating'),
+}).as(sql`
+  WITH
+    dt AS (
+      SELECT date_trunc('day', created)::date AS date FROM document_statistics WHERE created IS NOT NULL
+      UNION SELECT date_trunc('day', created)::date FROM documents WHERE created IS NOT NULL
+      UNION SELECT date_trunc('day', created)::date FROM users WHERE created IS NOT NULL
+      UNION SELECT date_trunc('day', created)::date FROM signers WHERE created IS NOT NULL
+      UNION SELECT date_trunc('day', created)::date FROM helpdesk WHERE created IS NOT NULL
+      UNION SELECT date_trunc('day', created)::date FROM survey_responses WHERE created IS NOT NULL
+    ),
+    ds AS (
+      SELECT
+        date_trunc('day', created)::date AS date,
+        COALESCE(SUM(value) FILTER (WHERE type = 'signed'), 0)::int          AS signed,
+        COALESCE(SUM(value) FILTER (WHERE type = 'verified'), 0)::int        AS verified,
+        COALESCE(SUM(value) FILTER (WHERE type = 'new-request'), 0)::int     AS new_request,
+        COALESCE(SUM(value) FILTER (WHERE type = 'reset-email'), 0)::int     AS reset_email,
+        COALESCE(SUM(value) FILTER (WHERE type = 'reset-passphrase'), 0)::int AS reset_passphrase
+      FROM document_statistics
+      WHERE created IS NOT NULL
+      GROUP BY 1
+    ),
+    d AS (
+      SELECT
+        date_trunc('day', created)::date AS date,
+        COUNT(*)::int AS documents,
+        COALESCE(COUNT(*) FILTER (WHERE status = 'signed'), 0)::int AS doc_signed,
+        COALESCE(COUNT(*) FILTER (WHERE status = 'draft'), 0)::int  AS doc_draft,
+        COALESCE(COUNT(*) FILTER (WHERE status = 'queue'), 0)::int  AS doc_queue,
+        COALESCE(COUNT(*) FILTER (WHERE status = 'failed'), 0)::int AS doc_failed
+      FROM documents
+      WHERE created IS NOT NULL
+      GROUP BY 1
+    ),
+    u AS (
+      SELECT date_trunc('day', created)::date AS date, COUNT(*)::int AS new_users
+      FROM users WHERE created IS NOT NULL GROUP BY 1
+    ),
+    sg AS (
+      SELECT date_trunc('day', created)::date AS date, COUNT(*)::int AS new_signers
+      FROM signers WHERE created IS NOT NULL GROUP BY 1
+    ),
+    h AS (
+      SELECT
+        date_trunc('day', created)::date AS date,
+        COUNT(*)::int AS tickets,
+        COALESCE(COUNT(*) FILTER (WHERE status = 'completed'), 0)::int AS tickets_completed
+      FROM helpdesk WHERE created IS NOT NULL GROUP BY 1
+    ),
+    sv AS (
+      SELECT
+        date_trunc('day', created)::date AS date,
+        COUNT(*)::int AS surveys,
+        ROUND(AVG(rating)::numeric, 2)::text AS avg_rating
+      FROM survey_responses WHERE created IS NOT NULL GROUP BY 1
+    )
+  SELECT
+    dt.date,
+    COALESCE(ds.signed, 0)            AS signed,
+    COALESCE(ds.verified, 0)          AS verified,
+    COALESCE(ds.new_request, 0)       AS new_request,
+    COALESCE(ds.reset_email, 0)       AS reset_email,
+    COALESCE(ds.reset_passphrase, 0)  AS reset_passphrase,
+    COALESCE(d.documents, 0)          AS documents,
+    COALESCE(d.doc_signed, 0)         AS doc_signed,
+    COALESCE(d.doc_draft, 0)          AS doc_draft,
+    COALESCE(d.doc_queue, 0)          AS doc_queue,
+    COALESCE(d.doc_failed, 0)         AS doc_failed,
+    COALESCE(u.new_users, 0)          AS new_users,
+    COALESCE(sg.new_signers, 0)       AS new_signers,
+    COALESCE(h.tickets, 0)            AS tickets,
+    COALESCE(h.tickets_completed, 0)  AS tickets_completed,
+    COALESCE(sv.surveys, 0)           AS surveys,
+    sv.avg_rating                     AS avg_rating
+  FROM dt
+  LEFT JOIN ds ON ds.date = dt.date
+  LEFT JOIN d  ON d.date  = dt.date
+  LEFT JOIN u  ON u.date  = dt.date
+  LEFT JOIN sg ON sg.date = dt.date
+  LEFT JOIN h  ON h.date  = dt.date
+  LEFT JOIN sv ON sv.date = dt.date
+  ORDER BY dt.date DESC
+`)

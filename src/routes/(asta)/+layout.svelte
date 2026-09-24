@@ -7,6 +7,7 @@
   import Chatbot from "$lib/components/chatbot.svelte";
   import { getPageTitle } from "$lib/app/titles";
   import { getStatus, getAdminCounts } from "$lib/remotes/stats.remote";
+  import { stopImpersonation } from "$lib/remotes/user.remote";
   let { children, data } = $props();
 
   const user = $derived(data.user);
@@ -451,8 +452,8 @@
                 <li></li>
                 <li>
                   <button
-                    onclick={() => {
-                      document.cookie = "impersonate-token=; path=/; max-age=0";
+                    onclick={async () => {
+                      await stopImpersonation({});
                       window.location.href = "/main/users";
                     }}
                   >

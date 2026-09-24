@@ -4,7 +4,7 @@ declare global {
   namespace App {
     // interface Error {}
     interface Locals {
-      user?: Record<string, any>;
+      user?: Record<string, any> | null;
       impersonated?: boolean;
     }
     // interface PageData {}

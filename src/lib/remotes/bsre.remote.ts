@@ -3,6 +3,7 @@ import { type } from "arktype";
 import { and, eq } from "drizzle-orm";
 import { db } from "$lib/server/db";
 import { bsreUsers } from "$lib/server/db/schema";
+import type { BsreCertStatus, BsreUserStatus } from "$lib/server/db/schema";
 import {
   cacheToken,
   closeSession,
@@ -243,8 +244,8 @@ export const getBsreStats = query(
   type({ status: "string?", certificateStatus: "string?", chartStartDate: "string?", chartEndDate: "string?" }),
   async ({ status, certificateStatus, chartStartDate, chartEndDate }: StatsFilter) => {
     const conditions: ReturnType<typeof eq>[] = [];
-    if (status) conditions.push(eq(bsreUsers.status, status));
-    if (certificateStatus) conditions.push(eq(bsreUsers.certificateStatus, certificateStatus));
+    if (status) conditions.push(eq(bsreUsers.status, status as BsreUserStatus));
+    if (certificateStatus) conditions.push(eq(bsreUsers.certificateStatus, certificateStatus as BsreCertStatus));
 
     // All users — for total and user status counts
     const allUsers = await db.select(selectCols).from(bsreUsers);
@@ -252,7 +253,7 @@ export const getBsreStats = query(
 
     // Users filtered by status only — for cert status counts
     let certQuery = db.select(selectCols).from(bsreUsers);
-    if (status) certQuery = certQuery.where(eq(bsreUsers.status, status)) as any;
+    if (status) certQuery = certQuery.where(eq(bsreUsers.status, status as BsreUserStatus)) as any;
     const certUsers = await certQuery;
     const certStats = aggregateStats(certUsers);
 

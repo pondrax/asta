@@ -190,7 +190,10 @@
                 () => form.email?.split("@")?.at(0),
                 (value) =>
                   (form.email =
-                    String(value).toLowerCase() + "@mojokertokota.go.id")
+                    String(value)
+                      .toLowerCase()
+                      .replace(/@mojokertokota\.go\.id/gi, "") +
+                    "@mojokertokota.go.id")
               }
               required
               type="text"
@@ -198,6 +201,21 @@
               oninput={debounceCheckEmail}
               onfocus={() => (emailFocused = true)}
               onblur={() => (emailFocused = false)}
+              onpaste={(e) => {
+                const text = e.clipboardData?.getData("text") || "";
+                if (/@mojokertokota\.go\.id/i.test(text)) {
+                  e.preventDefault();
+                  const cleaned = text.replace(/@mojokertokota\.go\.id/gi, "");
+                  const input = e.currentTarget as HTMLInputElement;
+                  const start = input.selectionStart ?? input.value.length;
+                  const end = input.selectionEnd ?? input.value.length;
+                  input.value =
+                    input.value.slice(0, start) +
+                    cleaned +
+                    input.value.slice(end);
+                  input.dispatchEvent(new Event("input", { bubbles: true }));
+                }
+              }}
             />
             <span class="label"
               >{emailFocused ? "***go.id" : "@mojokertokota.go.id"}</span
