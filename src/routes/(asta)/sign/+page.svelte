@@ -1246,7 +1246,7 @@
               class="flex items-center gap-1.5 text-xs text-base-content/50 -mt-3 -mb-1"
             >
               <span
-                >Passphrase tersimpan pada
+                >Passphrase tersimpan diperangkat anda pada
                 {d(vaultSavedAt).format("DD MMM YYYY, HH:mm")}</span
               >
               <button
