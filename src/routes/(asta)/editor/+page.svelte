@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
+  import { goto } from "$app/navigation";
   import { app } from "$lib/app/index.svelte";
   import { setupDocxEditor } from "./editor-logic";
-  import "@docx-editor.dev/core/styles/editor.css";
   import "./editor.css";
 
   let rootEl = $state<HTMLDivElement | null>(null);
@@ -32,6 +32,10 @@
       setTheme: (t) => {
         app.theme = t;
       },
+      onSignPdf: async (file) => {
+        app.pendingSignFile = file;
+        await goto("/sign");
+      },
     });
   });
 
@@ -42,7 +46,7 @@
 </script>
 
 <svelte:head>
-  <title>Editor Dokumen</title>
+  <title>Document Editor</title>
 </svelte:head>
 
 <div
@@ -50,9 +54,9 @@
   bind:this={rootEl}
 >
   <!-- ============ TOPBAR ============ -->
-  <div class="topbar">
+  <div class="topbar border-t border-t-base-content/5">
     <div class="header-row">
-      <a class="header-logo" href="/editor" title="Editor Dokumen">
+      <a class="header-logo" href="/editor" title="DOCX Editor">
         <iconify-icon icon="bx:file" width="20" height="20"></iconify-icon>
       </a>
       <div class="header-center">
@@ -61,92 +65,120 @@
             class="filename-input"
             id="filenameInput"
             type="text"
-            placeholder="Tanpa Judul"
-            aria-label="Nama dokumen"
+            placeholder="Untitled"
+            aria-label="Document name"
             spellcheck="false"
           />
         </span>
         <!-- ============ MENU BAR ============ -->
         <div class="menu-bar">
-          <div class="menu">
-            <button class="menu-button">Berkas</button>
+          <div class="menu h-fit">
+            <button class="menu-button">File</button>
             <div class="menu-popup">
-              <button class="menu-item" data-action="new"
-                ><span class="menu-item-icon"
-                  ><iconify-icon icon="bx:file-blank" width="18" height="18"
-                  ></iconify-icon></span
-                >Dokumen baru <span class="menu-shortcut">Ctrl+N</span></button
-              >
-              <button class="menu-item" data-action="open"
-                ><span class="menu-item-icon"
-                  ><iconify-icon icon="bx:folder-open" width="18" height="18"
-                  ></iconify-icon></span
-                >Buka…<span class="menu-shortcut">Ctrl+O</span></button
-              >
-              <button class="menu-item" data-action="save"
-                ><span class="menu-item-icon"
-                  ><iconify-icon icon="bx:save" width="18" height="18"
-                  ></iconify-icon></span
-                >Simpan<span class="menu-shortcut">Ctrl+S</span></button
-              >
-              <button class="menu-item" data-action="savePdf"
-                ><span class="menu-item-icon"
-                  ><iconify-icon icon="bx:export" width="18" height="18"
-                  ></iconify-icon></span
-                >Simpan sebagai PDF…<span class="menu-shortcut"
-                  >Ctrl+Shift+S</span
-                ></button
-              >
+              <button class="menu-item" data-action="open">
+                <span class="menu-item-icon">
+                  <iconify-icon icon="bx:folder-open" width="18" height="18"
+                  ></iconify-icon>
+                </span>
+                Open Docx… <span class="menu-shortcut">Ctrl+O</span>
+              </button>
+              <button class="menu-item" data-action="save">
+                <span class="menu-item-icon">
+                  <iconify-icon icon="bx:save" width="18" height="18"
+                  ></iconify-icon>
+                </span>
+                Save <span class="menu-shortcut">Ctrl+S</span>
+              </button>
               <div class="menu-separator"></div>
-              <button class="menu-item" data-action="pageSetup"
-                ><span class="menu-item-icon"
-                  ><iconify-icon icon="bx:slider" width="18" height="18"
-                  ></iconify-icon></span
-                >Pengaturan Halaman…</button
-              >
+              <div class="menu-item menu-submenu" id="fileExportSubmenu">
+                <span class="menu-item-icon">
+                  <iconify-icon icon="bx:export" width="18" height="18"
+                  ></iconify-icon>
+                </span>
+                <span>Export</span>
+                <span class="menu-submenu__caret">›</span>
+                <div
+                  class="menu-submenu__panel"
+                  role="menu"
+                  aria-label="Export"
+                >
+                  <button class="menu-item" data-action="savePdf">
+                    <span class="menu-item-icon">
+                      <iconify-icon icon="bx:file-pdf" width="18" height="18"
+                      ></iconify-icon>
+                    </span>
+                    PDF… <span class="menu-shortcut">Ctrl+Shift+S</span>
+                  </button>
+                  <button class="menu-item" data-action="exportMarkdown">
+                    <span class="menu-item-icon">
+                      <iconify-icon icon="bx:file-text" width="18" height="18"
+                      ></iconify-icon>
+                    </span>
+                    Markdown…
+                  </button>
+                </div>
+              </div>
+              <div class="menu-separator"></div>
+              <button class="menu-item" data-action="print">
+                <span class="menu-item-icon">
+                  <iconify-icon icon="bx:printer" width="18" height="18"
+                  ></iconify-icon>
+                </span>
+                Print <span class="menu-shortcut">Ctrl+P</span>
+              </button>
+              <button class="menu-item" data-action="pageSetup">
+                <span class="menu-item-icon">
+                  <iconify-icon icon="bx:slider" width="18" height="18"
+                  ></iconify-icon>
+                </span>
+                Page Setup…
+              </button>
             </div>
           </div>
 
           <div class="menu">
             <button class="menu-button">Format</button>
             <div class="menu-popup">
-              <button class="menu-item" data-slot="paragraph.dialog"
-                ><span class="menu-item-icon"
-                  ><iconify-icon icon="bx:paragraph" width="18" height="18"
-                  ></iconify-icon></span
-                >Paragraf…</button
-              >
-              <button class="menu-item" data-slot="format.painter"
-                ><span class="menu-item-icon"
-                  ><iconify-icon icon="bx:brush" width="18" height="18"
-                  ></iconify-icon></span
-                >Salin Format</button
-              >
-              <button class="menu-item" data-slot="format.clear"
-                ><span class="menu-item-icon"
-                  ><iconify-icon icon="bx:eraser" width="18" height="18"
-                  ></iconify-icon></span
-                >Hapus Format</button
-              >
+              <button class="menu-item" data-slot="paragraph.dialog">
+                <span class="menu-item-icon">
+                  <iconify-icon icon="bx:paragraph" width="18" height="18"
+                  ></iconify-icon>
+                </span>
+                Paragraph…
+              </button>
+              <button class="menu-item" data-slot="format.painter">
+                <span class="menu-item-icon">
+                  <iconify-icon icon="bx:brush" width="18" height="18"
+                  ></iconify-icon>
+                </span>
+                Format Painter
+              </button>
+              <button class="menu-item" data-slot="format.clear">
+                <span class="menu-item-icon">
+                  <iconify-icon icon="bx:eraser" width="18" height="18"
+                  ></iconify-icon>
+                </span>
+                Clear Formatting
+              </button>
             </div>
           </div>
 
           <div class="menu">
-            <button class="menu-button">Sisipkan</button>
+            <button class="menu-button">Insert</button>
             <div class="menu-popup">
               <div class="menu-item menu-submenu" id="tableSubmenu">
                 <span class="menu-item-icon"
                   ><iconify-icon icon="bx:table" width="18" height="18"
                   ></iconify-icon></span
                 >
-                <span>Tabel</span>
+                <span>Table</span>
                 <span class="menu-submenu__caret">›</span>
                 <div class="menu-submenu__panel">
                   <div
                     class="table-grid"
                     id="tableGrid"
                     role="grid"
-                    aria-label="Sisipkan tabel"
+                    aria-label="Insert table"
                   ></div>
                   <div class="table-grid__caption" id="tableGridCaption">
                     1 × 1
@@ -157,78 +189,75 @@
                 ><span class="menu-item-icon"
                   ><iconify-icon icon="bx:image" width="18" height="18"
                   ></iconify-icon></span
-                >Gambar</button
+                >Picture</button
               >
               <div class="menu-separator"></div>
-              <button class="menu-item" data-slot="insert.pageBreak"
-                ><span class="menu-item-icon"
-                  ><iconify-icon icon="bx:minus" width="18" height="18"
-                  ></iconify-icon></span
-                >Pindah Halaman</button
-              >
-              <button class="menu-item" data-slot="insert.sectionBreakNextPage"
-                ><span class="menu-item-icon"
-                  ><iconify-icon icon="bx:minus-circle" width="18" height="18"
-                  ></iconify-icon></span
-                >Pindah Bagian — Halaman Berikutnya</button
-              >
+              <button class="menu-item" data-slot="insert.pageBreak">
+                <span class="menu-item-icon">
+                  <iconify-icon icon="bx:minus" width="18" height="18"
+                  ></iconify-icon>
+                </span>
+                Page Break
+              </button>
+              <button class="menu-item" data-slot="insert.sectionBreakNextPage">
+                <span class="menu-item-icon">
+                  <iconify-icon icon="bx:minus-circle" width="18" height="18"
+                  ></iconify-icon>
+                </span>
+                Section Break — Next Page
+              </button>
               <button
                 class="menu-item"
                 data-slot="insert.sectionBreakContinuous"
-                ><span class="menu-item-icon"
-                  ><iconify-icon icon="bx:minus-circle" width="18" height="18"
-                  ></iconify-icon></span
-                >Pindah Bagian — Lanjutan</button
               >
+                <span class="menu-item-icon">
+                  <iconify-icon icon="bx:minus-circle" width="18" height="18"
+                  ></iconify-icon>
+                </span>
+                Section Break — Continuous
+              </button>
               <div class="menu-separator"></div>
-              <button class="menu-item" data-slot="insert.footnote"
-                ><span class="menu-item-icon"
-                  ><iconify-icon icon="bx:note" width="18" height="18"
-                  ></iconify-icon></span
-                >Catatan Kaki</button
-              >
-              <button class="menu-item" data-slot="insert.endnote"
-                ><span class="menu-item-icon"
-                  ><iconify-icon icon="bx:bookmark" width="18" height="18"
-                  ></iconify-icon></span
-                >Catatan Akhir</button
-              >
-              <button class="menu-item" data-slot="insert.toc"
-                ><span class="menu-item-icon"
-                  ><iconify-icon icon="bx:list-ul" width="18" height="18"
-                  ></iconify-icon></span
-                >Daftar Isi</button
-              >
+              <button class="menu-item" data-slot="insert.footnote">
+                <span class="menu-item-icon">
+                  <iconify-icon icon="bx:note" width="18" height="18"
+                  ></iconify-icon>
+                </span>
+                Footnote
+              </button>
+              <button class="menu-item" data-slot="insert.endnote">
+                <span class="menu-item-icon">
+                  <iconify-icon icon="bx:bookmark" width="18" height="18"
+                  ></iconify-icon>
+                </span>
+                Endnote
+              </button>
+              <button class="menu-item" data-slot="insert.toc">
+                <span class="menu-item-icon">
+                  <iconify-icon icon="bx:list-ul" width="18" height="18"
+                  ></iconify-icon>
+                </span>
+                Table of Contents
+              </button>
             </div>
           </div>
 
           <div class="menu">
-            <button class="menu-button">Tinjau</button>
+            <button class="menu-button">Review</button>
             <div class="menu-popup">
-              <button class="menu-item" data-slot="review.paragraphMarks"
-                ><span class="menu-item-icon"
-                  ><iconify-icon icon="bx:show" width="18" height="18"
-                  ></iconify-icon></span
-                >Tampilkan/Sembunyikan ¶</button
-              >
-              <button class="menu-item" data-slot="review.editingMode"
-                ><span class="menu-item-icon"
-                  ><iconify-icon icon="bx:edit" width="18" height="18"
-                  ></iconify-icon></span
-                >Mode Penyuntingan</button
-              >
-            </div>
-          </div>
-
-          <div class="menu">
-            <button class="menu-button">Bantuan</button>
-            <div class="menu-popup">
-              <button class="menu-item" id="aboutButton"
-                ><span class="menu-item-icon"
-                  ><iconify-icon icon="bx:info-circle" width="18" height="18"
-                  ></iconify-icon></span
-                >Tentang Editor Dokumen</button
-              >
+              <button class="menu-item" data-slot="review.paragraphMarks">
+                <span class="menu-item-icon">
+                  <iconify-icon icon="bx:show" width="18" height="18"
+                  ></iconify-icon>
+                </span>
+                Show/Hide ¶
+              </button>
+              <button class="menu-item" data-slot="review.editingMode">
+                <span class="menu-item-icon">
+                  <iconify-icon icon="bx:edit" width="18" height="18"
+                  ></iconify-icon>
+                </span>
+                Editing Mode
+              </button>
             </div>
           </div>
         </div>
@@ -236,32 +265,20 @@
 
       <!-- ============ HEADER RIGHT CONTROLS ============ -->
       <div class="header-right">
-        {#if dirty}
-          <span class="dirty-badge" title="Belum disimpan">Belum disimpan</span>
-        {/if}
         <button
           class="header-btn"
           id="newButton"
-          title="Mulai dokumen kosong baru"
+          title="Start a new empty document"
         >
           <iconify-icon icon="bx:file-blank" width="14" height="14"
-          ></iconify-icon>Baru
+          ></iconify-icon>New
         </button>
-        <button class="header-btn" id="pdfButton" title="Simpan sebagai PDF">
+        <button class="header-btn" id="pdfButton" title="Save as PDF">
           <iconify-icon icon="bx:file" width="14" height="14"></iconify-icon>PDF
         </button>
-        <button
-          class="header-btn header-btn--icon"
-          id="themeToggle"
-          role="switch"
-          aria-checked={app.theme === "dark"}
-          title="Ganti mode gelap"
-          aria-label="Ganti mode gelap"
-        >
-          <iconify-icon class="icon-sun" icon="bx:sun" width="15" height="15"
-          ></iconify-icon>
-          <iconify-icon class="icon-moon" icon="bx:moon" width="15" height="15"
-          ></iconify-icon>
+        <button class="header-btn" id="signButton" title="Continue to sign">
+          <iconify-icon icon="bx:edit" width="14" height="14"
+          ></iconify-icon>Sign
         </button>
       </div>
     </div>
@@ -270,13 +287,13 @@
     <div class="toolbar">
       <!-- HISTORY -->
       <div class="toolbar-group toolbar-group--history">
-        <button class="tool command" data-slot="history.undo" title="Urungkan"
+        <button class="tool command" data-slot="history.undo" title="Undo"
           ><iconify-icon icon="bx:undo"></iconify-icon></button
         >
-        <button class="tool command" data-slot="history.redo" title="Ulangi"
+        <button class="tool command" data-slot="history.redo" title="Redo"
           ><iconify-icon icon="bx:redo"></iconify-icon></button
         >
-        <button class="tool" id="printButton" title="Cetak"
+        <button class="tool" id="printButton" title="Print"
           ><iconify-icon icon="bx:printer"></iconify-icon></button
         >
       </div>
@@ -289,30 +306,30 @@
           <button
             class="zoom-stepper__button"
             id="zoomOut"
-            aria-label="Perkecil"
-            title="Perkecil">−</button
+            aria-label="Zoom out"
+            title="Zoom out">−</button
           >
           <button
             class="zoom-stepper__value"
             id="zoomValue"
             aria-haspopup="listbox"
             aria-expanded="false"
-            aria-label="Tingkat zoom: 100%"
-            title="Tingkat zoom"
+            aria-label="Zoom level: 100%"
+            title="Zoom level"
             >100%<span class="zoom-stepper__caret" aria-hidden="true">▾</span
             ></button
           >
           <button
             class="zoom-stepper__button"
             id="zoomIn"
-            aria-label="Perbesar"
-            title="Perbesar">+</button
+            aria-label="Zoom in"
+            title="Zoom in">+</button
           >
           <div
             class="zoom-menu"
             id="zoomMenu"
             role="listbox"
-            aria-label="Tingkat zoom"
+            aria-label="Zoom level"
             hidden
           >
             <button
@@ -320,14 +337,14 @@
               role="option"
               aria-selected="false"
               data-zoom-mode="auto"
-              >Otomatis<span class="zoom-menu__check">✓</span></button
+              >Automatic<span class="zoom-menu__check">✓</span></button
             >
             <button
               class="zoom-menu__item"
               role="option"
               aria-selected="false"
               data-zoom-mode="fit-width"
-              >Lebar halaman<span class="zoom-menu__check">✓</span></button
+              >Fit width<span class="zoom-menu__check">✓</span></button
             >
             <hr class="zoom-menu__separator" role="presentation" />
             <button
@@ -386,7 +403,7 @@
             id="styleTrigger"
             aria-haspopup="listbox"
             aria-expanded="false"
-            title="Gaya"
+            title="Styles"
             ><span class="style-dropdown__label" id="styleTriggerLabel"
               >Normal</span
             ><span class="style-dropdown__caret" aria-hidden="true">▾</span
@@ -396,7 +413,7 @@
             class="style-dropdown__menu"
             id="styleMenu"
             role="listbox"
-            aria-label="Gaya"
+            aria-label="Styles"
             hidden
           >
             <button
@@ -411,87 +428,84 @@
               role="option"
               aria-selected="false"
               data-style-value="Title"
-              ><span class="style-dropdown__label">Judul</span></button
+              ><span class="style-dropdown__label">Title</span></button
             >
             <button
               class="style-dropdown__item"
               role="option"
               aria-selected="false"
               data-style-value="Subtitle"
-              ><span class="style-dropdown__label">Subjudul</span></button
+              ><span class="style-dropdown__label">Subtitle</span></button
             >
             <button
               class="style-dropdown__item"
               role="option"
               aria-selected="false"
               data-style-value="Heading1"
-              ><span class="style-dropdown__label">Judul 1</span></button
+              ><span class="style-dropdown__label">Heading 1</span></button
             >
             <button
               class="style-dropdown__item"
               role="option"
               aria-selected="false"
               data-style-value="Heading2"
-              ><span class="style-dropdown__label">Judul 2</span></button
+              ><span class="style-dropdown__label">Heading 2</span></button
             >
             <button
               class="style-dropdown__item"
               role="option"
               aria-selected="false"
               data-style-value="Heading3"
-              ><span class="style-dropdown__label">Judul 3</span></button
+              ><span class="style-dropdown__label">Heading 3</span></button
             >
             <button
               class="style-dropdown__item"
               role="option"
               aria-selected="false"
               data-style-value="Heading4"
-              ><span class="style-dropdown__label">Judul 4</span></button
+              ><span class="style-dropdown__label">Heading 4</span></button
             >
             <button
               class="style-dropdown__item"
               role="option"
               aria-selected="false"
               data-style-value="Heading5"
-              ><span class="style-dropdown__label">Judul 5</span></button
+              ><span class="style-dropdown__label">Heading 5</span></button
             >
             <button
               class="style-dropdown__item"
               role="option"
               aria-selected="false"
               data-style-value="Heading6"
-              ><span class="style-dropdown__label">Judul 6</span></button
+              ><span class="style-dropdown__label">Heading 6</span></button
             >
             <button
               class="style-dropdown__item"
               role="option"
               aria-selected="false"
               data-style-value="Strong"
-              ><span class="style-dropdown__label">Tebal</span></button
+              ><span class="style-dropdown__label">Strong</span></button
             >
             <button
               class="style-dropdown__item"
               role="option"
               aria-selected="false"
               data-style-value="ListParagraph"
-              ><span class="style-dropdown__label">Paragraf Daftar</span
-              ></button
+              ><span class="style-dropdown__label">List Paragraph</span></button
             >
             <button
               class="style-dropdown__item"
               role="option"
               aria-selected="false"
               data-style-value="footnote text"
-              ><span class="style-dropdown__label">Teks catatan kaki</span
-              ></button
+              ><span class="style-dropdown__label">footnote text</span></button
             >
             <button
               class="style-dropdown__item"
               role="option"
               aria-selected="false"
               data-style-value="endnote text"
-              ><span class="style-dropdown__label">Teks catatan akhir</span
-              ></button
+              ><span class="style-dropdown__label">endnote text</span></button
             >
           </div>
         </span>
@@ -505,7 +519,7 @@
             id="fontTrigger"
             aria-haspopup="listbox"
             aria-expanded="false"
-            title="Huruf"
+            title="Font"
             ><span class="font-dropdown__label" id="fontTriggerLabel"
               >Arial</span
             ><span class="font-dropdown__caret" aria-hidden="true">▾</span
@@ -515,15 +529,15 @@
             class="font-dropdown__menu"
             id="fontMenu"
             role="listbox"
-            aria-label="Jenis huruf"
+            aria-label="Font family"
             hidden
           >
             <input
               type="search"
               class="font-dropdown__search"
               id="fontSearch"
-              aria-label="Cari huruf"
-              placeholder="Cari huruf"
+              aria-label="Search fonts"
+              placeholder="Search fonts"
               autocomplete="off"
             />
             <div class="font-dropdown__options" id="fontOptions">
@@ -592,8 +606,8 @@
           <button
             class="font-size-stepper__button"
             id="fontSizeMinus"
-            aria-label="Perkecil ukuran huruf"
-            title="Perkecil ukuran huruf">−</button
+            aria-label="Decrease font size"
+            title="Decrease font size">−</button
           >
           <input
             type="number"
@@ -603,14 +617,14 @@
             max="1638"
             step="1"
             value="11"
-            aria-label="Ukuran huruf dalam poin"
-            title="Ukuran huruf"
+            aria-label="Font size in points"
+            title="Font size"
           />
           <button
             class="font-size-stepper__button"
             id="fontSizePlus"
-            aria-label="Perbesar ukuran huruf"
-            title="Perbesar ukuran huruf">+</button
+            aria-label="Increase font size"
+            title="Increase font size">+</button
           >
         </span>
       </div>
@@ -619,19 +633,22 @@
 
       <!-- TEXT -->
       <div class="toolbar-group toolbar-group--text">
-        <button class="tool command" data-slot="text.bold" title="Tebal"
+        <button class="tool command" data-slot="text.bold" title="Bold"
           ><iconify-icon icon="bx:bold"></iconify-icon></button
         >
-        <button class="tool command" data-slot="text.italic" title="Miring"
+        <button class="tool command" data-slot="text.italic" title="Italic"
           ><iconify-icon icon="bx:italic"></iconify-icon></button
         >
         <button
           class="tool command"
           data-slot="text.underline"
-          title="Garis bawah"
+          title="Underline"
           ><iconify-icon icon="bx:underline"></iconify-icon></button
         >
-        <button class="tool command" data-slot="text.strike" title="Coret"
+        <button
+          class="tool command"
+          data-slot="text.strike"
+          title="Strikethrough"
           ><iconify-icon icon="bx:strikethrough"></iconify-icon></button
         >
       </div>
@@ -640,10 +657,12 @@
 
       <!-- SCRIPT (sub/sup) -->
       <div class="toolbar-group toolbar-group--script">
-        <button class="tool command" data-slot="script.super" title="Superskrip"
-          >x²</button
+        <button
+          class="tool command"
+          data-slot="script.super"
+          title="Superscript">x²</button
         >
-        <button class="tool command" data-slot="script.sub" title="Subskrip"
+        <button class="tool command" data-slot="script.sub" title="Subscript"
           >x₂</button
         >
       </div>
@@ -656,8 +675,8 @@
           <button
             class="tool colorsplit__main"
             id="fontColorMain"
-            title="Warna huruf"
-            aria-label="Warna huruf"
+            title="Font Color"
+            aria-label="Font Color"
           >
             <iconify-icon icon="bx:font-color"></iconify-icon>
             <span
@@ -672,21 +691,22 @@
             id="fontColorCaret"
             aria-haspopup="dialog"
             aria-expanded="false"
-            aria-label="Warna huruf"
-            title="Warna huruf">▾</button
+            aria-label="Font Color"
+            title="Font Color">▾</button
           >
           <div
             class="swatch-popup"
             id="fontColorPopup"
             role="dialog"
-            aria-label="Warna huruf"
+            aria-label="Font Color"
             hidden
           >
             <button class="swatch-clear" data-value="auto">
-              <span class="swatch-clear-chip" aria-hidden="true"></span>Otomatis
+              <span class="swatch-clear-chip" aria-hidden="true"
+              ></span>Automatic
             </button>
             <div class="swatch-section">
-              <div class="swatch-heading">Warna Tema</div>
+              <div class="swatch-heading">Theme Colors</div>
               <div
                 class="swatch-grid swatch-grid--theme"
                 id="fontColorTheme"
@@ -694,7 +714,7 @@
               ></div>
             </div>
             <div class="swatch-section">
-              <div class="swatch-heading">Warna Standar</div>
+              <div class="swatch-heading">Standard Colors</div>
               <div
                 class="swatch-grid"
                 id="fontColorStandard"
@@ -702,7 +722,7 @@
               ></div>
             </div>
             <div class="swatch-section">
-              <div class="swatch-heading">Warna Kustom</div>
+              <div class="swatch-heading">Custom Color</div>
               <div class="swatch-custom">
                 <span class="swatch-hash" aria-hidden="true">#</span>
                 <input
@@ -711,11 +731,11 @@
                   id="fontColorHex"
                   maxlength="6"
                   spellcheck="false"
-                  aria-label="Warna kustom"
+                  aria-label="Custom Color"
                   placeholder="FF0000"
                 />
                 <button class="swatch-apply" id="fontColorApply" disabled
-                  >Terapkan</button
+                  >Apply</button
                 >
               </div>
             </div>
@@ -725,8 +745,8 @@
           <button
             class="tool colorsplit__main"
             id="highlightMain"
-            title="Sorotan teks"
-            aria-label="Sorotan teks"
+            title="Text Highlight"
+            aria-label="Text Highlight"
           >
             <iconify-icon icon="bx:highlight"></iconify-icon>
             <span
@@ -741,24 +761,24 @@
             id="highlightCaret"
             aria-haspopup="dialog"
             aria-expanded="false"
-            aria-label="Sorotan teks"
-            title="Sorotan teks">▾</button
+            aria-label="Text Highlight"
+            title="Text Highlight">▾</button
           >
           <div
             class="swatch-popup"
             id="highlightPopup"
             role="dialog"
-            aria-label="Sorotan teks"
+            aria-label="Text Highlight"
             hidden
           >
             <button class="swatch-clear" data-value="none">
               <span
                 class="swatch-clear-chip swatch-clear-chip--none"
                 aria-hidden="true"
-              ></span>Tanpa Warna
+              ></span>No Color
             </button>
             <div class="swatch-section">
-              <div class="swatch-heading">Warna Sorotan</div>
+              <div class="swatch-heading">Highlight Colors</div>
               <div
                 class="swatch-grid swatch-grid--highlight"
                 id="highlightGrid"
@@ -777,7 +797,7 @@
           <button
             class="tool alignment__trigger"
             id="alignmentTrigger"
-            title="Rata kiri"
+            title="Align Left"
             aria-haspopup="true"
             aria-expanded="false"
           >
@@ -795,7 +815,7 @@
               type="button"
               class="tool alignment__option"
               data-slot="alignment.left"
-              title="Rata kiri"
+              title="Align Left"
               aria-pressed="false"
               ><iconify-icon icon="bx:align-left"></iconify-icon></button
             >
@@ -803,7 +823,7 @@
               type="button"
               class="tool alignment__option"
               data-slot="alignment.center"
-              title="Rata tengah"
+              title="Center"
               aria-pressed="false"
               ><iconify-icon icon="bx:align-middle"></iconify-icon></button
             >
@@ -811,7 +831,7 @@
               type="button"
               class="tool alignment__option"
               data-slot="alignment.right"
-              title="Rata kanan"
+              title="Align Right"
               aria-pressed="false"
               ><iconify-icon icon="bx:align-right"></iconify-icon></button
             >
@@ -819,7 +839,7 @@
               type="button"
               class="tool alignment__option"
               data-slot="alignment.justify"
-              title="Rata kanan-kiri"
+              title="Justify"
               aria-pressed="false"
               ><iconify-icon icon="bx:align-justify"></iconify-icon></button
             >
@@ -831,35 +851,29 @@
 
       <!-- LIST -->
       <div class="toolbar-group toolbar-group--list">
-        <button
-          class="tool command"
-          data-slot="list.bullet"
-          title="Daftar berpoin"
+        <button class="tool command" data-slot="list.bullet" title="Bullets"
           ><iconify-icon icon="bx:list-ul"></iconify-icon></button
         >
-        <button
-          class="tool command"
-          data-slot="list.numbered"
-          title="Daftar bernomor"
+        <button class="tool command" data-slot="list.numbered" title="Numbering"
           ><iconify-icon icon="bx:list-ol"></iconify-icon></button
         >
         <button
           class="tool command"
           data-slot="list.outdent"
-          title="Kurangi indent"
+          title="Decrease Indent"
           ><iconify-icon icon="bx:left-indent"></iconify-icon></button
         >
         <button
           class="tool command"
           data-slot="list.indent"
-          title="Tambah indent"
+          title="Increase Indent"
           ><iconify-icon icon="bx:right-indent"></iconify-icon></button
         >
         <div class="line-spacing" id="lineSpacing">
           <button
             class="tool line-spacing__trigger"
             id="lineSpacingTrigger"
-            title="Spasi baris"
+            title="Line Spacing"
             aria-haspopup="menu"
             aria-expanded="false"
           >
@@ -919,20 +933,20 @@
               type="button"
               role="menuitem"
               class="toolbar-menu__item"
-              id="lineSpacingOptions">Opsi Spasi Baris…</button
+              id="lineSpacingOptions">Line Spacing Options…</button
             >
             <div class="toolbar-menu__separator" role="separator"></div>
             <button
               type="button"
               role="menuitem"
               class="toolbar-menu__item"
-              id="spaceBeforeRow">Tambah Spasi Sebelum Paragraf</button
+              id="spaceBeforeRow">Add Space Before Paragraph</button
             >
             <button
               type="button"
               role="menuitem"
               class="toolbar-menu__item"
-              id="spaceAfterRow">Tambah Spasi Setelah Paragraf</button
+              id="spaceAfterRow">Add Space After Paragraph</button
             >
           </div>
         </div>
@@ -945,19 +959,19 @@
         <button
           class="tool command"
           data-slot="format.painter"
-          title="Salin format"
+          title="Format Painter"
           ><iconify-icon icon="bx:brush"></iconify-icon></button
         >
         <button
           class="tool command"
           data-slot="format.clear"
-          title="Hapus format"
+          title="Clear Formatting"
           ><iconify-icon icon="bx:eraser"></iconify-icon></button
         >
         <button
           class="tool command"
           data-slot="paragraph.dialog"
-          title="Paragraf"
+          title="Paragraph"
           ><iconify-icon icon="bx:paragraph"></iconify-icon></button
         >
       </div>
@@ -969,19 +983,19 @@
         <button
           class="tool command"
           data-slot="table.insert"
-          title="Sisipkan tabel"
+          title="Insert Table"
           ><iconify-icon icon="bx:table"></iconify-icon></button
         >
         <button
           class="tool command"
           data-slot="image.insert"
-          title="Sisipkan gambar"
+          title="Insert Image"
           ><iconify-icon icon="bx:image"></iconify-icon></button
         >
         <button
           class="tool command"
           data-slot="insert.pageBreak"
-          title="Pindah halaman"
+          title="Page Break"
           ><iconify-icon icon="bx:file-blank"></iconify-icon></button
         >
       </div>
@@ -992,8 +1006,8 @@
           class="tool"
           id="commentsButton"
           data-slot="review.comments"
-          title="Komentar & Perubahan"
-          aria-label="Komentar & Perubahan"
+          title="Comments & Changes"
+          aria-label="Comments & Changes"
         >
           <svg
             viewBox="0 -960 960 960"
@@ -1015,7 +1029,7 @@
             data-mode="editing"
             aria-haspopup="menu"
             aria-expanded="false"
-            aria-label="Mode penyuntingan"
+            aria-label="Editing mode"
           >
             <svg
               viewBox="0 -960 960 960"
@@ -1029,14 +1043,14 @@
                 d="M200-200h57l391-391-57-57-391 391v57Zm-80 80v-170l528-527q12-11 26.5-17t30.5-6q16 0 31 6t26 18l55 56q12 11 17.5 26t5.5 30q0 16-5.5 30.5T817-647L290-120H120Zm640-584-56-56 56 56Zm-141 85-28-29 57 57-29-28Z"
               />
             </svg>
-            <span class="mode__value" id="modeValue">Menyunting</span>
+            <span class="mode__value" id="modeValue">Editing</span>
             <span class="picker-caret" aria-hidden="true">▾</span>
           </button>
           <div
             class="mode__menu"
             id="modeMenu"
             role="menu"
-            aria-label="Mode penyuntingan"
+            aria-label="Editing mode"
             hidden
           >
             <button
@@ -1059,9 +1073,9 @@
                 />
               </svg>
               <span class="mode__text">
-                <span class="mode__label">Menyunting</span>
+                <span class="mode__label">Editing</span>
                 <span class="mode__hint"
-                  >Perubahan diterapkan langsung ke dokumen.</span
+                  >Changes are applied directly to the document.</span
                 >
               </span>
               <span class="mode__check" aria-hidden="true">✓</span>
@@ -1086,9 +1100,9 @@
                 />
               </svg>
               <span class="mode__text">
-                <span class="mode__label">Menyarankan</span>
+                <span class="mode__label">Suggesting</span>
                 <span class="mode__hint"
-                  >Perubahan menjadi usulan untuk ditinjau orang lain.</span
+                  >Changes become proposals for others to review.</span
                 >
               </span>
               <span class="mode__check" aria-hidden="true"></span>
@@ -1113,9 +1127,8 @@
                 />
               </svg>
               <span class="mode__text">
-                <span class="mode__label">Melihat</span>
-                <span class="mode__hint"
-                  >Hanya baca — tidak ada pengeditan yang diizinkan.</span
+                <span class="mode__label">Viewing</span>
+                <span class="mode__hint">Read-only — no edits are allowed.</span
                 >
               </span>
               <span class="mode__check" aria-hidden="true"></span>
@@ -1131,60 +1144,118 @@
           id="toolbarMoreButton"
           aria-haspopup="dialog"
           aria-expanded="false"
-          aria-label="Lainnya"
-          title="Lainnya"
-          ><iconify-icon icon="bx:dots-horizontal-rounded"
-          ></iconify-icon></button
+          aria-label="More"
+          title="More"
         >
+          <iconify-icon icon="bx:dots-horizontal-rounded"></iconify-icon>
+        </button>
         <div
           class="toolbar-more__panel"
           id="toolbarMorePanel"
           role="dialog"
-          aria-label="Lainnya"
+          aria-label="More"
           hidden
         >
           <div class="toolbar-more__section toolbar-more__section--zoom">
             <div class="toolbar-more__heading">Zoom</div>
             <div class="toolbar-more__zoom">
-              <button
-                class="toolbar-more__item"
-                id="moreZoomOut"
-                title="Perkecil"
-                ><iconify-icon icon="bx:minus"></iconify-icon></button
-              >
-              <button
-                class="toolbar-more__item"
-                id="moreZoomValue"
-                title="Tingkat zoom">100%</button
-              >
-              <button
-                class="toolbar-more__item"
-                id="moreZoomIn"
-                title="Perbesar"
-                ><iconify-icon icon="bx:plus"></iconify-icon></button
-              >
+              <span class="toolbar-more__zoom-label">Zoom</span>
+              <div class="toolbar-more__zoom-controls">
+                <button
+                  class="toolbar-more__item"
+                  id="moreZoomOut"
+                  title="Zoom out"
+                  aria-label="Zoom out">−</button
+                >
+                <div
+                  class="toolbar-more__submenu toolbar-more__zoom-submenu"
+                  id="moreZoomSubmenu"
+                >
+                  <button
+                    class="toolbar-more__item"
+                    id="moreZoomValue"
+                    title="Zoom level"
+                    aria-haspopup="menu"
+                    aria-expanded="false"
+                    aria-label="Zoom level: 100%"
+                  >
+                    <span id="moreZoomValueText">100%</span>
+                    <span class="toolbar-more__caret" aria-hidden="true">▾</span
+                    >
+                  </button>
+                  <div
+                    class="toolbar-more__submenu-panel"
+                    id="moreZoomPanel"
+                    role="menu"
+                    aria-label="Zoom level"
+                  >
+                    <button
+                      class="toolbar-more__submenu-item"
+                      role="menuitemradio"
+                      data-zoom-mode="auto"
+                      aria-checked="false"
+                      >Automatic<span class="toolbar-more__zoom-check">✓</span
+                      ></button
+                    >
+                    <button
+                      class="toolbar-more__submenu-item"
+                      role="menuitemradio"
+                      data-zoom-mode="fit-width"
+                      aria-checked="false"
+                      >Fit width<span class="toolbar-more__zoom-check">✓</span
+                      ></button
+                    >
+                    <hr class="zoom-menu__separator" role="presentation" />
+                    {#each [{ level: "0.25", label: "25%" }, { level: "0.5", label: "50%" }, { level: "0.75", label: "75%" }, { level: "1", label: "100%" }, { level: "1.25", label: "125%" }, { level: "1.5", label: "150%" }, { level: "2", label: "200%" }] as option (option.level)}
+                      <button
+                        class="toolbar-more__submenu-item"
+                        role="menuitemradio"
+                        data-zoom-level={option.level}
+                        aria-checked="false"
+                        >{option.label}<span class="toolbar-more__zoom-check"
+                          >✓</span
+                        ></button
+                      >
+                    {/each}
+                  </div>
+                </div>
+                <button
+                  class="toolbar-more__item"
+                  id="moreZoomIn"
+                  title="Zoom in"
+                  aria-label="Zoom in">+</button
+                >
+              </div>
             </div>
           </div>
+
           <div class="toolbar-more__section toolbar-more__section--style">
-            <div class="toolbar-more__heading">Gaya</div>
+            <div class="toolbar-more__heading">Styles</div>
             <div class="toolbar-more__submenu" id="moreStyleSubmenu">
               <button
                 class="toolbar-more__item toolbar-more__item--submenu"
                 id="moreStyleTrigger"
-                title="Pilih gaya paragraf"
+                title="Select paragraph style"
                 aria-haspopup="menu"
                 aria-expanded="false"
-                ><span id="moreStyleTriggerLabel">Normal</span><span
-                  class="toolbar-more__caret"
-                  aria-hidden="true">›</span
-                ></button
               >
+                <span id="moreStyleTriggerLabel">Normal</span>
+                <span class="toolbar-more__caret" aria-hidden="true">›</span>
+              </button>
               <div
                 class="toolbar-more__submenu-panel"
                 id="moreStylePanel"
                 role="menu"
-                aria-label="Pilih gaya paragraf"
+                aria-label="Select paragraph style"
               >
+                <input
+                  type="search"
+                  class="toolbar-more__search"
+                  id="moreStyleSearch"
+                  aria-label="Search styles"
+                  placeholder="Search styles"
+                  autocomplete="off"
+                />
                 <button
                   class="toolbar-more__submenu-item"
                   role="menuitem"
@@ -1193,86 +1264,94 @@
                 <button
                   class="toolbar-more__submenu-item"
                   role="menuitem"
-                  data-style-value="Title">Judul</button
+                  data-style-value="Title">Title</button
                 >
                 <button
                   class="toolbar-more__submenu-item"
                   role="menuitem"
-                  data-style-value="Subtitle">Subjudul</button
+                  data-style-value="Subtitle">Subtitle</button
                 >
                 <button
                   class="toolbar-more__submenu-item"
                   role="menuitem"
-                  data-style-value="Heading1">Judul 1</button
+                  data-style-value="Heading1">Heading 1</button
                 >
                 <button
                   class="toolbar-more__submenu-item"
                   role="menuitem"
-                  data-style-value="Heading2">Judul 2</button
+                  data-style-value="Heading2">Heading 2</button
                 >
                 <button
                   class="toolbar-more__submenu-item"
                   role="menuitem"
-                  data-style-value="Heading3">Judul 3</button
+                  data-style-value="Heading3">Heading 3</button
                 >
                 <button
                   class="toolbar-more__submenu-item"
                   role="menuitem"
-                  data-style-value="Heading4">Judul 4</button
+                  data-style-value="Heading4">Heading 4</button
                 >
                 <button
                   class="toolbar-more__submenu-item"
                   role="menuitem"
-                  data-style-value="Heading5">Judul 5</button
+                  data-style-value="Heading5">Heading 5</button
                 >
                 <button
                   class="toolbar-more__submenu-item"
                   role="menuitem"
-                  data-style-value="Heading6">Judul 6</button
+                  data-style-value="Heading6">Heading 6</button
                 >
                 <button
                   class="toolbar-more__submenu-item"
                   role="menuitem"
-                  data-style-value="Strong">Tebal</button
+                  data-style-value="Strong">Strong</button
                 >
                 <button
                   class="toolbar-more__submenu-item"
                   role="menuitem"
-                  data-style-value="ListParagraph">Paragraf Daftar</button
+                  data-style-value="ListParagraph">List Paragraph</button
                 >
                 <button
                   class="toolbar-more__submenu-item"
                   role="menuitem"
-                  data-style-value="footnote text">Teks catatan kaki</button
+                  data-style-value="footnote text">footnote text</button
                 >
                 <button
                   class="toolbar-more__submenu-item"
                   role="menuitem"
-                  data-style-value="endnote text">Teks catatan akhir</button
+                  data-style-value="endnote text">endnote text</button
                 >
               </div>
             </div>
           </div>
+
           <div class="toolbar-more__section toolbar-more__section--font">
-            <div class="toolbar-more__heading">Huruf</div>
+            <div class="toolbar-more__heading">Font</div>
             <div class="toolbar-more__submenu" id="moreFontSubmenu">
               <button
                 class="toolbar-more__item toolbar-more__item--submenu"
                 id="moreFontTrigger"
-                title="Pilih jenis huruf"
+                title="Select font family"
                 aria-haspopup="menu"
                 aria-expanded="false"
-                ><span id="moreFontTriggerLabel">Arial</span><span
-                  class="toolbar-more__caret"
-                  aria-hidden="true">›</span
-                ></button
               >
+                <span id="moreFontTriggerLabel">Arial</span>
+                <span class="toolbar-more__caret" aria-hidden="true">›</span>
+              </button>
               <div
                 class="toolbar-more__submenu-panel"
                 id="moreFontPanel"
                 role="menu"
-                aria-label="Pilih jenis huruf"
+                aria-label="Select font family"
               >
+                <input
+                  type="search"
+                  class="toolbar-more__search"
+                  id="moreFontSearch"
+                  aria-label="Search fonts"
+                  placeholder="Search fonts"
+                  autocomplete="off"
+                />
                 <button
                   class="toolbar-more__submenu-item"
                   role="menuitem"
@@ -1315,64 +1394,71 @@
                 >
               </div>
             </div>
-            <div class="toolbar-more__zoom">
-              <button
-                class="toolbar-more__item"
-                id="moreFontSizeMinus"
-                title="Perkecil ukuran huruf"
-                ><iconify-icon icon="bx:minus"></iconify-icon>Ukuran huruf</button
-              >
-              <button
-                class="toolbar-more__item"
-                id="moreFontSizeValue"
-                title="Ukuran huruf">11</button
-              >
-              <button
-                class="toolbar-more__item"
-                id="moreFontSizePlus"
-                title="Perbesar ukuran huruf"
-                ><iconify-icon icon="bx:plus"></iconify-icon>Ukuran huruf</button
-              >
+            <div class="toolbar-more__font-size">
+              <span class="toolbar-more__font-size-label">Font size</span>
+              <div class="toolbar-more__font-size-controls">
+                <button
+                  class="toolbar-more__item"
+                  id="moreFontSizeMinus"
+                  title="Decrease font size"
+                  aria-label="Decrease font size">−</button
+                >
+                <button
+                  class="toolbar-more__item"
+                  id="moreFontSizeValue"
+                  title="Font size"
+                  aria-label="Font size: 11">11</button
+                >
+                <button
+                  class="toolbar-more__item"
+                  id="moreFontSizePlus"
+                  title="Increase font size"
+                  aria-label="Increase font size">+</button
+                >
+              </div>
             </div>
           </div>
+
           <div class="toolbar-more__section toolbar-more__section--script">
-            <div class="toolbar-more__heading">Skrip</div>
+            <div class="toolbar-more__heading">Script</div>
             <button
               class="toolbar-more__item command"
               data-slot="script.super"
-              title="Superskrip">x² Superskrip</button
+              title="Superscript">x² Superscript</button
             >
             <button
               class="toolbar-more__item command"
               data-slot="script.sub"
-              title="Subskrip">x₂ Subskrip</button
+              title="Subscript">x₂ Subscript</button
             >
           </div>
           <div class="toolbar-more__section toolbar-more__section--list">
-            <div class="toolbar-more__heading">Daftar</div>
+            <div class="toolbar-more__heading">List</div>
             <button
               class="toolbar-more__item command"
               data-slot="list.bullet"
-              title="Daftar berpoin"
-              ><iconify-icon icon="bx:list-ul"></iconify-icon>Daftar Berpoin</button
+              title="Bullet List"
+              ><iconify-icon icon="bx:list-ul"></iconify-icon>Bullet List</button
             >
             <button
               class="toolbar-more__item command"
               data-slot="list.numbered"
-              title="Daftar bernomor"
-              ><iconify-icon icon="bx:list-ol"></iconify-icon>Daftar Bernomor</button
+              title="Numbered List"
+              ><iconify-icon icon="bx:list-ol"></iconify-icon>Numbered List</button
             >
             <button
               class="toolbar-more__item command"
               data-slot="list.outdent"
-              title="Kurangi indent"
-              ><iconify-icon icon="bx:left-indent"></iconify-icon>Kurangi Indent</button
+              title="Decrease Indent"
+              ><iconify-icon icon="bx:left-indent"></iconify-icon>Decrease
+              Indent</button
             >
             <button
               class="toolbar-more__item command"
               data-slot="list.indent"
-              title="Tambah indent"
-              ><iconify-icon icon="bx:right-indent"></iconify-icon>Tambah Indent</button
+              title="Increase Indent"
+              ><iconify-icon icon="bx:right-indent"></iconify-icon>Increase
+              Indent</button
             >
           </div>
           <div class="toolbar-more__section toolbar-more__section--format">
@@ -1380,14 +1466,14 @@
             <button
               class="toolbar-more__item command"
               data-slot="format.painter"
-              title="Salin format"
-              ><iconify-icon icon="bx:brush"></iconify-icon>Salin Format</button
+              title="Format Painter"
+              ><iconify-icon icon="bx:brush"></iconify-icon>Format Painter</button
             >
             <button
               class="toolbar-more__item command"
               data-slot="format.clear"
-              title="Hapus format"
-              ><iconify-icon icon="bx:eraser"></iconify-icon>Hapus Format</button
+              title="Clear Formatting"
+              ><iconify-icon icon="bx:eraser"></iconify-icon>Clear Formatting</button
             >
           </div>
         </div>
@@ -1400,14 +1486,14 @@
     class="toolbar-menu table-insert__popup"
     id="tableInsertPopup"
     role="dialog"
-    aria-label="Sisipkan tabel"
+    aria-label="Insert table"
     hidden
   >
     <div
       class="table-grid"
       id="toolbarTableGrid"
       role="grid"
-      aria-label="Sisipkan tabel"
+      aria-label="Insert table"
     ></div>
     <div class="table-grid__caption" id="toolbarTableGridCaption">1 × 1</div>
   </div>
@@ -1433,18 +1519,18 @@
       <div
         class="ruler-margin-zone left"
         id="hLeftMarginZone"
-        title="Margin kiri"
+        title="Left margin"
       ></div>
       <div
         class="ruler-margin-zone right"
         id="hRightMarginZone"
-        title="Margin kanan"
+        title="Right margin"
       ></div>
       <div
         class="ruler-indent-handle"
         id="hFirstLineHandle"
         role="slider"
-        aria-label="Indent baris pertama"
+        aria-label="First line indent"
         aria-orientation="horizontal"
         aria-valuenow="0"
         aria-valuemin="0"
@@ -1458,7 +1544,7 @@
         class="ruler-indent-handle"
         id="hHangingHandle"
         role="slider"
-        aria-label="Indent gantung"
+        aria-label="Hanging indent"
         aria-orientation="horizontal"
         aria-valuenow="0"
         aria-valuemin="0"
@@ -1472,7 +1558,7 @@
         class="ruler-indent-handle"
         id="hLeftHandle"
         role="slider"
-        aria-label="Indent kiri"
+        aria-label="Left indent"
         aria-orientation="horizontal"
         aria-valuenow="0"
         aria-valuemin="0"
@@ -1486,7 +1572,7 @@
         class="ruler-indent-handle"
         id="hRightHandle"
         role="slider"
-        aria-label="Indent kanan"
+        aria-label="Right indent"
         aria-orientation="horizontal"
         aria-valuenow="0"
         aria-valuemin="0"
@@ -1503,12 +1589,12 @@
       <div
         class="ruler-margin-zone vertical top"
         id="vTopMarginZone"
-        title="Margin atas"
+        title="Top margin"
       ></div>
       <div
         class="ruler-margin-zone vertical bottom"
         id="vBottomMarginZone"
-        title="Margin bawah"
+        title="Bottom margin"
       ></div>
       <div class="ruler-drag-tooltip" id="vDragTooltip" hidden></div>
     </div>
@@ -1531,7 +1617,7 @@
 
     <!-- Floating page indicator -->
     <div class="page-indicator" id="pageStatus" aria-live="polite">
-      Halaman 1 dari 1
+      Page 1 of 1
     </div>
 
     <!-- ============ NAVIGATION PANE ============ -->
@@ -1539,32 +1625,37 @@
       <button
         class="nav__toggle"
         id="navToggle"
-        aria-label="Buka navigasi"
+        aria-label="Open navigation"
         aria-expanded="false"
-        title="Buka navigasi"
+        title="Open navigation"
       >
         <iconify-icon icon="bx:menu" width="20" height="20"></iconify-icon>
       </button>
-      <aside class="nav__panel-shell" id="navPanel" aria-label="Navigasi" inert>
+      <aside
+        class="nav__panel-shell"
+        id="navPanel"
+        aria-label="Navigation"
+        inert
+      >
         <div class="nav__header">
           <button
             class="nav__close"
             id="navClose"
-            aria-label="Tutup navigasi"
-            title="Tutup navigasi"
+            aria-label="Close navigation"
+            title="Close navigation"
           >
             <iconify-icon icon="bx:arrow-back" width="20" height="20"
             ></iconify-icon>
           </button>
-          <h2 class="nav__title">Navigasi</h2>
+          <h2 class="nav__title">Navigation</h2>
         </div>
-        <div class="nav__tabs" role="tablist" aria-label="Navigasi">
+        <div class="nav__tabs" role="tablist" aria-label="Navigation">
           <button
             class="nav__tab nav__tab--selected"
             role="tab"
             id="navTabHeadings"
             aria-selected="true"
-            aria-controls="navPanelHeadings">Judul</button
+            aria-controls="navPanelHeadings">Headings</button
           >
           <button
             class="nav__tab"
@@ -1572,7 +1663,7 @@
             id="navTabFind"
             aria-selected="false"
             aria-controls="navPanelFind"
-            tabindex="-1">Temukan</button
+            tabindex="-1">Find</button
           >
         </div>
         <div
@@ -1592,13 +1683,13 @@
               type="search"
               class="nav__search-input"
               id="navHeadingFilter"
-              placeholder="Saring judul"
-              aria-label="Saring judul"
+              placeholder="Filter headings"
+              aria-label="Filter headings"
             />
             <button
               class="nav__search-clear"
               id="navHeadingClear"
-              aria-label="Bersihkan saringan"
+              aria-label="Clear filter"
               hidden
             >
               <iconify-icon icon="bx:x" width="16" height="16"></iconify-icon>
@@ -1624,24 +1715,24 @@
               type="search"
               class="nav__search-input"
               id="navFindInput"
-              placeholder="Cari di dokumen"
-              aria-label="Cari di dokumen"
+              placeholder="Find in document"
+              aria-label="Find in document"
             />
             <button
               class="nav__search-clear"
               id="navFindClear"
-              aria-label="Bersihkan pencarian"
+              aria-label="Clear search"
               hidden
             >
               <iconify-icon icon="bx:x" width="16" height="16"></iconify-icon>
             </button>
           </div>
-          <div class="nav__options" role="group" aria-label="Opsi pencarian">
+          <div class="nav__options" role="group" aria-label="Find options">
             <label class="nav__option">
-              <input type="checkbox" id="navMatchCase" /> Cocokkan huruf besar/kecil
+              <input type="checkbox" id="navMatchCase" /> Match case
             </label>
             <label class="nav__option">
-              <input type="checkbox" id="navWholeWord" /> Seluruh kata
+              <input type="checkbox" id="navWholeWord" /> Whole word
             </label>
           </div>
           <div class="nav__resultbar">
@@ -1650,7 +1741,7 @@
               <button
                 class="nav__stepper"
                 id="navPrev"
-                aria-label="Hasil sebelumnya"
+                aria-label="Previous match"
                 disabled
               >
                 <iconify-icon icon="bx:chevron-up" width="18" height="18"
@@ -1659,7 +1750,7 @@
               <button
                 class="nav__stepper"
                 id="navNext"
-                aria-label="Hasil berikutnya"
+                aria-label="Next match"
                 disabled
               >
                 <iconify-icon icon="bx:chevron-down" width="18" height="18"
@@ -1675,10 +1766,10 @@
 
   <!-- ============ PAGE SETUP DIALOG ============ -->
   <dialog id="pageSetupDialog">
-    <div class="dialog-title">Pengaturan Halaman</div>
+    <div class="dialog-title">Page Setup</div>
     <div class="dialog-body">
       <div class="dialog-row">
-        <label for="paperSize">Ukuran Kertas</label>
+        <label for="paperSize">Paper Size</label>
         <select id="paperSize" class="dialog-input">
           <option value="a4">A4 (210 × 297 mm)</option>
           <option value="letter">Letter (8.5 × 11 in)</option>
@@ -1686,14 +1777,14 @@
         </select>
       </div>
       <div class="dialog-row">
-        <label for="orientation">Orientasi</label>
+        <label for="orientation">Orientation</label>
         <select id="orientation" class="dialog-input">
-          <option value="portrait">Potret</option>
-          <option value="landscape">Lanskap</option>
+          <option value="portrait">Portrait</option>
+          <option value="landscape">Landscape</option>
         </select>
       </div>
       <div class="dialog-row">
-        <label for="marginTop">Atas (mm)</label>
+        <label for="marginTop">Top (mm)</label>
         <input
           id="marginTop"
           class="dialog-input"
@@ -1704,7 +1795,7 @@
         />
       </div>
       <div class="dialog-row">
-        <label for="marginBottom">Bawah (mm)</label>
+        <label for="marginBottom">Bottom (mm)</label>
         <input
           id="marginBottom"
           class="dialog-input"
@@ -1715,7 +1806,7 @@
         />
       </div>
       <div class="dialog-row">
-        <label for="marginLeft">Kiri (mm)</label>
+        <label for="marginLeft">Left (mm)</label>
         <input
           id="marginLeft"
           class="dialog-input"
@@ -1726,7 +1817,7 @@
         />
       </div>
       <div class="dialog-row">
-        <label for="marginRight">Kanan (mm)</label>
+        <label for="marginRight">Right (mm)</label>
         <input
           id="marginRight"
           class="dialog-input"
@@ -1737,17 +1828,16 @@
         />
       </div>
       <div class="dialog-row">
-        <label for="pageSetupScope">Terapkan ke</label>
+        <label for="pageSetupScope">Apply to</label>
         <select id="pageSetupScope" class="dialog-input">
-          <option value="document">Seluruh dokumen</option>
-          <option value="section">Bagian ini</option>
+          <option value="document">Whole document</option>
+          <option value="section">This section</option>
         </select>
       </div>
     </div>
     <div class="dialog-footer">
-      <button class="dialog-button" id="pageSetupCancel">Batal</button>
-      <button class="dialog-button primary" id="pageSetupApply">Terapkan</button
-      >
+      <button class="dialog-button" id="pageSetupCancel">Cancel</button>
+      <button class="dialog-button primary" id="pageSetupApply">Apply</button>
     </div>
   </dialog>
 
@@ -1756,7 +1846,7 @@
     class="contextmenu"
     id="contextMenu"
     role="menu"
-    aria-label="Menu konteks"
+    aria-label="Context menu"
     tabindex="-1"
   >
     <button class="contextmenu__item" data-cmd="cut" role="menuitem">
@@ -1764,7 +1854,7 @@
         ><iconify-icon icon="bx:cut" width="18" height="18"
         ></iconify-icon></span
       >
-      <span class="contextmenu__item-label">Potong</span>
+      <span class="contextmenu__item-label">Cut</span>
       <span class="contextmenu__item-shortcut">Ctrl+X</span>
     </button>
     <button class="contextmenu__item" data-cmd="copy" role="menuitem">
@@ -1772,7 +1862,7 @@
         ><iconify-icon icon="bx:copy" width="18" height="18"
         ></iconify-icon></span
       >
-      <span class="contextmenu__item-label">Salin</span>
+      <span class="contextmenu__item-label">Copy</span>
       <span class="contextmenu__item-shortcut">Ctrl+C</span>
     </button>
     <button class="contextmenu__item" data-cmd="paste" role="menuitem">
@@ -1780,7 +1870,7 @@
         ><iconify-icon icon="bx:paste" width="18" height="18"
         ></iconify-icon></span
       >
-      <span class="contextmenu__item-label">Tempel</span>
+      <span class="contextmenu__item-label">Paste</span>
       <span class="contextmenu__item-shortcut">Ctrl+V</span>
     </button>
     <button
@@ -1792,7 +1882,7 @@
         ><iconify-icon icon="bx:paste" width="18" height="18"
         ></iconify-icon></span
       >
-      <span class="contextmenu__item-label">Tempel tanpa format</span>
+      <span class="contextmenu__item-label">Paste without formatting</span>
       <span class="contextmenu__item-shortcut">Ctrl+Shift+V</span>
     </button>
     <div class="contextmenu__separator" role="separator"></div>
@@ -1801,7 +1891,7 @@
         ><iconify-icon icon="bx:trash" width="18" height="18"
         ></iconify-icon></span
       >
-      <span class="contextmenu__item-label">Hapus</span>
+      <span class="contextmenu__item-label">Delete</span>
       <span class="contextmenu__item-shortcut">Del</span>
     </button>
     <button class="contextmenu__item" data-cmd="selectAll" role="menuitem">
@@ -1809,7 +1899,7 @@
         ><iconify-icon icon="bx:select-multiple" width="18" height="18"
         ></iconify-icon></span
       >
-      <span class="contextmenu__item-label">Pilih semua</span>
+      <span class="contextmenu__item-label">Select all</span>
       <span class="contextmenu__item-shortcut">Ctrl+A</span>
     </button>
     <div class="contextmenu__separator" role="separator"></div>
@@ -1818,14 +1908,14 @@
         ><iconify-icon icon="bx:link" width="18" height="18"
         ></iconify-icon></span
       >
-      <span class="contextmenu__item-label">Sisipkan tautan</span>
+      <span class="contextmenu__item-label">Insert link</span>
     </button>
     <button class="contextmenu__item" data-slot="format.clear" role="menuitem">
       <span class="contextmenu__item-icon"
         ><iconify-icon icon="bx:eraser" width="18" height="18"
         ></iconify-icon></span
       >
-      <span class="contextmenu__item-label">Hapus format</span>
+      <span class="contextmenu__item-label">Clear formatting</span>
     </button>
     <button
       class="contextmenu__item"
@@ -1836,7 +1926,7 @@
         ><iconify-icon icon="bx:paragraph" width="18" height="18"
         ></iconify-icon></span
       >
-      <span class="contextmenu__item-label">Paragraf…</span>
+      <span class="contextmenu__item-label">Paragraph…</span>
     </button>
     <div class="contextmenu__table-section" id="contextMenuTableSection" hidden>
       <div class="contextmenu__separator" role="separator"></div>
@@ -1849,7 +1939,7 @@
           ><iconify-icon icon="bx:grid-horizontal" width="18" height="18"
           ></iconify-icon></span
         >
-        <span class="contextmenu__item-label">Sisipkan baris di atas</span>
+        <span class="contextmenu__item-label">Insert row above</span>
       </button>
       <button
         class="contextmenu__item"
@@ -1860,7 +1950,7 @@
           ><iconify-icon icon="bx:grid-horizontal" width="18" height="18"
           ></iconify-icon></span
         >
-        <span class="contextmenu__item-label">Sisipkan baris di bawah</span>
+        <span class="contextmenu__item-label">Insert row below</span>
       </button>
       <div class="contextmenu__separator" role="separator"></div>
       <button
@@ -1872,7 +1962,7 @@
           ><iconify-icon icon="bx:grid-vertical" width="18" height="18"
           ></iconify-icon></span
         >
-        <span class="contextmenu__item-label">Sisipkan kolom di kiri</span>
+        <span class="contextmenu__item-label">Insert column left</span>
       </button>
       <button
         class="contextmenu__item"
@@ -1883,7 +1973,7 @@
           ><iconify-icon icon="bx:grid-vertical" width="18" height="18"
           ></iconify-icon></span
         >
-        <span class="contextmenu__item-label">Sisipkan kolom di kanan</span>
+        <span class="contextmenu__item-label">Insert column right</span>
       </button>
       <div class="contextmenu__separator" role="separator"></div>
       <button
@@ -1895,7 +1985,7 @@
           ><iconify-icon icon="bx:trash" width="18" height="18"
           ></iconify-icon></span
         >
-        <span class="contextmenu__item-label">Hapus baris</span>
+        <span class="contextmenu__item-label">Delete row</span>
       </button>
       <button
         class="contextmenu__item contextmenu__item--danger"
@@ -1906,7 +1996,7 @@
           ><iconify-icon icon="bx:trash" width="18" height="18"
           ></iconify-icon></span
         >
-        <span class="contextmenu__item-label">Hapus kolom</span>
+        <span class="contextmenu__item-label">Delete column</span>
       </button>
       <button
         class="contextmenu__item contextmenu__item--danger"
@@ -1917,29 +2007,30 @@
           ><iconify-icon icon="bx:trash" width="18" height="18"
           ></iconify-icon></span
         >
-        <span class="contextmenu__item-label">Hapus tabel</span>
+        <span class="contextmenu__item-label">Delete table</span>
       </button>
       <div class="contextmenu__separator" role="separator"></div>
       <div class="contextmenu__table-align">
-        <span class="contextmenu__table-align-label">Perataan vertikal sel</span
+        <span class="contextmenu__table-align-label"
+          >Cell vertical alignment</span
         >
         <div
           class="contextmenu__table-align-buttons"
           role="group"
-          aria-label="Perataan vertikal sel"
+          aria-label="Cell vertical alignment"
         >
-          <button class="contextmenu__align-btn" data-align="top" title="Atas"
-            >Atas</button
+          <button class="contextmenu__align-btn" data-align="top" title="Top"
+            >Top</button
           >
           <button
             class="contextmenu__align-btn"
             data-align="center"
-            title="Tengah">Tengah</button
+            title="Center">Center</button
           >
           <button
             class="contextmenu__align-btn"
             data-align="bottom"
-            title="Bawah">Bawah</button
+            title="Bottom">Bottom</button
           >
         </div>
       </div>
@@ -1952,31 +2043,31 @@
       class="docx-dialog"
       role="dialog"
       aria-modal="true"
-      aria-label="Paragraf"
+      aria-label="Paragraph"
       id="paragraphDialog"
     >
       <div class="docx-dialog__header">
-        <span class="docx-dialog__title">Paragraf</span>
+        <span class="docx-dialog__title">Paragraph</span>
       </div>
       <div class="docx-dialog__body">
         <div class="docx-dialog__columns">
           <div class="docx-dialog__column">
-            <div class="docx-dialog__section-label">Umum</div>
+            <div class="docx-dialog__section-label">General</div>
             <div class="docx-dialog__row">
               <label class="docx-dialog__label" for="pdAlignment"
-                >Perataan</label
+                >Alignment</label
               >
               <select class="docx-dialog__select" id="pdAlignment">
-                <option value="left">Kiri</option>
-                <option value="center">Tengah</option>
-                <option value="right">Kanan</option>
-                <option value="both">Rata kanan-kiri</option>
+                <option value="left">Left</option>
+                <option value="center">Center</option>
+                <option value="right">Right</option>
+                <option value="both">Justified</option>
               </select>
             </div>
-            <div class="docx-dialog__section-label">Indentasi</div>
+            <div class="docx-dialog__section-label">Indentation</div>
             <div class="docx-dialog__row">
               <label class="docx-dialog__label" for="pdIndentLeft"
-                >Sebelum teks</label
+                >Before text</label
               >
               <input
                 type="number"
@@ -1986,11 +2077,11 @@
                 step="0.1"
                 value="0"
               />
-              <span class="docx-dialog__unit">in</span>
+              <span class="docx-dialog__unit">mm</span>
             </div>
             <div class="docx-dialog__row">
               <label class="docx-dialog__label" for="pdIndentRight"
-                >Setelah teks</label
+                >After text</label
               >
               <input
                 type="number"
@@ -2000,19 +2091,18 @@
                 step="0.1"
                 value="0"
               />
-              <span class="docx-dialog__unit">in</span>
+              <span class="docx-dialog__unit">mm</span>
             </div>
             <div class="docx-dialog__row">
-              <label class="docx-dialog__label" for="pdSpecial">Khusus</label>
+              <label class="docx-dialog__label" for="pdSpecial">Special</label>
               <select class="docx-dialog__select" id="pdSpecial">
-                <option value="none">(tidak ada)</option>
-                <option value="firstLine">Baris pertama</option>
-                <option value="hanging">Gantung</option>
+                <option value="none">(none)</option>
+                <option value="firstLine">First line</option>
+                <option value="hanging">Hanging</option>
               </select>
             </div>
             <div class="docx-dialog__row" id="pdSpecialByRow">
-              <label class="docx-dialog__label" for="pdSpecialBy">Sebesar</label
-              >
+              <label class="docx-dialog__label" for="pdSpecialBy">By</label>
               <input
                 type="number"
                 class="docx-dialog__input"
@@ -2021,14 +2111,14 @@
                 step="0.1"
                 value="0"
               />
-              <span class="docx-dialog__unit">in</span>
+              <span class="docx-dialog__unit">mm</span>
             </div>
           </div>
           <div class="docx-dialog__column">
-            <div class="docx-dialog__section-label">Spasi</div>
+            <div class="docx-dialog__section-label">Spacing</div>
             <div class="docx-dialog__row">
               <label class="docx-dialog__label" for="pdSpaceBefore"
-                >Sebelum</label
+                >Before</label
               >
               <input
                 type="number"
@@ -2041,9 +2131,7 @@
               <span class="docx-dialog__unit">pt</span>
             </div>
             <div class="docx-dialog__row">
-              <label class="docx-dialog__label" for="pdSpaceAfter"
-                >Setelah</label
-              >
+              <label class="docx-dialog__label" for="pdSpaceAfter">After</label>
               <input
                 type="number"
                 class="docx-dialog__input"
@@ -2056,16 +2144,16 @@
             </div>
             <div class="docx-dialog__row">
               <label class="docx-dialog__label" for="pdLineRule"
-                >Spasi baris</label
+                >Line spacing</label
               >
               <select class="docx-dialog__select" id="pdLineRule">
-                <option value="multiple">Kelipatan</option>
-                <option value="atLeast">Minimal</option>
-                <option value="exact">Tepat</option>
+                <option value="multiple">Multiple</option>
+                <option value="atLeast">At least</option>
+                <option value="exact">Exactly</option>
               </select>
             </div>
             <div class="docx-dialog__row">
-              <label class="docx-dialog__label" for="pdLineValue">Pada</label>
+              <label class="docx-dialog__label" for="pdLineValue">At</label>
               <input
                 type="number"
                 class="docx-dialog__input"
@@ -2077,25 +2165,21 @@
               <span class="docx-dialog__unit" id="pdLineUnit"></span>
             </div>
             <label class="docx-dialog__checkbox-row">
-              <input type="checkbox" id="pdContextualSpacing" />Jangan tambah
-              spasi antar paragraf dengan gaya yang sama
+              <input type="checkbox" id="pdContextualSpacing" />Don't add space
+              between paragraphs of the same style
             </label>
-            <div class="docx-dialog__section-label">Paginasi</div>
+            <div class="docx-dialog__section-label">Pagination</div>
             <label class="docx-dialog__checkbox-row">
-              <input type="checkbox" id="pdKeepNext" />Pertahankan dengan
-              berikutnya
-            </label>
-            <label class="docx-dialog__checkbox-row">
-              <input type="checkbox" id="pdWidowControl" checked />Kontrol
-              janda/yatim
+              <input type="checkbox" id="pdKeepNext" />Keep with next
             </label>
             <label class="docx-dialog__checkbox-row">
-              <input type="checkbox" id="pdKeepLines" />Pertahankan baris
-              bersama
+              <input type="checkbox" id="pdWidowControl" checked />Widow control
             </label>
             <label class="docx-dialog__checkbox-row">
-              <input type="checkbox" id="pdPageBreakBefore" />Pindah halaman
-              sebelum
+              <input type="checkbox" id="pdKeepLines" />Keep lines together
+            </label>
+            <label class="docx-dialog__checkbox-row">
+              <input type="checkbox" id="pdPageBreakBefore" />Page break before
             </label>
           </div>
         </div>
@@ -2103,7 +2187,7 @@
       <div class="docx-dialog__footer">
         <span class="docx-dialog__error" id="pdError" role="alert"></span>
         <button type="button" class="docx-dialog__button" id="pdCancel"
-          >Batal</button
+          >Cancel</button
         >
         <button
           type="button"
@@ -2114,9 +2198,50 @@
     </div>
   </div>
 
+  <!-- ============ DISCARD CONFIRM DIALOG ============ -->
+  <div class="docx-dialog-overlay" id="discardOverlay" hidden>
+    <div
+      class="docx-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Discard changes"
+      id="discardDialog"
+    >
+      <div class="docx-dialog__header">
+        <span class="docx-dialog__title">Discard unsaved changes?</span>
+      </div>
+      <div class="docx-dialog__body">
+        <p class="docx-dialog__message">
+          Your current document has unsaved changes. Opening or creating a new
+          document will discard them.
+        </p>
+      </div>
+      <div class="docx-dialog__footer">
+        <button type="button" class="docx-dialog__button" id="discardCancel"
+          >Cancel</button
+        >
+        <button
+          type="button"
+          class="docx-dialog__button docx-dialog__button--primary"
+          id="discardConfirm">Discard</button
+        >
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ LOADING OVERLAY ============ -->
+  <div class="loading-overlay" id="loadingOverlay" hidden>
+    <div class="loading-overlay__card" role="status" aria-live="polite">
+      <div class="loading-overlay__spinner"></div>
+      <span class="loading-overlay__label" id="loadingLabel"
+        >Opening document…</span
+      >
+    </div>
+  </div>
+
   <!-- ============ ERROR ============ -->
   <div id="error" class="error hidden">
-    <h3>Kesalahan</h3>
+    <h3>Error</h3>
     <pre id="errorText"></pre>
   </div>
 </div>

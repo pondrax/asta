@@ -456,6 +456,10 @@
   }, 500);
 
   $effect(() => {
+    if (app.pendingSignFile) {
+      files = [...files, app.pendingSignFile];
+      app.pendingSignFile = null;
+    }
     if (files.length > 0) {
       documents = Object.fromEntries(files.map((file) => [createId(10), file]));
       activeIndex = Object.keys(documents)[0];
@@ -560,7 +564,7 @@
       <div class="grow min-h-0 overflow-y-auto">
         <Preview file={previewFile} {hasSignature}>
           {#snippet children(scale, pageSizes, gutter)}
-            {#each signatures as sign}
+            {#each signatures as sign (sign.id)}
               {@const sumPrevHeight = pageSizes
                 .slice(0, sign.page - 1)
                 .reduce((acc, cur) => acc + cur.height + gutter, 0)}
@@ -992,7 +996,7 @@
       <ul
         class=" w-full min-h-30 max-h-100 overflow-y-auto p-0 list-decimal pl-12"
       >
-        {#each Object.entries(item.documents) as [id, file]}
+        {#each Object.entries(item.documents) as [id, file] (id)}
           {@const result = signResults.find((r) => r.id === id)}
           <li>
             <div
@@ -1404,7 +1408,7 @@
       <div class="font-semibold text-sm">Seberapa puas Anda?</div>
       <div class="rating rating-lg mt-2">
         <input type="radio" name="survey-rating" class="rating-hidden" />
-        {#each [1, 2, 3, 4, 5] as n}
+        {#each [1, 2, 3, 4, 5] as n (n)}
           <input
             type="radio"
             name="survey-rating"

@@ -95,7 +95,12 @@
                 <summary>Tanda Tangan</summary>
                 <ul>
                   <li><a href="/sign">Upload & Tanda Tangan</a></li>
-                  <li><a href="/editor">Buat Dokumen</a></li>
+                  <li>
+                    <a href="/editor"
+                      >Buat Dokumen
+                      <span class="badge badge-xs ml-auto">baru</span>
+                    </a>
+                  </li>
                   <li><a href="/templates">Template Dokumen</a></li>
                   <li>
                     <a href="/helpdesk">Helpdesk Layanan</a>
@@ -706,7 +711,10 @@
                           ? 'text-primary opacity-100'
                           : 'opacity-40 group-hover:opacity-100'}"
                       ></iconify-icon>
-                      <span>Buat Dokumen</span>
+                      <div>
+                        Buat Dokumen
+                        <span class="badge badge-sm badge-primary">baru</span>
+                      </div>
                     </a>
                   </li>
                 </ul>

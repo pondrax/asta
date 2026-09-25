@@ -6,6 +6,7 @@
       "name": "asta",
       "dependencies": {
         "@docx-editor.dev/core": "2.22.0",
+        "@docx-editor.dev/docx-to-markdown": "2.22.0",
         "@docx-editor.dev/docx-to-pdf": "2.22.0",
         "@docx-editor.dev/fonts": "2.22.0",
         "@docx-editor.dev/i18n": "2.22.0",
@@ -53,6 +54,8 @@
     "@ark/util": ["@ark/util@0.56.2", "", {}, "sha512-9kU2sUE38FZEGG7l3hamYMBieLYEJh2L1mrYD2eXpT+78EnQSV1bhjxJhnxGBMSTbtwpBSDNSK+K60WvaI/DTQ=="],
 
     "@docx-editor.dev/core": ["@docx-editor.dev/core@2.22.0", "", { "dependencies": { "@docx-editor.dev/i18n": "^2.22.0", "bidi-js": "1.1.0", "emf-converter": "2.0.2", "fast-xml-parser": "^5.10.1", "fflate": "^0.8.2", "harfbuzzjs": "1.6.1", "prosemirror-commands": "^1.7.1", "prosemirror-keymap": "^1.2.3", "prosemirror-model": "^1.25.4", "prosemirror-state": "^1.4.4", "prosemirror-view": "^1.41.8", "utif2": "4.1.0" }, "peerDependencies": { "pdf-lib": "^1.17.1", "yjs": "^13.6.0" }, "optionalPeers": ["pdf-lib", "yjs"] }, "sha512-Umwc4eoPts0qVfL0riJcK9u5hPYEj41yOWC7aBKRTUhZUD+PULEDO3O1Ouazn4Ti5eQqLCbg2EcjJIt8kUTuhw=="],
+
+    "@docx-editor.dev/docx-to-markdown": ["@docx-editor.dev/docx-to-markdown@2.22.0", "", { "dependencies": { "@docx-editor.dev/fonts": "~2.22.0", "fflate": "^0.8.2" }, "peerDependencies": { "@docx-editor.dev/core": "~2.22.0" } }, "sha512-9s/h2n5Tq4fytORd6a6d5dsF6D8k8OfVNz5sjAZt+ZuoT9Ewt4feG4MTWosBcNRJ319XR3vdtz0AnKqmm4jHsg=="],
 
     "@docx-editor.dev/docx-to-pdf": ["@docx-editor.dev/docx-to-pdf@2.22.0", "", { "dependencies": { "@docx-editor.dev/fonts": "~2.22.0", "fontkit": "2.0.4", "pdf-lib": "1.17.1" }, "peerDependencies": { "@docx-editor.dev/core": "~2.22.0" } }, "sha512-/T3QGjT3uCosXY83IXJwVo5DvOrv78D7LnNcPFidZO/B5O9q4misNpsYsxDZcIoMOFby8uJPpHPlhYpcDkQ6dw=="],
 

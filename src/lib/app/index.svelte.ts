@@ -2,12 +2,14 @@ export const app = $state<{
   theme: string;
   showTour: boolean;
   showPassphrase: boolean;
+  pendingSignFile: File | null;
   toasts: { id: number; type: "success" | "error"; message: string }[];
   showToast: (type: "success" | "error", message: string, duration?: number) => void;
 }>({
   theme: "light",
   showTour: false,
   showPassphrase: false,
+  pendingSignFile: null,
   toasts: [],
   showToast(type: "success" | "error", message: string, duration = 3000) {
     const id = Date.now();

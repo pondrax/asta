@@ -48,6 +48,7 @@
   },
   "dependencies": {
     "@docx-editor.dev/core": "2.22.0",
+    "@docx-editor.dev/docx-to-markdown": "2.22.0",
     "@docx-editor.dev/docx-to-pdf": "2.22.0",
     "@docx-editor.dev/fonts": "2.22.0",
     "@docx-editor.dev/i18n": "2.22.0",

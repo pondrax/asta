@@ -15,6 +15,13 @@ export default defineConfig({
 			outdir: './src/lib/paraglide'
 		})
 	],
+	optimizeDeps: {
+		exclude: [
+			'@docx-editor.dev/core',
+			'@docx-editor.dev/docx-to-markdown',
+			'@docx-editor.dev/fonts'
+		]
+	},
 	test: {
 		expect: { requireAssertions: true },
 		projects: [
@@ -30,6 +37,7 @@ export default defineConfig({
 		]
 	},
 	build: {
+		assetsInlineLimit: 0,
 		chunkSizeWarningLimit: 1000 // in kB, e.g., 1000 kB
 	}
 });
