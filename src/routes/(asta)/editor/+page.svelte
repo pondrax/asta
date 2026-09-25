@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
-  import { goto } from "$app/navigation";
   import { app } from "$lib/app/index.svelte";
+  import { stashSignFile } from "$lib/utils/sign-handoff";
   import { setupDocxEditor } from "./editor-logic";
   import "./editor.css";
 
@@ -32,9 +32,16 @@
       setTheme: (t) => {
         app.theme = t;
       },
-      onSignPdf: async (file) => {
-        app.pendingSignFile = file;
-        await goto("/sign");
+      onSignPdf: async (file, tab) => {
+        // Park the PDF in IndexedDB first — a new tab can't see this tab's
+        // memory, so the key in the URL is what carries the document across.
+        const blobId = await stashSignFile(file);
+        const url = `/sign?blob=${blobId}`;
+        if (tab && !tab.closed) {
+          tab.location.href = url;
+        } else {
+          window.open(url, "_blank", "noopener");
+        }
       },
     });
   });
@@ -73,8 +80,20 @@
         <!-- ============ MENU BAR ============ -->
         <div class="menu-bar">
           <div class="menu h-fit">
-            <button class="menu-button">File</button>
-            <div class="menu-popup">
+            <button
+              class="menu-button"
+              type="button"
+              id="fileMenuButton"
+              aria-haspopup="true"
+              aria-expanded="false"
+              aria-controls="fileMenuPopup">File</button
+            >
+            <div
+              class="menu-popup"
+              id="fileMenuPopup"
+              role="menu"
+              aria-labelledby="fileMenuButton"
+            >
               <button class="menu-item" data-action="open">
                 <span class="menu-item-icon">
                   <iconify-icon icon="bx:folder-open" width="18" height="18"
@@ -137,8 +156,20 @@
           </div>
 
           <div class="menu">
-            <button class="menu-button">Format</button>
-            <div class="menu-popup">
+            <button
+              class="menu-button"
+              type="button"
+              id="formatMenuButton"
+              aria-haspopup="true"
+              aria-expanded="false"
+              aria-controls="formatMenuPopup">Format</button
+            >
+            <div
+              class="menu-popup"
+              id="formatMenuPopup"
+              role="menu"
+              aria-labelledby="formatMenuButton"
+            >
               <button class="menu-item" data-slot="paragraph.dialog">
                 <span class="menu-item-icon">
                   <iconify-icon icon="bx:paragraph" width="18" height="18"
@@ -164,8 +195,20 @@
           </div>
 
           <div class="menu">
-            <button class="menu-button">Insert</button>
-            <div class="menu-popup">
+            <button
+              class="menu-button"
+              type="button"
+              id="insertMenuButton"
+              aria-haspopup="true"
+              aria-expanded="false"
+              aria-controls="insertMenuPopup">Insert</button
+            >
+            <div
+              class="menu-popup"
+              id="insertMenuPopup"
+              role="menu"
+              aria-labelledby="insertMenuButton"
+            >
               <div class="menu-item menu-submenu" id="tableSubmenu">
                 <span class="menu-item-icon"
                   ><iconify-icon icon="bx:table" width="18" height="18"
@@ -242,8 +285,20 @@
           </div>
 
           <div class="menu">
-            <button class="menu-button">Review</button>
-            <div class="menu-popup">
+            <button
+              class="menu-button"
+              type="button"
+              id="reviewMenuButton"
+              aria-haspopup="true"
+              aria-expanded="false"
+              aria-controls="reviewMenuPopup">Review</button
+            >
+            <div
+              class="menu-popup"
+              id="reviewMenuPopup"
+              role="menu"
+              aria-labelledby="reviewMenuButton"
+            >
               <button class="menu-item" data-slot="review.paragraphMarks">
                 <span class="menu-item-icon">
                   <iconify-icon icon="bx:show" width="18" height="18"

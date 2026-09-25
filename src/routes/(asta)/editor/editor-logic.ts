@@ -289,7 +289,15 @@ export interface DocxEditorSetupOptions {
   showToast: (type: "success" | "error", msg: string) => void;
   getTheme: () => string;
   setTheme: (t: string) => void;
-  onSignPdf?: (file: File) => void | Promise<void>;
+  /**
+   * Hands the exported PDF to the signing page.
+   *
+   * `tab` is a window opened synchronously by the click handler, before the
+   * PDF exists. Open it up front because a `window.open` that only runs after
+   * the conversion finishes loses the user activation browsers require, and
+   * the tab would be blocked as unsolicited.
+   */
+  onSignPdf?: (file: File, tab: Window | null) => void | Promise<void>;
 }
 
 export interface DocxEditorSetupHandle {
@@ -533,6 +541,63 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
   const commandButtons = root.querySelectorAll<HTMLButtonElement>(".command[data-slot]");
   const menuItems = root.querySelectorAll<HTMLElement>(".menu-item[data-slot], .menu-item[data-action]");
   const menus = root.querySelectorAll<HTMLElement>(".menu");
+  const MENU_OPEN_HOVER = "hover";
+  const MENU_OPEN_CLICK = "click";
+  const MENU_CLOSE_DELAY_MS = 180;
+  const pendingMenuClose = new WeakMap<HTMLElement, number>();
+
+  /** Reflects the open state of a menu onto its trigger button for assistive tech. */
+  function syncMenuAria(menu: HTMLElement) {
+    const btn = menu.querySelector<HTMLElement>(".menu-button");
+    if (!btn) return;
+    const isOpen = menu.classList.contains("open");
+    btn.setAttribute("aria-expanded", isOpen ? "true" : "false");
+  }
+
+  /** Marks a top-level menu as open and remembers whether hover or click opened it. */
+  function openMenu(menu: HTMLElement, source: typeof MENU_OPEN_HOVER | typeof MENU_OPEN_CLICK) {
+    const pending = pendingMenuClose.get(menu);
+    if (pending !== undefined) {
+      window.clearTimeout(pending);
+      pendingMenuClose.delete(menu);
+    }
+    menu.classList.add("open");
+    menu.dataset.openSource = source;
+    syncMenuAria(menu);
+  }
+
+  /** Removes the open state (and its open source) from a single top-level menu. */
+  function closeMenu(menu: HTMLElement) {
+    menu.classList.remove("open");
+    delete menu.dataset.openSource;
+    syncMenuAria(menu);
+  }
+
+  /** Closes a hover-opened menu shortly after the pointer leaves, so it survives the trip to a submenu. */
+  function scheduleMenuClose(menu: HTMLElement) {
+    const pending = pendingMenuClose.get(menu);
+    if (pending !== undefined) window.clearTimeout(pending);
+    pendingMenuClose.set(
+      menu,
+      window.setTimeout(() => {
+        pendingMenuClose.delete(menu);
+        closeMenu(menu);
+      }, MENU_CLOSE_DELAY_MS),
+    );
+  }
+
+  /** Collapses every top-level menu, e.g. after a command runs or a click lands outside. */
+  function closeAllMenus() {
+    menus.forEach((menu) => {
+      const pending = pendingMenuClose.get(menu);
+      if (pending !== undefined) {
+        window.clearTimeout(pending);
+        pendingMenuClose.delete(menu);
+      }
+      closeMenu(menu);
+    });
+  }
+
   const zoomMenuItems = Array.from(root.querySelectorAll<HTMLButtonElement>("#zoomMenu .zoom-menu__item"));
   const moreZoomItems = Array.from(
     root.querySelectorAll<HTMLButtonElement>("#moreZoomPanel .toolbar-more__submenu-item"),
@@ -959,12 +1024,17 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
 
   async function openSignPage() {
     if (!editor || !opts.onSignPdf) return;
+    // Opened here, while the click is still being handled, so the browser
+    // treats it as user-initiated rather than a popup.
+    const tab = window.open("", "_blank");
     showLoading("Preparing document for signing…");
     try {
       const pdfFile = await createPdfFile();
-      await opts.onSignPdf(pdfFile);
+      await opts.onSignPdf(pdfFile, tab);
       hideError();
     } catch (error) {
+      // Don't strand an empty tab when the export or handoff fails.
+      tab?.close();
       showError(error instanceof Error ? error.message : String(error));
     } finally {
       hideLoading();
@@ -1097,7 +1167,7 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
 
       instance.focus();
       updateAll();
-      menus.forEach((menu) => menu.classList.remove("open"));
+      closeAllMenus();
       tableSubmenu?.classList.remove("open");
       setTableInsertOpen(false);
     } catch (error) {
@@ -2488,7 +2558,7 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
         if (action === "savePdf") void saveAsPdf();
         if (action === "print") printDocument();
         if (action === "pageSetup") openPageSetup();
-        menus.forEach((m) => m.classList.remove("open"));
+        closeAllMenus();
       }, { signal: eventSignal });
     });
 
@@ -2497,13 +2567,27 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
       btn?.addEventListener("click", (e) => {
         e.stopPropagation();
         const isOpen = menu.classList.contains("open");
-        menus.forEach((m) => m.classList.remove("open"));
-        if (!isOpen) menu.classList.add("open");
+        // Clicking a menu that hover already opened pins it open instead of
+        // dismissing it; clicking a pinned menu closes it.
+        const pin = isOpen && menu.dataset.openSource === MENU_OPEN_HOVER;
+        closeAllMenus();
+        if (pin || !isOpen) openMenu(menu, MENU_OPEN_CLICK);
+      }, { signal: eventSignal });
+      menu.addEventListener("mouseenter", () => {
+        // A menu pinned by click stays open while the pointer is elsewhere,
+        // but hovering any menu still takes over and switches the popup.
+        if (menu.dataset.openSource === MENU_OPEN_CLICK) return;
+        closeAllMenus();
+        openMenu(menu, MENU_OPEN_HOVER);
+      }, { signal: eventSignal });
+      menu.addEventListener("mouseleave", () => {
+        if (menu.dataset.openSource !== MENU_OPEN_HOVER) return;
+        scheduleMenuClose(menu);
       }, { signal: eventSignal });
     });
 
     document.addEventListener("click", () => {
-      menus.forEach((m) => m.classList.remove("open"));
+      closeAllMenus();
     }, { signal: eventSignal });
 
     buildTableGrid(toolbarTableGrid, toolbarTableGridCaption, insertTableFromGrid, eventSignal);

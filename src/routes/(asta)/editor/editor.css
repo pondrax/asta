@@ -10156,113 +10156,119 @@ a.docx-hyperlink:focus-visible {
   }
 
   /* ============ DARK MODE ============ */
+  /* DaisyUI publishes the active theme on <html data-theme> as --color-*
+     custom properties, and they inherit into this scope. Dark mode is
+     therefore derived from those tokens instead of a parallel hardcoded
+     palette, so the editor always matches Asta's active DaisyUI theme. */
   :scope:where(body.dark *) {
-    --workspace: #1f1f1f;
-    --toolbar: #262626;
-    --border: #3c3c3c;
-    --border-dark: #555;
-    --text: #e8e8e8;
-    --muted: #a0a0a0;
-    --hover: #3a3a3a;
-    --active: #1f3047;
-    --active-border: #4e9dff;
-    --blue: #4e9dff;
+    /* Surfaces follow DaisyUI's base ramp: base-100 is the raised surface,
+       base-200 is the document canvas, and base-300 is the workspace. */
+    --workspace: var(--color-base-300);
+    --toolbar: var(--color-base-100);
+    --border: color-mix(in oklab, var(--color-base-content) 12%, var(--color-base-100));
+    --border-dark: color-mix(in oklab, var(--color-base-content) 22%, var(--color-base-100));
+    --text: var(--color-base-content);
+    --muted: color-mix(in oklab, var(--color-base-content) 62%, var(--color-base-200));
+    --hover: color-mix(in oklab, var(--color-base-content) 10%, var(--color-base-200));
+    --active: color-mix(in oklab, var(--color-primary) 18%, var(--color-base-200));
+    --active-border: var(--color-primary);
+    --blue: var(--color-primary);
     color-scheme: dark;
     /* Dark --doc-* vars for custom UI outside #editor (dialogs, popups). */
-    --doc-surface: #1f1f1f;
-    --doc-card: #2d2d2d;
-    --doc-bg: #262626;
-    --doc-bg-subtle: #2d2d2d;
-    --doc-bg-hover: #3a3a3a;
-    --doc-bg-input: #333;
-    --doc-primary: #4e9dff;
-    --doc-primary-hover: #6cb0ff;
-    --doc-primary-light: #4e9dff2e;
-    --doc-accent: #4e9dff;
-    --doc-accent-bg: #1f3047;
-    --doc-on-primary: #1f1f1f;
-    --doc-toggle-active-bg: #4e9dff2e;
-    --doc-toggle-active-fg: #4e9dff;
-    --doc-comment-bg: #fdd66329;
-    --doc-comment-border: #fdd66380;
-    --doc-comment-active-bg: #fdd66352;
-    --doc-comment-active-border: #fdd663f2;
-    --doc-revision-format: #9fb3bf;
-    --doc-review-change-bar: #9e9e9e;
-    --doc-review-change-bar-simple: #f0524a;
-    --doc-text: #e8e8e8;
-    --doc-text-muted: #a0a0a0;
-    --doc-text-subtle: #6e6e6e;
-    --doc-text-placeholder: #6e6e6e;
-    --doc-border: #3c3c3c;
-    --doc-border-light: #353535;
-    --doc-border-dark: #555;
-    --doc-border-input: #4a4a4a;
-    --doc-error: #f28b82;
-    --doc-error-bg: #3c1f1d;
-    --doc-success: #81c995;
-    --doc-success-bg: #1f2e22;
-    --doc-warning: #fdd663;
-    --doc-warning-bg: #332a1a;
-    --doc-warning-text: #fdd663;
-    --doc-link: #6eb9ff;
-    --doc-shadow: #0006;
-    --doc-shadow-strong: #0009;
-    --doc-shadow-subtle: #0003;
-    --doc-card-shadow: 0 1px 3px #0006, 0 2px 6px #0003;
-    --doc-card-shadow-strong: 0 1px 3px #00000080, 0 4px 8px 3px #0000004d;
-    --doc-shadow-lg: 0 10px 15px -3px #00000080, 0 4px 6px -4px #00000080;
-    --doc-overlay: #000000b3;
+    --doc-surface: var(--color-base-100);
+    --doc-card: var(--color-base-200);
+    --doc-bg: var(--color-base-200);
+    --doc-bg-subtle: var(--color-base-300);
+    --doc-bg-hover: var(--color-base-300);
+    --doc-bg-input: color-mix(in oklab, var(--color-base-content) 8%, var(--color-base-200));
+    --doc-primary: var(--color-primary);
+    --doc-primary-hover: color-mix(in oklab, var(--color-primary) 82%, var(--color-base-content));
+    --doc-primary-light: color-mix(in oklab, var(--color-primary) 18%, transparent);
+    --doc-accent: var(--color-primary);
+    --doc-accent-bg: color-mix(in oklab, var(--color-primary) 18%, var(--color-base-200));
+    --doc-on-primary: var(--color-primary-content);
+    --doc-toggle-active-bg: color-mix(in oklab, var(--color-primary) 18%, transparent);
+    --doc-toggle-active-fg: var(--color-primary);
+    --doc-comment-bg: color-mix(in oklab, var(--color-warning) 18%, transparent);
+    --doc-comment-border: color-mix(in oklab, var(--color-warning) 50%, transparent);
+    --doc-comment-active-bg: color-mix(in oklab, var(--color-warning) 32%, transparent);
+    --doc-comment-active-border: var(--color-warning);
+    --doc-revision-format: var(--color-info);
+    --doc-review-change-bar: color-mix(in oklab, var(--color-base-content) 45%, transparent);
+    --doc-review-change-bar-simple: var(--color-error);
+    --doc-text: var(--color-base-content);
+    --doc-text-muted: var(--muted);
+    --doc-text-subtle: color-mix(in oklab, var(--color-base-content) 40%, var(--color-base-200));
+    --doc-text-placeholder: var(--doc-text-subtle);
+    --doc-border: var(--border);
+    --doc-border-light: color-mix(in oklab, var(--color-base-content) 8%, var(--color-base-100));
+    --doc-border-dark: var(--border-dark);
+    --doc-border-input: var(--border-dark);
+    --doc-error: var(--color-error);
+    --doc-error-bg: color-mix(in oklab, var(--color-error) 18%, var(--color-base-200));
+    --doc-success: var(--color-success);
+    --doc-success-bg: color-mix(in oklab, var(--color-success) 18%, var(--color-base-200));
+    --doc-warning: var(--color-warning);
+    --doc-warning-bg: color-mix(in oklab, var(--color-warning) 18%, var(--color-base-200));
+    --doc-warning-text: var(--color-warning);
+    --doc-link: var(--color-info);
+    --doc-shadow: oklch(0% 0 0 / .4);
+    --doc-shadow-strong: oklch(0% 0 0 / .6);
+    --doc-shadow-subtle: oklch(0% 0 0 / .2);
+    --doc-card-shadow: 0 1px 3px oklch(0% 0 0 / .4), 0 2px 6px oklch(0% 0 0 / .2);
+    --doc-card-shadow-strong: 0 1px 3px oklch(0% 0 0 / .5), 0 4px 8px 3px oklch(0% 0 0 / .3);
+    --doc-shadow-lg: 0 10px 15px -3px oklch(0% 0 0 / .5), 0 4px 6px -4px oklch(0% 0 0 / .5);
+    --doc-overlay: oklch(0% 0 0 / .7);
     --doc-hf-dim-opacity: .4;
-    --doc-focus-ring: #4e9dff73;
-    --doc-selection: #4e9dff52;
-    --doc-page-bg: #ccc;
-    --doc-page-bg-rendered: #333;
-    --doc-caret: #e8e8e8;
-    --doc-caret-contrast: #202124;
+    --doc-focus-ring: color-mix(in oklab, var(--color-primary) 45%, transparent);
+    --doc-selection: color-mix(in oklab, var(--color-primary) 32%, transparent);
+    --doc-page-bg: var(--color-base-200);
+    --doc-page-bg-rendered: var(--color-base-200);
+    --doc-caret: var(--color-base-content);
+    --doc-caret-contrast: var(--color-base-100);
   }
 
   :scope:where(body.dark *) .topbar {
-    background: #262626;
-    border-bottom-color: #3c3c3c;
+    background: var(--toolbar);
+    border-bottom-color: var(--border);
   }
 
   :scope:where(body.dark *) .header-logo {
-    color: #e8e8e8;
+    color: var(--text);
   }
 
   :scope:where(body.dark *) .filename-input {
-    color: #e8e8e8;
+    color: var(--text);
   }
 
   :scope:where(body.dark *) .filename-input:focus {
-    background: #333;
-    border-color: #4e9dff;
+    background: var(--doc-bg-input);
+    border-color: var(--blue);
   }
 
   :scope:where(body.dark *) .filename-input::placeholder {
-    color: #6e6e6e;
+    color: var(--doc-text-placeholder);
   }
 
   :scope:where(body.dark *) .filename-wrap {
-    background: #262626;
-    border-color: #3c3c3c;
+    background: var(--toolbar);
+    border-color: var(--border);
   }
 
   :scope:where(body.dark *) .filename-wrap .filename-input {
-    background: #333;
-    border-color: #3c3c3c;
+    background: var(--doc-bg-input);
+    border-color: var(--border);
   }
 
   :scope:where(body.dark *) .header-btn {
-    background: #262626;
-    border-color: #3c3c3c;
-    color: #a0a0a0;
+    background: var(--toolbar);
+    border-color: var(--border);
+    color: var(--muted);
   }
 
   :scope:where(body.dark *) .header-btn:hover {
-    background: #3a3a3a;
-    color: #e8e8e8;
+    background: var(--hover);
+    color: var(--text);
   }
 
   :scope:where(body.dark *) .header-btn--icon .icon-sun {
@@ -10274,39 +10280,39 @@ a.docx-hyperlink:focus-visible {
   }
 
   :scope:where(body.dark *) .menu-button {
-    color: #e8e8e8;
+    color: var(--text);
   }
 
   :scope:where(body.dark *) .menu-button:hover,
   :scope:where(body.dark *) .menu.open .menu-button {
-    background: #3a3a3a;
+    background: var(--hover);
   }
 
   :scope:where(body.dark *) .menu-popup {
-    background: #262626;
-    border-color: #555;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, .5);
+    background: var(--toolbar);
+    border-color: var(--border-dark);
+    box-shadow: var(--doc-shadow-lg);
   }
 
   :scope:where(body.dark *) .menu-item {
-    color: #e8e8e8;
+    color: var(--text);
   }
 
   :scope:where(body.dark *) .menu-item:hover {
-    background: #3a3a3a;
+    background: var(--hover);
   }
 
   :scope:where(body.dark *) .menu-shortcut {
-    color: #6e6e6e;
+    color: var(--doc-text-subtle);
   }
 
   :scope:where(body.dark *) .menu-separator {
-    background: #3c3c3c;
+    background: var(--border);
   }
 
   :scope:where(body.dark *) .table-grid__cell {
-    background: #333;
-    border-color: #3c3c3c;
+    background: var(--doc-bg-input);
+    border-color: var(--border);
   }
 
   :scope:where(body.dark *) .table-grid__cell:hover,
@@ -10316,413 +10322,379 @@ a.docx-hyperlink:focus-visible {
   }
 
   :scope:where(body.dark *) .toolbar {
-    background: #2d2d2d;
+    background: var(--doc-card);
   }
 
   :scope:where(body.dark *) .toolbar-separator {
-    background: #3c3c3c;
+    background: var(--border);
   }
 
   :scope:where(body.dark *) .tool {
-    color: #e8e8e8;
+    color: var(--text);
   }
 
   :scope:where(body.dark *) .tool:hover:not(:disabled) {
-    background: #3a3a3a;
+    background: var(--hover);
   }
 
   :scope:where(body.dark *) .tool.active {
-    background: #1f3047;
-    border-color: #4e9dff;
-    color: #4e9dff;
+    background: var(--active);
+    border-color: var(--active-border);
+    color: var(--blue);
   }
 
   :scope:where(body.dark *) .style-dropdown__trigger,
   :scope:where(body.dark *) .font-dropdown__trigger {
     background: transparent;
-    color: #e8e8e8;
+    color: var(--text);
   }
 
   :scope:where(body.dark *) .style-dropdown__trigger:hover,
   :scope:where(body.dark *) .style-dropdown__trigger:focus-visible,
   :scope:where(body.dark *) .font-dropdown__trigger:hover,
   :scope:where(body.dark *) .font-dropdown__trigger:focus-visible {
-    background: #3a3a3a;
+    background: var(--hover);
   }
 
   :scope:where(body.dark *) .style-dropdown__trigger[aria-expanded="true"],
   :scope:where(body.dark *) .font-dropdown__trigger[aria-expanded="true"] {
-    background: #3a3a3a;
+    background: var(--hover);
   }
 
   :scope:where(body.dark *) .style-dropdown__caret,
   :scope:where(body.dark *) .font-dropdown__caret {
-    color: #a0a0a0;
+    color: var(--muted);
   }
 
   :scope:where(body.dark *) .style-dropdown__menu,
   :scope:where(body.dark *) .font-dropdown__menu {
-    background: #262626;
-    border-color: #3c3c3c;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, .5), 0 4px 6px -4px rgba(0, 0, 0, .5);
+    background: var(--toolbar);
+    border-color: var(--border);
+    box-shadow: var(--doc-shadow-lg);
   }
 
   :scope:where(body.dark *) .font-dropdown__search {
-    background: #333;
-    border-color: #3c3c3c;
-    color: #e8e8e8;
+    background: var(--doc-bg-input);
+    border-color: var(--border);
+    color: var(--text);
   }
 
   :scope:where(body.dark *) .font-dropdown__search::placeholder {
-    color: #a0a0a0;
+    color: var(--muted);
   }
 
   :scope:where(body.dark *) .style-dropdown__item,
   :scope:where(body.dark *) .font-dropdown__item {
-    color: #e8e8e8;
+    color: var(--text);
   }
 
   :scope:where(body.dark *) .style-dropdown__item:hover,
   :scope:where(body.dark *) .font-dropdown__item:hover {
-    background: #3a3a3a;
+    background: var(--hover);
   }
 
   :scope:where(body.dark *) .font-size-stepper {
-    background: #2d2d2d;
-    color: #e8e8e8;
+    background: var(--doc-card);
+    color: var(--text);
   }
 
   :scope:where(body.dark *) .font-size-stepper input {
     background: transparent;
-    color: #e8e8e8;
+    color: var(--text);
+  }
+
+  /* The stepper's own button/input text is a hardcoded light grey in the
+     base rules, so it needs an explicit dark override. */
+  :scope:where(body.dark *) .font-size-stepper__button,
+  :scope:where(body.dark *) .font-size-stepper__input {
+    color: var(--text);
   }
 
   :scope:where(body.dark *) .toolbar-more__button {
-    color: #e8e8e8;
+    color: var(--text);
   }
 
   :scope:where(body.dark *) .toolbar-more__button:hover {
-    background: #3a3a3a;
+    background: var(--hover);
   }
 
   :scope:where(body.dark *) .toolbar-more__panel {
-    background: #262626;
-    border-color: #3c3c3c;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, .5), 0 4px 6px -4px rgba(0, 0, 0, .5);
+    background: var(--toolbar);
+    border-color: var(--border);
+    box-shadow: var(--doc-shadow-lg);
   }
 
   :scope:where(body.dark *) .toolbar-more__section+.toolbar-more__section {
-    border-top-color: #3c3c3c;
+    border-top-color: var(--border);
   }
 
   :scope:where(body.dark *) .toolbar-more__heading {
-    color: #a0a0a0;
+    color: var(--muted);
   }
 
   :scope:where(body.dark *) .toolbar-more__zoom-label,
   :scope:where(body.dark *) .toolbar-more__font-size-label {
-    color: #e8e8e8;
+    color: var(--text);
   }
 
   :scope:where(body.dark *) .toolbar-more__item {
-    color: #e8e8e8;
+    color: var(--text);
   }
 
   :scope:where(body.dark *) .toolbar-more__item:hover:not(:disabled) {
-    background: #3a3a3a;
+    background: var(--hover);
   }
 
   :scope:where(body.dark *) .toolbar-more__item iconify-icon {
-    color: #a0a0a0;
+    color: var(--muted);
   }
 
   :scope:where(body.dark *) .toolbar-more__caret {
-    color: #a0a0a0;
+    color: var(--muted);
   }
 
   :scope:where(body.dark *) .toolbar-more__submenu-panel {
-    background: #262626;
-    border-color: #3c3c3c;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, .5);
+    background: var(--toolbar);
+    border-color: var(--border);
+    box-shadow: var(--doc-shadow-lg);
   }
 
   :scope:where(body.dark *) .toolbar-more__submenu-item {
-    color: #e8e8e8;
+    color: var(--text);
   }
 
   :scope:where(body.dark *) .toolbar-more__submenu-item:hover:not(:disabled) {
-    background: #3a3a3a;
+    background: var(--hover);
   }
 
   :scope:where(body.dark *) .toolbar-more__submenu-item[data-selected] {
-    background: #1e3a5f;
-    color: #7ab8ff;
+    background: var(--active);
+    color: var(--blue);
   }
 
   :scope:where(body.dark *) .toolbar-more__search {
-    background: #333;
-    border-color: #3c3c3c;
-    color: #e8e8e8;
+    background: var(--doc-bg-input);
+    border-color: var(--border);
+    color: var(--text);
   }
 
   :scope:where(body.dark *) .toolbar-more__search::placeholder {
-    color: #a0a0a0;
+    color: var(--muted);
   }
 
   :scope:where(body.dark *) .mode__trigger {
-    color: #e8e8e8;
+    color: var(--text);
   }
 
   :scope:where(body.dark *) .mode__trigger:hover {
-    background: #3a3a3a;
+    background: var(--hover);
   }
 
   :scope:where(body.dark *) .mode__menu {
-    background: #262626;
-    border-color: #3c3c3c;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, .5), 0 4px 6px -4px rgba(0, 0, 0, .5);
+    background: var(--toolbar);
+    border-color: var(--border);
+    box-shadow: var(--doc-shadow-lg);
   }
 
   :scope:where(body.dark *) .mode__item {
-    color: #e8e8e8;
+    color: var(--text);
   }
 
   :scope:where(body.dark *) .mode__item:hover {
-    background: #3a3a3a;
+    background: var(--hover);
   }
 
-  :scope:where(body.dark *) .zoom-menu {
-    background: #262626;
-    border-color: #3c3c3c;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, .5), 0 4px 6px -4px rgba(0, 0, 0, .5);
+  :scope:where(body.dark *) .mode__hint {
+    color: var(--muted);
   }
 
-  :scope:where(body.dark *) .zoom-menu__item {
-    color: #e8e8e8;
-  }
-
-  :scope:where(body.dark *) .zoom-menu__item:hover {
-    background: #3a3a3a;
-  }
-
-  :scope:where(body.dark *) .zoom-menu__separator {
-    background: #3c3c3c;
-  }
-
+  /* The zoom stepper is a ghost control (transparent box) in both themes;
+     only its text colour and hover fill need to follow the theme. */
   :scope:where(body.dark *) .zoom-stepper {
-    /* Ghost style: keep transparent in dark mode too */
     background: transparent;
-    color: #e8e8e8;
+    color: var(--text);
   }
 
   :scope:where(body.dark *) .zoom-stepper__button {
-    color: #e8e8e8;
+    color: var(--text);
   }
 
   :scope:where(body.dark *) .zoom-stepper__button:hover {
-    background: #3a3a3a;
+    background: var(--hover);
   }
 
   :scope:where(body.dark *) .zoom-stepper__value {
-    color: #e8e8e8;
+    color: var(--text);
   }
 
   :scope:where(body.dark *) .editor-layout {
-    background: #1f1f1f;
+    background: var(--workspace);
   }
 
   :scope:where(body.dark *) .horizontal-ruler,
   :scope:where(body.dark *) .vertical-ruler,
   :scope:where(body.dark *) .ruler-corner {
-    background: #262626;
-    border-color: #3c3c3c;
+    background: var(--toolbar);
+    border-color: var(--border);
   }
 
   :scope:where(body.dark *) .horizontal-ruler-inner {
-    background: #262626;
-    border-color: #3c3c3c;
+    background: var(--toolbar);
+    border-color: var(--border);
   }
 
   :scope:where(body.dark *) .ruler-tick-horizontal,
   :scope:where(body.dark *) .ruler-tick-vertical {
-    background: #6e6e6e;
+    background: var(--muted);
   }
 
   :scope:where(body.dark *) .ruler-label-horizontal,
   :scope:where(body.dark *) .ruler-label-vertical {
-    color: #a0a0a0;
+    color: var(--muted);
   }
 
   :scope:where(body.dark *) .ruler-margin-zone {
-    background: #2d2d2d;
+    background: var(--doc-bg-subtle);
   }
 
   :scope:where(body.dark *) .ruler-indent-handle {
-    color: #a0a0a0;
+    color: var(--muted);
   }
 
+  /* .nav is a sibling of #editor, so the light .nav block above re-declares
+     the --doc-* tokens locally and shadows the inherited dark values. Re-point
+     them at DaisyUI's ramp so the navigation pane matches the theme. */
   :scope:where(body.dark *) .nav {
-    --doc-bg: #262626;
-    --doc-bg-hover: #3a3a3a;
-    --doc-border: #3c3c3c;
-    --doc-border-light: #353535;
-    --doc-border-dark: #555;
-    --doc-border-input: #4a4a4a;
-    --doc-text: #e8e8e8;
-    --doc-text-muted: #a0a0a0;
-    --doc-text-subtle: #6e6e6e;
-    --doc-shadow: rgba(0, 0, 0, .5);
-    --doc-shadow-subtle: rgba(0, 0, 0, .3);
-    --doc-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, .5), 0 4px 6px -4px rgba(0, 0, 0, .5);
-    --doc-primary: #4e9dff;
-    --doc-primary-hover: #6cb0ff;
-    --doc-primary-light: #4e9dff2e;
-    --doc-on-primary: #1f1f1f;
-    --doc-surface: #1f1f1f;
-    --doc-overlay: rgba(0, 0, 0, .7);
-    --doc-danger: #f28b82;
-    --doc-bg-input: #333;
-    color: #e8e8e8;
+    --doc-surface: var(--color-base-100);
+    --doc-bg: var(--color-base-200);
+    --doc-bg-hover: var(--color-base-300);
+    --doc-bg-input: color-mix(in oklab, var(--color-base-content) 8%, var(--color-base-200));
+    --doc-border: color-mix(in oklab, var(--color-base-content) 12%, var(--color-base-100));
+    --doc-border-light: color-mix(in oklab, var(--color-base-content) 8%, var(--color-base-100));
+    --doc-border-dark: color-mix(in oklab, var(--color-base-content) 22%, var(--color-base-100));
+    --doc-border-input: color-mix(in oklab, var(--color-base-content) 22%, var(--color-base-100));
+    --doc-text: var(--color-base-content);
+    --doc-text-muted: var(--muted);
+    --doc-text-subtle: color-mix(in oklab, var(--color-base-content) 40%, var(--color-base-200));
+    --doc-shadow: oklch(0% 0 0 / .4);
+    --doc-shadow-subtle: oklch(0% 0 0 / .2);
+    --doc-shadow-lg: 0 10px 15px -3px oklch(0% 0 0 / .5), 0 4px 6px -4px oklch(0% 0 0 / .5);
+    --doc-primary: var(--color-primary);
+    --doc-primary-hover: color-mix(in oklab, var(--color-primary) 82%, var(--color-base-content));
+    --doc-primary-light: color-mix(in oklab, var(--color-primary) 18%, transparent);
+    --doc-on-primary: var(--color-primary-content);
+    --doc-overlay: oklch(0% 0 0 / .7);
+    --doc-danger: var(--color-error);
+    color: var(--color-base-content);
   }
 
   :scope:where(body.dark *) .nav__toggle {
-    background: #3a3a3a;
-    border-color: #3c3c3c;
-    color: #e8e8e8;
+    background: var(--doc-bg-hover);
+    border-color: var(--doc-border-light);
+    color: var(--doc-text);
   }
 
   :scope:where(body.dark *) .nav__toggle:hover {
-    background: #3a3a3a;
+    background: var(--hover);
   }
 
   :scope:where(body.dark *) .nav__panel-shell {
     background: var(--workspace);
-    border-color: #3c3c3c;
+    border-color: var(--doc-border-light);
   }
 
   :scope:where(body.dark *) .nav__title {
-    color: #e8e8e8;
+    color: var(--doc-text);
   }
 
   :scope:where(body.dark *) .nav__tab {
-    color: #a0a0a0;
+    color: var(--doc-text-muted);
   }
 
   :scope:where(body.dark *) .nav__tab--selected {
-    color: #4e9dff;
-    border-bottom-color: #4e9dff;
+    color: var(--doc-primary);
+    border-bottom-color: var(--doc-primary);
   }
 
   :scope:where(body.dark *) .nav__searchbox {
-    background: #333;
-    border-color: #3c3c3c;
+    background: var(--doc-bg-input);
+    border-color: var(--doc-border-input);
   }
 
   :scope:where(body.dark *) .nav__search-icon {
-    color: #a0a0a0;
+    color: var(--doc-text-muted);
   }
 
   :scope:where(body.dark *) .nav__search-input {
-    color: #e8e8e8;
+    color: var(--doc-text);
   }
 
   :scope:where(body.dark *) .nav__list-item {
-    color: #e8e8e8;
+    color: var(--doc-text);
   }
 
   :scope:where(body.dark *) .nav__list-item:hover {
-    background: #3a3a3a;
-  }
-
-  :scope:where(body.dark *) .contextmenu {
-    background: #262626;
-    border-color: #3c3c3c;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, .5), 0 4px 6px -4px rgba(0, 0, 0, .5);
-  }
-
-  :scope:where(body.dark *) .contextmenu__item {
-    color: #e8e8e8;
-  }
-
-  :scope:where(body.dark *) .contextmenu__item:hover {
-    background: #3a3a3a;
-  }
-
-  :scope:where(body.dark *) .contextmenu__separator {
-    background: #3c3c3c;
-  }
-
-  :scope:where(body.dark *) .contextmenu__table-align-label {
-    color: #e8e8e8;
-  }
-
-  :scope:where(body.dark *) .contextmenu__align-btn {
-    border-color: #3c3c3c;
-    color: #e8e8e8;
-  }
-
-  :scope:where(body.dark *) .contextmenu__align-btn:hover {
-    background: #3a3a3a;
+    background: var(--hover);
   }
 
   :scope:where(body.dark *) .page-indicator {
-    background: rgba(0, 0, 0, .6);
+    background: var(--doc-overlay);
   }
 
   /* Dark mode for the core editor surface: the engine reads --doc-* vars
        from #editor, so we override them on the editor element itself. */
   :scope:where(body.dark *) #editor {
-    --doc-surface: #1f1f1f;
-    --doc-card: #2d2d2d;
-    --doc-bg: #262626;
-    --doc-bg-subtle: #2d2d2d;
-    --doc-bg-hover: #3a3a3a;
-    --doc-bg-input: #333;
-    --doc-primary: #4e9dff;
-    --doc-primary-hover: #6cb0ff;
-    --doc-primary-light: #4e9dff2e;
-    --doc-accent: #4e9dff;
-    --doc-accent-bg: #1f3047;
-    --doc-on-primary: #1f1f1f;
-    --doc-toggle-active-bg: #4e9dff2e;
-    --doc-toggle-active-fg: #4e9dff;
-    --doc-comment-bg: #fdd66329;
-    --doc-comment-border: #fdd66380;
-    --doc-comment-active-bg: #fdd66352;
-    --doc-comment-active-border: #fdd663f2;
-    --doc-revision-format: #9fb3bf;
-    --doc-review-change-bar: #9e9e9e;
-    --doc-review-change-bar-simple: #f0524a;
-    --doc-text: #e8e8e8;
-    --doc-text-muted: #a0a0a0;
-    --doc-text-subtle: #6e6e6e;
-    --doc-text-placeholder: #6e6e6e;
-    --doc-border: #3c3c3c;
-    --doc-border-light: #353535;
-    --doc-border-dark: #555;
-    --doc-border-input: #4a4a4a;
-    --doc-error: #f28b82;
-    --doc-error-bg: #3c1f1d;
-    --doc-success: #81c995;
-    --doc-success-bg: #1f2e22;
-    --doc-warning: #fdd663;
-    --doc-warning-bg: #332a1a;
-    --doc-warning-text: #fdd663;
-    --doc-link: #6eb9ff;
-    --doc-shadow: #0006;
-    --doc-shadow-strong: #0009;
-    --doc-shadow-subtle: #0003;
-    --doc-card-shadow: 0 1px 3px #0006, 0 2px 6px #0003;
-    --doc-card-shadow-strong: 0 1px 3px #00000080, 0 4px 8px 3px #0000004d;
-    --doc-shadow-lg: 0 10px 15px -3px #00000080, 0 4px 6px -4px #00000080;
-    --doc-overlay: #000000b3;
+    --doc-surface: var(--color-base-100);
+    --doc-card: var(--color-base-200);
+    --doc-bg: var(--color-base-200);
+    --doc-bg-subtle: var(--color-base-300);
+    --doc-bg-hover: var(--color-base-300);
+    --doc-bg-input: color-mix(in oklab, var(--color-base-content) 8%, var(--color-base-200));
+    --doc-primary: var(--color-primary);
+    --doc-primary-hover: color-mix(in oklab, var(--color-primary) 82%, var(--color-base-content));
+    --doc-primary-light: color-mix(in oklab, var(--color-primary) 18%, transparent);
+    --doc-accent: var(--color-primary);
+    --doc-accent-bg: color-mix(in oklab, var(--color-primary) 18%, var(--color-base-200));
+    --doc-on-primary: var(--color-primary-content);
+    --doc-toggle-active-bg: color-mix(in oklab, var(--color-primary) 18%, transparent);
+    --doc-toggle-active-fg: var(--color-primary);
+    --doc-comment-bg: color-mix(in oklab, var(--color-warning) 18%, transparent);
+    --doc-comment-border: color-mix(in oklab, var(--color-warning) 50%, transparent);
+    --doc-comment-active-bg: color-mix(in oklab, var(--color-warning) 32%, transparent);
+    --doc-comment-active-border: var(--color-warning);
+    --doc-revision-format: var(--color-info);
+    --doc-review-change-bar: color-mix(in oklab, var(--color-base-content) 45%, transparent);
+    --doc-review-change-bar-simple: var(--color-error);
+    --doc-text: var(--color-base-content);
+    --doc-text-muted: var(--muted);
+    --doc-text-subtle: color-mix(in oklab, var(--color-base-content) 40%, var(--color-base-200));
+    --doc-text-placeholder: var(--doc-text-subtle);
+    --doc-border: color-mix(in oklab, var(--color-base-content) 12%, var(--color-base-100));
+    --doc-border-light: color-mix(in oklab, var(--color-base-content) 8%, var(--color-base-100));
+    --doc-border-dark: color-mix(in oklab, var(--color-base-content) 22%, var(--color-base-100));
+    --doc-border-input: color-mix(in oklab, var(--color-base-content) 22%, var(--color-base-100));
+    --doc-error: var(--color-error);
+    --doc-error-bg: color-mix(in oklab, var(--color-error) 18%, var(--color-base-200));
+    --doc-success: var(--color-success);
+    --doc-success-bg: color-mix(in oklab, var(--color-success) 18%, var(--color-base-200));
+    --doc-warning: var(--color-warning);
+    --doc-warning-bg: color-mix(in oklab, var(--color-warning) 18%, var(--color-base-200));
+    --doc-warning-text: var(--color-warning);
+    --doc-link: var(--color-info);
+    --doc-shadow: oklch(0% 0 0 / .4);
+    --doc-shadow-strong: oklch(0% 0 0 / .6);
+    --doc-shadow-subtle: oklch(0% 0 0 / .2);
+    --doc-card-shadow: 0 1px 3px oklch(0% 0 0 / .4), 0 2px 6px oklch(0% 0 0 / .2);
+    --doc-card-shadow-strong: 0 1px 3px oklch(0% 0 0 / .5), 0 4px 8px 3px oklch(0% 0 0 / .3);
+    --doc-shadow-lg: 0 10px 15px -3px oklch(0% 0 0 / .5), 0 4px 6px -4px oklch(0% 0 0 / .5);
+    --doc-overlay: oklch(0% 0 0 / .7);
     --doc-hf-dim-opacity: .4;
-    --doc-focus-ring: #4e9dff73;
-    --doc-selection: #4e9dff52;
-    --doc-page-bg: #ccc;
-    --doc-page-bg-rendered: #333;
-    --doc-caret: #e8e8e8;
-    --doc-caret-contrast: #202124;
+    --doc-focus-ring: color-mix(in oklab, var(--color-primary) 45%, transparent);
+    --doc-selection: color-mix(in oklab, var(--color-primary) 32%, transparent);
+    --doc-page-bg: var(--color-base-200);
+    --doc-page-bg-rendered: var(--color-base-200);
+    --doc-caret: var(--color-base-content);
+    --doc-caret-contrast: var(--color-base-100);
   }
 
   /* Invert page content for dark mode (like docx-editor.dev) */
@@ -10739,6 +10711,6 @@ a.docx-hyperlink:focus-visible {
   }
 
   :scope:where(body.dark *) #editor .docx-page-content ::selection {
-    background-color: rgba(177, 98, 0, .32);
+    background-color: var(--doc-selection);
   }
 }

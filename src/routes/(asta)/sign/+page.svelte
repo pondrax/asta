@@ -32,6 +32,7 @@
   import { page } from "$app/state";
   import Dragresize from "$lib/components/dragresize.svelte";
   import { sendMessage } from "$lib/remotes/whatsapp.remote";
+  import { takeSignFile } from "$lib/utils/sign-handoff";
   import { vault } from "$lib/utils/vault";
 
   const { data } = $props();
@@ -455,11 +456,21 @@
     fillFormFields(documents[activeIndex]);
   }, 500);
 
+  // A document handed over by the editor's Sign button arrives as a one-shot
+  // IndexedDB key in the URL: the signing tab can't see the editor's in-memory
+  // File, so the key is what carries the PDF across the tab boundary. Claiming
+  // consumes the entry, so reloading the tab won't restore it a second time.
+  let blobClaimed = false;
   $effect(() => {
-    if (app.pendingSignFile) {
-      files = [...files, app.pendingSignFile];
-      app.pendingSignFile = null;
-    }
+    const blobId = page.url.searchParams.get("blob");
+    if (!blobId || blobClaimed) return;
+    blobClaimed = true;
+    void takeSignFile(blobId).then((file) => {
+      if (file) files = [...files, file];
+    });
+  });
+
+  $effect(() => {
     if (files.length > 0) {
       documents = Object.fromEntries(files.map((file) => [createId(10), file]));
       activeIndex = Object.keys(documents)[0];
