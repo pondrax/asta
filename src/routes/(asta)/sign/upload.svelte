@@ -1,5 +1,7 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
+  import { app } from "$lib/app/index.svelte";
+  import { convertDocxToPdf, isDocx, isPdf } from "$lib/utils/docx";
 
   let {
     children,
@@ -14,15 +16,64 @@
   } = $props();
   // let fileInput: HTMLInputElement | null = null;
   let dragging = $state(false);
+  let converting = $state(false);
+
+  /**
+   * DOCX has to be rendered to PDF before anything downstream can use it, and
+   * that only happens on the server. The rest of the app is PDF-only, so the
+   * conversion lives here at the edge: callers bind to `files` and always
+   * receive PDFs, and never learn that DOCX was ever accepted.
+   *
+   * Files convert in parallel and keep their input order. A file that fails
+   * drops out of the batch with a toast rather than failing the whole upload —
+   * one corrupt file should not block the rest of a multi-file drop.
+   */
+  async function ingest(list: FileList | File[]) {
+    const picked = [...list];
+    const keep = picked.filter(isPdf);
+    const toConvert = picked.filter(isDocx);
+    const skipped = picked.length - keep.length - toConvert.length;
+
+    if (skipped > 0) {
+      app.showToast(
+        "error",
+        `${skipped} file diabaikan. Hanya PDF dan DOCX yang didukung.`,
+      );
+    }
+    if (keep.length === 0 && toConvert.length === 0) return;
+
+    if (toConvert.length > 0) converting = true;
+    const converted = await Promise.all(
+      toConvert.map(async (file) => {
+        try {
+          return await convertDocxToPdf(file);
+        } catch (err) {
+          console.error("[docx] conversion failed", err);
+          app.showToast(
+            "error",
+            `${file.name} gagal dikonversi: ${
+              err instanceof Error ? err.message : "kesalahan tidak diketahui"
+            }`,
+          );
+          return null;
+        }
+      }),
+    );
+    converting = false;
+
+    const next = [...keep, ...converted.filter((f): f is File => !!f)];
+    if (next.length === 0) return;
+    // Replace rather than append: a new drop supersedes the previous pick.
+    // Callers differ in how they consume this — the sign page drains the list,
+    // but the verify page reads `files[0]` and would otherwise keep showing the
+    // document from the first drop.
+    files = next;
+  }
 
   function onDrop(e: DragEvent) {
     e.preventDefault();
     dragging = false;
-    if (e.dataTransfer?.files) {
-      files = [...e.dataTransfer.files].filter(
-        (f) => f.type === "application/pdf",
-      );
-    }
+    if (e.dataTransfer?.files) void ingest(e.dataTransfer.files);
   }
 
   function onDrag(e: DragEvent) {
@@ -31,10 +82,14 @@
   }
   function onChange(e: Event) {
     const input = e.target as HTMLInputElement;
-    if (input.files) {
-      files = [...input.files].filter((f) => f.type === "application/pdf");
-      input.value = ""; // ✅ reset input so the same file can be reselected
-    }
+    // Snapshot before resetting: `input.files` is a live view onto the input,
+    // so clearing `value` empties it. Reading it after the reset yields nothing.
+    // The array copy also outlives the input, which matters because conversion
+    // is async and the file list must still be intact by then.
+    const picked = input.files ? [...input.files] : [];
+    // Reset so picking the same file again still fires `change`.
+    input.value = "";
+    if (picked.length > 0) void ingest(picked);
   }
 </script>
 
@@ -53,7 +108,7 @@
 >
   <input
     type="file"
-    accept="application/pdf"
+    accept="application/pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     multiple
     bind:this={fileInput}
     hidden
@@ -63,6 +118,11 @@
   <div class="drop-area text-center cursor-pointer transition-all duration-200">
     {#if children}
       {@render children?.()}
+    {:else if converting}
+      <span class="loading loading-spinner loading-lg text-primary"></span>
+      <div class="text-sm text-base-content/70 mt-3">
+        Mengonversi DOCX ke PDF…
+      </div>
     {:else}
       <button id="tour-upload-btn" class="btn btn-primary btn-lg">
         {title}
@@ -73,7 +133,11 @@
       </div>
 
       <div class="text-sm text-base-content/70 mt-2">
-        Mendukung unggah beberapa file PDF
+        Mendukung unggah beberapa file PDF dan DOCX
+      </div>
+
+      <div class="text-sm text-base-content/60 mt-1">
+        File DOCX otomatis dikonversi ke PDF
       </div>
 
       <div class="text-sm text-error mt-2 font-medium">

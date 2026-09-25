@@ -654,7 +654,7 @@
     </div>
 
     <div class:hidden={hasDocuments} class="grow min-h-0 flex flex-col">
-      <Upload bind:fileInput bind:files title="Pilih File PDF" />
+      <Upload bind:fileInput bind:files title="Pilih File PDF atau DOCX" />
     </div>
   </div>
   <div class="flex flex-col md:w-sm shrink-0 min-h-0">
