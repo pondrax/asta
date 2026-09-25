@@ -95,6 +95,7 @@
                 <summary>Tanda Tangan</summary>
                 <ul>
                   <li><a href="/sign">Upload & Tanda Tangan</a></li>
+                  <li><a href="/editor">Buat Dokumen</a></li>
                   <li><a href="/templates">Template Dokumen</a></li>
                   <li>
                     <a href="/helpdesk">Helpdesk Layanan</a>
@@ -300,13 +301,18 @@
             <a
               href="/sign"
               class="rounded-lg text-xs font-medium transition-all"
-              class:bg-primary={page.url.pathname === "/sign"}
-              class:text-primary-content={page.url.pathname === "/sign"}
-              class:shadow-sm={page.url.pathname === "/sign"}
+              class:bg-primary={page.url.pathname === "/sign" ||
+                page.url.pathname === "/editor"}
+              class:text-primary-content={page.url.pathname === "/sign" ||
+                page.url.pathname === "/editor"}
+              class:shadow-sm={page.url.pathname === "/sign" ||
+                page.url.pathname === "/editor"}
               class:bg-base-200={activeMenu === "sign" &&
-                page.url.pathname !== "/sign"}
+                page.url.pathname !== "/sign" &&
+                page.url.pathname !== "/editor"}
               class:text-base-content={activeMenu === "sign" &&
-                page.url.pathname !== "/sign"}
+                page.url.pathname !== "/sign" &&
+                page.url.pathname !== "/editor"}
             >
               Tanda Tangan
             </a>
@@ -687,20 +693,20 @@
                   </li>
                   <li>
                     <a
-                      href="#devel"
+                      href="/editor"
                       class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
-                        .url.pathname === '/templates'
+                        .url.pathname === '/editor'
                         ? 'text-primary font-bold bg-primary/5'
                         : 'text-base-content/75'}"
                     >
                       <iconify-icon
                         icon="bx:chevron-right"
                         class="text-xs transition-all {page.url.pathname ===
-                        '/templates'
+                        '/editor'
                           ? 'text-primary opacity-100'
                           : 'opacity-40 group-hover:opacity-100'}"
                       ></iconify-icon>
-                      <span>Buat Dokumen (dalam pengembangan)</span>
+                      <span>Buat Dokumen</span>
                     </a>
                   </li>
                 </ul>

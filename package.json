@@ -47,6 +47,10 @@
     "vitest": "^4.1.10"
   },
   "dependencies": {
+    "@docx-editor.dev/core": "2.22.0",
+    "@docx-editor.dev/docx-to-pdf": "2.22.0",
+    "@docx-editor.dev/fonts": "2.22.0",
+    "@docx-editor.dev/i18n": "2.22.0",
     "@node-rs/argon2": "^2.0.2",
     "apexcharts": "^6.8.0",
     "arktype": "^2.2.3",
