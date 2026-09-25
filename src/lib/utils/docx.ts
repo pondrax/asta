@@ -7,6 +7,11 @@
  * record, the verify page's preview — only ever deals in PDFs, so the dropper
  * converts on the way in and hands the rest of the app a uniform input.
  *
+ * Only the sign page uses this: the shared dropper takes an `allowDocx` prop
+ * that is off by default, so the verify page stays PDF-only. Verification needs
+ * a genuinely signed PDF, and converting an editable DOCX would let unsigned
+ * input reach the status panel.
+ *
  * The editor's "Save as PDF" / "Sign" actions convert the same way; they go
  * through their own inline copy of this round-trip because they already hold
  * DOCX *bytes* from the editor rather than a user-picked file.

@@ -1,28 +1,46 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { app } from "$lib/app/index.svelte";
-  import { convertDocxToPdf, isDocx, isPdf } from "$lib/utils/docx";
+  import {
+    DOCX_MIME,
+    convertDocxToPdf,
+    isDocx,
+    isPdf,
+  } from "$lib/utils/docx";
 
   let {
     children,
     files = $bindable([]),
     fileInput = $bindable(null),
     title = "Pilih File PDF",
+    allowDocx = false,
   }: {
     children?: Snippet;
     files?: File[];
     fileInput: HTMLInputElement | null;
     title?: string;
+    /** Accept DOCX and convert it to PDF. Off by default: this dropper is shared,
+     *  and only the sign page should offer the conversion. */
+    allowDocx?: boolean;
   } = $props();
   // let fileInput: HTMLInputElement | null = null;
   let dragging = $state(false);
   let converting = $state(false);
+
+  const accept = $derived(
+    allowDocx
+      ? `application/pdf,.docx,${DOCX_MIME}`
+      : "application/pdf",
+  );
 
   /**
    * DOCX has to be rendered to PDF before anything downstream can use it, and
    * that only happens on the server. The rest of the app is PDF-only, so the
    * conversion lives here at the edge: callers bind to `files` and always
    * receive PDFs, and never learn that DOCX was ever accepted.
+   *
+   * Only enabled when the caller opts in via `allowDocx`. Otherwise a DOCX is
+   * just another unsupported file and is rejected with the rest.
    *
    * Files convert in parallel and keep their input order. A file that fails
    * drops out of the batch with a toast rather than failing the whole upload —
@@ -31,13 +49,15 @@
   async function ingest(list: FileList | File[]) {
     const picked = [...list];
     const keep = picked.filter(isPdf);
-    const toConvert = picked.filter(isDocx);
+    const toConvert = allowDocx ? picked.filter(isDocx) : [];
     const skipped = picked.length - keep.length - toConvert.length;
 
     if (skipped > 0) {
       app.showToast(
         "error",
-        `${skipped} file diabaikan. Hanya PDF dan DOCX yang didukung.`,
+        allowDocx
+          ? `${skipped} file diabaikan. Hanya PDF dan DOCX yang didukung.`
+          : `${skipped} file diabaikan. Hanya PDF yang didukung.`,
       );
     }
     if (keep.length === 0 && toConvert.length === 0) return;
@@ -108,7 +128,7 @@
 >
   <input
     type="file"
-    accept="application/pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    {accept}
     multiple
     bind:this={fileInput}
     hidden
@@ -133,12 +153,18 @@
       </div>
 
       <div class="text-sm text-base-content/70 mt-2">
-        Mendukung unggah beberapa file PDF dan DOCX
+        {#if allowDocx}
+          Mendukung unggah beberapa file PDF dan DOCX
+        {:else}
+          Mendukung unggah beberapa file PDF
+        {/if}
       </div>
 
-      <div class="text-sm text-base-content/60 mt-1">
-        File DOCX otomatis dikonversi ke PDF
-      </div>
+      {#if allowDocx}
+        <div class="text-sm text-base-content/60 mt-1">
+          File DOCX otomatis dikonversi ke PDF
+        </div>
+      {/if}
 
       <div class="text-sm text-error mt-2 font-medium">
         Maksimal ukuran file: 20 MB

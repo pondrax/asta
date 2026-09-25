@@ -442,6 +442,9 @@
           bind:fileInput={uploaderInput}
           title="Pilih File untuk Verifikasi"
         />
+        <!-- PDF only: `allowDocx` is intentionally omitted here. Verification
+             needs a real signed PDF, and converting an editable DOCX would let
+             unsigned input reach the status panel. -->
       </div>
     {/if}
   </div>
