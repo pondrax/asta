@@ -75,9 +75,13 @@
             <iconify-icon icon="bx:menu-alt-left" class="text-2xl"
             ></iconify-icon>
           </div>
+          <!-- `min-w-72` because the longest labels here — "Riwayat Tanda
+               Tangan Saya", "Verifikasi - Cek Dokumen" — need ~234px of text
+               plus the 32px nested-list indent and the right-hand count badge.
+               At the old w-60 those wrapped onto two lines and looked clipped. -->
           <ul
             tabindex="-1"
-            class="menu dropdown-content bg-base-100 rounded-box z-1 mt-3 w-60 p-2 shadow text-sm"
+            class="menu dropdown-content bg-base-100 rounded-box z-1 mt-3 w-60 min-w-72 p-2 shadow text-sm"
           >
             <li>
               <details open>

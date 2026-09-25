@@ -1,12 +1,7 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { app } from "$lib/app/index.svelte";
-  import {
-    DOCX_MIME,
-    convertDocxToPdf,
-    isDocx,
-    isPdf,
-  } from "$lib/utils/docx";
+  import { DOCX_MIME, convertDocxToPdf, isDocx, isPdf } from "$lib/utils/docx";
 
   let {
     children,
@@ -28,9 +23,7 @@
   let converting = $state(false);
 
   const accept = $derived(
-    allowDocx
-      ? `application/pdf,.docx,${DOCX_MIME}`
-      : "application/pdf",
+    allowDocx ? `application/pdf,.docx,${DOCX_MIME}` : "application/pdf",
   );
 
   /**

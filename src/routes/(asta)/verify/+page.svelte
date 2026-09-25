@@ -3,7 +3,8 @@
   import { onDestroy, onMount } from "svelte";
   import Preview from "$lib/components/preview.svelte";
   import { getDocument, verifyDocument } from "$lib/remotes/sign.remote";
-  import { calculateFileChecksum, fileToBase64 } from "$lib/utils";
+  import { calculateFileChecksum, createId, fileToBase64 } from "$lib/utils";
+  import { isPdf } from "$lib/utils/docx";
   import Status from "./status.svelte";
   import Upload from "../sign/upload.svelte";
   import type { SignatureVerificationResponse } from "./types";
@@ -27,16 +28,44 @@
 
   const mode = $derived(parseModeHash(page.url.hash) ?? ("upload" as Mode));
   let previewFile: File | null = $state(null);
+  // Covers the window between picking a document and its bytes arriving: the
+  // server claim URL is a real network fetch, and the preview pane would
+  // otherwise sit blank the whole time. `previewError` holds the failure so it
+  // can be shown and retried instead of only reaching the console.
+  let previewLoading = $state(false);
+  let previewError = $state<string | null>(null);
   let fileURL: string | undefined = $state();
-  let verifyStatus: SignatureVerificationResponse | undefined = $state();
-  let loading = $state(false);
-  let checksum = $state("");
   let idDocument = $state("");
-  let verifyUnsign = $state(false);
 
   let fileName = $state("");
   let uploaderFiles: File[] = $state([]);
   let uploaderInput: HTMLInputElement | null = $state(null);
+
+  /**
+   * Uploaded documents, keyed by id, with `activeId` naming the one on screen.
+   * Verification results live per document rather than in a single value:
+   * several files are checked at once, and one shared status would show the
+   * previous file's verdict the moment you switch.
+   */
+  let uploaded = $state<Record<string, File>>({});
+  let results = $state<
+    Record<string, { status?: SignatureVerificationResponse; loading: boolean }>
+  >({});
+  let checksums = $state<Record<string, string>>({});
+  let activeId = $state("");
+
+  // Documents fetched from the server (Cari by ID, or handed over from the
+  // sign page) are shown one at a time and aren't part of the uploaded set,
+  // so they keep their own result instead of a slot in it.
+  let remoteResult = $state<{
+    status?: SignatureVerificationResponse;
+    loading: boolean;
+  }>({ loading: false });
+
+  const uploadedIds = $derived(Object.keys(uploaded));
+  const activeResult = $derived(activeId ? results[activeId] : remoteResult);
+  const verifyStatus = $derived(activeResult?.status);
+  const loading = $derived(!!activeResult?.loading);
 
   // Set when the page was opened with `?blob=`, meaning the PDF is parked in
   // IndexedDB by the tab that handed it over. The claim is one-shot: it deletes
@@ -93,11 +122,77 @@
   }
 
   $effect(() => {
-    if (uploaderFiles.length > 0) {
-      previewFile = uploaderFiles[0];
-      verify();
-    }
+    if (uploaderFiles.length === 0) return;
+    // Drain the binding first. Otherwise the writes below re-trigger this same
+    // effect, and a second drop would be swallowed instead of added.
+    const picked = uploaderFiles;
+    uploaderFiles = [];
+    void addFiles(picked);
   });
+
+  /**
+   * Add documents to the set and verify each one.
+   *
+   * Every file gets its own slot so results can't bleed between documents, and
+   * each is verified in the background — a batch of ten doesn't have to finish
+   * the first one before the last one is readable.
+   */
+  async function addFiles(list: FileList | File[]) {
+    const picked = [...list].filter(isPdf);
+    if (picked.length === 0) return;
+
+    const added: string[] = [];
+    for (const file of picked) {
+      const id = createId(10);
+      uploaded[id] = file;
+      results[id] = { loading: true };
+      checksums[id] = await calculateFileChecksum(file);
+      added.push(id);
+    }
+
+    if (!activeId) selectDocument(added[0]);
+    void Promise.all(added.map((id) => verifyOne(id)));
+  }
+
+  /** Verify a single uploaded document into its own slot. */
+  async function verifyOne(id: string) {
+    const file = uploaded[id];
+    if (!file) return;
+    results[id] = { ...results[id], loading: true };
+    results[id] = { loading: false, status: await callVerify(file) };
+  }
+
+  /** Show a document from the uploaded set. */
+  function selectDocument(id: string) {
+    const file = uploaded[id];
+    if (!file) return;
+    activeId = id;
+    previewFile = file;
+    fileURL = undefined;
+    fileName = file.name;
+    // Cleared so a later server fetch of the same URL isn't skipped as done.
+    lastFetchedURL = "";
+  }
+
+  /** Drop a document from the set, then fall back to whatever is left. */
+  function removeDocument(id: string) {
+    delete uploaded[id];
+    delete results[id];
+    delete checksums[id];
+    if (activeId !== id) return;
+
+    const next = uploadedIds[0];
+    activeId = "";
+    if (next) {
+      selectDocument(next);
+    } else {
+      previewFile = null;
+      fileURL = undefined;
+      fileName = "";
+      remoteResult = { loading: false };
+      previewError = null;
+    }
+  }
   const tourSteps = [
     {
       target: "#tour-verify-mode",
@@ -132,12 +227,26 @@
 
   $effect(() => {
     queryParams.id = page.url.searchParams.get("id") || "";
-    queryParams.checksum = checksum;
+    // The remote query keys off a single checksum, so it follows whichever
+    // document is on screen. Uploaded documents are local — the server has
+    // never seen them — so they contribute no checksum to look up.
+    queryParams.checksum =
+      activeId && uploaded[activeId] ? "" : (checksums[activeId] ?? "");
   });
 
   const documents = getDocument(queryParams);
 
   const docsData = $derived(documents.current || []);
+
+  /**
+   * A server document carrying no e-sign stamp is reported as valid-but-unsigned
+   * without calling the verification service. Derived rather than stored so the
+   * flag can't outlive the document it was set for and leak onto an uploaded
+   * file, which is always verified for real.
+   */
+  const verifyUnsign = $derived(
+    !activeId && !!docsData[0] && !docsData[0].esign,
+  );
 
   const docOwner = $derived(docsData[0]?.owner);
   const isAuthorized = $derived.by(() => {
@@ -178,7 +287,6 @@
     if (doc) {
       localFileName = doc.title || "default.pdf";
       fileURL = doc.files?.[0] || "";
-      if (!doc.esign) verifyUnsign = true;
     }
 
     fileName = localFileName; // Sync to state
@@ -231,19 +339,24 @@
       handoffPending = false;
       // Drop the one-shot key so a refresh doesn't re-trigger the claim.
       clearSearchParams();
-      verify();
+      // Verify explicitly rather than via `verify()`: a handoff can arrive
+      // while uploaded documents are still listed, and `verify()` would then
+      // re-check the selected upload instead of the document just claimed.
+      verifyRemote(file);
     });
   });
 
   $effect(() => {
+    // Server documents are only mirrored onto the screen while no upload is
+    // selected. Without this, a pending lookup could swap its own preview in
+    // over the document the user just picked from the list.
+    if (activeId) return;
+
     // Sync data from search results
     const doc = docsData[0];
-    if (doc) {
-      if (!fileURL) {
-        fileName = doc.title || "default.pdf";
-        fileURL = doc.files?.[0] || "";
-      }
-      if (!doc.esign) verifyUnsign = true;
+    if (doc && !fileURL) {
+      fileName = doc.title || "default.pdf";
+      fileURL = doc.files?.[0] || "";
     }
 
     // Trigger preview fetch if authorized and file details are known
@@ -261,6 +374,8 @@
     lastFetchedURL = fileUri;
 
     console.log("Fetching preview for:", fileUri, fileName);
+    previewError = null;
+    previewLoading = true;
     try {
       fileURL = fileUri;
       const response = await fetch(fileUri);
@@ -275,10 +390,18 @@
         type: "application/pdf", // Force PDF type
       });
       console.log("previewFile created:", previewFile.name);
-      verify();
+      verifyRemote(previewFile);
     } catch (error) {
       console.error("Error fetching preview:", error);
       lastFetchedURL = ""; // Reset on error to allow retry
+      // Surface the reason on the page. A silent console error leaves the
+      // preview pane blank with nothing to explain it.
+      previewError =
+        error instanceof Error
+          ? error.message
+          : "Gagal memuat dokumen dari server.";
+    } finally {
+      previewLoading = false;
     }
   }
   function clearSearchParams() {
@@ -288,18 +411,46 @@
     window.history.replaceState({}, "", url.toString());
   }
 
-  async function verify() {
-    if (!previewFile) {
-      return;
-    }
-    loading = true;
-    const base64File = await fileToBase64(previewFile);
-    const result = await verifyDocument({
+  /** Run the verification request for a file. Shared by every entry point. */
+  async function callVerify(file: File) {
+    const base64File = await fileToBase64(file);
+    const response = await verifyDocument({
       file: base64File.replace("data:application/pdf;base64,", ""),
     });
-    verifyStatus = result;
-    loading = false;
-    console.log(result);
+    // The remote swallows transport failures and hands back `{ error }` with
+    // no `conclusion`, which would leave the badge and the status panel blank.
+    // Normalise it into a real response so a failure is legible instead of
+    // looking like a document that simply has no verdict yet.
+    if (!response || typeof response.conclusion !== "string") {
+      return {
+        conclusion: "ERROR",
+        description:
+          (response as { error?: string } | undefined)?.error ||
+          "Verifikasi tidak dapat dijalankan.",
+        signatureInformations: [],
+        signatureCount: 0,
+      };
+    }
+    return response;
+  }
+
+  /** Verify a document that lives on the server rather than in the upload set. */
+  async function verifyRemote(file: File) {
+    remoteResult = { ...remoteResult, loading: true };
+    remoteResult = { loading: false, status: await callVerify(file) };
+  }
+
+  /**
+   * Re-verify whatever is on screen: the active uploaded document when one is
+   * selected, otherwise the server-side document being previewed.
+   */
+  async function verify() {
+    if (activeId && uploaded[activeId]) {
+      await verifyOne(activeId);
+      return;
+    }
+    if (!previewFile) return;
+    await verifyRemote(previewFile);
   }
 
   function handleEmailSubmit(e: Event) {
@@ -352,7 +503,7 @@
 </script>
 
 <div
-  class="px-5 flex gap-5 h-full flex-col md:flex-row overflow-y-auto md:overflow-y-hidden"
+  class="px-5 pb-24 md:pb-2 flex gap-5 h-full flex-col md:flex-row overflow-y-auto md:overflow-y-hidden"
 >
   <div id="tour-verify-preview" class="grow min-h-0 md:order-2 flex flex-col">
     {#if !isAuthorized && fileURL && !previewFile}
@@ -402,6 +553,39 @@
           </div>
         </div>
       </div>
+    {:else if previewLoading}
+      <div
+        class="grow min-h-0 rounded-2xl bg-base-200 border border-base-300 flex flex-col items-center justify-center gap-4 p-8"
+      >
+        <span class="loading loading-spinner loading-lg text-primary"></span>
+        <div class="text-center">
+          <h3 class="font-bold">Memuat Dokumen</h3>
+          <p class="text-xs opacity-60 mt-1">
+            Mengambil dokumen dari server, mohon tunggu…
+          </p>
+        </div>
+      </div>
+    {:else if previewError}
+      <div
+        class="grow min-h-0 rounded-2xl bg-base-200 border border-base-300 flex flex-col items-center justify-center gap-4 p-8 text-center"
+      >
+        <iconify-icon icon="bx:error-circle" class="text-6xl text-error/60"
+        ></iconify-icon>
+        <h3 class="font-bold text-xl">Gagal Memuat Dokumen</h3>
+        <p class="text-sm text-base-content/70 max-w-sm break-words">
+          {previewError}
+        </p>
+        <button
+          type="button"
+          class="btn btn-primary btn-sm"
+          onclick={() => {
+            if (fileURL) previewURL(fileURL, fileName);
+          }}
+        >
+          <iconify-icon icon="bx:refresh"></iconify-icon>
+          Coba Lagi
+        </button>
+      </div>
     {:else if previewFile || fileURL}
       <div class="grow min-h-0 relative flex flex-col">
         <div class="grow min-h-0 overflow-y-auto">
@@ -409,11 +593,18 @@
             file={previewFile}
             controls
             onclose={() => {
+              // Closing drops the whole upload set rather than one entry, so
+              // the effect above can't immediately re-select what was closed
+              // and the dropper comes back.
+              uploaded = {};
+              results = {};
+              checksums = {};
+              activeId = "";
               previewFile = null;
               fileURL = undefined;
-              verifyStatus = undefined;
-              // The uploader's binding is the source of `previewFile`; leaving
-              // it populated makes the effect above re-open what we just closed.
+              fileName = "";
+              remoteResult = { loading: false };
+              previewError = null;
               uploaderFiles = [];
             }}
             ondownload={(f) => {
@@ -512,16 +703,91 @@
               <input
                 type="file"
                 accept="application/pdf"
+                multiple
                 class="file-input file-input-bordered w-full"
                 onchange={async (e) => {
                   const target = e.target as HTMLInputElement;
-                  if (target.files) previewFile = target.files[0];
-                  verify();
-                  if (previewFile)
-                    checksum = await calculateFileChecksum(previewFile);
+                  // Snapshot before the reset below: `input.files` is a live
+                  // view, so clearing the value would empty it.
+                  const picked = target.files ? [...target.files] : [];
+                  target.value = "";
+                  if (picked.length > 0) void addFiles(picked);
                 }}
               />
             </label>
+
+            {#if uploadedIds.length > 0}
+              <ul
+                class="menu menu-xs w-full bg-base-200/50 rounded-xl p-2 border border-base-content/5"
+              >
+                <li class="menu-title w-full">
+                  <div class="flex w-full gap-5 justify-between items-center">
+                    <div>Dokumen ({uploadedIds.length})</div>
+                    <button
+                      type="button"
+                      class="btn btn-xs btn-error"
+                      onclick={() => {
+                        uploaded = {};
+                        results = {};
+                        checksums = {};
+                        activeId = "";
+                        previewFile = null;
+                        fileURL = undefined;
+                        fileName = "";
+                        remoteResult = { loading: false };
+                        previewError = null;
+                      }}
+                    >
+                      Hapus Semua
+                    </button>
+                  </div>
+                </li>
+                {#each uploadedIds as id, i (id)}
+                  {@const entry = results[id]}
+                  <li class="w-full">
+                    <div
+                      class="flex w-full items-center gap-1 {id === activeId
+                        ? 'active'
+                        : ''}"
+                    >
+                      <button
+                        type="button"
+                        class="grow min-w-0 basis-0 text-left"
+                        onclick={() => selectDocument(id)}
+                      >
+                        <div class="truncate block">
+                          {i + 1}. {uploaded[id]?.name}
+                        </div>
+                      </button>
+                      {#if entry?.loading}
+                        <span
+                          class="loading loading-spinner loading-xs shrink-0"
+                        ></span>
+                      {:else if entry?.status}
+                        {@const verdict = entry.status.conclusion}
+                        <span
+                          class="badge badge-xs shrink-0 {verdict === 'VALID'
+                            ? 'badge-info'
+                            : verdict === 'INVALID' || verdict === 'ERROR'
+                              ? 'badge-error'
+                              : 'badge-warning'}"
+                        >
+                          {verdict}
+                        </span>
+                      {/if}
+                      <button
+                        aria-label="hapus dokumen"
+                        type="button"
+                        class="btn btn-square btn-outline btn-xs btn-error shrink-0"
+                        onclick={() => removeDocument(id)}
+                      >
+                        <iconify-icon icon="bx:x"></iconify-icon>
+                      </button>
+                    </div>
+                  </li>
+                {/each}
+              </ul>
+            {/if}
           </div>
         {:else if mode === "id"}
           <div class="space-y-4">
@@ -595,6 +861,11 @@
               <iconify-icon icon="bx:check-shield" class="text-lg"
               ></iconify-icon>
               Status Dokumen
+              {#if activeId && uploaded[activeId]}
+                <span class="badge badge-ghost badge-xs font-normal">
+                  {uploadedIds.indexOf(activeId) + 1}/{uploadedIds.length}
+                </span>
+              {/if}
             </h3>
             <div class="bg-base-200 rounded-xl p-3 border border-base-300">
               {#if loading}

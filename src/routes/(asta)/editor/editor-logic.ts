@@ -302,6 +302,18 @@ export interface DocxEditorSetupOptions {
 
 export interface DocxEditorSetupHandle {
   editor: DocxEditorInstance | null;
+  /**
+   * Starts a blank document. Wrapped in `confirmDiscard` so the FAB and the
+   * File menu / Ctrl+N all get the same "discard unsaved changes?" prompt
+   * before the current document is thrown away.
+   */
+  newDocument: () => void;
+  /**
+   * Exports the current document to PDF and hands it to the signing flow.
+   * Defined here rather than in the page because the popup has to be opened
+   * synchronously from the click to avoid the browser blocking it.
+   */
+  openSignPage: () => Promise<void>;
   destroy: () => void;
 }
 
@@ -377,9 +389,6 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
   const filenameInput = root.querySelector("#filenameInput") as HTMLInputElement | null;
   const filenameWrap = root.querySelector("#filenameWrap") as HTMLElement | null;
   const docIcon = root.querySelector(".header-logo") as HTMLElement | null;
-  const newButton = root.querySelector("#newButton") as HTMLButtonElement | null;
-  const pdfButton = root.querySelector("#pdfButton") as HTMLButtonElement | null;
-  const signButton = root.querySelector("#signButton") as HTMLButtonElement | null;
   const printButton = root.querySelector("#printButton") as HTMLButtonElement | null;
   const errorEl = root.querySelector("#error") as HTMLElement | null;
   const errorText = root.querySelector("#errorText") as HTMLElement | null;
@@ -2940,10 +2949,10 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
       applyFontSize(Math.min(1638, current + 1));
     }, { signal: eventSignal });
 
-    const newDocumentFromHeader = () => confirmDiscard(newDocument);
-    newButton?.addEventListener("click", newDocumentFromHeader, { signal: eventSignal });
-    pdfButton?.addEventListener("click", () => void saveAsPdf(), { signal: eventSignal });
-    signButton?.addEventListener("click", () => void openSignPage(), { signal: eventSignal });
+    // The New / PDF / Sign header buttons are gone, so those actions are no
+    // longer wired from the topbar. `newDocument` and `saveAsPdf` stay
+    // reachable through the File menu and the keyboard shortcuts below;
+    // signing is driven by the page's floating action button via `openSignPage`.
     printButton?.addEventListener("click", printDocument, { signal: eventSignal });
     fileInput?.addEventListener("change", async (e) => {
       const input = e.target as HTMLInputElement;
@@ -3330,6 +3339,14 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
 
   return {
     editor,
+    // Exposed so the page's floating action button reuses the exact same
+    // guard as the File menu and the Ctrl+N shortcut, rather than blowing
+    // away unsaved work without asking.
+    newDocument: () => confirmDiscard(newDocument),
+    // Exposed so the page can wire its own sign affordance (the floating
+    // action button) to the very same flow the header button used, rather
+    // than re-implementing the export → stash → handoff dance.
+    openSignPage,
     destroy: () => {
       resizeObserver?.disconnect();
       editorResizeObserver?.disconnect();

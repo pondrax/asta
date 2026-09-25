@@ -343,9 +343,6 @@
           orderBy={{ id: "asc" }}
           disabled={locked}
         />
-        <div class="text-[10px] text-gray-400">
-          Pilih Eksternal untuk intansi diluar pemerintah kota mojokerto
-        </div>
       </div>
     </li>
 

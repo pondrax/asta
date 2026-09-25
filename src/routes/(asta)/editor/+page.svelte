@@ -319,23 +319,11 @@
       </div>
 
       <!-- ============ HEADER RIGHT CONTROLS ============ -->
-      <div class="header-right">
-        <button
-          class="header-btn"
-          id="newButton"
-          title="Start a new empty document"
-        >
-          <iconify-icon icon="bx:file-blank" width="14" height="14"
-          ></iconify-icon>New
-        </button>
-        <button class="header-btn" id="pdfButton" title="Save as PDF">
-          <iconify-icon icon="bx:file" width="14" height="14"></iconify-icon>PDF
-        </button>
-        <button class="header-btn" id="signButton" title="Continue to sign">
-          <iconify-icon icon="bx:edit" width="14" height="14"
-          ></iconify-icon>Sign
-        </button>
-      </div>
+      <!-- New / PDF / Sign used to live here. They now live elsewhere:
+           New and PDF stay reachable from the File menu, and Sign is the
+           floating action button at the bottom right (see the end of this
+           template). Keeping only the sign path on a dedicated button means
+           the primary handoff is always one click away. -->
     </div>
 
     <!-- ============ TOOLBAR ============ -->
@@ -2298,5 +2286,46 @@
   <div id="error" class="error hidden">
     <h3>Error</h3>
     <pre id="errorText"></pre>
+  </div>
+
+  <!-- ============ NEW DOCUMENT FAB ============ -->
+  <!-- Takes over the "New" action from the removed header button. Mirrors the
+       sign page's Unggah FAB (`fab right-24` + `btn-circle btn-primary`): a
+       compact icon-only affordance that sits just above the wider
+       `right-38` Tanda Tangan FAB, so the two never overlap. Clicking goes
+       through the handle's `newDocument`, which still prompts before
+       discarding unsaved changes. -->
+  <div class="fab right-24">
+    <button
+      id="newDocFab"
+      class="btn btn-lg btn-circle btn-primary tooltip tooltip-left shadow-lg"
+      aria-label="Buat Dokumen Baru"
+      data-tip="Buat Dokumen Baru"
+      title="Buat dokumen baru"
+      onclick={() => handle?.newDocument()}
+    >
+      <iconify-icon icon="bx:plus" class="text-2xl"></iconify-icon>
+    </button>
+  </div>
+
+  <!-- ============ SIGN FAB ============ -->
+  <!-- Takes over the "Sign" action from the removed header button. Reuses the
+       sign page's own FAB classes (`fab right-38` + `btn-secondary
+       rounded-full`) so the affordance is identical across both steps of the
+       flow. `right-38` is deliberate: the chatbot occupies the bottom-right
+       corner at `right-2`, and this is the same offset the sign page uses to
+       keep its Tanda Tangan FAB clear of it. -->
+  <div class="fab right-38">
+    <button
+      id="signFab"
+      class="btn btn-lg btn-secondary rounded-full font-normal shadow-lg"
+      aria-label="Tanda Tangan"
+      data-tip="Tanda Tangan"
+      title="Tanda Tangan dokumen ini"
+      onclick={() => void handle?.openSignPage()}
+    >
+      <iconify-icon icon="bx:pen" class="text-xl"></iconify-icon>
+      Tanda Tangan
+    </button>
   </div>
 </div>
