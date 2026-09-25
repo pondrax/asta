@@ -387,6 +387,7 @@
           type="text"
           placeholder="Keterangan"
           class="input input-sm"
+          disabled={locked}
         />
       </label>
     </li>
@@ -398,6 +399,7 @@
           type="text"
           placeholder="Lokasi Penandatangan"
           class="input input-sm"
+          disabled={locked}
         />
       </label>
       <!-- {JSON.stringify(Object.keys(fields))}
@@ -411,6 +413,7 @@
           type="text"
           placeholder="Tanggal Penandatangan"
           class="input input-sm"
+          disabled={locked}
         />
       </label>
     </li>
@@ -440,6 +443,7 @@
                 bind:value={form[key]}
                 placeholder={readableKey}
                 class="textarea textarea-sm w-full"
+                disabled={locked}
               ></textarea>
             {:else}
               <input
@@ -447,6 +451,7 @@
                 type="text"
                 placeholder={readableKey}
                 class="input input-sm"
+                disabled={locked}
               />
             {/if}
           </label>

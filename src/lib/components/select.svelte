@@ -459,18 +459,20 @@
 >
   <!-- Trigger -->
   <div
-    class="input input-bordered peer grid grid-cols-[1fr_auto] items-center gap-2 cursor-pointer w-full max-w-full overflow-hidden bg-base-100 transition-all duration-200 h-auto
+    class="input input-bordered peer grid grid-cols-[1fr_auto] items-center gap-2 w-full max-w-full overflow-hidden bg-base-100 transition-all duration-200 h-auto
     {inputClass.includes('input-sm')
       ? 'min-h-8'
       : inputClass.includes('input-lg')
         ? 'min-h-14'
-        : 'min-h-10'} {inputClass}"
-    class:input-disabled={disabled}
+        : 'min-h-10'} {disabled
+      ? 'input-disabled'
+      : 'cursor-pointer'} {inputClass}"
     class:z-10={isOpen}
     role="button"
-    tabindex="0"
+    tabindex={disabled ? -1 : 0}
     aria-expanded={isOpen}
     aria-haspopup="listbox"
+    aria-disabled={disabled}
     aria-controls={dropdownId}
     onclick={handleClick}
     onfocusin={handleFocus}
@@ -541,7 +543,7 @@
       {#if isLoading}
         <span class="loading loading-spinner loading-xs text-primary"></span>
       {/if}
-      {#if hasValue}
+      {#if hasValue && !disabled}
         <button
           type="button"
           class="btn btn-ghost btn-xs btn-circle text-base-content/20 hover:text-error h-6 w-6 min-h-0"
@@ -561,7 +563,9 @@
       {/if}
       <iconify-icon
         icon="bx:chevron-down"
-        class="transition-transform duration-300 text-base-content/40"
+        class="transition-transform duration-300 text-base-content/40 {disabled
+          ? 'opacity-40'
+          : ''}"
         style:transform={isOpen ? "rotate(180deg)" : "none"}
       ></iconify-icon>
     </div>
@@ -570,7 +574,9 @@
   <!-- Floating Label Label (After Trigger for Stacking) -->
   {#if label}
     <span
-      class="absolute left-3 transition-all duration-200 pointer-events-none z-20 bg-base-100 px-1 rounded text-[9px] -top-2.5"
+      class="absolute left-3 transition-all duration-200 pointer-events-none z-20 px-1 rounded text-[9px] -top-2.5 {disabled
+        ? 'bg-base-200'
+        : 'bg-base-100'}"
     >
       {label}
     </span>
@@ -677,5 +683,30 @@
   }
   .custom-scrollbar::-webkit-scrollbar-track {
     background: transparent;
+  }
+
+  /*
+   * The trigger is a <div>, not an <input>, so DaisyUI's
+   * `.input:is(:disabled,[disabled])` rule never applies to it. Mirror that
+   * rule here so a disabled Select looks identical to a disabled input.
+   * DaisyUI dims the text with a 40% content mix and keeps the base-200
+   * background/border fully opaque — no `opacity` on the wrapper.
+   */
+  .input-disabled {
+    cursor: not-allowed;
+    border-color: var(--color-base-200);
+    background-color: var(--color-base-200);
+    box-shadow: none;
+  }
+  /* Labels carry their own text colour, so they don't inherit the dim. */
+  .input-disabled :is(span, .badge) {
+    color: color-mix(in oklab, var(--color-base-content) 40%, transparent);
+  }
+  /* Placeholder sits at 20%, and the clear/remove affordances are useless. */
+  .input-disabled .text-base-content\/40 {
+    color: color-mix(in oklab, var(--color-base-content) 40%, transparent);
+  }
+  .input-disabled button {
+    pointer-events: none;
   }
 </style>

@@ -9,6 +9,7 @@
   import type { SignatureVerificationResponse } from "./types";
   import { Tour } from "$lib/components";
   import { app } from "$lib/app/index.svelte";
+  import { takeSignFile } from "$lib/utils/sign-handoff";
 
   let { data } = $props();
 
@@ -36,6 +37,12 @@
   let fileName = $state("");
   let uploaderFiles: File[] = $state([]);
   let uploaderInput: HTMLInputElement | null = $state(null);
+
+  // Set when the page was opened with `?blob=`, meaning the PDF is parked in
+  // IndexedDB by the tab that handed it over. The claim is one-shot: it deletes
+  // the entry as it reads it, so a refresh can't restore the document twice.
+  let handoffPending = $state(false);
+  let handoffClaimed = false;
 
   let qrScanner: any;
   let videoEl: HTMLVideoElement | null = $state(null);
@@ -164,7 +171,7 @@
 
     if (page.url.searchParams.get("blob")) {
       localFileName = page.url.searchParams.get("fileName") || "default.pdf";
-      fileURL = `blob:${location.origin}/${page.url.searchParams.get("blob")}`;
+      handoffPending = true;
     }
 
     const doc = (await documents)[0];
@@ -189,7 +196,10 @@
 
   onDestroy(() => {
     stopScan();
-    if (fileURL) {
+    // Only revoke URLs this tab created. A `blob:` handoff URL is owned by the
+    // tab that made it, so revoking it here is a no-op at best and can
+    // invalidate the source tab's own object URL.
+    if (fileURL?.startsWith("blob:")) {
       URL.revokeObjectURL(fileURL);
 
       if (page.url.searchParams.get("blob")) {
@@ -199,6 +209,32 @@
   });
 
   let lastFetchedURL = "";
+  $effect(() => {
+    // Claim the handed-over PDF. It arrives as a real File from IndexedDB, so
+    // it goes straight to `previewFile` — `previewURL` is a `fetch`, and a
+    // `blob:` handle minted in another tab can't be fetched from here.
+    if (!handoffPending || handoffClaimed) return;
+    handoffClaimed = true;
+    const blobId = page.url.searchParams.get("blob") || "";
+    void takeSignFile(blobId).then((file) => {
+      if (!file) {
+        app.showToast(
+          "error",
+          "Dokumen tidak ditemukan atau sudah dipakai. Silakan unggah ulang.",
+        );
+        handoffPending = false;
+        clearSearchParams();
+        return;
+      }
+      previewFile = file;
+      fileName = file.name;
+      handoffPending = false;
+      // Drop the one-shot key so a refresh doesn't re-trigger the claim.
+      clearSearchParams();
+      verify();
+    });
+  });
+
   $effect(() => {
     // Sync data from search results
     const doc = docsData[0];
@@ -424,9 +460,7 @@
         <iconify-icon icon="bx:upload"></iconify-icon>
         <span class="mx-2">Unggah</span>
       </label>
-      <label
-        class="tab flex-1 {mode === 'id' ? 'tab-active' : ''} bg-base-100"
-      >
+      <label class="tab flex-1 {mode === 'id' ? 'tab-active' : ''} bg-base-100">
         <input
           type="radio"
           name="verify-nav"

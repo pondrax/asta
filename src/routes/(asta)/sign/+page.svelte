@@ -32,7 +32,7 @@
   import { page } from "$app/state";
   import Dragresize from "$lib/components/dragresize.svelte";
   import { sendMessage } from "$lib/remotes/whatsapp.remote";
-  import { takeSignFile } from "$lib/utils/sign-handoff";
+  import { stashSignFile, takeSignFile } from "$lib/utils/sign-handoff";
   import { vault } from "$lib/utils/vault";
 
   const { data } = $props();
@@ -526,11 +526,21 @@
           <button
             type="button"
             class="btn btn-xs btn-primary"
-            onclick={() => {
+            onclick={async () => {
               const file = documents[activeIndex];
-              const blobURL = URL.createObjectURL(file);
-              const blobId = blobURL.split("/").pop();
-              goto(`/verify?blob=${blobId}&fileName=${file.name}`);
+              if (!file) return;
+              try {
+                const blobId = await stashSignFile(file);
+                goto(
+                  `/verify?blob=${blobId}&fileName=${encodeURIComponent(file.name)}`,
+                );
+              } catch (err) {
+                console.error("[verify] handoff failed", err);
+                app.showToast(
+                  "error",
+                  "Gagal membuka dokumen untuk verifikasi.",
+                );
+              }
             }}
           >
             Verifikasi
@@ -547,11 +557,19 @@
         </div>
       {/if}
 
-      <div class="absolute top-4 right-4 z-10 flex gap-2">
+      <!--
+        `pointer-events-none` on the wrapper: the `mt-5` below only shifts the
+        button down, it doesn't shrink the wrapper, so the wrapper's empty strip
+        still overlaps the alert's "Verifikasi" button. Since this group is
+        absolutely positioned at a higher z-index than the alert, that strip
+        would swallow the clicks. Re-enable events on the button itself so only
+        the real button is a hit target.
+      -->
+      <div class="absolute top-4 right-4 z-10 flex gap-2 pointer-events-none">
         <div class="mt-5">
           <button
             type="button"
-            class="btn btn-sm btn-secondary tooltip tooltip-bottom"
+            class="btn btn-sm btn-secondary tooltip tooltip-bottom pointer-events-auto"
             data-tip="Download"
             onclick={() => {
               if (previewFile) {
@@ -1032,13 +1050,31 @@
                   class="badge badge-sm badge-info tooltip tooltip-left cursor-pointer"
                   data-tip="Verifikasi"
                   aria-label="Verifikasi"
-                  onclick={() => {
+                  onclick={async () => {
                     if (!result?.blob) return;
-                    const blob = result.blob;
-                    const blobURL = URL.createObjectURL(blob);
-                    const blobId = blobURL.split("/").pop();
-                    const url = `/verify?blob=${blobId}&fileName=${file.name}`;
-                    window.open(url, "_blank");
+                    // Opened here, while the click is still being handled, so
+                    // the browser treats it as user-initiated rather than a
+                    // popup. The PDF is parked first, then the tab navigates.
+                    const tab = window.open("", "_blank");
+                    try {
+                      const signed = new File([result.blob], file.name, {
+                        type: "application/pdf",
+                      });
+                      const blobId = await stashSignFile(signed);
+                      const url = `/verify?blob=${blobId}&fileName=${encodeURIComponent(file.name)}`;
+                      if (tab && !tab.closed) {
+                        tab.location.href = url;
+                      } else {
+                        window.open(url, "_blank", "noopener");
+                      }
+                    } catch (err) {
+                      console.error("[verify] handoff failed", err);
+                      tab?.close();
+                      app.showToast(
+                        "error",
+                        "Gagal membuka dokumen untuk verifikasi.",
+                      );
+                    }
                   }}
                 >
                   <iconify-icon icon="bx:search"></iconify-icon>
