@@ -479,6 +479,46 @@
     }
   });
 
+  /**
+   * Drop the document the preview is showing and return to the dropper.
+   *
+   * Clearing `previewFile` alone only unmounts the preview: the File stays in
+   * `documents`, so the sidebar still counts it and the tabbed editor keeps its
+   * (now stale) page boxes. Remove the entry itself and move the selection to a
+   * neighbour if there is one, so a multi-file selection closes the active sheet
+   * and lands on the next rather than on nothing.
+   */
+  function closeDocument() {
+    const closed = activeIndex;
+    const keys = Object.keys(documents);
+
+    previewFile = null;
+    hasSignature = true;
+    isEncrypted = false;
+    isDraft = false;
+    fields = {};
+
+    if (!closed || !(closed in documents)) {
+      documents = {};
+      activeIndex = "";
+      return;
+    }
+
+    const rest = keys.filter((k) => k !== closed);
+    if (rest.length === 0) {
+      documents = {};
+      activeIndex = "";
+      form = {};
+      signatures = [];
+      return;
+    }
+
+    // Land on the sheet that took this one's place, or the one before it.
+    const next = keys[keys.indexOf(closed) + 1] ?? rest[rest.length - 1];
+    documents = Object.fromEntries(rest.map((k) => [k, documents[k]]));
+    activeIndex = next;
+  }
+
   $effect(() => {
     if (!documents[activeIndex]) return;
 
@@ -497,7 +537,7 @@
 
 <!-- <div class="px-5"> -->
 <div
-  class="px-5 pb-24 md:pb-0 flex gap-5 flex-col md:h-full md:flex-row md:overflow-y-hidden"
+  class="px-5 pb-24 md:pb-2 flex gap-5 flex-col md:h-full md:flex-row md:overflow-y-hidden"
 >
   <div class="rounded-2xl grow min-h-0 md:order-2 flex flex-col">
     <div
@@ -505,9 +545,7 @@
       class="grow min-h-0 relative flex flex-col"
     >
       {#if isEncrypted}
-        <div
-          class="absolute top-0 alert py-1 px-5 alert-error left-0 right-0 z-5"
-        >
+        <div class="alert py-1 px-5 alert-error flex-none">
           <iconify-icon icon="bx:lock-alt" class="text-xl"></iconify-icon>
           <span>
             <strong>Dokumen Diproteksi:</strong> Dokumen ini dilindungi kata sandi
@@ -515,9 +553,7 @@
           </span>
         </div>
       {:else if hasSignature}
-        <div
-          class="absolute top-0 alert py-1 px-5 alert-warning left-0 right-0 z-5"
-        >
+        <div class="alert py-1 px-5 alert-warning flex-none">
           <iconify-icon icon="bx:error" class="text-xl"></iconify-icon>
           <span>
             <strong>Peringatan:</strong> Terdapat tanda tangan elektronik pada dokumen
@@ -547,9 +583,7 @@
           </button>
         </div>
       {:else if isDraft}
-        <div
-          class="absolute top-0 alert py-1 px-5 alert-info left-0 right-0 z-5"
-        >
+        <div class="alert py-1 px-5 alert-info flex-none">
           <iconify-icon icon="bx:error" class="text-xl"></iconify-icon>
           <span>
             <strong>Peringatan:</strong> Dokumen masih dalam bentuk draft.
@@ -558,40 +592,17 @@
       {/if}
 
       <!--
-        `pointer-events-none` on the wrapper: the `mt-5` below only shifts the
-        button down, it doesn't shrink the wrapper, so the wrapper's empty strip
-        still overlaps the alert's "Verifikasi" button. Since this group is
-        absolutely positioned at a higher z-index than the alert, that strip
-        would swallow the clicks. Re-enable events on the button itself so only
-        the real button is a hit target.
+        The PDF view controls (page, zoom, download) live inside `Preview` itself,
+        which owns the page count, scroller and scale, so they can't drift out of
+        sync with the rendered document.
       -->
-      <div class="absolute top-4 right-4 z-10 flex gap-2 pointer-events-none">
-        <div class="mt-5">
-          <button
-            type="button"
-            class="btn btn-sm btn-secondary tooltip tooltip-bottom pointer-events-auto"
-            data-tip="Download"
-            onclick={() => {
-              if (previewFile) {
-                const url = URL.createObjectURL(previewFile);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = previewFile.name;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-              }
-            }}
-          >
-            <iconify-icon icon="bx:download"></iconify-icon>
-            Download PDF
-          </button>
-        </div>
-      </div>
-
       <div class="grow min-h-0 overflow-y-auto">
-        <Preview file={previewFile} {hasSignature}>
+        <Preview
+          file={previewFile}
+          {hasSignature}
+          controls
+          onclose={closeDocument}
+        >
           {#snippet children(scale, pageSizes, gutter)}
             {#each signatures as sign (sign.id)}
               {@const sumPrevHeight = pageSizes

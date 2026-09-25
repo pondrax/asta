@@ -4,10 +4,28 @@
   let {
     file,
     hasSignature = true,
+    controls = false,
+    onclose = undefined,
+    ondownload = undefined,
     children = undefined,
   }: {
     file: File | null;
     hasSignature?: boolean;
+    controls?: boolean;
+    /**
+     * Called by the toolbar's close button. The `file` prop is owned by the
+     * parent, so the parent has to clear it — the component only tears down its
+     * own render state and leaves the decision to the caller.
+     */
+    onclose?: () => void;
+    /**
+     * Called by the toolbar's download button instead of the default
+     * object-URL save. A caller may hold the document as a `File`, or — as the
+     * verify page does when the document came from a server claim or a blob
+     * handoff — as a URL with no `File` behind it, in which case the built-in
+     * save has nothing to read and this takes over.
+     */
+    ondownload?: (file: File | null) => void;
     children?: Snippet<
       [number, { width: number; height: number; ratio: number }[], number]
     >;
@@ -31,6 +49,19 @@
   const BUFFER = 3;
   const PADDING = 1; // 1rem = 16px (p-4)
   const DPI_SCALE = 1.5; // Increase for higher resolution (2x = ~150 DPI, 3x = ~225 DPI)
+  // Zoomed pages get big fast (a 612pt page at 4x is ~3700px of canvas), so cap
+  // the render scale independently of the on-screen scale.
+  const MAX_RENDER_SCALE = 4;
+  const ZOOM_MIN = 0.25;
+  const ZOOM_MAX = 4;
+  const ZOOM_STEP = 0.25;
+
+  let zoom = $state(1);
+  let currentPage = $state(0);
+  // Held separately from `currentPage` so a half-typed page number ("1" on the way
+  // to "12") isn't stomped by the scroll-sync effect.
+  let pageDraft: string | number = $state("");
+  let pageInputFocused = $state(false);
   let displayScale = $state(1);
   let displayVp: { width: number; height: number } = $state({
     width: 0,
@@ -81,6 +112,10 @@
       // console.log("file", file, pdfjsLib, hasSignature);
       currentFile = file;
       passwordCancelled = false;
+      // A new document starts at fit-width, first page.
+      zoom = 1;
+      currentPage = 0;
+      pageDraft = "";
       openFile(file);
     }
   });
@@ -140,8 +175,7 @@
         loadingTask = null;
         return;
       }
-      loadError =
-        err?.message || "File tidak valid atau rusak, gagal dimuat.";
+      loadError = err?.message || "File tidak valid atau rusak, gagal dimuat.";
     } finally {
       // Keep the loading task reference so cleanup() can destroy it later
       // (pdfjs-dist v4+ relies on loadingTask.destroy(), not pdfDoc.destroy()).
@@ -195,19 +229,49 @@
     loadError = null;
   }
 
+  /**
+   * Toolbar close. Tear down our own render state first so nothing is left
+   * holding canvases, then hand the decision to the owner — `file` is their
+   * prop, and only they can clear it.
+   */
+  function closeDocument() {
+    currentFile = null;
+    zoom = 1;
+    currentPage = 0;
+    pageDraft = "";
+    cleanup();
+    onclose?.();
+  }
+
+  /**
+   * The auto-fit scale for a page, multiplied by the user's zoom. Both the
+   * layout heights and the canvas render must go through this one helper,
+   * otherwise the page grows without the pixels being drawn to match.
+   */
+  function fitScale(
+    pageWidth: number,
+    pageHeight: number,
+    containerWidth: number,
+    containerHeight: number,
+  ) {
+    const fit = Math.min(
+      containerWidth / pageWidth,
+      containerHeight / pageHeight,
+    );
+    return fit * zoom;
+  }
+
   // --- Layout calculation ---
   function recomputeLayout() {
     if (!containerEl || pageSizes.length === 0) return;
     const containerWidth = containerEl.clientWidth - PADDING * 2;
     const containerHeight = containerEl.clientHeight - PADDING * 2;
 
-    pageHeights = pageSizes.map((s) => {
-      // Calculate scale to fit both width and height
-      const scaleW = containerWidth / s.width;
-      const scaleH = containerHeight / s.height;
-      const scale = Math.min(scaleW, scaleH);
-      return Math.round(s.height * scale);
-    });
+    pageHeights = pageSizes.map((s) =>
+      Math.round(
+        s.height * fitScale(s.width, s.height, containerWidth, containerHeight),
+      ),
+    );
 
     offsets = new Array(pageCount);
     let top = 0;
@@ -224,6 +288,76 @@
   }
 
   // --- Scroll + Virtualization ---
+
+  function setZoom(next: number) {
+    // Anchor on the page currently in view so zooming doesn't lose the user's
+    // place: remember its viewport-relative offset before relayout.
+    const anchor = currentPage > 0 ? currentPage - 1 : 0;
+    const before = containerEl ? (offsets[anchor] ?? 0) : 0;
+    const beforeTop = containerEl ? containerEl.scrollTop : 0;
+    const anchorScreen = before - beforeTop;
+
+    zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, next));
+
+    recomputeLayout();
+    updateVisible();
+    if (!containerEl) return;
+    // Put the anchored page back where it was on screen. `offsets` is only
+    // correct after a layout pass, so this runs on the next frame.
+    requestAnimationFrame(() => {
+      if (!containerEl) return;
+      containerEl.scrollTop = (offsets[anchor] ?? 0) - anchorScreen;
+      scheduleUpdate();
+    });
+  }
+
+  function zoomIn() {
+    setZoom(zoom + ZOOM_STEP);
+  }
+
+  function zoomOut() {
+    setZoom(zoom - ZOOM_STEP);
+  }
+
+  function resetZoom() {
+    setZoom(1);
+  }
+
+  function goToPage(target: number) {
+    if (!containerEl) return;
+    const clamped = Math.min(pageCount, Math.max(1, Math.round(target)));
+    const index = clamped - 1;
+    if (!offsets[index] && offsets[index] !== 0) return;
+    containerEl.scrollTo({
+      top: offsets[index],
+      behavior: "smooth",
+    });
+    currentPage = clamped;
+    pageDraft = clamped;
+  }
+
+  function commitPageDraft() {
+    const value = Number(pageDraft);
+    if (Number.isFinite(value) && pageDraft !== "") goToPage(value);
+    else pageDraft = currentPage;
+  }
+
+  function changePage(delta: number) {
+    goToPage(currentPage + delta);
+  }
+
+  // Track the page in view so the input reflects where the user actually is.
+  $effect(() => {
+    if (!containerEl || pageCount === 0) return;
+    const onScroll = () => {
+      const index = findIndexByOffset(containerEl!.scrollTop);
+      currentPage = index + 1;
+      if (!pageInputFocused) pageDraft = currentPage;
+    };
+    containerEl.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => containerEl?.removeEventListener("scroll", onScroll);
+  });
 
   function scheduleUpdate() {
     if (typeof requestAnimationFrame === "undefined") return;
@@ -284,13 +418,17 @@
     const containerHeight = containerEl.clientHeight - PADDING * 2;
     const vp1 = page.getViewport({ scale: 1 });
 
-    // Scale to fit both width and height (auto-fit)
-    const scaleW = containerWidth / vp1.width;
-    const scaleH = containerHeight / vp1.height;
-    displayScale = Math.min(scaleW, scaleH);
+    // Scale to fit both width and height (auto-fit), then apply the user's zoom
+    displayScale = fitScale(
+      vp1.width,
+      vp1.height,
+      containerWidth,
+      containerHeight,
+    );
 
-    // High-resolution scale for canvas
-    const renderScale = displayScale * DPI_SCALE;
+    // High-resolution scale for canvas, capped so a large zoom doesn't allocate
+    // an enormous canvas backing store.
+    const renderScale = Math.min(displayScale * DPI_SCALE, MAX_RENDER_SCALE);
 
     displayVp = page.getViewport({ scale: displayScale });
     const renderVp = page.getViewport({ scale: renderScale });
@@ -319,13 +457,7 @@
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
 
-    // Page number overlay
-    const overlay = document.createElement("div");
-    overlay.textContent = `Page ${num} / ${pageCount}`;
-    overlay.className = "absolute top-2 right-3 badge badge-sm badge-primary";
-
     wrap.appendChild(canvas);
-    wrap.appendChild(overlay);
     // console.log("hasSignature", hasSignature);
     if (!hasSignature) {
       // DRAFT watermark
@@ -351,60 +483,205 @@
 </script>
 
 <div
-  bind:this={containerEl}
-  class="relative w-full h-full max-w-7xl mx-auto overflow-y-auto p-4"
-  onscroll={scheduleUpdate}
+  class="group/preview relative w-full h-full min-h-0 max-w-7xl mx-auto flex flex-col"
 >
-  {#if passwordCancelled}
+  <!--
+    View controls. The component owns `pageCount`, the scroller and the scale, so
+    the bar lives here rather than in each caller: it stays correct for both the
+    signing preview (with draggable signature boxes) and the read-only verify
+    preview, and callers just opt in with `controls`.
+
+    The bar floats over the document instead of sitting in flow, so it no longer
+    eats scroll height — only the scroller below grows, and the bar overlays the
+    top of the pages. It is revealed on hover of the whole preview (so the
+    pointer only has to reach the scroller, not the bar itself, to summon it) and
+    on `focus-within`, which keeps it reachable by keyboard; both also restore
+    pointer events, since a hidden bar must not swallow clicks meant for the page.
+
+    The bar is a single centred pill, not a full-width strip. Bumping
+    `--radius-field` on it rounds every control inside: DaisyUI's `.btn`/`.input`
+    take their radius from that variable and it inherits, so the children pick up
+    the pill shape with no per-child overrides. Within the bar, goto and zoom are
+    each a `join` group — they fuse into one control, which is what `join` is
+    for, and each group still picks up the bar's rounding.
+  -->
+  {#if controls && pageCount > 0 && !loadError && !passwordCancelled}
     <div
-      class="absolute inset-0 flex flex-col items-center justify-center gap-4 p-8"
+      class="absolute top-2 inset-x-0 mx-auto z-10 flex w-fit max-w-full flex-wrap items-center justify-center gap-1 rounded-full bg-base-100 px-2 py-1.5 border border-base-300 shadow-lg opacity-0 pointer-events-none transition-opacity [--radius-field:9999px] group-hover/preview:opacity-100 group-hover/preview:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto"
     >
-      <iconify-icon icon="bx:lock-alt" class="text-6xl text-error/60"
-      ></iconify-icon>
-      <h3 class="text-xl font-bold">Dokumen Diproteksi</h3>
-      <p class="text-base-content/70 text-center max-w-sm">
-        Dokumen tidak dapat dimuat karena dilindungi kata sandi.
-      </p>
+      <div class="join">
+        <button
+          type="button"
+          class="btn btn-xs btn-ghost join-item"
+          aria-label="Halaman sebelumnya"
+          title="Halaman sebelumnya"
+          disabled={currentPage <= 1}
+          onclick={() => changePage(-1)}
+        >
+          <iconify-icon icon="bx:chevron-left" class="text-base"></iconify-icon>
+        </button>
+        <label
+          class="input input-xs join-item flex basis-24 items-center gap-1 px-1"
+          class:opacity-50={pageCount === 0}
+        >
+          <span class="sr-only">Nomor halaman</span>
+          <input
+            type="text"
+            inputmode="numeric"
+            class="w-full min-w-0 text-center text-xs"
+            aria-label="Nomor halaman"
+            bind:value={pageDraft}
+            onfocus={() => (pageInputFocused = true)}
+            onblur={() => {
+              pageInputFocused = false;
+              commitPageDraft();
+            }}
+            onkeydown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                commitPageDraft();
+                (e.currentTarget as HTMLInputElement).blur();
+              }
+            }}
+          />
+          <span class="shrink-0 text-xs whitespace-nowrap">/ {pageCount}</span>
+        </label>
+        <button
+          type="button"
+          class="btn btn-xs btn-ghost join-item"
+          aria-label="Halaman berikutnya"
+          title="Halaman berikutnya"
+          disabled={currentPage >= pageCount}
+          onclick={() => changePage(1)}
+        >
+          <iconify-icon icon="bx:chevron-right" class="text-base"
+          ></iconify-icon>
+        </button>
+      </div>
+
+      <div class="join">
+        <button
+          type="button"
+          class="btn btn-xs btn-ghost join-item"
+          aria-label="Perkecil"
+          title="Perkecil"
+          disabled={zoom <= ZOOM_MIN}
+          onclick={zoomOut}
+        >
+          <iconify-icon icon="bx:minus" class="text-base"></iconify-icon>
+        </button>
+        <button
+          type="button"
+          class="btn btn-xs btn-ghost join-item w-14 font-mono text-xs tabular-nums"
+          title="Reset zoom ke 100%"
+          aria-label="Reset zoom ke 100%"
+          onclick={resetZoom}
+        >
+          {Math.round(zoom * 100)}%
+        </button>
+        <button
+          type="button"
+          class="btn btn-xs btn-ghost join-item"
+          aria-label="Perbesar"
+          title="Perbesar"
+          disabled={zoom >= ZOOM_MAX}
+          onclick={zoomIn}
+        >
+          <iconify-icon icon="bx:plus" class="text-base"></iconify-icon>
+        </button>
+      </div>
+
       <button
         type="button"
-        class="btn btn-primary"
+        class="btn btn-xs btn-ghost"
+        title="Unduh PDF"
+        aria-label="Unduh PDF"
         onclick={() => {
-          passwordCancelled = false;
-          if (currentFile) openFile(currentFile);
+          // Hand off when asked to, otherwise save the File we rendered.
+          if (ondownload) return ondownload(currentFile);
+          if (!currentFile) return;
+          const url = URL.createObjectURL(currentFile);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = currentFile.name;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
         }}
       >
-        <iconify-icon icon="bx:key"></iconify-icon>
-        Masukkan Kata Sandi
+        <iconify-icon icon="bx:download" class="text-base"></iconify-icon>
+        Unduh
       </button>
-    </div>
-  {:else if loadError}
-    <div
-      class="absolute inset-0 flex flex-col items-center justify-center gap-4 p-8"
-    >
-      <iconify-icon icon="bx:error-circle" class="text-6xl text-error/60"
-      ></iconify-icon>
-      <h3 class="text-xl font-bold">Gagal Memuat Dokumen</h3>
-      <p class="text-base-content/70 text-center max-w-sm">{loadError}</p>
       <button
         type="button"
-        class="btn btn-primary"
-        onclick={() => currentFile && openFile(currentFile)}
+        class="btn btn-xs btn-ghost"
+        title="Tutup dokumen"
+        aria-label="Tutup dokumen"
+        onclick={closeDocument}
       >
-        <iconify-icon icon="bx:refresh"></iconify-icon>
-        Coba Lagi
+        <iconify-icon icon="bx:x" class="text-base"></iconify-icon>
+        Tutup
       </button>
     </div>
-  {:else}
-    <div class="relative w-full" style="height: {totalHeight}px">
-      <div class="pdf-layer absolute top-0 left-0 right-0 bottom-0"></div>
-      <div
-        class="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 z-1 overflow-clip"
-        style="width: {displayVp.width}px;"
-      >
-        {@render children?.(displayScale, pageSizes, GAP)}
-      </div>
-    </div>
   {/if}
+
+  <div
+    bind:this={containerEl}
+    class="relative w-full min-h-0 grow overflow-y-auto rounded-2xl bg-base-200 p-4"
+    onscroll={scheduleUpdate}
+  >
+    {#if passwordCancelled}
+      <div
+        class="absolute inset-0 flex flex-col items-center justify-center gap-4 p-8"
+      >
+        <iconify-icon icon="bx:lock-alt" class="text-6xl text-error/60"
+        ></iconify-icon>
+        <h3 class="text-xl font-bold">Dokumen Diproteksi</h3>
+        <p class="text-base-content/70 text-center max-w-sm">
+          Dokumen tidak dapat dimuat karena dilindungi kata sandi.
+        </p>
+        <button
+          type="button"
+          class="btn btn-primary"
+          onclick={() => {
+            passwordCancelled = false;
+            if (currentFile) openFile(currentFile);
+          }}
+        >
+          <iconify-icon icon="bx:key"></iconify-icon>
+          Masukkan Kata Sandi
+        </button>
+      </div>
+    {:else if loadError}
+      <div
+        class="absolute inset-0 flex flex-col items-center justify-center gap-4 p-8"
+      >
+        <iconify-icon icon="bx:error-circle" class="text-6xl text-error/60"
+        ></iconify-icon>
+        <h3 class="text-xl font-bold">Gagal Memuat Dokumen</h3>
+        <p class="text-base-content/70 text-center max-w-sm">{loadError}</p>
+        <button
+          type="button"
+          class="btn btn-primary"
+          onclick={() => currentFile && openFile(currentFile)}
+        >
+          <iconify-icon icon="bx:refresh"></iconify-icon>
+          Coba Lagi
+        </button>
+      </div>
+    {:else}
+      <div class="relative w-full" style="height: {totalHeight}px">
+        <div class="pdf-layer absolute top-0 left-0 right-0 bottom-0"></div>
+        <div
+          class="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 z-1 overflow-clip"
+          style="width: {displayVp.width}px;"
+        >
+          {@render children?.(displayScale, pageSizes, GAP)}
+        </div>
+      </div>
+    {/if}
+  </div>
 </div>
 
 <!-- Password Modal -->

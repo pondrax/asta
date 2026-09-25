@@ -404,32 +404,35 @@
       </div>
     {:else if previewFile || fileURL}
       <div class="grow min-h-0 relative flex flex-col">
-        <div class="absolute top-4 right-4 z-10 flex gap-2">
-          <button
-            type="button"
-            class="btn btn-sm btn-secondary tooltip tooltip-bottom"
-            data-tip="Download"
-            onclick={() => {
-              if (previewFile) {
-                const url = URL.createObjectURL(previewFile);
+        <div class="grow min-h-0 overflow-y-auto">
+          <Preview
+            file={previewFile}
+            controls
+            onclose={() => {
+              previewFile = null;
+              fileURL = undefined;
+              verifyStatus = undefined;
+              // The uploader's binding is the source of `previewFile`; leaving
+              // it populated makes the effect above re-open what we just closed.
+              uploaderFiles = [];
+            }}
+            ondownload={(f) => {
+              // The verify page can hold a server-side claim URL with no File
+              // behind it, so prefer the local blob and fall back to the URL.
+              if (f) {
+                const url = URL.createObjectURL(f);
                 const a = document.createElement("a");
                 a.href = url;
-                a.download = previewFile.name;
+                a.download = f.name || "document.pdf";
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
-              } else if (fileURL) {
-                downloadFile(fileURL);
+                return;
               }
+              if (fileURL) downloadFile(fileURL);
             }}
-          >
-            <iconify-icon icon="bx:download"></iconify-icon>
-            Download PDF
-          </button>
-        </div>
-        <div class="grow min-h-0 overflow-y-auto">
-          <Preview file={previewFile} />
+          />
         </div>
       </div>
     {:else}
