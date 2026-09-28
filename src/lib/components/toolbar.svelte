@@ -7,6 +7,7 @@
   }"
 >
   import { d, getLeafValues } from "$lib/utils";
+  import { defForOp } from "$lib/utils/filters";
   import Export from "./export.svelte";
   import Modal from "./modal.svelte";
 
@@ -24,6 +25,10 @@
     children?: () => any;
     extended?: () => any;
     actions?: () => any;
+    /** Rendered to the left of the search box. */
+    lead?: () => any;
+    /** Rendered at the start of the right-hand control group, before paging. */
+    trail?: () => any;
     filter?: (query: Where) => any;
     mapper?: {
       import?: (item: Item, data: Item[]) => void;
@@ -43,6 +48,8 @@
     children,
     extended,
     actions,
+    lead,
+    trail,
     filter,
     mapper,
     pageList = $bindable([5, 10, 20, 30, 50, 100, 250, 500, 1000]),
@@ -54,6 +61,27 @@
   let exportAll = $state(false);
   let filterModal = $state(false);
   let exportLoading = $state(false);
+
+  /**
+   * Recognise a `{ <op>: <value> }` operator filter so the chip can read
+   * `EMAIL : contains %mojok%` instead of leaking the raw drizzle operator.
+   * Returns undefined for the legacy bare-value form, which is left untouched.
+   */
+  function operatorOf(value: unknown) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return;
+    const [op, val] = Object.entries(value as Record<string, unknown>)[0] ?? [];
+    if (!op) return;
+    // `query.where` holds drizzle operator names (`ilike`), not catalog ids
+    // (`contains`), so resolve through the drizzle-name index.
+    const def = defForOp(op);
+    if (!def) return;
+    // Null checks and `is empty` carry no value; the label alone is the condition.
+    const shown =
+      def.value === "" || def.arity === 0 || val === true || val === undefined
+        ? def.label
+        : `${def.label} ${getLeafValues(val).join(", ")}`;
+    return { label: shown };
+  }
 
   let prevBtn = $state() as HTMLButtonElement;
   let nextBtn = $state() as HTMLButtonElement;
@@ -114,6 +142,10 @@
 <div>
   <div class="flex gap-2 justify-between mb-2 z-1 relative">
     <div class="flex gap-2">
+      <!-- Optional slot rendered before the search box, so callers can put their own
+           controls (e.g. a filter toggle) on the left of the search field. -->
+      {@render lead?.()}
+
       {#if filter}
         <div class="tooltip">
           <div class="tooltip-content text-xs">
@@ -168,6 +200,7 @@
     </div>
 
     <div class="flex gap-2">
+      {@render trail?.()}
       {@render extended?.()}
       <div class="join">
         <div class="tooltip">
@@ -350,10 +383,14 @@
   <div>
     {#each Object.entries(query.where ?? {}) as [key, value]}
       {@const val = getLeafValues(value)}
+      <!-- An operator filter arrives as `{ column: { <op>: <value> } }`. Showing the
+           raw leaves would print the operator next to the value, so unwrap it first. -->
+      {@const op = operatorOf(value)}
+      {@const shown = op ? op.label : val}
       {#if val.length}
         <div class="join">
           <span class="btn btn-xs btn-soft">
-            {key?.toUpperCase()} : {val}
+            {key?.toUpperCase()} : {shown}
           </span>
           <button
             type="button"

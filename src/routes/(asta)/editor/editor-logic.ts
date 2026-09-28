@@ -213,6 +213,36 @@ function isLightHex(hex: string): boolean {
   return 0.299 * r + 0.587 * g + 0.114 * b > 230;
 }
 
+/**
+ * The AI actions reachable from the AI menu, keyed by the id that travels to
+ * `/api/editor-ai` as `action`.
+ *
+ * `selection` decides what the action reads and what it writes:
+ *   - "replace" rewrites the current selection in place, so it is meaningless
+ *     without one and runs straight from the menu,
+ *   - "document" reads the whole body and inserts the result at the cursor,
+ *     which needs a dialog first so the user can steer it and see what will
+ *     happen.
+ */
+const AI_ACTIONS = {
+  "improve": { label: "Improve Writing", mode: "replace" },
+  "fix": { label: "Fix Grammar", mode: "replace" },
+  "shorten": { label: "Shorten", mode: "replace" },
+  "expand": { label: "Expand", mode: "replace" },
+  "simplify": { label: "Simplify", mode: "replace" },
+  "formal": { label: "Make Formal", mode: "replace" },
+  "summarize": { label: "Summarize Document", mode: "document" },
+  "translate": { label: "Translate to English", mode: "document" },
+  "continue": { label: "Continue Writing", mode: "document" },
+} as const satisfies Record<string, { label: string; mode: "replace" | "document" }>;
+
+type AiActionId = keyof typeof AI_ACTIONS;
+
+const AI_DIALOG_HINT = "The document is used as context. The result is inserted at the cursor.";
+
+/** Matches the server-side cap, so a huge document fails before it is sent. */
+const AI_MAX_SOURCE_CHARS = 12_000;
+
 function isTableCellVerticalAlignment(value: string | undefined): value is TableCellVerticalAlignment {
   return value === "top" || value === "center" || value === "bottom";
 }
@@ -289,6 +319,14 @@ export interface DocxEditorSetupOptions {
   showToast: (type: "success" | "error", msg: string) => void;
   getTheme: () => string;
   setTheme: (t: string) => void;
+  /**
+   * Whether the signed-in user may use the AI rewriting actions.
+   *
+   * The caller decides this from the session so anonymous visitors never see
+   * the AI menu at all. `/api/editor-ai` re-checks it server-side; this flag
+   * only keeps the UI honest.
+   */
+  canUseAi?: boolean;
   /**
    * Hands the exported PDF to the signing page.
    *
@@ -368,6 +406,7 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
   let loadingShownAt = 0;
   let loadingHideTimer: ReturnType<typeof setTimeout> | null = null;
   let pendingDiscardAction: (() => void) | null = null;
+  let pendingAiAction: AiActionId | null = null;
   let suppressDirty = false;
   let styleMenuOpen = false;
   let fontMenuOpen = false;
@@ -545,6 +584,13 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
   const discardDialog = root.querySelector("#discardDialog") as HTMLElement | null;
   const discardCancel = root.querySelector("#discardCancel") as HTMLButtonElement | null;
   const discardConfirm = root.querySelector("#discardConfirm") as HTMLButtonElement | null;
+  const aiOverlay = root.querySelector("#aiOverlay") as HTMLElement | null;
+  const aiDialogTitle = root.querySelector("#aiDialogTitle") as HTMLElement | null;
+  const aiDialogHint = root.querySelector("#aiDialogHint") as HTMLElement | null;
+  const aiInstruction = root.querySelector("#aiInstruction") as HTMLInputElement | null;
+  const aiError = root.querySelector("#aiError") as HTMLElement | null;
+  const aiCancel = root.querySelector("#aiCancel") as HTMLButtonElement | null;
+  const aiRun = root.querySelector("#aiRun") as HTMLButtonElement | null;
   const loadingOverlay = root.querySelector("#loadingOverlay") as HTMLElement | null;
   const loadingLabel = root.querySelector("#loadingLabel") as HTMLElement | null;
   const commandButtons = root.querySelectorAll<HTMLButtonElement>(".command[data-slot]");
@@ -1233,6 +1279,144 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
     if (!paragraphDialogOverlay) return;
     paragraphDialogOpen = false;
     paragraphDialogOverlay.hidden = true;
+  }
+
+  // ============ AI EDITING ============
+  // The AI menu is hidden in the markup for anonymous visitors, and the server
+  // rejects them too, so `canUseAi` is checked here purely so a stale or
+  // hand-edited DOM cannot reach the endpoint.
+  function aiEnabled() {
+    return opts.canUseAi !== false && !!editor;
+  }
+
+  /** Whole-document text, used as context by the generate actions. */
+  function readDocumentText(): string {
+    if (!editor) return "";
+    const paragraphs = editor.query({ type: "paragraphs" });
+    return paragraphs
+      .map((p) => p.text.trim())
+      .filter(Boolean)
+      .join("\n\n")
+      .slice(0, AI_MAX_SOURCE_CHARS);
+  }
+
+  function setAiBusy(busy: boolean) {
+    if (aiRun) {
+      aiRun.disabled = busy;
+      aiRun.textContent = busy ? "Working…" : "Run";
+    }
+    if (aiCancel) aiCancel.disabled = busy;
+  }
+
+  /**
+   * Reports a failure on whichever surface is actually on screen.
+   *
+   * The rewrite actions never open the dialog, so writing to the dialog's
+   * error slot there would put the message somewhere the user cannot see it.
+   */
+  function aiFail(message: string) {
+    if (aiOverlay && !aiOverlay.hidden && aiError) {
+      aiError.textContent = message;
+      return;
+    }
+    opts.showToast("error", message);
+  }
+
+  function openAiDialog(action: AiActionId) {
+    if (!aiOverlay) return;
+    pendingAiAction = action;
+    if (aiDialogTitle) aiDialogTitle.textContent = AI_ACTIONS[action].label;
+    if (aiDialogHint) aiDialogHint.textContent = AI_DIALOG_HINT;
+    if (aiInstruction) aiInstruction.value = "";
+    if (aiError) aiError.textContent = "";
+    aiOverlay.hidden = false;
+    aiInstruction?.focus();
+  }
+
+  function closeAiDialog() {
+    if (!aiOverlay) return;
+    pendingAiAction = null;
+    aiOverlay.hidden = true;
+    setAiBusy(false);
+  }
+
+  /**
+   * Asks the endpoint to rewrite `source`, then writes the answer back.
+   *
+   * `mode` decides the write: a "replace" action pastes over the selection,
+   * which the engine handles by replacing exactly what was selected, while a
+   * "document" action pastes at the cursor. Both go through the clipboard
+   * lane rather than raw edits because it is the only path that keeps the
+   * undo stack, tracked changes, and revision guards intact.
+   */
+  async function runAiAction(action: AiActionId, instruction: string) {
+    if (!aiEnabled()) return;
+    const instance = editor;
+    if (!instance) return;
+
+    const mode = AI_ACTIONS[action].mode;
+    const selection = instance.query({ type: "selectedText" }).trim();
+    const source = mode === "replace" ? selection : readDocumentText();
+
+    if (!source) {
+      aiFail(
+        mode === "replace"
+          ? "Select some text first."
+          : "The document is empty.",
+      );
+      return;
+    }
+
+    setAiBusy(true);
+    if (aiError) aiError.textContent = "";
+
+    try {
+      const res = await fetch("/api/editor-ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, source, instruction }),
+      });
+
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(payload?.error || `AI request failed (${res.status}).`);
+      }
+      const text: unknown = payload?.text;
+      if (typeof text !== "string" || !text.trim()) {
+        throw new Error("AI returned no text.");
+      }
+
+      const command = { type: "paste" as const, text: text.trim() };
+      const can = instance.can(command);
+      if (!can.ok) {
+        throw new Error(can.reason || "The document refused this change.");
+      }
+      instance.exec(command);
+      instance.focus();
+      // Close here rather than before the request, so a failure keeps the
+      // dialog up with the message in it instead of vanishing into a toast.
+      closeAiDialog();
+      updateAll();
+      opts.showToast("success", `${AI_ACTIONS[action].label} applied.`);
+    } catch (e) {
+      aiFail(e instanceof Error ? e.message : String(e));
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
+  /**
+   * Menu entry point. Rewrite actions run immediately; the document-scoped
+   * ones open the dialog first so the user can add direction before spending
+   * a request.
+   */
+  function handleAiAction(action: AiActionId) {
+    if (!aiEnabled()) return;
+    if (AI_ACTIONS[action].mode === "document") {
+      openAiDialog(action);
+      return;
+    }
+    void runAiAction(action, "");
   }
 
   function resetParagraphSpecial() {
@@ -2567,6 +2751,10 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
         if (action === "savePdf") void saveAsPdf();
         if (action === "print") printDocument();
         if (action === "pageSetup") openPageSetup();
+        if (action?.startsWith("ai.")) {
+          const aiAction = action.slice(3);
+          if (aiAction in AI_ACTIONS) handleAiAction(aiAction as AiActionId);
+        }
         closeAllMenus();
       }, { signal: eventSignal });
     });
@@ -3053,9 +3241,29 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
     discardOverlay?.addEventListener("mousedown", (e) => {
       if (e.target === discardOverlay) closeDiscardDialog();
     }, { signal: eventSignal });
+
+    aiCancel?.addEventListener("click", closeAiDialog, { signal: eventSignal });
+    aiRun?.addEventListener("click", () => {
+      const action = pendingAiAction;
+      const instruction = aiInstruction?.value.trim() ?? "";
+      if (!action) return;
+      // The dialog stays open for the duration: it shows the progress state,
+      // and on failure the error lands in its own message slot.
+      void runAiAction(action, instruction);
+    }, { signal: eventSignal });
+    aiInstruction?.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      aiRun?.click();
+    }, { signal: eventSignal });
+    aiOverlay?.addEventListener("mousedown", (e) => {
+      if (e.target === aiOverlay) closeAiDialog();
+    }, { signal: eventSignal });
+
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
       if (paragraphDialogOpen) closeParagraphDialog();
+      else if (aiOverlay && !aiOverlay.hidden) closeAiDialog();
       else if (discardOverlay && !discardOverlay.hidden) closeDiscardDialog();
     }, { signal: eventSignal });
 

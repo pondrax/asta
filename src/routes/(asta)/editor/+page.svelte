@@ -5,10 +5,18 @@
   import { setupDocxEditor } from "./editor-logic";
   import "./editor.css";
 
+  let { data } = $props();
+
   let rootEl = $state<HTMLDivElement | null>(null);
   let dirty = $state(false);
   let errorMessage = $state<string | null>(null);
   let handle: ReturnType<typeof setupDocxEditor> | null = null;
+
+  // AI editing is reserved for signed-in users. The server enforces this too
+  // (`/api/editor-ai` rejects anonymous callers), so this is the UI half of
+  // the same rule: without it the menu would offer actions that can only
+  // ever fail with a 401.
+  const canUseAi = $derived(!!data?.user);
 
   // Bridge the app theme (data-theme on <html>) to the editor CSS which uses body.dark
   $effect(() => {
@@ -32,6 +40,7 @@
       setTheme: (t) => {
         app.theme = t;
       },
+      canUseAi,
       onSignPdf: async (file, tab) => {
         // Park the PDF in IndexedDB first — a new tab can't see this tab's
         // memory, so the key in the URL is what carries the document across.
@@ -312,6 +321,102 @@
                   ></iconify-icon>
                 </span>
                 Editing Mode
+              </button>
+            </div>
+          </div>
+
+          <!-- ============ AI ============ -->
+          <!-- Signed-in only. The actions split by what they read: the
+               rewrite group needs a selection and replaces it, the generate
+               group reads the whole document and inserts new text at the
+               cursor. `hidden` on the whole menu is driven from the script so
+               anonymous visitors never see it. -->
+          <div class="menu" id="aiMenu" hidden={!canUseAi}>
+            <button
+              class="menu-button"
+              type="button"
+              id="aiMenuButton"
+              aria-haspopup="true"
+              aria-expanded="false"
+              aria-controls="aiMenuPopup">AI</button
+            >
+            <div
+              class="menu-popup"
+              id="aiMenuPopup"
+              role="menu"
+              aria-labelledby="aiMenuButton"
+            >
+              <button class="menu-item" type="button" data-action="ai.improve">
+                <span class="menu-item-icon">
+                  <iconify-icon icon="bx:magic" width="18" height="18"
+                  ></iconify-icon>
+                </span>
+                Improve Writing
+              </button>
+              <button class="menu-item" type="button" data-action="ai.fix">
+                <span class="menu-item-icon">
+                  <iconify-icon icon="bx:check-circle" width="18" height="18"
+                  ></iconify-icon>
+                </span>
+                Fix Grammar
+              </button>
+              <button class="menu-item" type="button" data-action="ai.shorten">
+                <span class="menu-item-icon">
+                  <iconify-icon icon="bx:shrink" width="18" height="18"
+                  ></iconify-icon>
+                </span>
+                Shorten
+              </button>
+              <button class="menu-item" type="button" data-action="ai.expand">
+                <span class="menu-item-icon">
+                  <iconify-icon icon="bx:expand" width="18" height="18"
+                  ></iconify-icon>
+                </span>
+                Expand
+              </button>
+              <button class="menu-item" type="button" data-action="ai.simplify">
+                <span class="menu-item-icon">
+                  <iconify-icon icon="bx:align-left" width="18" height="18"
+                  ></iconify-icon>
+                </span>
+                Simplify
+              </button>
+              <button class="menu-item" type="button" data-action="ai.formal">
+                <span class="menu-item-icon">
+                  <iconify-icon icon="bx:briefcase" width="18" height="18"
+                  ></iconify-icon>
+                </span>
+                Make Formal
+              </button>
+              <div class="menu-separator"></div>
+              <button
+                class="menu-item"
+                type="button"
+                data-action="ai.summarize"
+              >
+                <span class="menu-item-icon">
+                  <iconify-icon icon="bx:list-ul" width="18" height="18"
+                  ></iconify-icon>
+                </span>
+                Summarize Document
+              </button>
+              <button
+                class="menu-item"
+                type="button"
+                data-action="ai.translate"
+              >
+                <span class="menu-item-icon">
+                  <iconify-icon icon="bx:translate" width="18" height="18"
+                  ></iconify-icon>
+                </span>
+                Translate to English
+              </button>
+              <button class="menu-item" type="button" data-action="ai.continue">
+                <span class="menu-item-icon">
+                  <iconify-icon icon="bx:edit-alt" width="18" height="18"
+                  ></iconify-icon>
+                </span>
+                Continue Writing
               </button>
             </div>
           </div>
@@ -2267,6 +2372,54 @@
           type="button"
           class="docx-dialog__button docx-dialog__button--primary"
           id="discardConfirm">Discard</button
+        >
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ AI DIALOG ============ -->
+  <!-- Shown for the generate actions, which need a target and a bit of steer.
+       The rewrite actions run straight from the menu, no dialog, because the
+       selection already says what to act on. -->
+  <div class="docx-dialog-overlay" id="aiOverlay" hidden>
+    <div
+      class="docx-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="aiDialogTitle"
+      id="aiDialog"
+    >
+      <div class="docx-dialog__header">
+        <span class="docx-dialog__title" id="aiDialogTitle"
+          >Continue Writing</span
+        >
+      </div>
+      <div class="docx-dialog__body">
+        <p class="docx-dialog__message" id="aiDialogHint">
+          The document is used as context. The result is inserted at the cursor.
+        </p>
+        <div class="docx-dialog__row">
+          <label class="docx-dialog__label" for="aiInstruction"
+            >Instruction</label
+          >
+          <input
+            type="text"
+            class="docx-dialog__input"
+            id="aiInstruction"
+            maxlength="200"
+            placeholder="Optional — e.g. write in a formal tone"
+          />
+        </div>
+      </div>
+      <div class="docx-dialog__footer">
+        <span class="docx-dialog__error" id="aiError" role="alert"></span>
+        <button type="button" class="docx-dialog__button" id="aiCancel"
+          >Cancel</button
+        >
+        <button
+          type="button"
+          class="docx-dialog__button docx-dialog__button--primary"
+          id="aiRun">Run</button
         >
       </div>
     </div>

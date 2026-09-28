@@ -1,6 +1,13 @@
 import { query, form } from "$app/server";
 import { db } from '$lib/server/db';
 import { checkAdmin } from '$lib/utils/server';
+import {
+  ALLOWED_OPERATORS,
+  defForOp,
+  filterKind,
+  normalizeIncomingValue,
+  normalizeValue,
+} from '$lib/utils/filters';
 import { eq, inArray, getColumns } from 'drizzle-orm';
 import * as schema from '$lib/server/db/schema';
 
@@ -9,7 +16,9 @@ export interface CollectionSchema {
   columns: {
     key: string;
     name: string;
+    header: string;
     type: string;
+    dataType: string;
     isId: boolean;
     isNullable: boolean;
     isArray: boolean;
@@ -34,9 +43,14 @@ export const getCollections = query('unchecked', async () => {
         name: col.name,
         header: key.replace(/_/g, ' '),
         type: col.columnType,
+        // The client uses dataType to pick filter operators; columnType alone
+        // is too coarse (every text column reports `PgText`).
+        dataType: col.dataType,
         isId: col.primary || key === 'id',
         isNullable: !col.notNull,
-        isArray: (col as any).array === true || col.columnType.includes('Array'),
+        // pg array columns are plain `PgText`/etc. with `dimensions > 0`;
+        // `columnType.includes('Array')` never matches.
+        isArray: (col as any).dimensions > 0,
         defaultValue: col.default,
       }))
 
@@ -66,14 +80,8 @@ export const getCollectionData = query('unchecked', async (params: {
   // Build search conditions using RQB object filter format (for relationsFilterToSQL)
   const conditions: any[] = [];
 
-  if (where && Object.keys(where).length > 0) {
-    const filterWhere: Record<string, any> = {};
-    for (const [k, v] of Object.entries(where)) {
-      if (v == null || v === '') continue;
-      filterWhere[k] = typeof v === 'string' ? { ilike: `%${v}%` } : { eq: v };
-    }
-    if (Object.keys(filterWhere).length > 0) conditions.push(filterWhere);
-  }
+  const filterWhere = buildFieldFilter(table, where);
+  if (filterWhere) conditions.push(filterWhere);
 
   if (search && search.trim()) {
     const term = `%${search.trim()}%`;
@@ -110,6 +118,84 @@ export const getCollectionData = query('unchecked', async (params: {
     time: `${(performance.now() - time).toFixed(2)}ms`
   }));
 });
+
+/**
+ * Turn the client-supplied `where` into a validated RQB field filter.
+ *
+ * Two shapes are accepted per key:
+ *  - a bare value (from the legacy modal filter): a string means
+ *    `ilike %value%`, anything else means `eq`
+ *  - `{ <operator>: <raw value> }` from the filter bar, e.g.
+ *    `{ status: { eq: "active" } }` or `{ age: { between: ["1", "9"] } }`
+ *
+ * Everything is checked against the real columns and the operator catalog
+ * before it reaches drizzle: an unknown key would otherwise be turned into a
+ * raw `sql.identifier(...)`, and an unknown operator would be called with an
+ * arbitrary value.
+ */
+function buildFieldFilter(
+  table: string,
+  where: Record<string, any> | undefined,
+): Record<string, any> | undefined {
+  if (!where || typeof where !== 'object' || Object.keys(where).length === 0) {
+    return undefined;
+  }
+
+  const tableObj = (schema as any)[table];
+  if (!tableObj) return undefined;
+
+  const columns = getColumns(tableObj);
+  const result: Record<string, any> = {};
+
+  for (const [key, entry] of Object.entries(where)) {
+    const column = columns[key];
+    if (!column || entry == null) continue;
+
+    let op: string = 'ilike';
+    let raw: unknown = entry;
+    // The operator form arrives with `%` padding already applied by the client,
+    // because the wire format is a real RQB filter and `getData` (Export) and
+    // `getTableStats` both consume it as-is. The legacy bare-string form is
+    // still padded here.
+    let normalize = normalizeIncomingValue;
+
+    if (typeof entry === 'object' && !Array.isArray(entry)) {
+      // Operator form — take the single operator the catalog defines.
+      const [opKey, opValue] = Object.entries(entry as Record<string, unknown>)[0] ?? [];
+      if (!opKey || !ALLOWED_OPERATORS.has(opKey)) continue;
+      op = opKey;
+      raw = opValue;
+    } else if (entry === '') {
+      // Legacy: an empty string was treated as "no filter".
+      continue;
+    } else if (typeof entry !== 'string') {
+      op = 'eq';
+    } else {
+      normalize = normalizeValue;
+    }
+
+    const def = defForOp(op);
+    if (!def) continue;
+
+    const kind = filterKind({
+      key,
+      name: column.name,
+      type: column.columnType,
+      dataType: column.dataType,
+      isNullable: !column.notNull,
+      isArray: (column as any).dimensions > 0,
+    });
+
+    const value = normalize(def, raw, kind);
+    // `undefined` means the row is still incomplete (e.g. `contains` with an
+    // empty input) — an unfinished filter must not narrow the result set.
+    if (value === undefined) continue;
+
+    result[key] = { [op]: value };
+  }
+
+  return Object.keys(result).length ? result : undefined;
+}
 
 /**
  * Turn a client-supplied `orderBy` object into a validated RQB orderBy.
@@ -295,17 +381,25 @@ export const getLogStats = query('unchecked', async (params: { where?: Record<st
 function buildWhere(where: Record<string, any>) {
   if (!where || Object.keys(where).length === 0) return null;
 
-  return (t: any, { and, ilike, eq }: any) => {
+  return (t: any, ops: any) => {
     const conds = Object.entries(where)
-      .filter(([_, v]) => v != null && v !== '')
+      .filter(([_, v]) => v != null)
       .map(([k, v]) => {
         const col = t[k];
         if (!col) return null;
-        if (typeof v === 'string') return ilike(col, `%${v}%`);
-        return eq(col, v);
+        // Bare value: string means `ilike %value%`, anything else `eq`.
+        if (typeof v !== 'object' || Array.isArray(v)) {
+          if (v === '') return null;
+          return typeof v === 'string' ? ops.ilike(col, `%${v}%`) : ops.eq(col, v);
+        }
+        // Operator form: rebuild the same condition the row filter produced.
+        const [op, value] = Object.entries(v as Record<string, unknown>)[0] ?? [];
+        if (!op || !(op in ops)) return null;
+        if (op === 'isNull' || op === 'isNotNull') return ops[op](col);
+        return ops[op](col, value);
       })
       .filter((c): c is any => c !== null);
 
-    return conds.length > 0 ? and(...conds) : undefined;
+    return conds.length > 0 ? ops.and(...conds) : undefined;
   };
 }
