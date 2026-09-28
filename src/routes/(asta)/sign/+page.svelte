@@ -780,12 +780,33 @@
     <span class="btn btn-circle btn-lg btn-error">✕</span>
   </div>
 
+  <!--
+    "Coba editor DOCX baru". Lives in the `+` flower rather than as a lone
+    button beside Tanda Tangan: it is another way to *get a document* in, the
+    same family as the two entries below it, and the flower already owns the
+    "start from scratch" corner of the screen. `fab` is `column-reverse`, so
+    this renders directly above the `+` toggle — third in source order.
+    The classes are deliberately identical to its siblings (`btn btn-lg
+    rounded-xl`, no colour variant): the flower supplies its own emphasis, and
+    a coloured or underlined link here would read as a fourth, different kind
+    of action. Only the "Baru" badge sets it apart.
+  -->
+  <a
+    href="/editor"
+    class="btn btn-lg rounded-xl"
+    aria-label="Buat Dokumen"
+    data-tip="Coba editor DOCX baru"
+  >
+    <iconify-icon icon="bx:file-text" class="text-2xl"></iconify-icon>
+    Buat Dokumen
+    <span class="badge badge-sm badge-secondary">Baru</span>
+  </a>
   <button
     class="btn btn-lg rounded-xl"
-    aria-label="Upload PDF"
+    aria-label="Upload PDF atau DOCX"
     onclick={() => fileInput?.click()}
   >
-    Unggah PDF
+    Unggah PDF/DOCX
     <iconify-icon icon="bx:upload" class="text-2xl"></iconify-icon>
   </button>
   <button
