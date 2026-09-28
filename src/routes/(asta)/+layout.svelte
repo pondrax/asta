@@ -5,6 +5,7 @@
   import { app } from "$lib/app/index.svelte";
   import Lottie from "$lib/components/lottie.svelte";
   import Chatbot from "$lib/components/chatbot.svelte";
+  import CookieConsent from "$lib/components/cookie-consent.svelte";
   import { getPageTitle } from "$lib/app/titles";
   import { getStatus, getAdminCounts } from "$lib/remotes/stats.remote";
   import { stopImpersonation } from "$lib/remotes/user.remote";
@@ -1338,6 +1339,7 @@
     {@render children()}
   </div>
 
+  <CookieConsent />
   <Chatbot {user} />
 </div>
 
