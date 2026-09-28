@@ -2294,11 +2294,24 @@
        compact icon-only affordance that sits just above the wider
        `right-38` Tanda Tangan FAB, so the two never overlap. Clicking goes
        through the handle's `newDocument`, which still prompts before
-       discarding unsaved changes. -->
-  <div class="fab right-24">
+       discarding unsaved changes.
+
+       The tooltip is `tooltip-top` on purpose. These two FABs are pinned to
+       the same bottom edge and the sign button is 185px wide, so a
+       `tooltip-left` bubble had nowhere to go: it rendered at x=686..875
+       directly on top of the sign button at x=687..872. Since both `.fab`
+       wrappers are `position: fixed` at the same z-index, the later-in-DOM
+       sign FAB painted over the bubble and the label was sliced in half by
+       the button edge. `tooltip-top` lifts the bubble into empty space
+       above the FAB, so it never collides with anything.
+
+       `z-1000` keeps the bubble above the sign FAB's `z-999` for the same
+       reason: a tooltip that paints behind its neighbours is unreadable
+       regardless of which side it is on. -->
+  <div class="fab right-24 z-1000">
     <button
       id="newDocFab"
-      class="btn btn-lg btn-circle btn-primary tooltip tooltip-left shadow-lg"
+      class="btn btn-lg btn-circle btn-primary tooltip tooltip-top shadow-lg"
       aria-label="Buat Dokumen Baru"
       data-tip="Buat Dokumen Baru"
       title="Buat dokumen baru"
