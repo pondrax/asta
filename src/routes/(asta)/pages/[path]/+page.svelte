@@ -470,6 +470,196 @@
             </div>
           </section>
         </div>
+      {:else if currentPage.content === "terms-of-use"}
+        <!-- Ketentuan Penggunaan -->
+        <div class="text-center mb-10">
+          <h1 class="text-3xl sm:text-4xl font-bold text-primary mb-3">
+            Ketentuan Penggunaan
+          </h1>
+          <p class="text-sm opacity-60">
+            Terakhir diperbarui: 28 September 2026
+          </p>
+        </div>
+
+        <div class="prose prose-sm sm:prose-base max-w-none space-y-8">
+          <section>
+            <p>
+              Ketentuan Penggunaan ini adalah komitmen nyata dari <strong
+                >Tapak Astà</strong
+              > untuk memberikan layanan yang dapat diakses, dipahami, dan
+              dipergunakan secara adil oleh seluruh Pengguna aplikasi Tapak
+              Astà.
+            </p>
+            <p>
+              Ketentuan Penggunaan ini (beserta Kebijakan Privasi dan informasi
+              lain yang tercantum di aplikasi Tapak Astà) menetapkan dasar atas
+              penggunaan, akses, dan seluruh bentuk interaksi Pengguna terhadap
+              aplikasi Tapak Astà (selanjutnya disebut sebagai "aplikasi"). Dengan
+              kata lain, ketentuan ini mengatur apa yang boleh dan tidak boleh
+              dilakukan Pengguna ketika menggunakan aplikasi.
+            </p>
+            <p>
+              Dengan mengakses dan/atau mempergunakan aplikasi Tapak Astà,
+              Pengguna menyatakan bahwa Pengguna telah membaca, memahami, dan
+              menyetujui seluruh ketentuan di bawah ini. Apabila Pengguna tidak
+              menyetujui salah satu maupun seluruh ketentuan ini, Pengguna
+              dilarang untuk mengakses dan/atau mempergunakan aplikasi.
+            </p>
+          </section>
+
+          <section>
+            <h2 class="text-xl font-bold text-primary mb-4">
+              Ruang Lingkup Layanan
+            </h2>
+            <p>
+              Aplikasi Tapak Astà merupakan platform Tanda Tangan Elektronik
+              milik Pemerintah Kota Mojokerto. Perlu dijelaskan bahwa layanan
+              pada aplikasi dapat mengalami perubahan dan penambahan fitur ke
+              depan. Pengguna diharapkan untuk membaca dan memahami informasi
+              tersebut.
+            </p>
+          </section>
+
+          <section>
+            <h2 class="text-xl font-bold text-primary mb-4">
+              Ketentuan Penggunaan
+            </h2>
+            <ol class="list-decimal list-inside space-y-2 ml-4">
+              <li>
+                Untuk dapat menggunakan layanan pada aplikasi, Pengguna wajib
+                mendaftar lebih dahulu dengan mengisi data yang benar dan
+                komprehensif.
+              </li>
+              <li>
+                Pengguna dapat memperbarui informasi yang terkait dengan akunnya
+                melalui fitur Pengaturan pada aplikasi.
+              </li>
+              <li>
+                Pengguna memahami dan menyetujui bahwa seluruh aktivitas yang
+                dilakukan melalui akun Pengguna adalah tanggung jawab Pengguna
+                secara penuh.
+              </li>
+              <li>
+                Pengguna dilarang mempergunakan aplikasi untuk tujuan yang
+                bertentangan dengan ketentuan hukum yang berlaku, termasuk tetapi
+                tidak terbatas pada pelanggaran peraturan perundang-undangan yang
+                berlaku di wilayah Republik Indonesia.
+              </li>
+              <li>
+                Pengguna dilarang melakukan tindakan yang dapat merugikan,
+                mengganggu, atau merusak fungsi aplikasi maupun layanan kepada
+                Pengguna lain.
+              </li>
+              <li>
+                Pengguna dilarang melakukan automatisasi, scraping, atau
+                pendekatan teknis lain yang bertujuan memperoleh data aplikasi
+                tanpa izin tertulis dari Tapak Astà.
+              </li>
+              <li>
+                Pengguna dilarang mengunggah dokumen yang memiliki hak cipta milik
+                Pihak Ketiga tanpa memperoleh persetujuan terlebih dahulu.
+              </li>
+              <li>
+                Pengguna dilarang menyalahgunakan fitur yang tersedia untuk
+                melakukan tindakan yang bertentangan dengan kepentingan Tapak
+                Astà maupun Pengguna lainnya.
+              </li>
+            </ol>
+          </section>
+
+          <section>
+            <h2 class="text-xl font-bold text-primary mb-4">
+              Larangan Penggunaan
+            </h2>
+            <ol class="list-decimal list-inside space-y-2 ml-4">
+              <li>
+                <strong>Memposting konten</strong> yang bertentangan dengan norma
+                dan kesusilaan, termasuk konten yang dapat memicu kebencian
+                berdasarkan suku, agama, ras, gender, atau orientasi seksual.
+              </li>
+              <li>
+                <strong>Menyalin materi</strong> yang ada pada aplikasi di bawah
+                hak cipta Tapak Astà atau hak milik pihak lain yang dilindungi
+                oleh hukum.
+              </li>
+              <li>
+                <strong>Membocorkan data privat</strong> orang lain yang
+                tersimpan dalam aplikasi, seperti data pengguna, data dokumen,
+                atau informasi yang bersifat rahasia.
+              </li>
+              <li>
+                <strong>Menyalahgunakan layanan</strong> yang ada di dalam
+                aplikasi untuk melakukan transaksi komersial maupun tindakan yang
+                tidak sesuai dengan tujuan aplikasi.
+              </li>
+              <li>
+                <strong>Meniru identitas</strong> Tapak Astà atau Pengguna
+                lainnya, baik sebagian maupun keseluruhan, tanpa izin tertulis.
+              </li>
+            </ol>
+          </section>
+
+          <section>
+            <h2 class="text-xl font-bold text-primary mb-4">
+              Kekayaan Intelektual
+            </h2>
+            <p>
+              Seluruh nama, merek, logo, desain antarmuka, kode, dan konten yang
+              terdapat pada aplikasi Tapak Astà adalah milik sah Tapak Astà
+              dan/atau pemberi lisensinya. Pengguna dilarang menggunakan,
+              memodifikasi, atau mendistribusikan aset tersebut tanpa izin
+              tertulis.
+            </p>
+          </section>
+
+          <section>
+            <h2 class="text-xl font-bold text-primary mb-4">
+              Penegakan Ketentuan
+            </h2>
+            <p>
+              Tapak Astà berhak mengambil tindakan yang dianggap perlu untuk
+              menegakkan ketentuan ini, termasuk namun tidak terbatas pada
+              penangguhan akun, penghapusan konten, atau pembatasan akses
+              Pengguna. Pelanggaran terhadap ketentuan ini dapat menimbulkan
+              akibat hukum sesuai dengan ketentuan yang berlaku.
+            </p>
+          </section>
+
+          <section>
+            <h2 class="text-xl font-bold text-primary mb-4">
+              Perubahan Ketentuan
+            </h2>
+            <p>
+              Tapak Astà dapat sewaktu-waktu melakukan perubahan atau pembaruan
+              terhadap Ketentuan Penggunaan ini. Pengguna disarankan agar membaca
+              secara seksama dan memeriksa halaman Ketentuan Penggunaan ini dari
+              waktu ke waktu untuk mengetahui perubahan apa pun. Dengan tetap
+              mengakses dan menggunakan aplikasi Tapak Astà, maka Pengguna
+              dianggap menyetujui perubahan-perubahan tersebut.
+            </p>
+          </section>
+
+          <section>
+            <h2 class="text-xl font-bold text-primary mb-4">Hubungi Kami</h2>
+            <p>
+              Jika Pengguna memiliki pertanyaan, keluhan, atau komentar mengenai
+              Ketentuan Penggunaan ini, Pengguna dapat menghubungi kami melalui:
+            </p>
+            <div class="mt-3 p-4 bg-base-200 rounded-xl">
+              <p class="font-semibold">Tapak Astà – Kota Mojokerto</p>
+              <p class="text-sm opacity-70 mt-1">
+                Dinas Komunikasi dan Informatika Kota Mojokerto
+              </p>
+              <p class="text-sm opacity-70">
+                Email:
+                <a
+                  href="mailto:csirt@mojokertokota.go.id"
+                  class="link link-primary">csirt@mojokertokota.go.id</a
+                >
+              </p>
+            </div>
+          </section>
+        </div>
       {:else}
         <!-- Placeholder for other pages -->
         <div class="text-center mb-10">
