@@ -22,6 +22,7 @@
     limit: 20,
     offset: 0,
     where: {},
+    orderBy: {},
   });
 
   let editingRow = $state<any>(null);
@@ -67,6 +68,7 @@
     query.table = name;
     query.offset = 0;
     query.where = {};
+    query.orderBy = {};
   }
 
   const records = $derived(
@@ -93,6 +95,156 @@
     ),
   );
   const displayName = $derived(selectedTable.replace(/_/g, " "));
+
+  /* ------------------------------------------------------------------ *
+   * Column order (drag) + column sort
+   * ------------------------------------------------------------------ */
+
+  const COLUMN_ORDER_STORE = "asta:collections:column-order";
+
+  /** Persisted display order of column keys for the active table.
+   *  Empty means "use the schema order". */
+  let columnOrder = $state<string[]>([]);
+
+  let dragKey = $state<string | null>(null);
+  let overKey = $state<string | null>(null);
+  /** Guards against the click browsers fire on the header after a drag ends. */
+  let justDragged = false;
+
+  /** Schema columns, re-ordered to match the user's drag layout. */
+  const columns = $derived.by(() => {
+    const cols: any[] = schema?.columns || [];
+    if (!columnOrder.length) return cols;
+
+    const byKey = new Map(cols.map((c) => [c.key, c]));
+    const known = new Set(cols.map((c) => c.key));
+
+    const ordered = columnOrder
+      .filter((k) => known.has(k))
+      .map((k) => byKey.get(k));
+    // Columns added to the schema after the layout was saved stay at the end.
+    const added = cols.filter((c) => !columnOrder.includes(c.key));
+
+    return [...ordered, ...added];
+  });
+
+  /** Current sort, derived from `query.orderBy` so there is a single source of truth. */
+  const sort = $derived.by(() => {
+    const orderBy = query.orderBy;
+    if (!orderBy || typeof orderBy !== "object") {
+      return { key: null as string | null, dir: null as "asc" | "desc" | null };
+    }
+    const [key, dir] = Object.entries(orderBy)[0] ?? [];
+    return {
+      key: key ?? null,
+      dir: dir === "asc" || dir === "desc" ? dir : null,
+    };
+  });
+
+  const columnOrderKey = (table: string) => `${COLUMN_ORDER_STORE}:${table}`;
+
+  // Load the saved layout whenever the active table changes (browser only).
+  $effect(() => {
+    const table = selectedTable;
+    if (!table) return;
+
+    let parsed: unknown = [];
+    try {
+      const raw = localStorage.getItem(columnOrderKey(table));
+      parsed = raw ? JSON.parse(raw) : [];
+    } catch {
+      parsed = [];
+    }
+
+    columnOrder = Array.isArray(parsed)
+      ? parsed.filter((k: unknown): k is string => typeof k === "string")
+      : [];
+  });
+
+  // Persist whenever the layout changes.
+  //
+  // `columnOrder` is read *outside* untrack so the effect re-runs on real edits,
+  // while `selectedTable` is read *inside* so switching tables doesn't re-persist.
+  // (Without the first read this effect would have zero dependencies and would
+  // only ever run on mount; without the second, loading table B's layout would
+  // immediately write it back and clobber the stored value.)
+  $effect(() => {
+    const order = columnOrder;
+    const table = untrack(() => selectedTable);
+    if (!table) return;
+
+    try {
+      if (order.length) {
+        localStorage.setItem(columnOrderKey(table), JSON.stringify(order));
+      } else {
+        localStorage.removeItem(columnOrderKey(table));
+      }
+    } catch {
+      // storage unavailable (private mode / quota) — layout stays in-memory
+    }
+  });
+
+  /** Click a header: asc → desc → unsorted. */
+  function toggleSort(key: string) {
+    if (justDragged) return;
+    query.offset = 0;
+    if (sort.key !== key) query.orderBy = { [key]: "asc" };
+    else if (sort.dir === "asc") query.orderBy = { [key]: "desc" };
+    else query.orderBy = {};
+  }
+
+  function resetColumns() {
+    columnOrder = [];
+    query.orderBy = {};
+    query.offset = 0;
+  }
+
+  /** Suppress the next header click — a completed drag also emits one. */
+  function markDragged() {
+    justDragged = true;
+    setTimeout(() => (justDragged = false), 0);
+  }
+
+  function onDragStart(e: DragEvent, key: string) {
+    dragKey = key;
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", key);
+    }
+  }
+
+  function onDragOver(e: DragEvent, key: string) {
+    if (!dragKey) return;
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+    if (overKey !== key) overKey = key;
+  }
+
+  function onDrop(e: DragEvent, key: string) {
+    const from = dragKey || e.dataTransfer?.getData("text/plain");
+    onDragEnd();
+
+    if (!from || from === key) return;
+
+    e.preventDefault();
+    markDragged();
+
+    const order = columns.map((c: any) => c.key as string);
+    const fromIdx = order.indexOf(from);
+    const toIdx = order.indexOf(key);
+    if (fromIdx === -1 || toIdx === -1) return;
+
+    const next = [...order];
+    next.splice(toIdx, 0, ...next.splice(fromIdx, 1));
+    columnOrder = next;
+  }
+
+  function onDragEnd() {
+    // Any drag (even one abandoned with Escape) can be followed by a click.
+    if (dragKey) markDragged();
+    dragKey = null;
+    overKey = null;
+  }
 
   // Modal states
   let showEditModal = $state<boolean | undefined>(false);
@@ -331,6 +483,22 @@
           class="p-4 border-b border-base-300 bg-white!/5 backdrop-blur-md z-100"
         >
           <Toolbar bind:query {records}>
+            {#if columnOrder.length || sort.key}
+              <div class="tooltip">
+                <div class="tooltip-content text-xs">
+                  Restore default column order and clear sorting
+                </div>
+                <button
+                  class="btn btn-sm"
+                  aria-label="Reset columns"
+                  onclick={resetColumns}
+                >
+                  <iconify-icon icon="bx:reset"></iconify-icon>
+                  Reset Columns
+                </button>
+              </div>
+            {/if}
+
             {#if selections.length}
               <button
                 aria-label="Delete Selections"
@@ -367,7 +535,7 @@
         <div class="flex-1 overflow-auto relative pt-0.5">
           <table class="table table-xs table-pin-rows table-pin-cols">
             <thead>
-              <tr class="bg-base-100/90 backdrop-blur-sm">
+              <tr class="bg-base-100/90 backdrop-blur-sm group/th">
                 <th
                   class="w-10 sticky left-0 z-20 bg-base-100/90 backdrop-blur-sm border-r border-base-200"
                 >
@@ -383,11 +551,48 @@
                         : [])}
                   />
                 </th>
-                {#each schema?.columns || [] as col}
+                {#each columns as col (col.key)}
+                  {@const isSorted = sort.key === col.key}
                   <th
-                    class="whitespace-nowrap py-4 text-[10px] uppercase tracking-widest font-black opacity-60"
-                    >{col.header}</th
+                    class="whitespace-nowrap py-4 pl-3 pr-1 text-[10px] uppercase tracking-widest font-black select-none
+                      {isSorted ? 'opacity-100 text-primary' : 'opacity-60'}
+                      {dragKey === col.key ? 'opacity-30' : ''}
+                      {overKey === col.key && dragKey && dragKey !== col.key
+                      ? 'ring-2 ring-inset ring-primary/40'
+                      : ''}"
+                    draggable="true"
+                    aria-sort={isSorted
+                      ? sort.dir === "asc"
+                        ? "ascending"
+                        : "descending"
+                      : "none"}
+                    ondragstart={(e) => onDragStart(e, col.key)}
+                    ondragover={(e) => onDragOver(e, col.key)}
+                    ondragleave={() => overKey === col.key && (overKey = null)}
+                    ondrop={(e) => onDrop(e, col.key)}
+                    ondragend={onDragEnd}
+                    title="Drag to reorder · Click to sort"
                   >
+                    <button
+                      type="button"
+                      class="flex items-center gap-1 cursor-pointer uppercase hover:text-primary transition-colors w-full text-left"
+                      onclick={() => toggleSort(col.key)}
+                    >
+                      <iconify-icon
+                        icon="bx:draggable"
+                        class="text-sm opacity-0 group-hover/th:opacity-40 hover:!opacity-100 -ml-1 transition-opacity shrink-0 cursor-grab active:cursor-grabbing"
+                      ></iconify-icon>
+                      <span class="truncate">{col.header}</span>
+                      {#if isSorted}
+                        <iconify-icon
+                          icon={sort.dir === "asc"
+                            ? "bx:sort-a-z"
+                            : "bx:sort-z-a"}
+                          class="text-sm shrink-0"
+                        ></iconify-icon>
+                      {/if}
+                    </button>
+                  </th>
                 {/each}
                 <th
                   class="w-20 text-center sticky right-0 z-20 bg-base-100/90 backdrop-blur-sm border-l border-base-200 text-[10px] uppercase font-black opacity-60"
@@ -406,7 +611,7 @@
                       <iconify-icon icon="bx:x"></iconify-icon>
                     </button>
                   </th>
-                  {#each schema?.columns || [] as col}
+                  {#each columns as col (col.key)}
                     <th class="p-1">
                       {#if !col.isId}
                         <input
@@ -467,7 +672,7 @@
                         />
                       </div>
                     </td>
-                    {#each schema?.columns || [] as col}
+                    {#each columns as col (col.key)}
                       <td
                         class="p-0 border-r border-base-200/30 last:border-r-0 min-w-50"
                       >

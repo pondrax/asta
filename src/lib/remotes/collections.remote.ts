@@ -56,7 +56,7 @@ export const getCollectionData = query('unchecked', async (params: {
 }) => {
 
   checkAdmin();
-  const { table, limit, offset, where = {}, orderBy = {}, search } = params;
+  const { table, limit, offset, where = {}, search } = params;
   const time = performance.now();
 
   //@ts-ignore - db.query[table] is a dynamic index access on the query builder
@@ -91,6 +91,12 @@ export const getCollectionData = query('unchecked', async (params: {
     : conditions.length === 1 ? conditions[0]
       : { AND: conditions };
 
+  // `orderBy` keys arrive from the client, so only keep entries that resolve to
+  // a real column with a known direction. A stable tiebreaker on the primary
+  // key keeps offset pagination from skipping/duplicating rows when the
+  // requested sort has ties.
+  const orderBy = buildOrderBy(table, params.orderBy);
+
   const data = await qb.findManyAndCount({
     limit,
     offset,
@@ -104,6 +110,43 @@ export const getCollectionData = query('unchecked', async (params: {
     time: `${(performance.now() - time).toFixed(2)}ms`
   }));
 });
+
+/**
+ * Turn a client-supplied `orderBy` object into a validated RQB orderBy.
+ *
+ * The keys come from the browser, so anything that isn't a real column of the
+ * table with an `asc`/`desc` direction is dropped rather than forwarded to
+ * drizzle (which would fall back to `sql.identifier(target)` for unknown keys).
+ *
+ * When sorting is active we append the primary key as a tiebreaker so that
+ * offset pagination stays stable — without it, rows with equal sort values can
+ * be skipped or repeated across pages.
+ */
+function buildOrderBy(table: string, orderBy: unknown): Record<string, 'asc' | 'desc'> | undefined {
+  if (!orderBy || typeof orderBy !== 'object' || Array.isArray(orderBy)) return undefined;
+
+  const tableObj = (schema as any)[table];
+  if (!tableObj) return undefined;
+
+  const columns = getColumns(tableObj);
+  const result: Record<string, 'asc' | 'desc'> = {};
+
+  for (const [key, dir] of Object.entries(orderBy as Record<string, unknown>)) {
+    if (dir !== 'asc' && dir !== 'desc') continue;
+    if (!(key in columns)) continue;
+    result[key] = dir;
+  }
+
+  // Stable tiebreaker so paging never repeats or skips rows on tied values.
+  // Only applied when a real sort was requested — with no sort we keep the
+  // previous unsorted behaviour.
+  if (Object.keys(result).length) {
+    const pk = Object.entries(columns).find(([, col]: [string, any]) => col.primary);
+    if (pk && !(pk[0] in result)) result[pk[0]] = 'asc';
+  }
+
+  return Object.keys(result).length ? result : undefined;
+}
 
 export const upsertData = form('unchecked', async (params: { table: string, data: any }) => {
   checkAdmin();
