@@ -1339,7 +1339,7 @@
     {@render children()}
   </div>
 
-  <CookieConsent />
+  <CookieConsent consent={data.consent} />
   <Chatbot {user} />
 </div>
 

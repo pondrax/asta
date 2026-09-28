@@ -1,34 +1,48 @@
 <script lang="ts">
-  /** localStorage key holding the visitor's choice. Absent = not decided yet. */
-  const STORAGE_KEY = "asta-cookie-consent";
+  import type { ConsentChoice } from "$lib/app/cookie-consent";
+  import { setCookieConsent } from "$lib/remotes/consent.remote";
 
   /**
-   * `consent` is `null` until the stored choice has been read. `ready` stays
-   * false during SSR and until the read happens, so the banner is never part
-   * of the server-rendered HTML — otherwise a returning visitor who already
-   * decided would see it flash in before hydration removes it.
+   * The decision made during SSR, passed down from the root layout's `load`.
+   * Deciding server-side is what stops the banner flashing in after hydration
+   * for a visitor who already answered.
    */
-  let consent = $state<"accepted" | "rejected" | null>(null);
-  let ready = $state(false);
+  let { consent = null }: { consent?: ConsentChoice | null } = $props();
 
-  $effect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === "accepted" || stored === "rejected") consent = stored;
-    else consent = null;
-    ready = true;
-  });
+  /**
+   * The visitor's own click, held locally so the banner disappears the instant
+   * the button is pressed rather than waiting for the cookie round trip. `null`
+   * until they decide, in which case the server-rendered value governs.
+   */
+  let picked = $state<ConsentChoice | null>(null);
+  let saving = $state(false);
 
-  function decide(choice: "accepted" | "rejected") {
-    localStorage.setItem(STORAGE_KEY, choice);
-    consent = choice;
+  // `picked` is cleared if the write fails, which falls back to `consent` and
+  // brings the banner back rather than hiding a decision that was never saved.
+  let choice = $derived(picked ?? consent);
+
+  async function decide(value: ConsentChoice) {
+    picked = value;
+    saving = true;
+    try {
+      await setCookieConsent(value);
+    } catch {
+      picked = null;
+    } finally {
+      saving = false;
+    }
   }
 </script>
 
-{#if ready && consent === null}
-  <!-- No intro transition: the banner is revealed by the localStorage read
-       right after mount, and an intro that never runs would leave it stuck at
-       opacity 0 — invisible and below the fold. -->
-  <div class="fixed bottom-0 left-0 right-0 z-40 p-4 pointer-events-none">
+{#if choice === null}
+  <!--
+    `z-1001`, not `z-40`: daisyUI pins `.fab` at z-index 999 and the editor
+    raises one to z-1000. Those FABs are fixed to the same bottom edge, so at
+    the default stacking this banner sat behind them. One notch above the
+    highest FAB keeps the two from overlapping, while staying well under the
+    toast stack (z-9999) so a toast is never obscured.
+  -->
+  <div class="fixed bottom-0 left-0 right-0 z-1001 p-4 pointer-events-none">
     <div
       role="region"
       aria-label="Persetujuan cookie"
@@ -60,11 +74,16 @@
         </p>
       </div>
       <div class="flex items-center gap-2 shrink-0">
-        <button class="btn btn-sm btn-ghost" onclick={() => decide("rejected")}>
+        <button
+          class="btn btn-sm btn-ghost"
+          disabled={saving}
+          onclick={() => decide("rejected")}
+        >
           Tolak
         </button>
         <button
           class="btn btn-sm btn-primary"
+          disabled={saving}
           onclick={() => decide("accepted")}
         >
           Setuju
