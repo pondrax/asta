@@ -149,6 +149,18 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
             kind: "improved",
             text: "Baris tanpa sertifikat yang bisa di-reset ditampilkan nonaktif, bukan disembunyikan, sehingga jumlah di toolbar selalu sama dengan jumlah centang yang bisa diklik.",
           },
+        ],
+      },
+      {
+        id: "toolbar-chip-truncate-2026-09-30",
+        date: "2026-09-30",
+        title: "Lencana Filter",
+        audience: "admin",
+        changes: [
+          {
+            kind: "fixed",
+            text: "Lencana filter yang panjang dipotong dengan elipsis alih-alih mendorong filter lain ke luar baris, dan nilai lengkapnya tetap tersedia lewat tooltip.",
+          },
           {
             kind: "added",
             text: "Kolom Hasil Reset di tabel mencatat status tiap baris untuk run terakhir, termasuk pesan penolakan dari portal.",

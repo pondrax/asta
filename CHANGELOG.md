@@ -94,6 +94,15 @@ Versi: v1.4
 - **Baru** - Jeda 400 ms antarpermintaan, karena portal membatasi frekuensi dan reset massal cukup untuk memicunya di tengah proses.
 - **Peningkatan** - Progres `selesai/total` dipindahkan ke toolbar dan bertahan setelah dialog ditutup, jadi operator masih bisa memantau proses yang sedang berjalan.
 - **Peningkatan** - Baris tanpa sertifikat yang bisa di-reset ditampilkan nonaktif, bukan disembunyikan, sehingga jumlah di toolbar selalu sama dengan jumlah centang yang bisa diklik.
+
+### Lencana Filter
+
+<!-- id: toolbar-chip-truncate-2026-09-30 -->
+
+Halaman: /main/portal-bsre - Portal BSrE
+Audiens: Admin
+
+- **Perbaikan** - Lencana filter yang panjang dipotong dengan elipsis alih-alih mendorong filter lain ke luar baris, dan nilai lengkapnya tetap tersedia lewat tooltip.
 - **Baru** - Kolom Hasil Reset di tabel mencatat status tiap baris untuk run terakhir, termasuk pesan penolakan dari portal.
 - **Perbaikan** - Dialog tidak lagi menutup sendiri setelah selesai, karena pesan penolakan portal sering kali satu-satunya catatan alasan sebuah sertifikat ditolak.
 
