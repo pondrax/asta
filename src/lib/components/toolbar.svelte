@@ -388,9 +388,14 @@
       {@const op = operatorOf(value)}
       {@const shown = op ? op.label : val}
       {#if val.length}
-        <div class="join">
-          <span class="btn btn-xs btn-soft">
-            {key?.toUpperCase()} : {shown}
+        {@const full = `${key?.toUpperCase()} : ${shown?.toString()}`}
+        <div class="join max-w-full">
+          <!-- `.btn` is an inline-flex container, so `text-ellipsis` on it would
+               have no effect (the text is an anonymous flex item). Truncate on an
+               inner block instead, and keep the full value in `title` so the
+               chip stays inspectable on hover. -->
+          <span class="btn btn-xs btn-soft max-w-72 min-w-0" title={full}>
+            <span class="truncate">{full}</span>
           </span>
           <button
             type="button"
