@@ -1,6 +1,7 @@
 <script lang="ts">
+  import { SvelteSet } from "svelte/reactivity";
   import { page } from "$app/state";
-  import { Toolbar, Chart } from "$lib/components";
+  import { Toolbar, Chart, Modal } from "$lib/components";
   import {
     closeBsre,
     fetchBsreUsers,
@@ -69,6 +70,56 @@
     return where?.[field]?.[key] ?? "";
   }
 
+  /**
+   * Bulk email filter: one address per line becomes an `inArray` so a batch of
+   * users can be looked up in a single query. `inArray` is exact-match — the
+   * same semantics as the bare-string form, which drizzle RQB resolves to `eq`
+   * (`relationsFieldFilterToSQL` short-circuits non-objects to `eq`) — so this
+   * never degrades into a partial/`LIKE` match. Used for every count, including
+   * a single line, so the filter shape doesn't flip while typing.
+   */
+  function parseBulkEmails(raw: string): string[] {
+    const seen = new Set<string>();
+    const emails: string[] = [];
+    // Accept commas/semicolons too, so a pasted list works without cleanup.
+    for (const line of raw.split(/[\r\n,;]+/)) {
+      const email = line.trim();
+      if (!email) continue;
+      // Dedup case-insensitively but keep the address as typed, so `eq` still
+      // compares against the stored casing.
+      const key = email.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      emails.push(email);
+    }
+    return emails;
+  }
+
+  function setBulkEmails(where: Record<string, any>, raw: string) {
+    const emails = parseBulkEmails(raw);
+    if (!emails.length) {
+      // `delete` rather than `undefined`: the toolbar renders a chip for any
+      // key whose leaf values are non-empty, and `getLeafValues(undefined)`
+      // yields `[undefined]`, which would leave a stale chip behind.
+      delete where.emailAddress;
+    } else {
+      where.emailAddress = { inArray: emails };
+    }
+  }
+
+  /** Renders the current filter back into the textarea. Tolerates the legacy
+   *  bare-string form so an already-applied single-email filter still shows. */
+  function bulkEmailVal(where: Record<string, any>): string {
+    const filter = where?.emailAddress;
+    if (typeof filter === "string") return filter;
+    const list = (filter as { inArray?: unknown })?.inArray;
+    return Array.isArray(list) ? list.join("\n") : "";
+  }
+
+  function bulkEmailCount(where: Record<string, any>): number {
+    return parseBulkEmails(bulkEmailVal(where)).length;
+  }
+
   // Sync state
   let syncing = $state(false);
   let selectedUser = $state<any>(null);
@@ -76,11 +127,329 @@
   // PII masking
   let showPii = $state(false);
 
+  // ---------------------------------------------------------------------------
+  // Bulk passphrase reset
+  // ---------------------------------------------------------------------------
+
+  /** Pause inserted between two consecutive portal resets. The portal is a
+   *  government service that throttles aggressively; a short gap keeps a long
+   *  selection from tripping its rate limiter partway through. */
+  const RESET_STEP_DELAY = 400;
+
+  /**
+   * Users ticked for a bulk reset, keyed by BSrE user id. `SvelteSet` rather
+   * than a plain array/Set because the built-in `Set` is not reactive — reading
+   * `.size` in a `$derived` would never re-run after a toggle.
+   */
+  let selectedUsers = $state(new SvelteSet<string>());
+
+  /**
+   * The certificate of a user that the portal will accept a passphrase reset
+   * for: status `ISSUE` *and* a serial number present, since the reset URL is
+   * keyed by serial number and a cert without one 404s. Mirrors
+   * `RESETTABLE_CERT_STATUSES` / `canReset` in `listUserCerts` so the bulk
+   * button's count matches what the per-user modal would actually allow.
+   */
+  function resettableCert(user: any) {
+    const certs: any[] = user?.details?.data?.sertifikat ?? [];
+    const ok = certs.filter(
+      (c) => c?.status === "ISSUE" && Boolean(c?.serialNumber),
+    );
+    if (!ok.length) return null;
+    // Newest expiry first, so a user holding a stale and a current cert resets
+    // the current one rather than whichever happened to sync first.
+    return [...ok].sort(
+      (a, b) =>
+        new Date(b.notAfterDate).getTime() - new Date(a.notAfterDate).getTime(),
+    )[0];
+  }
+
+  /** Reset targets for the current selection — only users with a resettable cert. */
+  const resetTargets = $derived.by(() =>
+    items.data
+      .filter((u) => u && selectedUsers.has(u.id))
+      .map((u) => ({
+        bsreUserId: u.id as string,
+        serialNumber: resettableCert(u)?.serialNumber as string,
+      }))
+      .filter((t) => t.serialNumber),
+  );
+
+  // Users on this page that actually have something to reset, so the header
+  // "select all" can't tick rows the bulk action would then silently skip.
+  const pageResettable = $derived(
+    items.data.filter((u) => u && resettableCert(u)),
+  );
+  const allPageSelected = $derived(
+    pageResettable.length > 0 &&
+      pageResettable.every((u) => selectedUsers.has(u.id)),
+  );
+
+  function toggleUser(id: string) {
+    // Copy before mutating: `SvelteSet` exposes the same mutating API as `Set`,
+    // but replacing the instance is what actually notifies `$derived`.
+    const next = new SvelteSet(selectedUsers);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    selectedUsers = next;
+  }
+
+  function togglePageSelection() {
+    const next = new SvelteSet(selectedUsers);
+    if (allPageSelected) for (const u of pageResettable) next.delete(u.id);
+    else for (const u of pageResettable) next.add(u.id);
+    selectedUsers = next;
+  }
+
+  let confirmBulkReset = $state(false);
+  let bulkResetting = $state(false);
+
+  /** One line of the dialog's list — identity is copied in at open time. */
+  type ResetQueueRow = {
+    bsreUserId: string;
+    serialNumber: string;
+    nama: string;
+    emailAddress: string;
+  };
+
+  /**
+   * The rows the dialog *displays*, frozen when it opens.
+   *
+   * Deliberately not `resetTargets`: a finished run unticks its successes from
+   * `selectedUsers`, which `resetTargets` derives from — so keying the list off
+   * it would blank every name and message the instant the last reset succeeded,
+   * destroying the very results the dialog exists to hold open for the operator
+   * to read. It would also drop the count to "Reset 0 Passphrase" while the
+   * summary above still said the run had succeeded.
+   *
+   * Name and email are copied in rather than looked up per render for the same
+   * reason: the operator can page or filter the table while the dialog is open,
+   * and a live `items.data.find` would start printing "-" for rows that had
+   * scrolled off the current page.
+   */
+  let resetQueue = $state<ResetQueueRow[]>([]);
+
+  /** Per-row outcome of the current run, keyed by BSrE user id. Absent = idle. */
+  type ResetRowState = {
+    status: "pending" | "running" | "ok" | "fail";
+    message?: string;
+  };
+  let resetRows = $state<Record<string, ResetRowState>>({});
+
+  /** The dialog's row count — the frozen queue, not the live selection. */
+  const resetQueueTotal = $derived(resetQueue.length);
+
+  /** Ids belonging to the current queue, so the counters below describe *this*
+   *  run rather than every result ever recorded on the page. */
+  const resetQueueIds = $derived(new Set(resetQueue.map((t) => t.bsreUserId)));
+
+  /** Rows that finished (either way) in the current run — drives the progress
+   *  counter without having to count statuses twice. */
+  const resetDoneCount = $derived(
+    Object.entries(resetRows).filter(
+      ([id, r]) =>
+        resetQueueIds.has(id) && (r.status === "ok" || r.status === "fail"),
+    ).length,
+  );
+  const resetOkCount = $derived(
+    Object.entries(resetRows).filter(
+      ([id, r]) => resetQueueIds.has(id) && r.status === "ok",
+    ).length,
+  );
+  const resetFailCount = $derived(
+    Object.entries(resetRows).filter(
+      ([id, r]) => resetQueueIds.has(id) && r.status === "fail",
+    ).length,
+  );
+
+  /** Rows this run still owes a request to. Anything already "ok" is excluded,
+   *  which is what makes "Coba Lagi" safe: the queue is frozen for the dialog's
+   *  lifetime, so a naive retry would re-send the reset link to everyone who
+   *  already received one. */
+  const resetPendingCount = $derived(
+    resetQueue.filter((t) => resetRows[t.bsreUserId]?.status !== "ok").length,
+  );
+
+  /**
+   * Open the dialog for the current selection.
+   *
+   * Freezes the selection into `resetQueue` and puts those rows back to
+   * "pending", so every opening is a clean, self-consistent attempt: the list,
+   * the counts and the per-row verdicts all describe this run alone. Carrying the
+   * previous attempt's statuses over would let the summary announce a result
+   * the operator had not asked for yet.
+   */
+  function openResetDialog() {
+    if (bulkResetting) return;
+    const targets = [...resetTargets];
+    const byId = new Map(items.data.map((u) => [u.id, u]));
+
+    // Freeze the plan into `resetQueue` before the dialog opens: from here on
+    // the list must survive `selectedUsers` being emptied by a successful run.
+    resetQueue = targets.map((t) => {
+      const u = byId.get(t.bsreUserId);
+      return {
+        ...t,
+        nama: (u?.nama as string) ?? "-",
+        emailAddress: (u?.emailAddress as string) ?? "-",
+      };
+    });
+
+    // Start this session clean: every queued row goes back to "pending" so the
+    // summary line does not read "Selesai" before anything has been sent, and
+    // anything left over from a previous run is dropped. The table's Hasil Reset
+    // column is the history of record for earlier attempts.
+    resetRows = Object.fromEntries(
+      targets.map((t) => [t.bsreUserId, { status: "pending" as const }]),
+    );
+    confirmBulkReset = true;
+  }
+
+  /**
+   * Walk the ticked rows one at a time, calling the existing single-cert
+   * remote per row.
+   *
+   * Deliberately sequential and in the browser rather than a server-side batch:
+   * each reset mails a real reset link to a real account holder, so the operator
+   * needs to watch progress row by row and see each message as it lands. A
+   * server loop would return one blob at the very end and give them nothing to
+   * look at while it ran.
+   *
+   * `for … of` with `await` in the body is the whole sequencing mechanism —
+   * nothing is dispatched in parallel, so the portal sees one request at a time.
+   */
+  async function runBulkReset() {
+    if (bulkResetting || !resetQueue.length) return;
+    bulkResetting = true;
+
+    // Work off the frozen queue, not `resetTargets`: this loop clears the
+    // selection as it finishes, and a live read would shrink underfoot.
+    // Rows already marked "ok" are skipped — that is the retry path, and
+    // re-sending would mail a second reset link to the same person.
+    const queue = resetQueue.filter(
+      (t) => resetRows[t.bsreUserId]?.status !== "ok",
+    );
+
+    if (!queue.length) {
+      bulkResetting = false;
+      return;
+    }
+
+    // Show the whole pending plan up front rather than revealing rows one by
+    // one, so the operator can see what is about to be sent.
+    resetRows = {
+      ...resetRows,
+      ...Object.fromEntries(
+        queue.map((t) => [t.bsreUserId, { status: "pending" as const }]),
+      ),
+    };
+
+    try {
+      for (const [index, target] of queue.entries()) {
+        // Mark the current row before awaiting so the spinner is visible for
+        // the whole duration of that one request, not just between them.
+        resetRows = {
+          ...resetRows,
+          [target.bsreUserId]: { status: "running" },
+        };
+
+        try {
+          const res = await resetCertPassphrase({
+            userId,
+            bsreUserId: target.bsreUserId,
+            serialNumber: target.serialNumber,
+          });
+
+          resetRows = {
+            ...resetRows,
+            [target.bsreUserId]: {
+              status: res?.success ? "ok" : "fail",
+              message: res?.message ?? "",
+            },
+          };
+        } catch (e: any) {
+          // A thrown transport error must not abort the remaining rows — the
+          // point of the sequence is that the operator can retry just the
+          // failures afterwards.
+          resetRows = {
+            ...resetRows,
+            [target.bsreUserId]: {
+              status: "fail",
+              message: e?.message ?? "Gagal menghubungi portal BSrE.",
+            },
+          };
+        }
+
+        // Small gap between portal calls. The portal is a government service
+        // that throttles aggressively, and 14 back-to-back resets is enough to
+        // trip it; the pause is what keeps the sequence from self-inflicting a
+        // rate limit partway through.
+        if (index < queue.length - 1) {
+          await new Promise((r) => setTimeout(r, RESET_STEP_DELAY));
+        }
+      }
+    } finally {
+      bulkResetting = false;
+    }
+
+    // No toast here on purpose: the dialog stays open holding the per-row
+    // results and is dismissed by hand. A timed toast would expire the only
+    // place the operator can still read why a given certificate was refused.
+
+    // Drop the rows that succeeded from the selection but keep the failures
+    // ticked, so "Coba Lagi" re-runs only those instead of forcing a re-tick by
+    // hand.
+    selectedUsers = new SvelteSet(
+      [...selectedUsers].filter((id) => resetRows[id]?.status !== "ok"),
+    );
+  }
+
   // Chart state
   let chartStartDate = $state("");
   let chartEndDate = $state("");
   let chartCollapsed = $state(false);
   let sessionCollapsed = $state(true);
+
+  // Persist the chart panel's open/collapsed state.
+  //
+  // Split into two effects on purpose: the loader reads no reactive state, so it
+  // runs exactly once on mount; the writer depends on `chartCollapsed`, so it
+  // re-runs on real toggles. Folding both into one effect would either persist
+  // the hard-coded default over a saved value, or never re-run after a click.
+  //
+  // `localStorage` is only touched inside `$effect`, which never runs during SSR,
+  // and reading it during initialisation instead would desync the server-rendered
+  // markup from the client's first paint.
+  const CHART_COLLAPSED_KEY = "portal_bsre_chart_collapsed";
+
+  /** The writer must not run until the loader has had its say. Both effects are
+   *  queued on mount, and the writer tracks `chartCollapsed` — without this flag
+   *  it would persist the in-progress default and overwrite the stored value the
+   *  loader is one line away from adopting, so a collapsed chart would spring
+   *  back open on every reload. */
+  let chartPreferenceLoaded = $state(false);
+
+  $effect(() => {
+    try {
+      const saved = localStorage.getItem(CHART_COLLAPSED_KEY);
+      // Only adopt the stored value when a value was actually stored — a missing
+      // key must leave the default (expanded) alone rather than collapse it.
+      if (saved !== null) chartCollapsed = saved === "true";
+    } catch {
+      // Private mode / storage disabled — fall back to the in-memory default.
+    } finally {
+      chartPreferenceLoaded = true;
+    }
+  });
+
+  $effect(() => {
+    if (!chartPreferenceLoaded) return;
+    try {
+      localStorage.setItem(CHART_COLLAPSED_KEY, String(chartCollapsed));
+    } catch {
+      // Quota exceeded / storage disabled — the toggle still works for this visit.
+    }
+  });
 
   const ALL_USER_STATUSES = ["VERIFIED", "NEW", "UPDATE"];
   const ALL_CERT_STATUSES = ["ISSUE", "NEW", "REVOKE", "EXPIRED", "DENIED"];
@@ -734,12 +1103,34 @@
             <input bind:value={where.nip} placeholder="NIP" />
           </div>
         </label>
-        <label class="floating-label mt-3">
-          <span>Email</span>
-          <div class="input input-sm">
-            <input bind:value={where.emailAddress} placeholder="Email" />
-          </div>
-        </label>
+        <div class="relative mt-3">
+          <label class="floating-label" for="filter-bulk-email">
+            <span>Email (dapat lebih dari satu, satu email per baris)</span>
+            <!-- Uncontrolled on purpose: a controlled `value` round-tripped through
+                 `parseBulkEmails` would strip the trailing newline, making it
+                 impossible to press Enter. The draft lives in the DOM; `where`
+                 (the modal's own copy) is still what gets committed on submit. -->
+            <textarea
+              id="filter-bulk-email"
+              class="textarea textarea-sm w-full"
+              rows="4"
+              spellcheck="false"
+              placeholder="nama@mojokertokota.go.id"
+              value={bulkEmailVal(where)}
+              oninput={(e) => setBulkEmails(where, e.currentTarget.value)}
+            ></textarea>
+          </label>
+          <!-- Sibling of the label, not a child: `.floating-label > span` is
+               absolutely positioned, so a badge inside would be dragged out of
+               the field and overlap the floated label text. -->
+          {#if bulkEmailCount(where)}
+            <span
+              class="badge badge-info badge-xs absolute top-1.5 right-1.5 z-1 pointer-events-none"
+            >
+              {bulkEmailCount(where)}
+            </span>
+          {/if}
+        </div>
         <label class="floating-label mt-3">
           <span>Nama</span>
           <div class="input input-sm">
@@ -836,6 +1227,37 @@
           </button>
         </li>
       {/snippet}
+      {#snippet trail()}
+        <!-- Strictly tied to the selection. Previously it also stayed visible
+             while `resetDoneCount` was non-zero, but a finished run unticks its
+             successes, so that left a dead "Reset 0 Passphrase" button on screen
+             after the dialog closed. With nothing ticked there is nothing to
+             reset, so the button goes too; the run's results stay readable in
+             the table's Hasil Reset column. -->
+        {#if selectedUsers.size}
+          <button
+            class="btn btn-sm btn-error btn-outline gap-1"
+            disabled={!resetTargets.length || bulkResetting}
+            onclick={openResetDialog}
+          >
+            <iconify-icon icon="bx:lock-open"></iconify-icon>
+            Reset Passphrase
+            <span class="badge badge-error badge-sm font-bold"
+              >{resetTargets.length}</span
+            >
+          </button>
+        {/if}
+        <!-- Progress lives outside the dialog because the dialog is dismissed
+             to read the table, and the run may outlive it. Counts against the
+             frozen queue: `resetTargets` follows the selection, which a run
+             empties as it succeeds, so it would bottom out at "1/0". -->
+        {#if bulkResetting}
+          <span class="text-xs opacity-60 flex items-center gap-1.5">
+            <span class="loading loading-spinner loading-xs"></span>
+            {resetDoneCount}/{resetQueueTotal}
+          </span>
+        {/if}
+      {/snippet}
     </Toolbar>
 
     <div
@@ -849,6 +1271,16 @@
             <th class="w-10 text-center bg-base-200 sticky left-0 z-20 py-2"
               >#</th
             >
+            <th class="w-8 text-center bg-base-200 py-2">
+              <input
+                type="checkbox"
+                class="checkbox checkbox-xs"
+                checked={allPageSelected}
+                disabled={!pageResettable.length || bulkResetting}
+                onchange={togglePageSelection}
+                aria-label="Pilih semua di halaman ini"
+              />
+            </th>
             <th class="min-w-[180px] bg-base-200 sticky left-10 z-20">Nama</th>
             <th class="w-56 bg-base-200">Email</th>
             <th class="w-36 bg-base-200">NIK</th>
@@ -858,13 +1290,16 @@
             <th class="w-28 bg-base-200">Berakhir</th>
             <th class="w-48 bg-base-200">Jabatan</th>
             <th class="w-28 text-center bg-base-200">Status</th>
+            <!-- Placed before "Aksi" so the action column stays last and keeps
+                 its `sticky right-0` edge without a sticky column in between. -->
+            <th class="w-64 bg-base-200">Hasil Reset</th>
             <th class="w-20 text-center bg-base-200">Aksi</th>
           </tr>
         </thead>
         <tbody>
           {#if records.loading && !items.data.length}
             <tr>
-              <td colspan="11" class="py-12 text-center">
+              <td colspan="13" class="py-12 text-center">
                 <div class="flex flex-col items-center justify-center gap-2">
                   <span class="loading loading-spinner loading-md text-primary"
                   ></span>
@@ -876,7 +1311,7 @@
             </tr>
           {:else if !status.current?.active && !status.current?.hasToken && !items.data.length}
             <tr>
-              <td colspan="11" class="py-12 text-center">
+              <td colspan="13" class="py-12 text-center">
                 <div
                   class="flex flex-col items-center justify-center gap-2 opacity-50"
                 >
@@ -892,7 +1327,7 @@
             </tr>
           {:else if records.error}
             <tr>
-              <td colspan="11" class="py-12 text-center">
+              <td colspan="13" class="py-12 text-center">
                 <div
                   class="flex flex-col items-center justify-center gap-3 text-error"
                 >
@@ -912,7 +1347,7 @@
             </tr>
           {:else if !items.data.length}
             <tr>
-              <td colspan="11" class="py-12 text-center">
+              <td colspan="13" class="py-12 text-center">
                 <div
                   class="flex flex-col items-center justify-center gap-2 opacity-40"
                 >
@@ -926,11 +1361,27 @@
           {:else}
             {#each items.data as user, i}
               {#if user}
+                {@const cert = resettableCert(user)}
+                {@const rowState = resetRows[user.id]?.status}
+                {@const rowMessage = resetRows[user.id]?.message ?? ""}
                 <tr class="hover:bg-base-200/30 transition-colors">
                   <td
                     class="text-center text-xs opacity-60 bg-base-100 sticky left-0 z-1"
                     >{query.offset + i + 1}</td
                   >
+                  <td class="text-center">
+                    <!-- Rows with nothing resettable are shown disabled rather
+                         than hidden, so the count in the toolbar always equals
+                         the number of checkboxes an operator can actually tick. -->
+                    <input
+                      type="checkbox"
+                      class="checkbox checkbox-xs"
+                      checked={selectedUsers.has(user.id)}
+                      disabled={!cert || bulkResetting}
+                      onchange={() => toggleUser(user.id)}
+                      aria-label="Pilih {user?.nama ?? user?.id}"
+                    />
+                  </td>
                   <td class="font-semibold bg-base-100 sticky left-10 z-1"
                     >{user?.nama ?? "-"}</td
                   >
@@ -973,6 +1424,44 @@
                         "-"}
                     </span>
                   </td>
+                  <td class="text-xs">
+                    <!-- Empty until this row enters the current run, so an idle
+                         table isn't littered with placeholder icons. -->
+                    {#if rowState === "running"}
+                      <div class="flex items-center gap-2">
+                        <span
+                          class="loading loading-spinner loading-xs text-primary shrink-0"
+                        ></span>
+                        <span class="opacity-60">Mengirim…</span>
+                      </div>
+                    {:else if rowState === "pending"}
+                      <span class="opacity-40">Menunggu…</span>
+                    {:else if rowState === "ok"}
+                      <div
+                        class="flex items-start gap-1.5 text-success"
+                        title={rowMessage}
+                      >
+                        <iconify-icon
+                          icon="bx:check-circle"
+                          class="shrink-0 mt-0.5"
+                        ></iconify-icon>
+                        <span class="line-clamp-2">{rowMessage}</span>
+                      </div>
+                    {:else if rowState === "fail"}
+                      <div
+                        class="flex items-start gap-1.5 text-error"
+                        title={rowMessage}
+                      >
+                        <iconify-icon
+                          icon="bx:error-circle"
+                          class="shrink-0 mt-0.5"
+                        ></iconify-icon>
+                        <span class="line-clamp-2">{rowMessage}</span>
+                      </div>
+                    {:else}
+                      <span class="opacity-25">—</span>
+                    {/if}
+                  </td>
                   <td class="text-center sticky right-0 z-1 bg-base-100">
                     <div class="flex items-center justify-center gap-1">
                       <button
@@ -1013,6 +1502,113 @@
       </table>
     </div>
   </div>
+
+  <!-- Bulk reset confirmation -->
+  <!--
+    Reset passphrase: confirm, then live progress.
+    Stays open for the whole run and is closed by hand afterwards. Nothing here
+    is on a timer — each row's portal message is often the only record of *why*
+    a certificate was refused, so it has to survive until the operator has read
+    it.
+  -->
+  <Modal bind:data={confirmBulkReset} title="Reset Passphrase Massal" size="lg">
+    <p class="text-sm">
+      {#if bulkResetting}
+        Memproses <span class="font-bold">{resetDoneCount}</span> dari
+        <span class="font-bold">{resetQueueTotal}</span> sertifikat, satu per satu.
+        Portal BSrE mengirim tautan reset ke email/handphone pemilik sertifikat masing-masing.
+      {:else if resetDoneCount}
+        Selesai.
+        <span class="text-success font-bold">{resetOkCount} berhasil</span
+        >{#if resetFailCount},
+          <span class="text-error font-bold">{resetFailCount} gagal</span>{/if}.
+        Tutup jendela ini setelah membaca hasilnya.
+      {:else}
+        Akan mengirim permintaan reset passphrase ke
+        <span class="font-bold">{resetQueueTotal}</span> sertifikat, satu per satu
+        secara berurutan. Portal BSrE akan mengirim tautan reset ke email/handphone
+        pemilik sertifikat masing-masing.
+      {/if}
+    </p>
+
+    <div class="max-h-64 overflow-y-auto mt-3 space-y-1">
+      {#each resetQueue as t}
+        {@const st = resetRows[t.bsreUserId]?.status}
+        {@const msg = resetRows[t.bsreUserId]?.message ?? ""}
+        <div
+          class="flex items-center gap-2 text-xs rounded-lg px-2 py-1.5 {st ===
+          'fail'
+            ? 'bg-error/10'
+            : st === 'ok'
+              ? 'bg-success/10'
+              : st === 'running'
+                ? 'bg-primary/10'
+                : ''}"
+        >
+          {#if st === "running"}
+            <span
+              class="loading loading-spinner loading-xs text-primary shrink-0"
+            ></span>
+          {:else if st === "ok"}
+            <iconify-icon icon="bx:check-circle" class="text-success shrink-0"
+            ></iconify-icon>
+          {:else if st === "fail"}
+            <iconify-icon icon="bx:error-circle" class="text-error shrink-0"
+            ></iconify-icon>
+          {:else}
+            <iconify-icon icon="bx:time" class="opacity-25 shrink-0"
+            ></iconify-icon>
+          {/if}
+          <span class="font-semibold truncate shrink-0 max-w-40">{t.nama}</span>
+          <span class="opacity-50 truncate shrink-0 max-w-52 hidden md:inline"
+            >{t.emailAddress}</span
+          >
+          <!-- The portal's own message, or a placeholder while the row is
+               still queued. Sits after name and email so the three read left
+               to right in the order the operator scans them. -->
+          <span
+            class="truncate flex-1 {st === 'fail'
+              ? 'text-error'
+              : st === 'ok'
+                ? 'text-success'
+                : 'opacity-40'}"
+            >{msg ||
+              (st === "running"
+                ? "Mengirim…"
+                : st === "ok"
+                  ? "Berhasil"
+                  : "Menunggu…")}</span
+          >
+        </div>
+      {/each}
+    </div>
+
+    {#snippet action()}
+      <button
+        class="btn btn-sm btn-error"
+        disabled={bulkResetting || resetPendingCount === 0}
+        onclick={runBulkReset}
+      >
+        {#if bulkResetting}
+          <span class="loading loading-spinner loading-xs"></span>
+          Memproses {resetDoneCount}/{resetQueueTotal}…
+        {:else if resetFailCount}
+          <iconify-icon icon="bx:reset"></iconify-icon>
+          Coba Lagi {resetFailCount}
+        {:else}
+          <iconify-icon icon="bx:lock-open"></iconify-icon>
+          Reset {resetQueueTotal} Passphrase
+        {/if}
+      </button>
+      <button
+        class="btn btn-sm btn-ghost"
+        disabled={bulkResetting}
+        onclick={() => (confirmBulkReset = false)}
+      >
+        {resetDoneCount ? "Tutup" : "Batal"}
+      </button>
+    {/snippet}
+  </Modal>
 
   <!-- User Detail Modal -->
   {#if selectedUser}
