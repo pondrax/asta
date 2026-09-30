@@ -7528,6 +7528,21 @@ a.docx-hyperlink:focus-visible {
     display: block;
   }
 
+  /* Small screens: the AI menu is the rightmost trigger in the bar, so a
+     start-aligned popup runs off the right edge — at 390px it reached 523px
+     and put most of the actions past the viewport. End-align it to the
+     trigger's right edge instead, which is what daisyUI's `dropdown-end`
+     means. Spelled out in CSS rather than by adding the class: this menu is
+     hand-rolled, so `dropdown-end` alone only sets `--anchor-h` and does
+     nothing without the `dropdown`/`dropdown-content` pairing, and adding
+     `dropdown` would fight the `display` and `position-area` above. */
+  @media (max-width: 640px) {
+    #aiMenu .menu-popup {
+      left: auto;
+      right: 0;
+    }
+  }
+
   .menu-item {
     width: 100%;
     min-height: 32px;
