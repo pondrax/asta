@@ -1,4 +1,4 @@
-import { env } from "$env/dynamic/private";
+import { callGateway, extractText } from "./ai-gateway";
 
 interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -188,23 +188,12 @@ Ketika memberi info umum:
 
 Selalu gunakan template ini secara konsisten untuk membuat respons lebih rapi dan mudah dibaca.`;
 
-const AI_API = env.AI_URL || "http://localhost:20128/v1/chat/completions";
-
 export class AI {
   async chat(messages: ChatMessage[]): Promise<ChatResult> {
     try {
-      const res = await fetch(AI_API, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${env.AI_KEY || "no-key"}`,
-        },
-        body: JSON.stringify({
-          model: env.AI_MODEL || "oc/big-pickle",
-          messages: [{ role: "system", content: systemContent }, ...messages],
-          stream: false,
-        }),
-      });
+      const res = await callGateway(
+        [{ role: "system", content: systemContent }, ...messages],
+      );
 
       if (res.status === 429) {
         const retryAfter = parseInt(res.headers.get("Retry-After") || "10", 10);
@@ -220,7 +209,7 @@ export class AI {
       const json = JSON.parse(raw.trim().split("\n").pop() || "{}");
 
       return {
-        content: json.choices?.[0]?.message?.content || "Maaf, saya tidak dapat merespons saat ini.",
+        content: extractText(json) || "Maaf, saya tidak dapat merespons saat ini.",
         role: "assistant" as const,
         finish_reason: json.choices?.[0]?.finish_reason || "stop",
       };

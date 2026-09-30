@@ -68,7 +68,11 @@
 </svelte:head>
 
 <div class="h-screen flex flex-col overflow-hidden">
-  <div class="relative z-10">
+  <!-- The docked chatbot panel is fixed to the right edge from the top of the
+       viewport down, so the navbar's right-hand controls would end up beneath
+       it. Shrinking the navbar by the panel's width keeps them reachable; the
+       rule lives in app.css and only applies while the panel is docked. -->
+  <div class="relative z-10 chat-navbar">
     <div class="navbar bg-base-100 lg:px-5 py-0 shrink-0 h-16">
       <div class="navbar-start">
         <div class="dropdown">
@@ -1335,7 +1339,9 @@
     <span></span>
   </div>
 
-  <div class="flex-1 min-h-0 relative z-1 overflow-y-auto bg-base-100">
+  <div
+    class="chat-content flex-1 min-h-0 relative z-1 overflow-y-auto bg-base-100"
+  >
     {@render children()}
   </div>
 

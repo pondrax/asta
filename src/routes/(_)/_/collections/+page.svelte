@@ -762,11 +762,18 @@
   </aside>
 
   <!-- Main Content -->
-  <main class="flex-1 flex flex-col min-w-0">
+  <main class="flex-1 flex flex-col min-w-0 min-h-0">
     <!-- No side/bottom padding, so the grid runs to the edges like Studio. The
          toolbar tooltips open downward, so nothing needs headroom above and the
-         grid can sit flush under the toolbar. -->
-    <div class="flex-1 overflow-visible flex flex-col">
+         grid can sit flush under the toolbar.
+
+         `min-h-0` on this chain is load-bearing. A flex item's default
+         `min-height: auto` refuses to shrink below its content, so the grid
+         scroller below grew to fit the table instead of being capped to the
+         viewport — its height then equalled its content, no scrollbar could
+         ever appear, and `overflow-hidden` on the root silently ate the rest.
+         Don't drop these. -->
+    <div class="flex-1 overflow-visible flex flex-col min-h-0">
       <div
         class="px-4 pt-2 border-b border-base-300 bg-white!/5 backdrop-blur-md z-100"
       >
@@ -1024,7 +1031,7 @@
         </div>
       </Modal>
 
-      <div class="flex-1 overflow-auto relative pt-0.5">
+      <div class="flex-1 overflow-auto relative pt-0.5 min-h-0">
         <table class="table table-xs table-pin-rows table-pin-cols">
           <thead>
             <tr class="bg-base-100/90 backdrop-blur-sm group/th">

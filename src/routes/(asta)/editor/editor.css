@@ -7495,6 +7495,21 @@ a.docx-hyperlink:focus-visible {
     background: var(--hover);
   }
 
+  /* Signed-out AI trigger. It stays readable and keeps its place in the bar,
+     but it is inert, so it must not invite a hover. */
+  .menu-button--locked,
+  .menu-button--locked:hover,
+  .menu.open .menu-button--locked {
+    color: #9aa0a6;
+    background: transparent;
+    cursor: not-allowed;
+  }
+
+  .menu-button--locked .menu-locked-note {
+    color: #b0b6bd;
+    font-size: 10px;
+  }
+
   .menu-popup {
     position: absolute;
     top: 100%;
@@ -10286,6 +10301,17 @@ a.docx-hyperlink:focus-visible {
   :scope:where(body.dark *) .menu-button:hover,
   :scope:where(body.dark *) .menu.open .menu-button {
     background: var(--hover);
+  }
+
+  :scope:where(body.dark *) .menu-button--locked,
+  :scope:where(body.dark *) .menu-button--locked:hover,
+  :scope:where(body.dark *) .menu.open .menu-button--locked {
+    color: var(--doc-text-subtle);
+    background: transparent;
+  }
+
+  :scope:where(body.dark *) .menu-button--locked .menu-locked-note {
+    color: var(--doc-text-muted);
   }
 
   :scope:where(body.dark *) .menu-popup {

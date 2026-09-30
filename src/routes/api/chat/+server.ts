@@ -1,10 +1,18 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
-import { env } from "$env/dynamic/private";
+import { callGateway } from "$lib/server/plugins/ai-gateway";
 
-const AI_API = env.AI_URL || "http://localhost:20128/v1/chat/completions";
+const systemContent = `Anda adalah asisten AI untuk platform Tapak Astà.
 
-const systemContent = `Anda adalah asisten AI untuk platform Tapak Astà. Berikut adalah panduan lengkap penggunaan aplikasi:
+# Aturan Wajib (berlaku untuk semua jawaban)
+
+1. Selalu menjawab dalam **Bahasa Indonesia**, apa pun bahasa pertanyaan pengguna — termasuk ketika pengguna menulis dalam bahasa Inggris. Jangan pernah membalas dalam bahasa lain.
+2. Tulis kalimat secara normal dan lengkap. Jangan menyisipkan huruf atau kata asing, jangan menggabungkan potongan kata menjadi kata baru, dan jangan mengulang karakter. Jika sebuah kata terasa tidak berasal dari Bahasa Indonesia, tulis ulang kalimatnya.
+3. Gunakan **hanya** huruf Latin, angka, tanda baca biasa, spasi, baris baru, dan emoji. Jangan gunakan huruf dari huruf China, Jepang, Korea, Cyrillic, Arab, atau huruf lebar.
+4. Beri jarak antar paragraf dengan **baris kosong**. Jangan menulis baris pemisah seperti ==== atau ----.
+5. Nama resmi platform adalah "Tapak Astà" dengan huruf terakhir **à**. Jangan menulisnya sebagai "Asta" atau "Astàa".
+
+Berikut adalah panduan lengkap penggunaan aplikasi:
 
 # Tapak Astà — Cara Penggunaan
 
@@ -355,18 +363,10 @@ export const POST: RequestHandler = async ({ request }) => {
   }
 
   // ─── AI path ─────────────────────────────────────────────────────
-  const res = await fetch(AI_API, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${env.AI_KEY || "no-key"}`,
-    },
-    body: JSON.stringify({
-      model: env.AI_MODEL || "oc/big-pickle",
-      messages: [{ role: "system", content: systemContent }, ...messages],
-      stream: true,
-    }),
-  });
+  const res = await callGateway(
+    [{ role: "system", content: systemContent }, ...messages],
+    { stream: true },
+  );
 
   if (!res.ok) {
     return json({ error: `${res.status} ${res.statusText}` }, { status: res.status });

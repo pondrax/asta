@@ -1,6 +1,14 @@
 import { error, json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
-import { env } from "$env/dynamic/private";
+import {
+  callGateway,
+  extractText,
+  readString,
+  tidyModelOutput,
+  TRUNCATION_NOTE,
+} from "$lib/server/plugins/ai-gateway";
+import { sanitizeModelText } from "$lib/utils/ai-output";
+import { PLAN_SYSTEM_PROMPT, describePlan, parsePlan, type PlanStep } from "$lib/editor-ai-plan";
 
 /**
  * The AI rewriting surface for the DOCX editor.
@@ -20,8 +28,6 @@ import { env } from "$env/dynamic/private";
  * list and the prompt table below in sync.
  */
 
-const AI_API = env.AI_URL || "http://localhost:20128/v1/chat/completions";
-
 /** Actions that rewrite the selection. Require a non-empty selection. */
 const REWRITE_ACTIONS = [
   "improve",
@@ -33,9 +39,20 @@ const REWRITE_ACTIONS = [
 ] as const;
 
 /** Actions that produce new text from the surrounding document as context. */
-const GENERATE_ACTIONS = ["summarize", "translate", "continue"] as const;
+const GENERATE_ACTIONS = ["summarize", "continue"] as const;
 
-const ACTION_IDS = [...REWRITE_ACTIONS, ...GENERATE_ACTIONS] as const;
+/**
+ * The structural action. It is separated from the text actions above because it
+ * answers with a validated *plan* rather than prose, and therefore gets a
+ * different system prompt and a different response contract further down.
+ *
+ * A document map is supplied as the source, not raw text: to insert a table
+ * "after the section titled Ringkasan" the model has to know what sections
+ * exist, and the raw text alone does not tell it that.
+ */
+const STRUCTURE_ACTIONS = ["structure"] as const;
+
+const ACTION_IDS = [...REWRITE_ACTIONS, ...GENERATE_ACTIONS, ...STRUCTURE_ACTIONS] as const;
 type ActionId = (typeof ACTION_IDS)[number];
 
 function isActionId(value: unknown): value is ActionId {
@@ -54,8 +71,11 @@ const ACTION_PROMPTS: Record<ActionId, string> = {
   simplify: "Sederhanakan bahasanya agar mudah dipahami, gunakan kalimat yang lebih pendek dan sederhana.",
   fix: "Perbaiki kesalahan tata bahasa, ejaan, dan tanda baca saja. Jangan mengubah gaya atau isi.",
   summarize: "Ringkas dokumen berikut menjadi poin-poin ringkas.",
-  translate: "Terjemahkan teks berikut ke dalam bahasa Inggris, pertahankan format aslinya.",
   continue: "Lanjutkan penulisan dokumen ini secara alami dan konsisten dengan gaya yang sudah dipakai.",
+  // Not a text instruction. This prompt is never used for `structure` — the
+  // plan vocabulary in PLAN_SYSTEM_PROMPT supersedes it — but the record has to
+  // stay total, so it names the action rather than leaving a hole.
+  structure: "Ubah struktur dokumen sesuai permintaan pengguna.",
 };
 
 const SYSTEM_PROMPT = `Anda adalah asisten penulisan untuk penyunting dokumen.
@@ -64,9 +84,11 @@ Aturan Anda:
 1. Kembalikan HANYA teks hasil akhir. Jangan menambahkan penjelasan, komentar, alasan, atau pembuka seperti "Berikut hasilnya".
 2. Jangan menggunakan markdown. Jangan memakai karakter #, *, atau tanda backtick.
 3. Jangan mengulang permintaan pengguna di awal jawaban.
-4. Pertahankan bahasa teks yang diberikan. Jika pengguna meminta terjemahan, gunakan bahasa tujuan yang diminta.
+4. Jika pengguna tidak meminta terjemahan, tulis hasil dalam **Bahasa Indonesia**. Jika pengguna minta terjemahan, gunakan bahasa tujuan yang diminta. Saat memperhalus, meringkas, atau menulis ulang teks, jangan mengganti bahasanya.
 5. Jangan mengarang fakta, angka, atau nama yang tidak ada di teks.
-6. Jika teks tidak bisa diproses, balas dengan satu kalimat singkat yang menjelaskan kendalanya.`;
+6. Tulis kalimat secara normal. Jangan menyisipkan huruf asing, jangan menggabungkan potongan kata menjadi kata baru, dan jangan mengulang karakter.
+7. Gunakan hanya huruf Latin, angka, tanda baca biasa, dan baris baru. Jangan gunakan huruf dari huruf China, Jepang, Korea, Cyrillic, Arab, atau huruf lebar.
+8. Jika teks tidak bisa diproses, balas dengan satu kalimat singkat yang menjelaskan kendalanya.`;
 
 /** Guards against a pathological paste blowing up the request. */
 const MAX_SOURCE_CHARS = 12_000;
@@ -80,41 +102,11 @@ type RequestPayload = {
   instruction?: string;
 };
 
-function readString(value: unknown): string {
-  return typeof value === "string" ? value : "";
-}
+/** The response for a structural action: steps, never prose. */
+type StructureResponse = { action: ActionId; steps: PlanStep[]; summary: string };
 
-function extractText(body: unknown): string {
-  const choice = (body as { choices?: { message?: { content?: unknown } }[] })?.choices?.[0];
-  const content = choice?.message?.content;
-  if (typeof content === "string") return content;
-  // Some gateways return content as an array of parts.
-  if (Array.isArray(content)) {
-    return content
-      .map((part) =>
-        typeof part === "string" ? part : readString((part as { text?: unknown })?.text),
-      )
-      .join("");
-  }
-  return "";
-}
-
-/**
- * Strips the wrappers models like to add despite instructions: fenced blocks,
- * a leading "Here is…"-style preamble, and stray markdown emphasis.
- */
-function tidyModelOutput(raw: string): string {
-  let out = raw.trim();
-
-  const fence = out.match(/^```[a-zA-Z]*\n?([\s\S]*?)\n?```$/);
-  if (fence) out = fence[1].trim();
-
-  out = out.replace(
-    /^(?:here(?:'s| is)|berikut(?: hasil)?nya|hasilnya|sure|okay|ok)\b[^\n:]*:\s*/i,
-    "",
-  );
-
-  return out.trim();
+function isStructureAction(action: ActionId): action is (typeof STRUCTURE_ACTIONS)[number] {
+  return (STRUCTURE_ACTIONS as readonly string[]).includes(action);
 }
 
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -149,30 +141,25 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   const instruction = readString(payload.instruction).trim().slice(0, MAX_INSTRUCTION_CHARS);
 
   const context = source.length === MAX_SOURCE_CHARS
-    ? `${source.slice(0, MAX_SOURCE_CHARS)}\n\n[teks dipotong]`
+    ? `${source.slice(0, MAX_SOURCE_CHARS)}${TRUNCATION_NOTE}`
     : source;
 
-  const userContent = instruction
-    ? `Tindakan: ${ACTION_PROMPTS[action]}\n\nTeks:\n"""\n${context}\n"""\n\nTambahan instruksi: ${instruction}`
-    : `Tindakan: ${ACTION_PROMPTS[action]}\n\nTeks:\n"""\n${context}\n"""`;
+  const isStructure = isStructureAction(action);
+  const userContent = isStructure
+    ? `Permintaan pengguna: ${instruction || "Perbaiki struktur dokumen ini."}\n\nIsi dokumen saat ini:\n"""\n${context}\n"""`
+    : instruction
+      ? `Tindakan: ${ACTION_PROMPTS[action]}\n\nTeks:\n"""\n${context}\n"""\n\nTambahan instruksi: ${instruction}`
+      : `Tindakan: ${ACTION_PROMPTS[action]}\n\nTeks:\n"""\n${context}\n"""`;
 
   let upstream: Response;
   try {
-    upstream = await fetch(AI_API, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${env.AI_KEY || "no-key"}`,
-      },
-      body: JSON.stringify({
-        model: env.AI_MODEL || "oc/big-pickle",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userContent },
-        ],
-        stream: false,
-      }),
-    });
+    upstream = await callGateway([
+      // The plan vocabulary replaces the prose rules entirely: "return only the
+      // final text" would actively fight a JSON answer, so it is not applicable
+      // here and is not sent.
+      { role: "system", content: isStructure ? PLAN_SYSTEM_PROMPT : SYSTEM_PROMPT },
+      { role: "user", content: userContent },
+    ]);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     console.error("[editor-ai] gateway request failed:", e);
@@ -201,7 +188,31 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     throw error(502, "Respons AI tidak dapat dibaca.");
   }
 
-  const text = tidyModelOutput(extractText(body));
+  // Sanitized here rather than in the UI because this text replaces or extends
+  // the user's document: a stray CJK run or invisible bidi control would be
+  // saved, exported to DOCX, and reappear for whoever opens the file next.
+  const text = sanitizeModelText(tidyModelOutput(extractText(body)));
+
+  if (isStructure) {
+    // Parsed, not trusted. `parsePlan` is an allowlist: the model chose from the
+    // operations we listed, and anything else is rejected outright rather than
+    // forwarded to the editor. This is the same posture as the action-id check
+    // above, one level down — the endpoint still never interprets model output
+    // as anything other than the shape it promises.
+    const plan = parsePlan(tidyModelOutput(text));
+    if (!plan.ok) {
+      // Not a 5xx: the model answered, it just answered with something we will
+      // not apply. The user needs to be told, not to see a server fault.
+      console.warn(`[editor-ai] plan rejected: ${plan.reason}`);
+      throw error(422, plan.reason);
+    }
+    const response: StructureResponse = {
+      action,
+      steps: plan.plan.steps,
+      summary: describePlan(plan.plan),
+    };
+    return json(response);
+  }
 
   if (!text) {
     throw error(502, "AI tidak mengembalikan teks.");

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import { app } from "$lib/app/index.svelte";
+  import { registerEditorBridge } from "$lib/app/editor-bridge.svelte";
   import { stashSignFile } from "$lib/utils/sign-handoff";
   import { setupDocxEditor } from "./editor-logic";
   import "./editor.css";
@@ -53,11 +54,31 @@
         }
       },
     });
+
+    // The editor is ready, so let the global chatbot act on this document.
+    // Registered only for signed-in users, matching the AI menu: an anonymous
+    // visitor should not be offered document editing even if the server would
+    // only reject it anyway.
+    if (handle && canUseAi) {
+      registerEditorBridge({
+        readContext: handle.readContext,
+        hasSelection: handle.hasSelection,
+        applyText: handle.applyText,
+        // Structural requests need the listing, not the flat text, and end in
+        // a validated plan rather than prose. Both added for the same reason as
+        // `readContext`: the chatbot is the one asking.
+        readMap: handle.readMap,
+        applyPlan: handle.applyPlan,
+      });
+    }
   });
 
   onDestroy(() => {
     handle?.destroy();
     handle = null;
+    // The chatbot reads this to decide whether it can edit, so a stale
+    // handler would keep offering document actions after leaving the page.
+    registerEditorBridge(null);
   });
 </script>
 
@@ -132,14 +153,14 @@
                 >
                   <button class="menu-item" data-action="savePdf">
                     <span class="menu-item-icon">
-                      <iconify-icon icon="bx:file-pdf" width="18" height="18"
+                      <iconify-icon icon="bx:file" width="18" height="18"
                       ></iconify-icon>
                     </span>
                     PDF… <span class="menu-shortcut">Ctrl+Shift+S</span>
                   </button>
                   <button class="menu-item" data-action="exportMarkdown">
                     <span class="menu-item-icon">
-                      <iconify-icon icon="bx:file-text" width="18" height="18"
+                      <iconify-icon icon="bx:text" width="18" height="18"
                       ></iconify-icon>
                     </span>
                     Markdown…
@@ -326,19 +347,37 @@
           </div>
 
           <!-- ============ AI ============ -->
-          <!-- Signed-in only. The actions split by what they read: the
-               rewrite group needs a selection and replaces it, the generate
-               group reads the whole document and inserts new text at the
-               cursor. `hidden` on the whole menu is driven from the script so
-               anonymous visitors never see it. -->
-          <div class="menu" id="aiMenu" hidden={!canUseAi}>
+          <!-- The actions split by what they read: the rewrite group needs a
+               selection and replaces it, the generate group reads the whole
+               document and inserts new text at the cursor.
+
+               The menu stays visible whether or not anyone is signed in —
+               hiding it left visitors no way to learn the feature exists. When
+               signed out the trigger is inert and carries the reason, which
+               beats a dead button with no explanation or a popup full of
+               actions that could only ever fail. The server enforces the same
+               rule independently; this is only the affordance.
+
+               Locked with `aria-disabled` rather than the native `disabled`
+               attribute on purpose: a disabled button drops out of the tab
+               order, so keyboard and screen reader users would never reach it
+               and the reason would go unheard — exactly the visitors this is
+               meant to inform. `aria-disabled` keeps it focusable and
+               announced while inert. The popup is additionally blocked in
+               `openMenu`, so the hover path cannot slip it open. -->
+          <div class="menu" id="aiMenu">
             <button
               class="menu-button"
+              class:menu-button--locked={!canUseAi}
               type="button"
               id="aiMenuButton"
               aria-haspopup="true"
               aria-expanded="false"
-              aria-controls="aiMenuPopup">AI</button
+              aria-disabled={!canUseAi}
+              aria-controls="aiMenuPopup"
+              >AI{#if !canUseAi}<span class="menu-locked-note"
+                  >(must be logged in)</span
+                >{/if}</button
             >
             <div
               class="menu-popup"
@@ -346,9 +385,30 @@
               role="menu"
               aria-labelledby="aiMenuButton"
             >
+              <!--
+                First, and separated from the rest, because it is not a
+                rewrite. Everything below this divider hands the model some text
+                and puts text back; this one hands it the document and gets back
+                a list of operations it replays against the engine — tables,
+                images, lists, alignment, styles. A user looking for "improve
+                this paragraph" should not have to read past it, and one looking
+                for "add a table" should not have to hunt for it.
+              -->
+              <button
+                class="menu-item"
+                type="button"
+                data-action="ai.structure"
+              >
+                <span class="menu-item-icon">
+                  <iconify-icon icon="bx:edit" width="18" height="18"
+                  ></iconify-icon>
+                </span>
+                Edit with AI
+              </button>
+              <div class="menu-separator"></div>
               <button class="menu-item" type="button" data-action="ai.improve">
                 <span class="menu-item-icon">
-                  <iconify-icon icon="bx:magic" width="18" height="18"
+                  <iconify-icon icon="bx:bulb" width="18" height="18"
                   ></iconify-icon>
                 </span>
                 Improve Writing
@@ -362,7 +422,7 @@
               </button>
               <button class="menu-item" type="button" data-action="ai.shorten">
                 <span class="menu-item-icon">
-                  <iconify-icon icon="bx:shrink" width="18" height="18"
+                  <iconify-icon icon="bx:align-justify" width="18" height="18"
                   ></iconify-icon>
                 </span>
                 Shorten
@@ -399,17 +459,6 @@
                   ></iconify-icon>
                 </span>
                 Summarize Document
-              </button>
-              <button
-                class="menu-item"
-                type="button"
-                data-action="ai.translate"
-              >
-                <span class="menu-item-icon">
-                  <iconify-icon icon="bx:translate" width="18" height="18"
-                  ></iconify-icon>
-                </span>
-                Translate to English
               </button>
               <button class="menu-item" type="button" data-action="ai.continue">
                 <span class="menu-item-icon">
@@ -2378,9 +2427,11 @@
   </div>
 
   <!-- ============ AI DIALOG ============ -->
-  <!-- Shown for the generate actions, which need a target and a bit of steer.
-       The rewrite actions run straight from the menu, no dialog, because the
-       selection already says what to act on. -->
+  <!-- Shown for the generate and structural actions, which need a target and a
+       bit of steer. The rewrite actions run straight from the menu, no dialog,
+       because the selection already says what to act on. The label and
+       placeholder are rewritten per action — "optional" would be a lie for the
+       structural one, where the instruction is the entire request. -->
   <div class="docx-dialog-overlay" id="aiOverlay" hidden>
     <div
       class="docx-dialog"
@@ -2399,14 +2450,16 @@
           The document is used as context. The result is inserted at the cursor.
         </p>
         <div class="docx-dialog__row">
-          <label class="docx-dialog__label" for="aiInstruction"
-            >Instruction</label
+          <label
+            class="docx-dialog__label"
+            for="aiInstruction"
+            id="aiInstructionLabel">Instruction</label
           >
           <input
             type="text"
             class="docx-dialog__input"
             id="aiInstruction"
-            maxlength="200"
+            maxlength="400"
             placeholder="Optional — e.g. write in a formal tone"
           />
         </div>

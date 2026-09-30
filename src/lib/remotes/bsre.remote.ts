@@ -14,7 +14,16 @@ import {
   sessions,
   tokenStore,
 } from "$lib/server/browser";
-import { acquireToken, BEID_HOST, BSRE_URL, fetchBsreUsersCore } from "$lib/server/bsre-sync";
+import {
+  acquireToken,
+  BEID_HOST,
+  BSRE_CERT_PRODUCTS,
+  BSRE_URL,
+  fetchBsreUsersCore,
+  listUserCerts,
+  requestEsignCertCore,
+  resetCertPassphraseCore,
+} from "$lib/server/bsre-sync";
 
 export const launchBsre = command(
   type({ userId: "string" }),
@@ -179,6 +188,59 @@ export const syncCertDates = command(
     }
     return { success: true, total: all.length, updated };
   }
+);
+
+/**
+ * Certificates of a BSrE user, with a `canReset` flag for certs the portal
+ * accepts a passphrase reset for (status ISSUE).
+ */
+export const getBsreUserCerts = query(
+  type({ userId: "string", bsreUserId: "string" }),
+  async ({ userId, bsreUserId }) => {
+    return await listUserCerts(userId, bsreUserId);
+  },
+);
+
+/** Products the portal accepts for a new certificate request. */
+export const getBsreCertProducts = query(type({}), async () => {
+  return [...BSRE_CERT_PRODUCTS];
+});
+
+/**
+ * Request a new e-signature certificate for a portal user.
+ * The portal refuses with `success: false` while the user still holds an active
+ * cert, naming the blocking serial in the message (`blockingSerial`).
+ */
+export const requestEsignCert = command(
+  type({
+    userId: "string",
+    bsreUserId: "string",
+    cn: "string",
+    product: "string = 'Tanda Tangan Elektronik'",
+    jenisSertifikat: "string = 'INDIVIDU'",
+  }),
+  async ({ userId, bsreUserId, cn, product, jenisSertifikat }) => {
+    return await requestEsignCertCore({
+      userId,
+      bsreUserId,
+      cn,
+      product,
+      jenisSertifikat,
+      dataDukung: [],
+    });
+  },
+);
+
+/**
+ * Reset the token passphrase of a certificate on the BSrE portal.
+ * Auth uses the cached BEID session token as a Bearer header.
+ * `serialNumber` is the certificate serial number — the portal rejects the UUID id with 404.
+ */
+export const resetCertPassphrase = command(
+  type({ userId: "string", bsreUserId: "string", serialNumber: "string" }),
+  async ({ userId, bsreUserId, serialNumber }) => {
+    return await resetCertPassphraseCore({ userId, bsreUserId, serialNumber });
+  },
 );
 
 type StatsFilter = {

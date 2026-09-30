@@ -797,7 +797,7 @@
     aria-label="Buat Dokumen"
     data-tip="Coba editor DOCX baru"
   >
-    <iconify-icon icon="bx:file-text" class="text-2xl"></iconify-icon>
+    <iconify-icon icon="bx:file" class="text-2xl"></iconify-icon>
     Buat Dokumen
     <span class="badge badge-sm badge-secondary">Baru</span>
   </a>

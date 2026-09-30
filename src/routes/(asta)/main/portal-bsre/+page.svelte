@@ -10,6 +10,9 @@
     debugBsreSession,
     getBsreStats,
     syncCertDates,
+    getBsreUserCerts,
+    resetCertPassphrase,
+    requestEsignCert,
   } from "$lib/remotes/bsre.remote";
   import { getData, type GetParams } from "$lib/remotes/api.remote";
   import { d } from "$lib/utils";
@@ -186,6 +189,121 @@
   // Debug state
   let debugData = $state<any>(null);
   let debugLoading = $state(false);
+
+  // Certificates of the user opened in the detail modal
+  type UserCert = {
+    id: string;
+    status: string | null;
+    product: string | null;
+    serialNumber: string | null;
+    notBeforeDate: string | null;
+    notAfterDate: string | null;
+    jenisSertifikat: string | null;
+    canReset: boolean;
+  };
+  let userCerts = $state<UserCert[]>([]);
+  let certsLoading = $state(false);
+  let resettingSerial = $state<string | null>(null);
+  let certsLoadedFor = $state<string | null>(null);
+
+  // New certificate request
+  let showNewCert = $state(false);
+  let certProducts = $state<string[]>([
+    "Tanda Tangan Elektronik",
+    "Tanda Tangan Digital",
+  ]);
+  let newCertProduct = $state("Tanda Tangan Elektronik");
+  let newCertCn = $state("");
+  let newCertJenis = $state("INDIVIDU");
+  let creatingCert = $state(false);
+  let blockingSerial = $state<string | null>(null);
+
+  // Fetch the certificate list whenever the detail modal opens on a new user
+  $effect(() => {
+    const id = selectedUser?.id;
+    if (!id) {
+      certsLoadedFor = null;
+      return;
+    }
+    if (certsLoadedFor === id) return;
+    certsLoadedFor = id;
+    void loadUserCerts(id);
+  });
+
+  async function loadUserCerts(bsreUserId: string) {
+    certsLoading = true;
+    try {
+      userCerts = await getBsreUserCerts({ userId, bsreUserId });
+    } catch (e: any) {
+      userCerts = [];
+      app.showToast("error", e?.message ?? "Gagal memuat daftar sertifikat.");
+    } finally {
+      certsLoading = false;
+    }
+  }
+
+  async function doResetPassphrase(cert: UserCert) {
+    const bsreUserId = selectedUser?.id;
+    // The portal endpoint takes the certificate serial number, not its UUID.
+    if (!bsreUserId || !cert.serialNumber) return;
+    resettingSerial = cert.serialNumber;
+    try {
+      const res = await resetCertPassphrase({
+        userId,
+        bsreUserId,
+        serialNumber: cert.serialNumber,
+      });
+      if (res?.success) {
+        // The portal's message is long ("Kirim link reset passphrase berhasil,
+        // silakan cek email/handphone Anda") — give it longer than the 3s default.
+        app.showToast("success", res.message ?? "Passphrase direset.", 7000);
+      } else {
+        app.showToast("error", res?.message ?? "Gagal reset passphrase.", 7000);
+      }
+    } catch (e: any) {
+      app.showToast("error", e?.message ?? "Gagal reset passphrase.", 7000);
+    } finally {
+      resettingSerial = null;
+    }
+  }
+
+  function openNewCertDialog() {
+    blockingSerial = null;
+    newCertCn = selectedUser?.nama ?? "";
+    showNewCert = true;
+  }
+
+  async function doRequestCert() {
+    const bsreUserId = selectedUser?.id;
+    if (!bsreUserId || creatingCert) return;
+    creatingCert = true;
+    blockingSerial = null;
+    try {
+      const res = await requestEsignCert({
+        userId,
+        bsreUserId,
+        cn: newCertCn,
+        product: newCertProduct,
+        jenisSertifikat: newCertJenis,
+      });
+      if (res?.success) {
+        app.showToast("success", res.message ?? "Sertifikat dibuat.", 7000);
+        showNewCert = false;
+        if (bsreUserId) await loadUserCerts(bsreUserId);
+      } else {
+        blockingSerial = res?.blockingSerial ?? null;
+        app.showToast(
+          "error",
+          res?.message ?? "Gagal membuat sertifikat.",
+          7000,
+        );
+      }
+    } catch (e: any) {
+      app.showToast("error", e?.message ?? "Gagal membuat sertifikat.", 7000);
+    } finally {
+      creatingCert = false;
+    }
+  }
 
   // Reset offset when count changes (like users page)
   let lastCount = $state(0);
@@ -1038,20 +1156,56 @@
                 </div>
               </div>
 
-              {#if selectedUser.details?.data?.sertifikat?.length}
-                <div class="border-t border-base-content/10 pt-3">
-                  <span
-                    class="text-xs opacity-60 uppercase font-bold block mb-2"
-                    >Riwayat Sertifikat</span
+              <div class="border-t border-base-content/10 pt-3">
+                <div class="flex items-center justify-between mb-2 gap-2">
+                  <span class="text-xs opacity-60 uppercase font-bold"
+                    >Daftar Sertifikat</span
                   >
+                  <div class="flex items-center gap-1">
+                    <button
+                      class="btn btn-primary btn-xs gap-1"
+                      onclick={openNewCertDialog}
+                      disabled={!selectedUser?.id || creatingCert}
+                    >
+                      <iconify-icon icon="bx:plus"></iconify-icon>
+                      Sertifikat
+                    </button>
+                    <button
+                      class="btn btn-ghost btn-xs gap-1"
+                      onclick={() =>
+                        selectedUser?.id && loadUserCerts(selectedUser.id)}
+                      disabled={certsLoading}
+                    >
+                      {#if certsLoading}
+                        <span class="loading loading-spinner loading-xs"></span>
+                      {:else}
+                        <iconify-icon icon="bx:sync"></iconify-icon>
+                      {/if}
+                      Muat Ulang
+                    </button>
+                  </div>
+                </div>
+
+                {#if certsLoading && !userCerts.length}
+                  <div class="flex items-center justify-center gap-2 py-6">
+                    <span
+                      class="loading loading-spinner loading-sm text-primary"
+                    ></span>
+                    <span class="text-xs opacity-60">Memuat sertifikat...</span>
+                  </div>
+                {:else if !userCerts.length}
+                  <div
+                    class="text-center py-6 text-xs opacity-40 border border-dashed border-base-content/15 rounded-lg"
+                  >
+                    Tidak ada sertifikat untuk pengguna ini.
+                  </div>
+                {:else}
                   <div class="space-y-2">
-                    {#each [...selectedUser.details.data.sertifikat].sort((a, b) => new Date(b.notAfterDate).getTime() - new Date(a.notAfterDate).getTime()) as cert, ci}
+                    {#each userCerts as cert (cert.id || cert.serialNumber)}
                       <div
-                        class="bg-base-100 p-3 rounded-lg border border-base-content/5"
+                        class="bg-base-100 p-3 rounded-lg border border-base-content/5 flex flex-wrap items-center justify-between gap-2"
                       >
-                        <div
-                          class="flex items-center justify-between gap-2 mb-1"
-                        >
+                        <div class="min-w-0 flex-1">
                           <div class="flex items-center gap-2">
                             <span
                               class="badge badge-sm {cert.status === 'ISSUE'
@@ -1060,32 +1214,53 @@
                                   ? 'badge-error'
                                   : 'badge-warning'}"
                             >
-                              {cert.status}
+                              {cert.status ?? "-"}
                             </span>
                             <span class="text-xs font-semibold"
                               >{cert.product ?? "-"}</span
                             >
                           </div>
-                          <span class="text-[10px] opacity-50 font-mono"
-                            >{cert.serialNumber?.slice(-8) ?? ""}</span
+                          <div
+                            class="flex items-center gap-3 text-[11px] opacity-70 mt-1 flex-wrap"
                           >
+                            <span
+                              >Berlaku: {cert.notBeforeDate ?? "?"} — {cert.notAfterDate ??
+                                "?"}</span
+                            >
+                            <span>SN: {cert.serialNumber ?? "-"}</span>
+                            {#if cert.jenisSertifikat}
+                              <span class="badge badge-ghost badge-xs"
+                                >{cert.jenisSertifikat}</span
+                              >
+                            {/if}
+                          </div>
                         </div>
-                        <div
-                          class="flex items-center gap-3 text-[11px] opacity-70"
-                        >
-                          <span
-                            >Berlaku: {cert.notBeforeDate?.split(" ")[0] ?? "?"}
-                            — {cert.notAfterDate?.split(" ")[0] ?? "?"}</span
-                          >
-                          <span class="badge badge-ghost badge-xs"
-                            >{cert.jenisSertifikat ?? "-"}</span
-                          >
+                        <div class="shrink-0">
+                          {#if cert.canReset}
+                            <button
+                              class="btn btn-xs btn-warning gap-1"
+                              onclick={() => doResetPassphrase(cert)}
+                              disabled={resettingSerial === cert.serialNumber}
+                            >
+                              {#if resettingSerial === cert.serialNumber}
+                                <span class="loading loading-spinner loading-xs"
+                                ></span>
+                              {:else}
+                                <iconify-icon icon="bx:key"></iconify-icon>
+                              {/if}
+                              Reset Passphrase
+                            </button>
+                          {:else}
+                            <span class="text-[10px] opacity-40 italic"
+                              >Tidak dapat direset</span
+                            >
+                          {/if}
                         </div>
                       </div>
                     {/each}
                   </div>
-                </div>
-              {/if}
+                {/if}
+              </div>
             </div>
 
             <!-- Status Verifikasi -->
@@ -1170,6 +1345,110 @@
           tabindex="0"
           onclick={() => (selectedUser = null)}
           onkeydown={(e) => e.key === "Enter" && (selectedUser = null)}
+        ></div>
+      </dialog>
+    </div>
+  {/if}
+
+  <!-- New Certificate Dialog -->
+  {#if showNewCert}
+    <div use:portal>
+      <dialog class="modal modal-open">
+        <div
+          class="modal-box max-w-md bg-base-100 border border-base-content/10 shadow-2xl rounded-2xl"
+        >
+          <div
+            class="flex items-center justify-between border-b border-base-content/10 pb-3 mb-4"
+          >
+            <h3 class="font-bold text-lg">Buat Sertifikat Baru</h3>
+            <button
+              class="btn btn-ghost btn-circle btn-sm"
+              onclick={() => (showNewCert = false)}>✕</button
+            >
+          </div>
+
+          <div class="space-y-3 text-sm">
+            <div>
+              <label class="text-xs opacity-60" for="cert-cn"
+                >Common Name (CN)</label
+              >
+              <input
+                id="cert-cn"
+                type="text"
+                class="input input-bordered input-sm w-full mt-1"
+                bind:value={newCertCn}
+                placeholder="Nama lengkap pemilik sertifikat"
+              />
+            </div>
+
+            <div>
+              <label class="text-xs opacity-60" for="cert-product">Produk</label
+              >
+              <select
+                id="cert-product"
+                class="select select-bordered select-sm w-full mt-1"
+                bind:value={newCertProduct}
+              >
+                {#each certProducts as p (p)}
+                  <option value={p}>{p}</option>
+                {/each}
+              </select>
+            </div>
+
+            <div>
+              <label class="text-xs opacity-60" for="cert-jenis"
+                >Jenis Sertifikat</label
+              >
+              <select
+                id="cert-jenis"
+                class="select select-bordered select-sm w-full mt-1"
+                bind:value={newCertJenis}
+              >
+                <option value="INDIVIDU">INDIVIDU</option>
+                <option value="INSTANSI">INSTANSI</option>
+              </select>
+            </div>
+
+            {#if blockingSerial}
+              <div class="alert alert-error text-xs">
+                <iconify-icon icon="bx:error"></iconify-icon>
+                <span>
+                  Sudah ada sertifikat aktif dengan SN
+                  <span class="font-semibold break-all">{blockingSerial}</span>.
+                  Batalkan atau cabut sertifikat tersebut sebelum membuat yang
+                  baru.
+                </span>
+              </div>
+            {/if}
+          </div>
+
+          <div class="modal-action mt-6">
+            <button
+              class="btn btn-neutral btn-sm"
+              onclick={() => (showNewCert = false)}
+              disabled={creatingCert}>Batal</button
+            >
+            <button
+              class="btn btn-primary btn-sm gap-1"
+              onclick={doRequestCert}
+              disabled={creatingCert || !newCertCn.trim()}
+            >
+              {#if creatingCert}
+                <span class="loading loading-spinner loading-xs"></span>
+              {:else}
+                <iconify-icon icon="bx:plus"></iconify-icon>
+              {/if}
+              Buat Sertifikat
+            </button>
+          </div>
+        </div>
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div
+          class="modal-backdrop bg-black/40 backdrop-blur-xs"
+          role="button"
+          tabindex="0"
+          onclick={() => (showNewCert = false)}
+          onkeydown={(e) => e.key === "Enter" && (showNewCert = false)}
         ></div>
       </dialog>
     </div>

@@ -79,6 +79,43 @@ iconify-icon {
   @apply text-base-content;
 }
 
+/* Docked chatbot panel. The panel is `position: fixed` in the root layout, so
+   the two things it would otherwise cover — the page content column and the
+   routes' own `.fab` buttons, which daisyUI pins to `inset-inline-end` — have
+   to be told to move. A data attribute on <html>, set by `chatbot.svelte`, is
+   the one hook both can see from here.
+
+   The width lives in one variable so the content shift and the FAB shift
+   cannot drift apart and disagree about how wide the panel is. */
+:root {
+  --chat-docked-width: 28rem;
+}
+
+@media (width >=40rem) {
+  html[data-chat-docked] .chat-content {
+    margin-right: var(--chat-docked-width);
+  }
+
+  /* The navbar is a sibling of the content column, not a child of it, so it
+     needs shifting separately or the panel covers its right-hand controls. */
+  html[data-chat-docked] .chat-navbar {
+    padding-right: var(--chat-docked-width);
+  }
+
+  html[data-chat-docked] .fab {
+    inset-inline-end: calc(var(--chat-docked-width) + 1rem);
+  }
+}
+
+/* Below 40rem the docked panel is full width, so there is nowhere for the
+   page to go: it lets the panel cover it and the FABs step out of the way
+   entirely rather than piling up against the panel's left edge. */
+@media (width < 40rem) {
+  html[data-chat-docked] .fab {
+    display: none;
+  }
+}
+
 .background {
   position: absolute;
   left: 0;

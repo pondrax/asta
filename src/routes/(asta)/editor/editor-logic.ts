@@ -1,3 +1,4 @@
+import type { ApplyMode, PlanResult } from "$lib/app/editor-bridge.svelte";
 import {
   createDocxEditor,
   runToolbarCommand,
@@ -27,6 +28,11 @@ import type {
   RulerPageMetrics,
   SupportedImageMime,
 } from "@docx-editor.dev/core/editor";
+// EditorSelection is a contract type, not an editor-runtime export: the
+// editor entry re-exports commands, not the selection shapes they consume.
+import type { EditorSelection } from "@docx-editor.dev/core/contracts/editor";
+import { runPlan, readDocumentStructure, applyTextWithTables } from "$lib/editor-ai-executor";
+import type { PlanStep } from "$lib/editor-ai-plan";
 
 /** Selection formatting snapshot returned by `query({ type: "selectionFormatting" })`. */
 type RunFormatting = NonNullable<ReturnType<DocxEditorInstance["snapshot"]>["formatting"]>;
@@ -222,7 +228,12 @@ function isLightHex(hex: string): boolean {
  *     without one and runs straight from the menu,
  *   - "document" reads the whole body and inserts the result at the cursor,
  *     which needs a dialog first so the user can steer it and see what will
- *     happen.
+ *     happen,
+ *   - "structure" is the odd one out. It does not produce text at all — the
+ *     model returns a plan of editor operations (make a table, insert a
+ *     picture, turn this heading bold) which is replayed against the engine.
+ *     It always opens the dialog, because a structural instruction like "add a
+ *     signature block at the end" cannot be guessed at.
  */
 const AI_ACTIONS = {
   "improve": { label: "Improve Writing", mode: "replace" },
@@ -232,16 +243,40 @@ const AI_ACTIONS = {
   "simplify": { label: "Simplify", mode: "replace" },
   "formal": { label: "Make Formal", mode: "replace" },
   "summarize": { label: "Summarize Document", mode: "document" },
-  "translate": { label: "Translate to English", mode: "document" },
   "continue": { label: "Continue Writing", mode: "document" },
-} as const satisfies Record<string, { label: string; mode: "replace" | "document" }>;
+  "structure": { label: "Edit with AI", mode: "structure" },
+} as const satisfies Record<string, { label: string; mode: "replace" | "document" | "structure" }>;
 
 type AiActionId = keyof typeof AI_ACTIONS;
 
-const AI_DIALOG_HINT = "The document is used as context. The result is inserted at the cursor.";
+const AI_DIALOG_HINTS = {
+  document: "The document is used as context. The result is inserted at the cursor.",
+  structure:
+    "Describe the change in plain language — for example “make a 4-column table of the "
+    + "invoice totals under Ringkasan, then make that heading bold”. Tables, images, lists, "
+    + "alignment and styles can all be created this way.",
+} as const;
+
+/**
+ * The instruction field's label and placeholder, per mode.
+ *
+ * The structural one is the only action where the instruction is not a hint
+ * about work the selection already implies, so it gets its own wording rather
+ * than the generic "optional".
+ */
+const AI_INSTRUCTION_PROMPTS = {
+  document: { label: "Instruction", placeholder: "Optional — e.g. write in a formal tone" },
+  structure: {
+    label: "What should it do?",
+    placeholder: "e.g. add a 3-column invoice table after the Ringkasan heading",
+  },
+} as const;
 
 /** Matches the server-side cap, so a huge document fails before it is sent. */
 const AI_MAX_SOURCE_CHARS = 12_000;
+
+/** How much of each paragraph goes into the structural context listing. */
+const AI_MAP_PARAGRAPH_CHARS = 160;
 
 function isTableCellVerticalAlignment(value: string | undefined): value is TableCellVerticalAlignment {
   return value === "top" || value === "center" || value === "bottom";
@@ -316,7 +351,7 @@ function variantHex(themeHex: string, variant: ThemeVariant): string {
 export interface DocxEditorSetupOptions {
   onDirtyChange: (dirty: boolean) => void;
   onError: (msg: string | null) => void;
-  showToast: (type: "success" | "error", msg: string) => void;
+  showToast: (type: "success" | "error" | "warning", msg: string) => void;
   getTheme: () => string;
   setTheme: (t: string) => void;
   /**
@@ -352,6 +387,36 @@ export interface DocxEditorSetupHandle {
    * synchronously from the click to avoid the browser blocking it.
    */
   openSignPage: () => Promise<void>;
+  /**
+   * The text the chat assistant should work on: the current selection, or the
+   * whole document when nothing is selected.
+   *
+   * Read while the document still has focus, or the selection is whatever was
+   * mirrored last before focus left.
+   */
+  readContext: () => string;
+  /**
+   * Whether `readContext` returned a real selection rather than the whole
+   * document. The chatbot forwards this so the server can tell the model
+   * which of the two it is looking at.
+   */
+  hasSelection: () => boolean;
+  /**
+   * Writes assistant output into the document, restoring the captured
+   * selection first so a "replace" reply lands where the user expects.
+   */
+  applyText: (text: string, mode: ApplyMode) => void;
+  /**
+   * A structure-preserving listing for a structural request, so the chat
+   * assistant can see tables and headings rather than a flat run of prose.
+   */
+  readMap: () => string;
+  /**
+   * Replays a validated structural plan. The steps arrive already narrowed by
+   * the server's `parsePlan` allowlist, so this exposes a fixed vocabulary and
+   * not arbitrary editor commands.
+   */
+  applyPlan: (steps: readonly PlanStep[]) => Promise<PlanResult>;
   destroy: () => void;
 }
 
@@ -587,6 +652,7 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
   const aiOverlay = root.querySelector("#aiOverlay") as HTMLElement | null;
   const aiDialogTitle = root.querySelector("#aiDialogTitle") as HTMLElement | null;
   const aiDialogHint = root.querySelector("#aiDialogHint") as HTMLElement | null;
+  const aiInstructionLabel = root.querySelector("#aiInstructionLabel") as HTMLElement | null;
   const aiInstruction = root.querySelector("#aiInstruction") as HTMLInputElement | null;
   const aiError = root.querySelector("#aiError") as HTMLElement | null;
   const aiCancel = root.querySelector("#aiCancel") as HTMLButtonElement | null;
@@ -611,6 +677,13 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
 
   /** Marks a top-level menu as open and remembers whether hover or click opened it. */
   function openMenu(menu: HTMLElement, source: typeof MENU_OPEN_HOVER | typeof MENU_OPEN_CLICK) {
+    // A locked menu (the signed-out AI menu) is rendered but inert. It is
+    // locked with `aria-disabled`, not the native `disabled` attribute, so the
+    // trigger still receives clicks and focus and neither path is blocked for
+    // us. Checked here because it covers every caller at once — the click
+    // handler, the `mouseenter` handler, and any future one.
+    const trigger = menu.querySelector<HTMLElement>(".menu-button");
+    if (trigger?.getAttribute("aria-disabled") === "true") return;
     const pending = pendingMenuClose.get(menu);
     if (pending !== undefined) {
       window.clearTimeout(pending);
@@ -1282,7 +1355,8 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
   }
 
   // ============ AI EDITING ============
-  // The AI menu is hidden in the markup for anonymous visitors, and the server
+  // The AI menu is always rendered, but for anonymous visitors it is locked
+  // (`aria-disabled` on the trigger, popup blocked in `openMenu`). The server
   // rejects them too, so `canUseAi` is checked here purely so a stale or
   // hand-edited DOM cannot reach the endpoint.
   function aiEnabled() {
@@ -1298,6 +1372,43 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
       .filter(Boolean)
       .join("\n\n")
       .slice(0, AI_MAX_SOURCE_CHARS);
+  }
+
+  /**
+   * A paragraph-and-table listing for the structural action.
+   *
+   * Raw document text is the wrong context for a plan. Every operation in it
+   * addresses a target by quoting it — "under the heading Ringkasan", "in table
+   * 0, row 2" — so the model needs to see where the headings and tables are, not
+   * just a run of prose with the structure flattened out of it. Numbering the
+   * paragraphs gives it something to refer to, and including the style makes
+   * `setStyle` predictable: "make it a heading" needs to know it already is one.
+   *
+   * The listing is built by the executor, which reads through the automation
+   * host. The editor's own paragraph query descends into tables and returns
+   * every cell as its own paragraph, so a document with a 6x3 table reads as
+   * eighteen unrelated lines and the model never learns the table exists — it
+   * then answers "the header row" with something that has nowhere to attach.
+   * The executor keeps each table on one line instead.
+   *
+   * The cap is on the whole listing, not per paragraph, so a long document
+   * degrades to its opening rather than to a truncated tail with no warning.
+   */
+  function readDocumentMap(): string {
+    if (!editor) return "";
+    const listing = readDocumentStructure(editor, AI_MAX_SOURCE_CHARS, AI_MAP_PARAGRAPH_CHARS);
+    const here = readTableContext();
+    if (!here) return listing;
+    const suffix = `\nThe cursor is inside a ${here}.`;
+    return `${listing}${suffix}`.slice(0, AI_MAX_SOURCE_CHARS);
+  }
+
+  /** One line describing the table under the cursor, or null when outside one. */
+  function readTableContext(): string | null {
+    if (!editor) return null;
+    const ctx = editor.query({ type: "tableContext" });
+    if (!ctx || !ctx.rows || !ctx.columns) return null;
+    return `${ctx.rows}x${ctx.columns} table, cursor in row ${ctx.rowIndex + 1} column ${ctx.columnIndex + 1}`;
   }
 
   function setAiBusy(busy: boolean) {
@@ -1325,8 +1436,14 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
   function openAiDialog(action: AiActionId) {
     if (!aiOverlay) return;
     pendingAiAction = action;
-    if (aiDialogTitle) aiDialogTitle.textContent = AI_ACTIONS[action].label;
-    if (aiDialogHint) aiDialogHint.textContent = AI_DIALOG_HINT;
+    const config = AI_ACTIONS[action];
+    // "replace" never opens this dialog, but the record is keyed by mode and a
+    // future action could; falling back to the document wording keeps it total.
+    const mode = config.mode === "structure" ? "structure" : "document";
+    if (aiDialogTitle) aiDialogTitle.textContent = config.label;
+    if (aiDialogHint) aiDialogHint.textContent = AI_DIALOG_HINTS[mode];
+    if (aiInstructionLabel) aiInstructionLabel.textContent = AI_INSTRUCTION_PROMPTS[mode].label;
+    if (aiInstruction) aiInstruction.placeholder = AI_INSTRUCTION_PROMPTS[mode].placeholder;
     if (aiInstruction) aiInstruction.value = "";
     if (aiError) aiError.textContent = "";
     aiOverlay.hidden = false;
@@ -1343,11 +1460,16 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
   /**
    * Asks the endpoint to rewrite `source`, then writes the answer back.
    *
-   * `mode` decides the write: a "replace" action pastes over the selection,
-   * which the engine handles by replacing exactly what was selected, while a
-   * "document" action pastes at the cursor. Both go through the clipboard
-   * lane rather than raw edits because it is the only path that keeps the
-   * undo stack, tracked changes, and revision guards intact.
+   * `mode` decides both the context sent and the write. A "replace" action
+   * pastes over the selection, which the engine handles by replacing exactly
+   * what was selected, while a "document" action pastes at the cursor. Both go
+   * through the clipboard lane rather than raw edits because it is the only path
+   * that keeps the undo stack, tracked changes, and revision guards intact.
+   *
+   * "structure" diverges completely: it returns a plan of operations, not prose,
+   * and is handed to {@link runPlan}. The two are kept apart deliberately —
+   * routing a plan through the paste lane would flatten a table back into text
+   * and lose the point of the exercise.
    */
   async function runAiAction(action: AiActionId, instruction: string) {
     if (!aiEnabled()) return;
@@ -1355,6 +1477,11 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
     if (!instance) return;
 
     const mode = AI_ACTIONS[action].mode;
+    if (mode === "structure") {
+      await runAiStructure(instance, instruction);
+      return;
+    }
+
     const selection = instance.query({ type: "selectedText" }).trim();
     const source = mode === "replace" ? selection : readDocumentText();
 
@@ -1406,17 +1533,319 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
   }
 
   /**
+   * The structural path: ask for a plan, then replay it.
+   *
+   * Two things here are worth stating. First, the response carries `steps` and
+   * not `text` — the endpoint validates the plan against the same schema the
+   * executor expects, so a step reaching this function is already bounded, so
+   * there is nothing to re-check here. Second, a plan that partly fails is
+   * *not* an error: the engine applies each step as its own transaction, so a
+   * plan whose fourth step names a heading that does not exist has already
+   * built the first three tables. Discarding that and reporting only the
+   * failure would throw away real work the user can see in the document, so the
+   * partial result is reported as a warning with the reason attached.
+   */
+  async function runAiStructure(instance: NonNullable<typeof editor>, instruction: string) {
+    const source = readDocumentMap();
+    if (!source) {
+      aiFail("The document is empty.");
+      return;
+    }
+
+    setAiBusy(true);
+    if (aiError) aiError.textContent = "";
+
+    try {
+      const res = await fetch("/api/editor-ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "structure", source, instruction }),
+      });
+
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(payload?.error || `AI request failed (${res.status}).`);
+      }
+      const steps: unknown = payload?.steps;
+      if (!Array.isArray(steps) || steps.length === 0) {
+        throw new Error("The AI returned no changes to make.");
+      }
+
+      const summary = typeof payload?.summary === "string" ? payload.summary : "AI edits";
+      const result = await runPlan(
+        instance,
+        steps as PlanStep[],
+        (done, total) => {
+          if (aiRun) aiRun.textContent = `Step ${Math.min(done + 1, total)} of ${total}…`;
+        },
+      );
+
+      instance.focus();
+      closeAiDialog();
+      updateAll();
+
+      if (result.failures.length === 0) {
+        opts.showToast("success", `${summary} (${result.applied} change${result.applied === 1 ? "" : "s"}).`);
+        return;
+      }
+
+      // Say plainly that some of it landed, and why the rest did not.
+      const first = result.failures[0];
+      const extra = result.failures.length > 1 ? ` (+${result.failures.length - 1} more)` : "";
+      const detail = `skipped ${first.op}: ${first.reason}${extra}`;
+      if (result.applied > 0) {
+        opts.showToast("warning", `${summary} — ${result.applied} applied, ${detail}.`);
+      } else {
+        aiFail(`Nothing was changed. ${detail}.`);
+      }
+    } catch (e) {
+      aiFail(e instanceof Error ? e.message : String(e));
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
+  /**
    * Menu entry point. Rewrite actions run immediately; the document-scoped
    * ones open the dialog first so the user can add direction before spending
-   * a request.
+   * a request. `structure` always opens it, because its instruction is the
+   * whole request.
    */
   function handleAiAction(action: AiActionId) {
     if (!aiEnabled()) return;
-    if (AI_ACTIONS[action].mode === "document") {
+    if (AI_ACTIONS[action].mode === "document" || AI_ACTIONS[action].mode === "structure") {
       openAiDialog(action);
       return;
     }
     void runAiAction(action, "");
+  }
+
+  // ============ EDITOR <-> CHAT BRIDGE ============
+  // The global chatbot lives in the root layout and has no handle on this
+  // engine, so it goes through `registerEditorBridge` to read a selection and
+  // write text back. The tricky part is that the browser drops the document
+  // selection the instant focus moves to the chat input — by the time a reply
+  // comes back, the engine has no idea what the user had highlighted. So the
+  // selection is mirrored while the document has focus, and frozen on blur.
+
+  let bridgeFrozen = false;
+  let bridgeSelection: EditorSelection | null = null;
+  let bridgeSelectionText = "";
+
+  /**
+   * The engine addresses a selection as a pair of paragraph anchors, and
+   * `setSelection` refuses anything else. `query` can hand back a block-path
+   * `DocLocation` instead — for a selection inside a table or a content
+   * control — so this checks the shape rather than casting, because a blind
+   * cast would surface later as an engine error at the worst possible moment.
+   */
+  function isRestorableRange(range: unknown): range is EditorSelection {
+    if (!range || typeof range !== "object") return false;
+    const { from, to } = range as { from?: unknown; to?: unknown };
+    const isAnchor = (a: unknown) =>
+      !!a && typeof (a as { paraId?: unknown }).paraId === "string";
+    return isAnchor(from) && isAnchor(to);
+  }
+
+  function captureBridgeSelection() {
+    if (!editor) return;
+    const range = editor.query({ type: "selection" });
+    bridgeSelection = isRestorableRange(range) ? range : null;
+    bridgeSelectionText = editor.query({ type: "selectedText" }).trim();
+  }
+
+  /**
+   * Freezes the mirrored selection at the moment the document loses focus.
+   *
+   * Taken here rather than read lazily later, because the engine may also emit
+   * a selection change as it collapses the selection on blur, and a
+   * lazy read would pick up the collapsed caret instead of the real selection.
+   */
+  function freezeBridgeSelection() {
+    if (bridgeFrozen) return;
+    captureBridgeSelection();
+    bridgeFrozen = true;
+  }
+
+  function handleEditorFocusIn() {
+    bridgeFrozen = false;
+    captureBridgeSelection();
+  }
+
+  /** What the AI should work on: the selection, or the whole document. */
+  function readBridgeContext(): string {
+    if (!editor) return "";
+    return bridgeSelectionText || readDocumentText();
+  }
+
+  /**
+   * Whether the context is a real selection rather than the whole document.
+   * The chatbot sends this along so the model can be told which it got.
+   */
+  function hasBridgeSelection(): boolean {
+    return bridgeSelectionText.length > 0;
+  }
+
+  /**
+   * Whether an "insert" reply is really the whole document pasted back.
+   *
+   * Compares whitespace-normalised text so reflow and re-indenting cannot
+   * disguise an echo. Containment alone is the test, with no upper bound on
+   * length: a legitimate insertion is new text, so it should essentially never
+   * contain the entire existing document. This guard only runs for "insert"
+   * anyway — a "replace" reply is *supposed* to restate what it rewrote, which
+   * is exactly why the two modes must not share this check.
+   *
+   * Biased towards catching echoes: a false positive costs one error toast
+   * and a retry, while a false negative silently duplicates the document.
+   */
+  function isDocumentEcho(candidate: string, reference: string): boolean {
+    const norm = (s: string) => s.replace(/\s+/g, " ").trim();
+    const hay = norm(candidate);
+    const doc = norm(reference);
+    if (!doc) return false;
+    return hay.includes(doc);
+  }
+
+  /**
+   * Writes chat output back into the document.
+   *
+   * The frozen selection is restored first, otherwise a "replace" reply would
+   * land at whatever caret the engine happened to fall back to. Everything goes
+   * through `paste` so the undo stack and tracked changes stay intact.
+   */
+  async function applyBridgeText(text: string, mode: ApplyMode) {
+    const instance = editor;
+    if (!instance) {
+      opts.showToast("error", "The editor is not ready yet.");
+      return;
+    }
+
+    const body = text.trim();
+    if (!body) {
+      opts.showToast("error", "There is nothing to apply.");
+      return;
+    }
+
+    // Last line of defence against a whole-document echo. Told "here is the
+    // document, add a paragraph", a model can answer with the entire document;
+    // pasting that at the cursor silently duplicates the file. Prompt rules
+    // reduce the odds, but this is the place where the damage would be real,
+    // and it is cheap to check.
+    if (mode === "insert" && isDocumentEcho(body, readDocumentText())) {
+      opts.showToast(
+        "error",
+        "The reply repeats the whole document. Ask for just the part you want added.",
+      );
+      return;
+    }
+
+    let insertedInstead = false;
+    if (mode === "replace") {
+      if (bridgeSelection) {
+        const restore = { type: "setSelection" as const, range: bridgeSelection };
+        if (instance.can(restore).ok) {
+          instance.exec(restore);
+        } else {
+          insertedInstead = true;
+        }
+      } else {
+        insertedInstead = true;
+      }
+    }
+
+    const paste = (chunk: string) => {
+      const command = { type: "paste" as const, text: chunk };
+      const can = instance.can(command);
+      if (!can.ok) {
+        opts.showToast("error", can.reason || "The document refused this change.");
+        return;
+      }
+      instance.exec(command);
+    };
+
+    // The chatbot answers in text, so a request for a table comes back as
+    // pipes or tabs. Pasting that verbatim leaves a paragraph of `a | b | c`
+    // in the document — visible, unreadable, and not a table. `applyTextWithTables`
+    // splits the reply and builds each grid as a real table, and falls back to
+    // a plain paste when there is no table in it.
+    const tables = await applyTextWithTables(instance, body, paste);
+
+    instance.focus();
+    updateAll();
+    // The old selection described text that no longer exists in that form.
+    bridgeSelection = null;
+    bridgeSelectionText = "";
+    opts.showToast(
+      "success",
+      tables > 0
+        ? `Applied to the document — created ${tables} table${tables > 1 ? "s" : ""}.`
+        : insertedInstead
+          ? "Inserted at the cursor — there was no selection to replace."
+          : "Applied to the document.",
+    );
+  }
+
+  /**
+   * Replays a plan the chatbot proposed.
+   *
+   * Deliberately the same `runPlan` the AI menu's structural dialog uses, so a
+   * chat message and a dialog instruction reach the document by one route and
+   * report the same way. That matters most for the partial case: the engine
+   * runs each step as its own transaction, so a plan that resized two columns
+   * and then named a table that does not exist has already done real, visible
+   * work. Reporting only the failure would hide it; reporting only success
+   * would be a lie.
+   *
+   * Nothing new is trusted here. The steps arrived already narrowed by the
+   * server's `parsePlan` allowlist, and `runPlan` switches on a closed union —
+   * there is no path from a chat message to an arbitrary editor command.
+   */
+  async function applyBridgePlan(steps: readonly PlanStep[]): Promise<PlanResult> {
+    const instance = editor;
+    if (!instance) {
+      opts.showToast("error", "The editor is not ready yet.");
+      return { applied: 0, refused: 0, summary: "no changes" };
+    }
+    if (!steps.length) {
+      opts.showToast("error", "There was nothing to change.");
+      return { applied: 0, refused: 0, summary: "no changes" };
+    }
+
+    try {
+      const result = await runPlan(instance, steps);
+      instance.focus();
+      updateAll();
+
+      const refused = result.failures.length;
+      if (refused === 0) {
+        opts.showToast(
+          "success",
+          `Applied to the document — ${result.applied} change${result.applied === 1 ? "" : "s"}.`,
+        );
+        return { applied: result.applied, refused, summary: "done" };
+      }
+
+      const first = result.failures[0];
+      const extra = refused > 1 ? ` (+${refused - 1} more)` : "";
+      const reason = `skipped ${first?.op}: ${first?.reason}${extra}`;
+      if (result.applied > 0) {
+        opts.showToast(
+          "warning",
+          `Applied — ${result.applied} of ${result.applied + refused} changes, ${reason}.`,
+        );
+      } else {
+        opts.showToast("error", `Nothing was changed. ${reason}.`);
+      }
+      return { applied: result.applied, refused, reason, summary: "partial" };
+    } catch (e) {
+      // A throw here is not a refused step — `runPlan` catches those per step
+      // and reports them. This is a fault in the plan lane itself, which the
+      // chatbot surfaces as a failed request rather than a silent no-op.
+      const message = e instanceof Error ? e.message : String(e);
+      opts.showToast("error", message);
+      return { applied: 0, refused: steps.length, reason: message, summary: "failed" };
+    }
   }
 
   function resetParagraphSpecial() {
@@ -2685,6 +3114,9 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
     });
     unsubscribeSelectionChange = editor.on("selectionChange", () => {
       refreshEditorChrome();
+      // Only while the document holds focus: once the user is in the chat panel
+      // this fires for collapses we do not want to mirror over a real selection.
+      if (!bridgeFrozen) captureBridgeSelection();
     });
   }
 
@@ -3247,6 +3679,14 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
       const action = pendingAiAction;
       const instruction = aiInstruction?.value.trim() ?? "";
       if (!action) return;
+      // A structural request IS the instruction. Sending an empty one would
+      // spend a model call to produce a plan with nothing to act on, and the
+      // failure would come back as an opaque 502 rather than a clear prompt.
+      if (AI_ACTIONS[action].mode === "structure" && !instruction) {
+        if (aiError) aiError.textContent = "Describe the change you want first.";
+        aiInstruction?.focus();
+        return;
+      }
       // The dialog stays open for the duration: it shows the progress state,
       // and on failure the error lands in its own message slot.
       void runAiAction(action, instruction);
@@ -3528,6 +3968,17 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
       applyA4Default();
       registerEditorSubscriptions();
       observeEditorLayout();
+      // Selection mirroring for the chat bridge. The editor surface itself is
+      // the focus scope, not the document, so a click on the editor's own
+      // margin or gutter still counts as "in the document".
+      if (editorContainer) {
+        editorContainer.addEventListener("focusin", handleEditorFocusIn, {
+          signal: eventController.signal,
+        });
+        editorContainer.addEventListener("focusout", freezeBridgeSelection, {
+          signal: eventController.signal,
+        });
+      }
       if (filenameInput) filenameInput.value = "Untitled";
       setDirty(false);
       hideError();
@@ -3555,6 +4006,15 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
     // action button) to the very same flow the header button used, rather
     // than re-implementing the export → stash → handoff dance.
     openSignPage,
+    // Exposed for the global chatbot, which lives in the root layout and has
+    // no handle on this engine. It reads the current selection and asks for
+    // text to be written back; both are routed through the same `paste` lane
+    // the AI menu uses, so undo and tracked changes behave identically.
+    readContext: readBridgeContext,
+    hasSelection: hasBridgeSelection,
+    applyText: applyBridgeText,
+    readMap: readDocumentMap,
+    applyPlan: applyBridgePlan,
     destroy: () => {
       resizeObserver?.disconnect();
       editorResizeObserver?.disconnect();
