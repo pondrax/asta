@@ -5,8 +5,14 @@
   import { app } from "$lib/app/index.svelte";
   import Lottie from "$lib/components/lottie.svelte";
   import Chatbot from "$lib/components/chatbot.svelte";
+  import Changelog from "$lib/components/changelog.svelte";
   import CookieConsent from "$lib/components/cookie-consent.svelte";
   import { getPageTitle } from "$lib/app/titles";
+  import {
+    changelogSeen,
+    countUnseenFor,
+    loadChangelogSeen,
+  } from "$lib/app/changelog.svelte";
   import { getStatus, getAdminCounts } from "$lib/remotes/stats.remote";
   import { stopImpersonation } from "$lib/remotes/user.remote";
   let { children, data } = $props();
@@ -16,6 +22,13 @@
 
   let activeMenu = $state<string | null>(null);
   let hideTimer: ReturnType<typeof setTimeout>;
+
+  // Changelog popup — shows the entries for whichever page is open.
+  let showChangelog = $state(false);
+
+  // The "new" dot reflects entries for the *current* page only, so the user is
+  // nudged about what changed where they actually are.
+  const unseenChangelog = $derived(countUnseenFor(page.url.pathname));
 
   function showMenu(name: string) {
     clearTimeout(hideTimer);
@@ -55,6 +68,12 @@
   const adminCounts = $derived(
     admin?.current ?? { users: 0, bsreUsers: 0, surveys: 0, logs: 0 },
   );
+
+  // Read persisted changelog state in the browser only, so the "new" dot is
+  // already correct on first paint instead of waiting for the popup to open.
+  $effect(() => {
+    loadChangelogSeen();
+  });
 </script>
 
 <svelte:head>
@@ -396,6 +415,18 @@
             <span class="hidden md:inline">Panduan</span>
           </button>
         {/if}
+        <button
+          class="btn btn-ghost btn-sm btn-circle relative"
+          aria-label="Apa yang Baru"
+          data-tip="Apa yang Baru"
+          onclick={() => (showChangelog = true)}
+        >
+          <iconify-icon icon="bx:time" class="text-xl"></iconify-icon>
+          {#if unseenChangelog > 0}
+            <span class="absolute top-1 right-1 w-2 h-2 rounded-full bg-primary"
+            ></span>
+          {/if}
+        </button>
         <label class="swap swap-rotate">
           <input
             type="checkbox"
@@ -1347,6 +1378,12 @@
 
   <CookieConsent consent={data.consent} />
   <Chatbot {user} />
+
+  <Changelog
+    pathname={page.url.pathname}
+    role={user?.role?.name ?? null}
+    bind:open={showChangelog}
+  />
 </div>
 
 <!-- <div class="cf-turnstile" data-sitekey={env.PUBLIC_TURNSTILE_KEY}></div> -->

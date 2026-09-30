@@ -7,7 +7,7 @@
     "start": "bun ./build/index.js",
     "serve": "pm2 delete asta || true && pm2 start bun --name asta -- run start",
     "dev": "NODE_TLS_REJECT_UNAUTHORIZED=0 vite dev",
-    "build": "vite build && ./fix.sh",
+    "build": "bun run changelog:build && vite build && ./fix.sh",
     "postinstall": "node src/scripts/patch-playwright.mjs || echo 'playwright patch skipped'",
     "preview": "vite preview",
     "prepare": "svelte-kit sync || echo ''",
@@ -23,6 +23,7 @@
     "cron": "bun src/scripts/cron.ts",
     "migrate:storage": "bun src/scripts/migrate-storage-s3.ts",
     "migrate:histories": "bun src/scripts/migrate-histories.ts",
+    "changelog:build": "bun src/scripts/build-changelog.ts",
     "test:load": "ab -n 1000 -c 50 http://127.0.0.1:3000/"
   },
   "devDependencies": {

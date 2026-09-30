@@ -5,3 +5,4 @@ export { default as Select } from './select.svelte';
 export { default as Tour } from './tour.svelte';
 export { default as Preview } from './preview.svelte';
 export { default as Chatbot } from './chatbot.svelte';
+export { default as Changelog } from './changelog.svelte';
