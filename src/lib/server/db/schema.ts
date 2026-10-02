@@ -73,16 +73,22 @@ export const documents = pgTable('documents', {
   index('documents_status_idx').on(table.status),
 ])
 
+/** Which signature method produced the counted event. */
+export type StatisticMode = 'esign' | 'manual';
+
 export const documentStatistics = pgTable('document_statistics', {
   id,
   // date: date('date').defaultNow(),
   type: text('type')
     .default('signed')
     .$type<'signed' | 'verified' | 'new-request' | 'reset-email' | 'reset-passphrase'>(),
+  mode: text('mode').default('esign').$type<StatisticMode>(),
   value: integer('value').default(0),
   created,
   updated,
-})
+}, table => [
+  index('document_statistics_type_mode_idx').on(table.type, table.mode),
+])
 export const templates = pgTable('templates', {
   id,
   name: text('name').unique(),
@@ -288,8 +294,10 @@ export const helpdeskSurveys = pgTable('helpdesk_surveys', {
 
 /**
  * One row per day with all key metrics aggregated from the raw tables:
- * - e-sign counters (document_statistics): signed / verified / new-request /
- *   reset-email / reset-passphrase
+ * - signature counters (document_statistics), split by mode so BSrE
+ *   (`esign`) and manual signing can be compared independently:
+ *   signed / verified, each as a total plus its esign and manual parts.
+ *   `new-request` / `reset-email` / `reset-passphrase` are mode-agnostic.
  * - documents created per day, broken down by status
  * - new users & new signers
  * - helpdesk tickets opened & completed
@@ -298,7 +306,11 @@ export const helpdeskSurveys = pgTable('helpdesk_surveys', {
 export const dailyStatistics = pgView('daily_statistics', {
   date: date('date', { mode: 'string' }).notNull(),
   signed: integer('signed').notNull(),
+  signedEsign: integer('signed_esign').notNull(),
+  signedManual: integer('signed_manual').notNull(),
   verified: integer('verified').notNull(),
+  verifiedEsign: integer('verified_esign').notNull(),
+  verifiedManual: integer('verified_manual').notNull(),
   newRequest: integer('new_request').notNull(),
   resetEmail: integer('reset_email').notNull(),
   resetPassphrase: integer('reset_passphrase').notNull(),
@@ -327,7 +339,11 @@ export const dailyStatistics = pgView('daily_statistics', {
       SELECT
         (date_trunc('day', created AT TIME ZONE 'Asia/Jakarta'))::date AS date,
         COALESCE(SUM(value) FILTER (WHERE type = 'signed'), 0)::int          AS signed,
+        COALESCE(SUM(value) FILTER (WHERE type = 'signed' AND mode = 'esign'), 0)::int  AS signed_esign,
+        COALESCE(SUM(value) FILTER (WHERE type = 'signed' AND mode = 'manual'), 0)::int AS signed_manual,
         COALESCE(SUM(value) FILTER (WHERE type = 'verified'), 0)::int        AS verified,
+        COALESCE(SUM(value) FILTER (WHERE type = 'verified' AND mode = 'esign'), 0)::int  AS verified_esign,
+        COALESCE(SUM(value) FILTER (WHERE type = 'verified' AND mode = 'manual'), 0)::int AS verified_manual,
         COALESCE(SUM(value) FILTER (WHERE type = 'new-request'), 0)::int     AS new_request,
         COALESCE(SUM(value) FILTER (WHERE type = 'reset-email'), 0)::int     AS reset_email,
         COALESCE(SUM(value) FILTER (WHERE type = 'reset-passphrase'), 0)::int AS reset_passphrase
@@ -372,7 +388,11 @@ export const dailyStatistics = pgView('daily_statistics', {
   SELECT
     dt.date,
     COALESCE(ds.signed, 0)            AS signed,
+    COALESCE(ds.signed_esign, 0)      AS signed_esign,
+    COALESCE(ds.signed_manual, 0)     AS signed_manual,
     COALESCE(ds.verified, 0)          AS verified,
+    COALESCE(ds.verified_esign, 0)    AS verified_esign,
+    COALESCE(ds.verified_manual, 0)   AS verified_manual,
     COALESCE(ds.new_request, 0)       AS new_request,
     COALESCE(ds.reset_email, 0)       AS reset_email,
     COALESCE(ds.reset_passphrase, 0)  AS reset_passphrase,

@@ -62,25 +62,39 @@ const empty = () => ({
   total: 0
 });
 
+/** Totals for one counter, plus the same totals split by signature method. */
+export type StatBucket = ReturnType<typeof empty> & {
+  esign: ReturnType<typeof empty>;
+  manual: ReturnType<typeof empty>;
+};
+
+const newBucket = (): StatBucket => ({ ...empty(), esign: empty(), manual: empty() });
+
 export const getStats = query("unchecked", async () => {
   const rows = await db.query.documentStatistics.findMany();
 
   const now = dayjs().startOf("day");
   const yesterday = now.subtract(1, "day");
 
-  return rows.reduce((acc: Record<string, ReturnType<typeof empty>>, row) => {
-    if (!row.type || !row.value) return acc;
-    const day = dayjs(row.created).startOf("day");
-    const value = Number(row.value) || 0;
-
-    const bucket = acc[row.type] ??= empty();
-
+  const add = (bucket: ReturnType<typeof empty>, day: dayjs.Dayjs, value: number) => {
     bucket.total += value;
     if (day.isSame(now, "day")) bucket.today += value;
     if (day.isSame(yesterday, "day")) bucket.yesterday += value;
     if (day.isSame(now, "isoWeek")) bucket.thisWeek += value;
     if (day.isSame(now, "month")) bucket.thisMonth += value;
     if (day.isSame(now, "year")) bucket.thisYear += value;
+  };
+
+  return rows.reduce((acc: Record<string, StatBucket>, row) => {
+    if (!row.type || !row.value) return acc;
+    const day = dayjs(row.created).startOf("day");
+    const value = Number(row.value) || 0;
+
+    const bucket = (acc[row.type] ??= newBucket());
+    add(bucket, day, value);
+    // Rows written before the split carry no mode; fall back to the same
+    // `esign` default the column uses so the parts always sum to the total.
+    add(bucket[row.mode ?? 'esign'], day, value);
 
     return acc;
   }, {});
@@ -240,7 +254,7 @@ export const getAdminDashboard = query("unchecked", async () => {
   const startKey = start.format("YYYY-MM-DD");
   const endKey = end.format("YYYY-MM-DD");
 
-  const [allDocs, allUsers, allSigners, dailyRows, recentLogs] = await Promise.all([
+  const [allDocs, allUsers, allSigners, dailyRows, recentLogs, statRows] = await Promise.all([
     db.query.documents.findMany(),
     db.query.users.findMany(),
     db.query.signers.findMany(),
@@ -250,6 +264,7 @@ export const getAdminDashboard = query("unchecked", async () => {
       .where(sql`${dailyStatistics.date} between ${startKey}::date and ${endKey}::date`)
       .orderBy(dailyStatistics.date),
     db.query.__logs.findMany({ orderBy: { created: "desc" }, limit: 10 }),
+    db.query.documentStatistics.findMany({ where: { type: 'signed' } }),
   ]);
 
   const totalCounts = computeStatusCounts(allDocs);
@@ -262,7 +277,11 @@ export const getAdminDashboard = query("unchecked", async () => {
     date,
     label: dayjs(date).format("DD MMM"),
     signed: byDate[date]?.signed ?? 0,
+    "signed-esign": byDate[date]?.signedEsign ?? 0,
+    "signed-manual": byDate[date]?.signedManual ?? 0,
     verified: byDate[date]?.verified ?? 0,
+    "verified-esign": byDate[date]?.verifiedEsign ?? 0,
+    "verified-manual": byDate[date]?.verifiedManual ?? 0,
     "new-request": byDate[date]?.newRequest ?? 0,
     newUsers: byDate[date]?.newUsers ?? 0,
   }));
@@ -290,6 +309,23 @@ export const getAdminDashboard = query("unchecked", async () => {
 
   const totalQueue = allDocs.filter((doc) => doc.signer).length;
 
+  // Lifetime + today split by signature method. `dailyStatistics` only covers
+  // the 90-day chart window, so the all-time figures come from the raw counter
+  // rows rather than the view.
+  const modeTotals = { signedEsign: 0, signedManual: 0, signedEsignTotal: 0, signedManualTotal: 0 };
+  for (const row of statRows) {
+    if (!row.value) continue;
+    const value = Number(row.value) || 0;
+    const isEsign = (row.mode ?? 'esign') === 'esign';
+    if (isEsign) {
+      modeTotals.signedEsignTotal += value;
+      if (dayjs(row.created).isSame(today, 'day')) modeTotals.signedEsign += value;
+    } else {
+      modeTotals.signedManualTotal += value;
+      if (dayjs(row.created).isSame(today, 'day')) modeTotals.signedManual += value;
+    }
+  }
+
   return {
     totalCounts,
     dailyStats,
@@ -298,6 +334,7 @@ export const getAdminDashboard = query("unchecked", async () => {
     weeklyComparison: { thisWeek: thisWeekSigned, lastWeek: lastWeekSigned },
     topSigners,
     recentLogs,
+    modeTotals,
     totalUsers: allUsers.length,
     totalSigners: allSigners.length,
     totalDocs: allDocs.length,

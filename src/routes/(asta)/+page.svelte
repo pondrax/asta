@@ -64,14 +64,19 @@
           <div class="stat-value text-3xl sm:text-5xl">
             {formatNumber(current?.signed?.today)}
           </div>
+          <div class="stat-desc text-xs italic opacity-70">
+            esign {formatNumber(current?.signed?.esign?.today)}
+          </div>
           <div class="stat-desc text-xs">
             <div>
               <iconify-icon
-                icon={current?.signed?.yesterday < current?.signed?.today
+                icon={(current?.signed?.yesterday ?? 0) <
+                (current?.signed?.today ?? 0)
                   ? "bx:trending-up"
                   : "bx:trending-down"}
               ></iconify-icon>
-              {current?.signed?.today - current?.signed?.yesterday} verifikasi
+              {(current?.signed?.today ?? 0) -
+                (current?.signed?.yesterday ?? 0)} verifikasi
             </div>
             <div>
               {current?.signed?.yesterday} Kemarin
@@ -87,6 +92,9 @@
           <div class="stat-value text-3xl sm:text-5xl">
             {formatNumber(current?.signed?.total)}
           </div>
+          <div class="stat-desc text-xs italic opacity-70">
+            esign {formatNumber(current?.signed?.esign?.total)}
+          </div>
           <div class="stat-desc text-xs">
             <div>{current?.signed?.thisWeek} Minggu Ini</div>
             <div>{current?.signed?.thisMonth} Bulan Ini</div>
@@ -101,14 +109,19 @@
           <div class="stat-value text-3xl sm:text-5xl">
             {formatNumber(current?.verified?.today)}
           </div>
+          <div class="stat-desc text-xs italic opacity-70">
+            esign {formatNumber(current?.verified?.esign?.today)}
+          </div>
           <div class="stat-desc text-xs">
             <div>
               <iconify-icon
-                icon={current?.verified?.yesterday < current?.verified?.today
+                icon={(current?.verified?.yesterday ?? 0) <
+                (current?.verified?.today ?? 0)
                   ? "bx:trending-up"
                   : "bx:trending-down"}
               ></iconify-icon>
-              {current?.verified?.today - current?.verified?.yesterday}
+              {(current?.verified?.today ?? 0) -
+                (current?.verified?.yesterday ?? 0)}
               verifikasi
             </div>
             <div>
@@ -124,6 +137,9 @@
           <div class="stat-value text-3xl sm:text-5xl">
             {formatNumber(current?.verified?.total)}
           </div>
+          <div class="stat-desc text-xs italic opacity-70">
+            esign {formatNumber(current?.verified?.esign?.total)}
+          </div>
           <div class="stat-desc text-xs">
             <div>{current?.verified?.thisWeek} Minggu Ini</div>
             <div>{current?.verified?.thisMonth} Bulan Ini</div>
@@ -132,7 +148,7 @@
       </div>
     {:else}
       <div class="stats stats-vertical lg:stats-horizontal shadow w-full">
-        {#each Array.from({ length: 4 }) as _, i}
+        {#each Array.from({ length: 4 }) as _, i (i)}
           <div class="stat">
             <div class="stat-title skeleton w-1/2">&nbsp;</div>
             <div class="stat-value skeleton my-1">&nbsp;</div>

@@ -21,7 +21,8 @@
     {
       target: "#tour-main-chart",
       title: "Grafik Signed & Verified",
-      content: "Grafik tanda tangan dan verifikasi harian seluruh pengguna.",
+      content:
+        "Grafik tanda tangan dan verifikasi harian, dipisahkan antara BSrE dan tanda tangan manual.",
       placement: "top" as const,
     },
     {
@@ -96,6 +97,15 @@
       if (endDate && d.date > endDate) return false;
       return true;
     }) ?? [],
+  );
+
+  const modeTotals = $derived(
+    dash?.modeTotals ?? {
+      signedEsign: 0,
+      signedManual: 0,
+      signedEsignTotal: 0,
+      signedManualTotal: 0,
+    },
   );
 
   function resetDateFilter() {
@@ -252,6 +262,64 @@
       </div>
     </div>
 
+    <div
+      class="grid grid-cols-1 sm:grid-cols-2 gap-4"
+      aria-label="Rincian tanda tangan per metode"
+    >
+      <div
+        class="bg-base-100/50 p-4 rounded-2xl border border-base-300 flex flex-col gap-3"
+      >
+        <div class="flex items-center justify-between">
+          <span
+            class="text-[8px] font-black uppercase tracking-[0.2em] opacity-40"
+            >Tanda Tangan BSrE</span
+          >
+          <iconify-icon icon="bx:certificate" class="text-lg text-primary"
+          ></iconify-icon>
+        </div>
+        <div class="stats stats-horizontal bg-transparent p-0">
+          <div class="stat px-0 py-0">
+            <div class="stat-title text-[10px]">Hari Ini</div>
+            <div class="stat-value text-3xl">
+              {formatNumber(modeTotals.signedEsign)}
+            </div>
+          </div>
+          <div class="stat px-0 py-0">
+            <div class="stat-title text-[10px]">Total</div>
+            <div class="stat-value text-3xl">
+              {formatNumber(modeTotals.signedEsignTotal)}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div
+        class="bg-base-100/50 p-4 rounded-2xl border border-base-300 flex flex-col gap-3"
+      >
+        <div class="flex items-center justify-between">
+          <span
+            class="text-[8px] font-black uppercase tracking-[0.2em] opacity-40"
+            >Tanda Tangan Manual</span
+          >
+          <iconify-icon icon="bx:pen" class="text-lg text-secondary"
+          ></iconify-icon>
+        </div>
+        <div class="stats stats-horizontal bg-transparent p-0">
+          <div class="stat px-0 py-0">
+            <div class="stat-title text-[10px]">Hari Ini</div>
+            <div class="stat-value text-3xl">
+              {formatNumber(modeTotals.signedManual)}
+            </div>
+          </div>
+          <div class="stat px-0 py-0">
+            <div class="stat-title text-[10px]">Total</div>
+            <div class="stat-value text-3xl">
+              {formatNumber(modeTotals.signedManualTotal)}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="flex flex-wrap items-end gap-3">
       <label class="form-control">
         <span
@@ -288,12 +356,27 @@
           height={250}
           type="area"
           filled={false}
+          showLegend
           categories={[
-            { key: "signed", color: "var(--color-primary)", label: "Signed" },
             {
-              key: "verified",
+              key: "signed-esign",
+              color: "var(--color-primary)",
+              label: "Signed BSrE",
+            },
+            {
+              key: "signed-manual",
+              color: "var(--color-secondary)",
+              label: "Signed Manual",
+            },
+            {
+              key: "verified-esign",
               color: "var(--color-accent)",
-              label: "Verified",
+              label: "Verified BSrE",
+            },
+            {
+              key: "verified-manual",
+              color: "var(--color-info)",
+              label: "Verified Manual",
             },
           ]}
         />

@@ -8,6 +8,7 @@ import dayjs from "dayjs";
 import { sql } from "drizzle-orm";
 import { Esign } from "../server/plugins/esign";
 import { validateTurnstile } from "$lib/server/plugins/turnstile";
+import type { StatisticMode } from "$lib/server/db/schema";
 
 const storage = new FileStorage;
 const logger = new Logger;
@@ -41,11 +42,14 @@ export const verifyTurnstile = command(type({
   return { success: true }
 })
 
-/** Increment today's counter for the given statistic type (creates the row if missing). */
-async function bumpStatistic(type: 'signed' | 'verified') {
+/** Increment today's counter for the given statistic type (creates the row if missing).
+ *  `mode` splits the counter by signature method so BSrE and manual signing can
+ *  be reported separately; the per-day row is keyed on both. */
+async function bumpStatistic(type: 'signed' | 'verified', mode: StatisticMode) {
   const stat = await db.query.documentStatistics.findFirst({
     where: {
       type,
+      mode,
       created: {
         lt: dayjs().endOf('day').toString(),
         gt: dayjs().startOf('day').toString(),
@@ -57,12 +61,38 @@ async function bumpStatistic(type: 'signed' | 'verified') {
     data: {
       id: stat?.id || createId(),
       type,
+      mode,
       value: 1,
     },
     update: row => ({
       value: sql`${row.value} + 1`,
     }),
   });
+}
+
+/**
+ * Decide which counter a verification belongs to.
+ *
+ * A verification only carries the PDF bytes, so the mode is recovered from the
+ * document that was signed: the same content is checksummed at signing time
+ * and stored on `documents.checksums`, and `documents.esign` records the
+ * method used. Files the server has never seen (a fresh upload, or a document
+ * signed before checksums were stored) can't be attributed, so they fall back
+ * to `esign` — the same default the column carries.
+ */
+async function resolveVerifyMode(fileBase64: string): Promise<StatisticMode> {
+  try {
+    const checksum = await calculateFileChecksum(Buffer.from(fileBase64, 'base64'));
+    const [doc] = await db.query.documents.findMany({
+      where: { checksums: { arrayContains: [checksum] } },
+      limit: 1,
+    });
+    if (doc) return doc.esign ? 'esign' : 'manual';
+  } catch {
+    // Unreadable bytes or a lookup failure shouldn't fail the verification —
+    // the counter just lands in the default bucket.
+  }
+  return 'esign';
 }
 
 export const signDocument = command(type({
@@ -214,7 +244,7 @@ export const signDocument = command(type({
         }
       })
 
-      await bumpStatistic('signed');
+      await bumpStatistic('signed', props.__manual ? 'manual' : 'esign');
     }
 
     return response.data;
@@ -231,10 +261,9 @@ export const verifyDocument = command(type({
     const response = await esign.verifyPDF(props)
 
     if (response.status === 200) {
-      await bumpStatistic('verified');
+      await bumpStatistic('verified', await resolveVerifyMode(props.file));
       return response.data;
     }
-
   } catch (err) {
     //@ts-ignore - err is unknown type, accessing .message requires suppression
     return { error: `[Server Esign Error]${err?.message}.\nHarap mencoba lagi dalam beberapa saat` }

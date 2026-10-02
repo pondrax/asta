@@ -15,6 +15,7 @@
     filled = true,
     card = true,
     legendPosition = "bottom" as "bottom" | "top" | "left" | "right",
+    showLegend = false,
     categories = [
       { key: "info", color: "var(--color-primary)", label: "Info" },
       { key: "warn", color: "var(--color-warning)", label: "Warning" },
@@ -42,6 +43,8 @@
           style: { fontSize: "10px", fontWeight: 800 },
         },
         legend: {
+          // Donuts are single-slice comparisons where the labels are the point,
+          // so they always show a legend regardless of `showLegend`.
           show: true,
           position: legendPosition,
           fontSize: "10px",
@@ -143,7 +146,11 @@
         },
       },
       legend: {
-        show: false,
+        show: showLegend,
+        position: legendPosition,
+        fontSize: "10px",
+        fontWeight: 800,
+        markers: { size: 4 },
       },
     };
   };
