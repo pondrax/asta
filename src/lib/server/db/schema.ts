@@ -316,16 +316,16 @@ export const dailyStatistics = pgView('daily_statistics', {
 }).as(sql`
   WITH
     dt AS (
-      SELECT date_trunc('day', created)::date AS date FROM document_statistics WHERE created IS NOT NULL
-      UNION SELECT date_trunc('day', created)::date FROM documents WHERE created IS NOT NULL
-      UNION SELECT date_trunc('day', created)::date FROM users WHERE created IS NOT NULL
-      UNION SELECT date_trunc('day', created)::date FROM signers WHERE created IS NOT NULL
-      UNION SELECT date_trunc('day', created)::date FROM helpdesk WHERE created IS NOT NULL
-      UNION SELECT date_trunc('day', created)::date FROM survey_responses WHERE created IS NOT NULL
+      SELECT (date_trunc('day', created AT TIME ZONE 'Asia/Jakarta'))::date AS date FROM document_statistics WHERE created IS NOT NULL
+      UNION SELECT (date_trunc('day', created AT TIME ZONE 'Asia/Jakarta'))::date AS date FROM documents WHERE created IS NOT NULL
+      UNION SELECT (date_trunc('day', created AT TIME ZONE 'Asia/Jakarta'))::date AS date FROM users WHERE created IS NOT NULL
+      UNION SELECT (date_trunc('day', created AT TIME ZONE 'Asia/Jakarta'))::date AS date FROM signers WHERE created IS NOT NULL
+      UNION SELECT (date_trunc('day', created AT TIME ZONE 'Asia/Jakarta'))::date AS date FROM helpdesk WHERE created IS NOT NULL
+      UNION SELECT (date_trunc('day', created AT TIME ZONE 'Asia/Jakarta'))::date AS date FROM survey_responses WHERE created IS NOT NULL
     ),
     ds AS (
       SELECT
-        date_trunc('day', created)::date AS date,
+        (date_trunc('day', created AT TIME ZONE 'Asia/Jakarta'))::date AS date,
         COALESCE(SUM(value) FILTER (WHERE type = 'signed'), 0)::int          AS signed,
         COALESCE(SUM(value) FILTER (WHERE type = 'verified'), 0)::int        AS verified,
         COALESCE(SUM(value) FILTER (WHERE type = 'new-request'), 0)::int     AS new_request,
@@ -337,7 +337,7 @@ export const dailyStatistics = pgView('daily_statistics', {
     ),
     d AS (
       SELECT
-        date_trunc('day', created)::date AS date,
+        (date_trunc('day', created AT TIME ZONE 'Asia/Jakarta'))::date AS date,
         COUNT(*)::int AS documents,
         COALESCE(COUNT(*) FILTER (WHERE status = 'signed'), 0)::int AS doc_signed,
         COALESCE(COUNT(*) FILTER (WHERE status = 'draft'), 0)::int  AS doc_draft,
@@ -348,23 +348,23 @@ export const dailyStatistics = pgView('daily_statistics', {
       GROUP BY 1
     ),
     u AS (
-      SELECT date_trunc('day', created)::date AS date, COUNT(*)::int AS new_users
+      SELECT (date_trunc('day', created AT TIME ZONE 'Asia/Jakarta'))::date AS date, COUNT(*)::int AS new_users
       FROM users WHERE created IS NOT NULL GROUP BY 1
     ),
     sg AS (
-      SELECT date_trunc('day', created)::date AS date, COUNT(*)::int AS new_signers
+      SELECT (date_trunc('day', created AT TIME ZONE 'Asia/Jakarta'))::date AS date, COUNT(*)::int AS new_signers
       FROM signers WHERE created IS NOT NULL GROUP BY 1
     ),
     h AS (
       SELECT
-        date_trunc('day', created)::date AS date,
+        (date_trunc('day', created AT TIME ZONE 'Asia/Jakarta'))::date AS date,
         COUNT(*)::int AS tickets,
         COALESCE(COUNT(*) FILTER (WHERE status = 'completed'), 0)::int AS tickets_completed
       FROM helpdesk WHERE created IS NOT NULL GROUP BY 1
     ),
     sv AS (
       SELECT
-        date_trunc('day', created)::date AS date,
+        (date_trunc('day', created AT TIME ZONE 'Asia/Jakarta'))::date AS date,
         COUNT(*)::int AS surveys,
         ROUND(AVG(rating)::numeric, 2)::text AS avg_rating
       FROM survey_responses WHERE created IS NOT NULL GROUP BY 1
