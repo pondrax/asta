@@ -16,13 +16,14 @@
     // footer = $bindable(true),
     form = $bindable({}),
     fields = $bindable({}),
-    visual = $bindable({}),
     hasSignature,
     signatures = $bindable([]),
     setSignature,
     signButton,
     useEmail = $bindable(true),
   } = $props();
+
+  let visual = $state<"image" | "qr" | "box" | "draw">("box");
 
   const predefinedForms = [
     "email",
@@ -414,6 +415,27 @@
         />
       </label>
     </li>
+    {#if visual === "box"}
+      <li class="p-2">
+        <label class="floating-label p-0 bg-transparent">
+          <span>Spesimen Tanda Tangan</span>
+          <textarea
+            bind:value={
+              () => form.specimen ?? "jabatan\ninstansi\n\nnama",
+              (value) => (form.specimen = value)
+            }
+            placeholder="Spesimen tanda tangan"
+            class="textarea textarea-sm w-full h-24"
+            disabled={locked}
+          ></textarea>
+          <!-- <div class="text-[10px] text-gray-400">
+            Satu baris = satu baris teks. Tulis nama field (jabatan, instansi,
+            nama) untuk diisi otomatis. Baris kosong jadi jarak. Klik Box pada
+            Visualisasi untuk melihat hasilnya.
+          </div> -->
+        </label>
+      </li>
+    {/if}
     <li class="p-2">
       <label
         class="btn btn-xs btn-ghost tooltip flex gap-2 items-center justify-start"
@@ -525,6 +547,7 @@
           {form}
           {setSignature}
           {hasSignature}
+          bind:visual
           availableVisual={bsre ? ["image", "qr", "box", "draw"] : ["draw"]}
         />
 

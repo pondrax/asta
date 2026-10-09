@@ -8,16 +8,17 @@
     setSignature,
     hasSignature,
     availableVisual = ["image", "qr", "box", "draw"],
+    visual = $bindable("box"),
   }: {
     form: Record<string, string>;
     hasSignature?: boolean;
     setSignature: (props: SignatureType) => void;
     availableVisual?: Visual[];
+    visual?: Visual;
   } = $props();
 
   let imageSignature: FileList | undefined = $state();
   let logo = $state() as HTMLImageElement;
-  let visual: Visual = $state("box");
 
   let canvasImage = $state() as HTMLCanvasElement;
   let canvasBox = $state() as HTMLCanvasElement;
@@ -37,6 +38,11 @@
     box: { originX: 310, originY: 700, width: 200, height: 80 },
     draw: { originX: 310, originY: 640, width: 200, height: 100 },
   };
+
+  const defaultSpecimen = `jabatan
+instansi
+
+nama`;
 
   let canvasMap = $derived({
     image: canvasImage,
@@ -74,17 +80,28 @@
     ctxPad.fillText(form?.nama || "", canvasPad.width / 2, 340);
   };
 
-  const drawStaticLayers = async () => {
-    // Draw Signature Box
+  const drawBox = () => {
     ctxBox.fillStyle = "#fff";
     ctxBox.fillRect(0, 0, canvasBox.width, canvasBox.height);
     ctxBox.strokeRect(0, 0, canvasBox.width, canvasBox.height);
     ctxBox.drawImage(logo, 20, 25, 140, 140);
     ctxBox.fillStyle = "#000";
     ctxBox.fillText("Ditandatangani secara elektronik oleh:", 180, 30);
-    ctxBox.fillText(form?.jabatan || "", 180, 60);
-    ctxBox.fillText(form?.instansi || "", 180, 90);
-    ctxBox.fillText(form?.nama || "", 180, 150);
+    const specimen = (form?.specimen ?? defaultSpecimen).replace(
+      /^\n+|\n+$/g,
+      "",
+    );
+    specimen.split("\n").forEach((line, i) => {
+      const y = 60 + i * 30;
+      if (y >= canvasBox.height) return;
+      const key = line.trim();
+      ctxBox.fillText(key in form ? form[key] : line, 180, y);
+    });
+  };
+
+  const drawStaticLayers = async () => {
+    // Draw Signature Box
+    drawBox();
 
     // Draw Signature Pad
     ctxPad.fillStyle = "#fff";
@@ -183,6 +200,14 @@
 
   $effect(() => {
     if (form) initCanvas();
+  });
+
+  $effect(() => {
+    form?.specimen;
+    form?.jabatan;
+    form?.instansi;
+    form?.nama;
+    if (ctxBox && logo) drawBox();
   });
 
   $effect(() => {
