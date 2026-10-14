@@ -115,6 +115,57 @@ export function audienceForRole(
  */
 export const PAGE_CHANGELOGS: PageChangelog[] = [
   {
+    route: "/helpdesk",
+    page: "Helpdesk Layanan",
+    entries: [
+      {
+        id: "helpdesk-nip-nik-org-2026-10-14",
+        date: "2026-10-14",
+        title: "Pengajuan Helpdesk",
+        changes: [
+          {
+            kind: "added",
+            text: "Kolom NIP dan NIK kini terpisah pada formulir pengajuan email maupun sertifikat (mandiri), tidak lagi digabung dalam satu isian.",
+          },
+          {
+            kind: "fixed",
+            text: "Pengajuan tiket tidak lagi gagal saat perangkat daerah belum selesai dipilih; nama organisasi kini dipetakan otomatis ke data yang benar.",
+          },
+        ],
+      },
+      {
+        id: "helpdesk-bulk-2026-09-21",
+        date: "2026-09-21",
+        title: "Permintaan Sertifikat Massal",
+        changes: [
+          {
+            kind: "added",
+            text: "Mode permintaan banyak: periksa kelayakan seluruh pengguna sekaligus sebelum mengirim.",
+          },
+          {
+            kind: "added",
+            text: "Lacak tiket yang sudah dibuat dan lihat statusnya.",
+          },
+          {
+            kind: "added",
+            text: "Notifikasi WhatsApp saat tiket terkirim.",
+          },
+        ],
+      },
+      {
+        id: "helpdesk-origin-page-2026-08-22",
+        date: "2026-08-22",
+        title: "Helpdesk Pertama",
+        changes: [
+          {
+            kind: "added",
+            text: "Halaman utama helpdesk layanan untuk mengirim tiket baru.",
+          },
+        ],
+      },
+    ],
+  },
+  {
     route: "/sign",
     page: "Tanda Tangan Dokumen",
     entries: [
@@ -1148,42 +1199,6 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
           {
             kind: "improved",
             text: "Rute `/main/*` kini 403 untuk selain admin, jadi dasbor tidak lagi terbuka untuk pengguna biasa.",
-          },
-        ],
-      },
-    ],
-  },
-  {
-    route: "/helpdesk",
-    page: "Helpdesk Layanan",
-    entries: [
-      {
-        id: "helpdesk-bulk-2026-09-21",
-        date: "2026-09-21",
-        title: "Permintaan Sertifikat Massal",
-        changes: [
-          {
-            kind: "added",
-            text: "Mode permintaan banyak: periksa kelayakan seluruh pengguna sekaligus sebelum mengirim.",
-          },
-          {
-            kind: "added",
-            text: "Lacak tiket yang sudah dibuat dan lihat statusnya.",
-          },
-          {
-            kind: "added",
-            text: "Notifikasi WhatsApp saat tiket terkirim.",
-          },
-        ],
-      },
-      {
-        id: "helpdesk-origin-page-2026-08-22",
-        date: "2026-08-22",
-        title: "Helpdesk Pertama",
-        changes: [
-          {
-            kind: "added",
-            text: "Halaman utama helpdesk layanan untuk mengirim tiket baru.",
           },
         ],
       },

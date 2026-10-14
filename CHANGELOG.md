@@ -80,6 +80,16 @@
 
 ## 2026-10-14
 
+### Pengajuan Helpdesk
+
+<!-- id: helpdesk-nip-nik-org-2026-10-14 -->
+
+Halaman: /helpdesk - Helpdesk Layanan
+Audiens: Tamu
+
+- **Baru** - Kolom NIP dan NIK kini terpisah pada formulir pengajuan email maupun sertifikat (mandiri), tidak lagi digabung dalam satu isian.
+- **Perbaikan** - Pengajuan tiket tidak lagi gagal saat perangkat daerah belum selesai dipilih; nama organisasi kini dipetakan otomatis ke data yang benar.
+
 ### Move specimen editor into a popup on the box visualisation
 
 <!-- id: move-specimen-editor-into-a-popup-on-the-box-visua-2026-10-14 -->

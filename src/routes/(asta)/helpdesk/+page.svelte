@@ -78,7 +78,8 @@
   let certStep = $state(0); // certificate wizard: 0 = BSrE check, 1 = form
   let serviceType = $state<HelpdeskServiceType | "">("");
 
-  let identity = $state("");
+  let identityNip = $state("");
+  let identityNik = $state("");
   let checking = $state(false);
   let checkError = $state("");
   let bsre = $state<Awaited<ReturnType<typeof checkIdentity>> | null>(null);
@@ -462,7 +463,12 @@ label: det === "active_issue" ? "Reset" : DETERMINATION_LABELS[det],
         active = state.active;
         certStep = state.certStep;
         serviceType = state.serviceType;
-        identity = state.identity;
+        identityNip =
+          state.identityNip ??
+          (state.identity?.length === 18 ? state.identity : "");
+        identityNik =
+          state.identityNik ??
+          (state.identity?.length === 16 ? state.identity : "");
         item = state.item;
         mode = state.mode ?? "single";
         rows = state.rows ?? [];
@@ -496,7 +502,8 @@ label: det === "active_issue" ? "Reset" : DETERMINATION_LABELS[det],
         active,
         certStep,
         serviceType,
-        identity,
+        identityNip,
+        identityNik,
         item,
         mode,
         rows,
@@ -530,10 +537,10 @@ label: det === "active_issue" ? "Reset" : DETERMINATION_LABELS[det],
     if (instansi) params.set("instansi", instansi);
     if (item.subject) params.set("note", item.subject);
 
-    const cleanId = identity.replace(/\D/g, "");
-    if (cleanId && !params.get("nik")) {
-      params.set("nik", cleanId);
-    }
+    const cleanNip = identityNip.replace(/\D/g, "");
+    const cleanNik = identityNik.replace(/\D/g, "");
+    if (cleanNip && !params.get("nip")) params.set("nip", cleanNip);
+    if (cleanNik && !params.get("nik")) params.set("nik", cleanNik);
 
     goto(`/sign?${params.toString()}`);
   }
@@ -560,7 +567,8 @@ label: det === "active_issue" ? "Reset" : DETERMINATION_LABELS[det],
   function resetWizard() {
     certStep = 0;
     serviceType = "";
-    identity = "";
+    identityNip = "";
+    identityNik = "";
     checking = false;
     checkError = "";
     bsre = null;
@@ -588,9 +596,23 @@ label: det === "active_issue" ? "Reset" : DETERMINATION_LABELS[det],
   async function runIdentityCheck() {
     if (checking) return;
     checkError = "";
-    const id = identity.replace(/\D/g, "");
-    if (id.length !== 16 && id.length !== 18) {
-      checkError = "Masukkan NIK (16 digit) atau NIP (18 digit).";
+    const nip = identityNip.replace(/\D/g, "");
+    const nik = identityNik.replace(/\D/g, "");
+    let id = "";
+    if (nip) {
+      if (nip.length !== 18) {
+        checkError = "NIP harus 18 digit.";
+        return;
+      }
+      id = nip;
+    } else if (nik) {
+      if (nik.length !== 16) {
+        checkError = "NIK harus 16 digit.";
+        return;
+      }
+      id = nik;
+    } else {
+      checkError = "Masukkan NIP (18 digit) atau NIK (16 digit).";
       return;
     }
     checking = true;
@@ -1234,18 +1256,32 @@ label: det === "active_issue" ? "Reset" : DETERMINATION_LABELS[det],
             <!-- CERTIFICATE: identity / BSrE check (single mode only — bulk checks per-row) -->
             {#if active === "certificate" && mode !== "bulk"}
               <div class="space-y-3">
-                <label class="floating-label">
-                  <span class="">NIK / NIP</span>
-                  <input
-                    type="text"
-                    bind:value={identity}
-                    inputmode="numeric"
-                    maxlength={18}
-                    placeholder="16 digit NIK atau 18 digit NIP"
-                    disabled={certStep > 0}
-                    class="input input-bordered w-full"
-                  />
-                </label>
+                <div class="grid sm:grid-cols-2 gap-3">
+                  <label class="floating-label">
+                    <span>NIP</span>
+                    <input
+                      type="text"
+                      bind:value={identityNip}
+                      inputmode="numeric"
+                      maxlength={18}
+                      placeholder="18 digit NIP"
+                      disabled={certStep > 0}
+                      class="input input-bordered w-full"
+                    />
+                  </label>
+                  <label class="floating-label">
+                    <span>NIK</span>
+                    <input
+                      type="text"
+                      bind:value={identityNik}
+                      inputmode="numeric"
+                      maxlength={16}
+                      placeholder="16 digit NIK"
+                      disabled={certStep > 0}
+                      class="input input-bordered w-full"
+                    />
+                  </label>
+                </div>
 
                 {#if checkError}
                   <div class="alert alert-error text-sm py-2">
@@ -1259,7 +1295,8 @@ label: det === "active_issue" ? "Reset" : DETERMINATION_LABELS[det],
                     type="button"
                     class="btn btn-accent w-full"
                     onclick={runIdentityCheck}
-                    disabled={checking || !identity.trim()}
+                    disabled={checking ||
+                      (!identityNip.trim() && !identityNik.trim())}
                   >
                     {#if checking}
                       <span class="loading loading-spinner loading-sm"></span>
@@ -1378,7 +1415,7 @@ label: det === "active_issue" ? "Reset" : DETERMINATION_LABELS[det],
                   </p>
                 {/if}
                 <div class="grid sm:grid-cols-3 gap-3">
-                  <label class="floating-label">
+                  <label class="floating-label sm:col-span-3">
                     <span>Nama Lengkap *</span>
                     <input
                       type="text"
@@ -1389,13 +1426,24 @@ label: det === "active_issue" ? "Reset" : DETERMINATION_LABELS[det],
                     />
                   </label>
                   <label class="floating-label">
-                    <span>NIP / NIK</span>
+                    <span>NIP</span>
                     <input
                       type="text"
                       bind:value={item.requesterNip}
                       inputmode="numeric"
                       maxlength={18}
-                      placeholder="NIP atau NIK"
+                      placeholder="18 digit NIP"
+                      class="input input-bordered w-full"
+                    />
+                  </label>
+                  <label class="floating-label">
+                    <span>NIK</span>
+                    <input
+                      type="text"
+                      bind:value={item.requesterNik}
+                      inputmode="numeric"
+                      maxlength={16}
+                      placeholder="16 digit NIK"
                       class="input input-bordered w-full"
                     />
                   </label>

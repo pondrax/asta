@@ -1,7 +1,7 @@
 import { command, getRequestEvent, query } from "$app/server";
 import { error } from "@sveltejs/kit";
 import { type } from "arktype";
-import { and, count, eq, gte, ilike, sql } from "drizzle-orm";
+import { and, count, eq, gte, ilike, or, sql } from "drizzle-orm";
 import { db } from "$lib/server/db";
 import {
   documents,
@@ -10,6 +10,7 @@ import {
   helpdeskEvents,
   helpdeskNotifications,
   helpdeskSurveys,
+  organizations,
   type HelpdeskService,
   type HelpdeskServiceType,
   type HelpdeskStage,
@@ -632,6 +633,27 @@ export const createTicket = command(createTicketSchema, async (props) => {
   const user = event.locals.user;
 
   const { documentId, requesters, signerName, ...insertProps } = props;
+
+  // The client's org Select can still be holding an organization *name* when
+  // its async name→id lookup hasn't finished (it prefills from BSrE's
+  // `organisasi`). `helpdesk.organization_id` is a foreign key to
+  // organizations.id, so an unresolved name would violate the constraint and
+  // 500 the whole request. Resolve to a real id, or drop it entirely.
+  const orgInput = insertProps.organizationId?.trim();
+  insertProps.organizationId = orgInput
+    ? ((
+        await db
+          .select({ id: organizations.id })
+          .from(organizations)
+          .where(
+            or(
+              eq(organizations.id, orgInput),
+              ilike(organizations.name, orgInput),
+            ),
+          )
+          .limit(1)
+      )[0]?.id ?? undefined)
+    : undefined;
 
   // Parse the pasted list into structured entries.
   const list = (requesters ?? [])
