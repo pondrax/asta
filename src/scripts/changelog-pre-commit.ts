@@ -1,20 +1,29 @@
 /**
- * Keep `CHANGELOG.md` in step with each commit.
+ * Keep `CHANGELOG.md` in step with each commit, inside the same commit.
  *
- * Installed as the `commit-msg` git hook (see `install-git-hooks.ts`).
+ * Installed as the `pre-commit` git hook (see `install-git-hooks.ts`). Git only
+ * folds index changes made by `pre-commit` into the commit — staging done in
+ * `commit-msg` / `prepare-commit-msg` is ignored — so the work has to happen
+ * here.
  *
  *  - If `CHANGELOG.md` is already part of the commit, the generated block is
  *    regenerated and re-staged so it can never drift from the markdown.
- *  - Otherwise a draft entry is scaffolded from the commit message and the
- *    routes the staged files live under, the block is regenerated, and both
+ *  - Otherwise a draft entry is scaffolded from the pending commit message and
+ *    the routes the staged files live under, the block is regenerated, and both
  *    files are staged so the entry rides along with the commit.
  *
- * The hook is advisory: every failure is printed and swallowed, and it always
- * exits 0 so a commit is never blocked. Non user-facing commit types
- * (`chore`, `docs`, `test`, ...) are skipped with a reminder instead.
+ * The pending message is not written to disk yet when `pre-commit` runs, so the
+ * installed hook passes the parent `git commit` command line down through
+ * `GIT_HOOK_CMDLINE` and the message is read from there. Interactive
+ * editor commits have no `-m` on the command line, so those are only kept in
+ * sync, never scaffolded.
  *
- * Run manually: `bun src/scripts/changelog-commit.ts <commit-msg-file>`
- * Preview only:  `bun src/scripts/changelog-commit.ts <commit-msg-file> --dry-run`
+ * The hook never blocks a commit: failures are printed and swallowed, and it
+ * always exits 0. Non user-facing commit types (`chore`, `docs`, `test`, ...)
+ * and merges/rebase/cherry-pick are skipped with a reminder instead.
+ *
+ * Run manually: `GIT_HOOK_CMDLINE='git commit -m "feat: x"' bun src/scripts/changelog-pre-commit.ts`
+ * Preview only:  add `--dry-run`
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -78,6 +87,46 @@ function slugify(value: string): string {
       .replace(/-+/g, "-")
       .slice(0, 50) || "update"
   );
+}
+
+/**
+ * Recover the pending commit message from the parent `git commit` command line.
+ *
+ * The args come from `ps`, so quoting is already gone; a `-m` value is taken as
+ * every following token up to the next flag-looking one. `-F`/`--file` is read
+ * from disk. Returns null when no message can be determined (e.g. an editor
+ * commit), which disables scaffolding.
+ */
+function pendingMessage(): string | null {
+  const cmdline = process.env.GIT_HOOK_CMDLINE ?? "";
+  if (!cmdline) return null;
+
+  const tokens = cmdline.split(/\s+/);
+  const commitAt = tokens.indexOf("commit");
+  const rest = tokens.slice(commitAt === -1 ? 0 : commitAt + 1);
+  const isFlag = (t: string) => /^-{1,2}[A-Za-z]/.test(t);
+  const parts: string[] = [];
+
+  for (let i = 0; i < rest.length; i++) {
+    const token = rest[i];
+    if (token === "--message" || (token.startsWith("-") && !token.startsWith("--") && token.includes("m"))) {
+      i++;
+      const chunk: string[] = [];
+      while (i < rest.length && !isFlag(rest[i])) chunk.push(rest[i++]);
+      i--;
+      parts.push(chunk.join(" "));
+    } else if (token === "-F" || token === "--file") {
+      const file = rest[++i];
+      try {
+        return readFileSync(file, "utf8");
+      } catch {
+        return null;
+      }
+    }
+  }
+
+  const message = parts.filter(Boolean).join("\n\n").trim();
+  return message || null;
 }
 
 /** Map a staged file path to the URL route it belongs to, or null. */
@@ -152,6 +201,7 @@ function build(): { ok: boolean; output: string } {
   }
 }
 
+/** Rebuild the generated block and stage both files so they join the commit. */
 function regenerate(): boolean {
   const { ok, output } = build();
   if (!ok) {
@@ -163,28 +213,46 @@ function regenerate(): boolean {
   return true;
 }
 
+/** Don't touch the index while git is replaying commits. */
+function inProgress(): boolean {
+  for (const marker of ["MERGE_HEAD", "rebase-merge", "rebase-apply", "CHERRY_PICK_HEAD", "REVERT_HEAD"]) {
+    if (gitQuiet(["rev-parse", "-q", "--verify", marker]).trim()) return true;
+  }
+  return false;
+}
+
 function main() {
-  const messageFile = process.argv[2];
-  if (!messageFile) return;
+  if (inProgress()) return;
 
   const staged = gitQuiet(["diff", "--cached", "--name-only", "--diff-filter=ACMR"])
     .split("\n")
     .map((l) => l.trim())
     .filter(Boolean);
+  const changelogStaged = staged.includes("CHANGELOG.md");
 
-  // Markdown was edited by hand -> just keep the generated block in sync.
-  if (staged.includes("CHANGELOG.md")) {
+  // Hand-edited markdown -> just keep the generated block in sync.
+  if (changelogStaged) {
     regenerate();
     return;
   }
 
-  // Nothing staged (e.g. a pure `--amend` of the message) -> nothing to do.
+  // Nothing staged (e.g. amending only the message) -> nothing to do.
   if (!staged.length) return;
 
-  // Merges and explicit opt-outs never get a scaffolded note.
-  if (gitQuiet(["rev-parse", "-q", "--verify", "MERGE_HEAD"]).trim()) return;
+  // Leave a hand-edited, not-yet-staged CHANGELOG.md alone.
+  if (gitQuiet(["diff", "--name-only", "--", "CHANGELOG.md"]).trim()) {
+    console.log("changelog: CHANGELOG.md has unstaged edits - skipping draft.");
+    return;
+  }
 
-  const raw = readFileSync(messageFile, "utf8");
+  const raw = pendingMessage();
+  if (!raw) {
+    console.log(
+      "changelog: no draft added (commit message not readable at pre-commit).",
+    );
+    return;
+  }
+
   const lines = raw.split(/\r?\n/);
   const subjectIndex = lines.findIndex((l) => l.trim() && !l.startsWith("#"));
   if (subjectIndex === -1) return;
@@ -281,8 +349,9 @@ function main() {
   if (regenerate()) {
     console.log(`changelog: drafted "${title}" under ${route} (${date}).`);
   } else {
+    gitQuiet(["checkout", "--", "CHANGELOG.md"]);
     console.warn(
-      "changelog: draft written but build failed - edit CHANGELOG.md and re-run `bun run changelog:build`.",
+      "changelog: draft discarded (build failed) - add a note by hand and run `bun run changelog:build`.",
     );
   }
 }
