@@ -10,7 +10,7 @@
     "build": "bun run changelog:build && vite build && ./fix.sh",
     "postinstall": "node src/scripts/patch-playwright.mjs || echo 'playwright patch skipped'",
     "preview": "vite preview",
-    "prepare": "svelte-kit sync || echo ''",
+    "prepare": "svelte-kit sync || echo ''; bun src/scripts/install-git-hooks.ts || echo ''",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "test:unit": "vitest",
@@ -24,6 +24,7 @@
     "migrate:storage": "bun src/scripts/migrate-storage-s3.ts",
     "migrate:histories": "bun src/scripts/migrate-histories.ts",
     "changelog:build": "bun src/scripts/build-changelog.ts",
+    "hooks:install": "bun src/scripts/install-git-hooks.ts",
     "test:load": "ab -n 1000 -c 50 http://127.0.0.1:3000/"
   },
   "devDependencies": {
