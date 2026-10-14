@@ -115,359 +115,24 @@ export function audienceForRole(
  */
 export const PAGE_CHANGELOGS: PageChangelog[] = [
   {
-    route: "/main/portal-bsre",
-    page: "Portal BSrE",
-    entries: [
-      {
-        id: "bsre-bulk-reset-2026-09-30",
-        date: "2026-09-30",
-        title: "Reset Passphrase Massal",
-        version: "v1.4",
-        audience: "admin",
-        changes: [
-          {
-            kind: "added",
-            text: "Pilih banyak pengguna sekaligus lewat checkbox di tabel, lalu kirim reset passphrase untuk seluruh pilihan dalam satu batch.",
-          },
-          {
-            kind: "added",
-            text: "Dialog konfirmasi menampilkan progres langsung per sertifikat: menunggu, mengirim, berhasil, atau gagal, beserta pesan resmi dari portal.",
-          },
-          {
-            kind: "added",
-            text: "Tombol Coba Lagi hanya mengulang baris yang gagal, tanpa mengirim ulang tautan reset ke sertifikat yang sudah berhasil.",
-          },
-          {
-            kind: "added",
-            text: "Jeda 400 ms antarpermintaan, karena portal membatasi frekuensi dan reset massal cukup untuk memicunya di tengah proses.",
-          },
-          {
-            kind: "improved",
-            text: "Progres `selesai/total` dipindahkan ke toolbar dan bertahan setelah dialog ditutup, jadi operator masih bisa memantau proses yang sedang berjalan.",
-          },
-          {
-            kind: "improved",
-            text: "Baris tanpa sertifikat yang bisa di-reset ditampilkan nonaktif, bukan disembunyikan, sehingga jumlah di toolbar selalu sama dengan jumlah centang yang bisa diklik.",
-          },
-        ],
-      },
-      {
-        id: "toolbar-chip-truncate-2026-09-30",
-        date: "2026-09-30",
-        title: "Lencana Filter",
-        audience: "admin",
-        changes: [
-          {
-            kind: "fixed",
-            text: "Lencana filter yang panjang dipotong dengan elipsis alih-alih mendorong filter lain ke luar baris, dan nilai lengkapnya tetap tersedia lewat tooltip.",
-          },
-          {
-            kind: "added",
-            text: "Kolom Hasil Reset di tabel mencatat status tiap baris untuk run terakhir, termasuk pesan penolakan dari portal.",
-          },
-          {
-            kind: "fixed",
-            text: "Dialog tidak lagi menutup sendiri setelah selesai, karena pesan penolakan portal sering kali satu-satunya catatan alasan sebuah sertifikat ditolak.",
-          },
-        ],
-      },
-      {
-        id: "bsre-cert-manage-2026-09-29",
-        date: "2026-09-29",
-        title: "Kelola Sertifikat per Pengguna",
-        audience: "admin",
-        changes: [
-          {
-            kind: "added",
-            text: "Daftar sertifikat tiap pengguna tampil di modal detail: status, produk, nomor seri, masa berlaku, dan jenis sertifikat.",
-          },
-          {
-            kind: "added",
-            text: "Tombol Reset Passphrase untuk sertifikat berstatus ISSUE, memakai nomor seri sebagai kunci permintaan.",
-          },
-          {
-            kind: "added",
-            text: "Buat Sertifikat Baru: pilih produk (Tanda Tangan Elektronik / Digital) dan jenis, dengan CN terisi otomatis dari nama pengguna.",
-          },
-          {
-            kind: "improved",
-            text: "Nomor seri ditampilkan penuh agar mudah dicocokkan dengan sertifikat fisik.",
-          },
-          {
-            kind: "fixed",
-            text: "Permintaan reset dan pembuatan sertifikat memakai nomor seri, bukan ID internal - sebelumnya ditolak dengan 404.",
-          },
-        ],
-      },
-      {
-        id: "bsre-bulk-email-2026-09-28",
-        date: "2026-09-28",
-        title: "Penyaringan Email Massal",
-        audience: "admin",
-        changes: [
-          {
-            kind: "added",
-            text: "Filter email menerima banyak alamat sekaligus, satu email per baris, dengan lencana jumlah yang diperbarui saat mengetik.",
-          },
-          {
-            kind: "improved",
-            text: "Baris baru, koma, dan titik koma juga diterima sebagai pemisah, sehingga daftar yang ditempel tidak perlu dibersihkan lebih dulu.",
-          },
-          {
-            kind: "fixed",
-            text: "Alamat duplikat diabaikan secara case-insensitive, dan input tidak di-round-trip lewat `value` sehingga tombol Enter masih bisa dipakai untuk baris berikutnya.",
-          },
-        ],
-      },
-      {
-        id: "bsre-sync-2026-09-20",
-        date: "2026-09-20",
-        title: "Sinkronisasi & Sesi Portal",
-        audience: "admin",
-        changes: [
-          {
-            kind: "added",
-            text: "Tombol Sinkron untuk mengambil data pengguna BSrE terbaru, plus Update Tanggal untuk memperbarui masa berlaku sertifikat.",
-          },
-          {
-            kind: "improved",
-            text: "Token sesi disimpan dan dipakai ulang, dengan percobaan ulang otomatis saat kedaluwarsa.",
-          },
-          {
-            kind: "added",
-            text: "Panel status sesi: sesi aktif, status token, dan mode browser jarak jauh.",
-          },
-          {
-            kind: "improved",
-            text: "Status buka/tutup panel grafik diingat antar-muat halaman, dan tidak lagi melompat kembali terbuka setiap kali profil dimuat ulang.",
-          },
-        ],
-      },
-      {
-        id: "bsre-daily-sync-2026-08-11",
-        date: "2026-08-11",
-        title: "Sinkronisasi Harian & Login BeID",
-        audience: "admin",
-        changes: [
-          {
-            kind: "added",
-            text: "Sinkronisasi pengguna BSrE berjalan otomatis setiap hari lewat cron, lalu mengirim notifikasi WhatsApp ke operator bila ada hasil.",
-          },
-          {
-            kind: "added",
-            text: "Login BeID memakai otomatisasi peramban, dengan implementasi TOTP sendiri di atas crypto bawaan Node.",
-          },
-          {
-            kind: "improved",
-            text: "Data pribadi (PII) pengguna disamarkan di antarmuka portal.",
-          },
-          {
-            kind: "added",
-            text: "Pindai QR untuk verifikasi dokumen, dengan opsional footer BSrE pada alur penandatanganan.",
-          },
-        ],
-      },
-      {
-        id: "bsre-session-2026-06-15",
-        date: "2026-06-15",
-        title: "Sesi Portal",
-        audience: "admin",
-        changes: [
-          {
-            kind: "fixed",
-            text: "Pengambilan token BSrE dirampingkan dan sesi peramban dipakai ulang, sehingga login portal lebih jarang terputus.",
-          },
-        ],
-      },
-      {
-        id: "bsre-stats-dashboard-2026-06-08",
-        date: "2026-06-08",
-        title: "Statistik BSrE",
-        audience: "admin",
-        changes: [
-          {
-            kind: "added",
-            text: "Dasbor statistik BSrE dengan penyaringan dan visualisasi interaktif.",
-          },
-          {
-            kind: "added",
-            text: "Grafik aktivitas pengguna BSrE.",
-          },
-          {
-            kind: "improved",
-            text: "Agregasi statistik dihitung di server, bukan di peramban.",
-          },
-          {
-            kind: "improved",
-            text: "Notifikasi Toast memakai state aplikasi global, konsisten di seluruh halaman.",
-          },
-        ],
-      },
-    ],
-  },
-  {
-    route: "/editor",
-    page: "Editor Dokumen",
-    entries: [
-      {
-        id: "editor-ai-2026-09-29",
-        date: "2026-09-29",
-        title: "Edit dengan AI",
-        changes: [
-          {
-            kind: "added",
-            text: "Mode Edit with AI menyusun rencana perubahan struktural - tabel, gambar, paragraf, dan format - untuk ditinjau sebelum diterapkan.",
-          },
-          {
-            kind: "improved",
-            text: "Rencana yang sudah ditinjau dapat diterima atau dibuang sebelum dieksekusi.",
-          },
-          {
-            kind: "fixed",
-            text: "Menu AI tidak lagi keluar dari layar di ponsel; popup-nya diratakan ke tepi kanan tombol pemicu pada layar di bawah 640px.",
-          },
-        ],
-      },
-      {
-        id: "editor-fab-2026-09-26",
-        date: "2026-09-26",
-        title: "Bilah Kendali Mengambang",
-        changes: [
-          {
-            kind: "added",
-            text: "Bilah kendali muncul saat kursor berada di area kerja pratinjau.",
-          },
-          {
-            kind: "improved",
-            text: "Tombol Baru dan Tandatangani dipindahkan ke posisi mengambang supaya tidak menutupi dokumen.",
-          },
-        ],
-      },
-      {
-        id: "editor-tables-2026-09-11",
-        date: "2026-09-11",
-        title: "Tabel & Tata Letak",
-        changes: [
-          {
-            kind: "added",
-            text: "Sisip tabel dengan pengatur lebar kolom yang bisa diseret.",
-          },
-          {
-            kind: "added",
-            text: "Gabung dan pecah sel, perataan vertikal, serta isi sel.",
-          },
-          {
-            kind: "added",
-            text: "Penggar dengan pegangan indentasi yang bisa diseret, plus zoom otomatis dan sesuaikan lebar.",
-          },
-        ],
-      },
-      {
-        id: "editor-tables-origin-2026-04-09",
-        date: "2026-04-09",
-        title: "Tabel Pertama",
-        changes: [
-          {
-            kind: "added",
-            text: "Penyuntingan tabel langsung di dalam dokumen, dengan navigasi antar tabel lewat URL.",
-          },
-          {
-            kind: "improved",
-            text: "Tampilan tabel memakai header lengket dan perataan kolom yang konsisten.",
-          },
-        ],
-      },
-      {
-        id: "editor-shortcuts-2026-02-02",
-        date: "2026-02-02",
-        title: "Pintasan Papan Ketik",
-        changes: [
-          {
-            kind: "added",
-            text: "Pintasan papan ketik untuk navigasi tabel dan pencarian.",
-          },
-          {
-            kind: "fixed",
-            text: "Pintasan tidak lagi bentrok saat kursor berada di kolom isian.",
-          },
-          {
-            kind: "fixed",
-            text: "Paginasi tidak melewati jumlah catatan.",
-          },
-        ],
-      },
-    ],
-  },
-  {
-    route: "/me/documents",
-    page: "Dokumen Saya",
-    entries: [
-      {
-        id: "me-docs-bulk-2026-09-28",
-        date: "2026-09-28",
-        title: "Dokumen Saya",
-        audience: "member",
-        changes: [
-          {
-            kind: "added",
-            text: "Tab Dokumen Saya, Permintaan, dan Sudah Ditandatangani dengan jumlah per tab.",
-          },
-          {
-            kind: "added",
-            text: "Tandatangani banyak dokumen sekaligus, hapus banyak, dan ekspor CSV.",
-          },
-          {
-            kind: "improved",
-            text: "Pratinjau dokumen dalam modal tanpa meninggalkan halaman.",
-          },
-        ],
-      },
-      {
-        id: "me-docs-preview-2026-06-05",
-        date: "2026-06-05",
-        title: "Daftar Dokumen",
-        audience: "member",
-        changes: [
-          {
-            kind: "added",
-            text: "Pratinjau dokumen dalam modal, lengkap dengan konfirmasi hapus yang lebih jelas.",
-          },
-          {
-            kind: "improved",
-            text: "Tampilan daftar dokumen dirapikan agar mudah dipindai.",
-          },
-        ],
-      },
-      {
-        id: "me-docs-list-2026-01-30",
-        date: "2026-01-30",
-        title: "Daftar Dokumen & Ekspor",
-        audience: "member",
-        changes: [
-          {
-            kind: "added",
-            text: "Halaman Dokumen Saya di `/me/documents` dengan toolbar cari dan saring.",
-          },
-          {
-            kind: "added",
-            text: "Unggah dokumen, tandatangani dari daftar, dan hapus banyak berkas.",
-          },
-          {
-            kind: "added",
-            text: "Ekspor data ke CSV, JSON, dan XLSX langsung dari toolbar.",
-          },
-          {
-            kind: "improved",
-            text: "Pencarian grabbing API generik, dengan paginasi yang tidak melewati total catatan.",
-          },
-        ],
-      },
-    ],
-  },
-  {
     route: "/sign",
     page: "Tanda Tangan Dokumen",
     entries: [
+      {
+        id: "sign-specimen-template-2026-10-14",
+        date: "2026-10-14",
+        title: "Spesimen Tanda Tangan",
+        changes: [
+          {
+            kind: "fixed",
+            text: "Teks spesimen tidak lagi menggandakan nama penandatangan ke dalam data dokumen; baris contoh tetap disimpan sebagai templat dan baru diisi saat ditampilkan.",
+          },
+          {
+            kind: "fixed",
+            text: "Baris kosong pada spesimen tidak lagi terisi otomatis, sehingga jarak antarbaris tetap sesuai yang ditulis.",
+          },
+        ],
+      },
       {
         id: "sign-vault-2026-09-27",
         date: "2026-09-27",
@@ -851,6 +516,356 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
           {
             kind: "fixed",
             text: "Pratinjau dokumen draf menampilkan isi yang benar.",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    route: "/main/portal-bsre",
+    page: "Portal BSrE",
+    entries: [
+      {
+        id: "bsre-bulk-reset-2026-09-30",
+        date: "2026-09-30",
+        title: "Reset Passphrase Massal",
+        version: "v1.4",
+        audience: "admin",
+        changes: [
+          {
+            kind: "added",
+            text: "Pilih banyak pengguna sekaligus lewat checkbox di tabel, lalu kirim reset passphrase untuk seluruh pilihan dalam satu batch.",
+          },
+          {
+            kind: "added",
+            text: "Dialog konfirmasi menampilkan progres langsung per sertifikat: menunggu, mengirim, berhasil, atau gagal, beserta pesan resmi dari portal.",
+          },
+          {
+            kind: "added",
+            text: "Tombol Coba Lagi hanya mengulang baris yang gagal, tanpa mengirim ulang tautan reset ke sertifikat yang sudah berhasil.",
+          },
+          {
+            kind: "added",
+            text: "Jeda 400 ms antarpermintaan, karena portal membatasi frekuensi dan reset massal cukup untuk memicunya di tengah proses.",
+          },
+          {
+            kind: "improved",
+            text: "Progres `selesai/total` dipindahkan ke toolbar dan bertahan setelah dialog ditutup, jadi operator masih bisa memantau proses yang sedang berjalan.",
+          },
+          {
+            kind: "improved",
+            text: "Baris tanpa sertifikat yang bisa di-reset ditampilkan nonaktif, bukan disembunyikan, sehingga jumlah di toolbar selalu sama dengan jumlah centang yang bisa diklik.",
+          },
+        ],
+      },
+      {
+        id: "toolbar-chip-truncate-2026-09-30",
+        date: "2026-09-30",
+        title: "Lencana Filter",
+        audience: "admin",
+        changes: [
+          {
+            kind: "fixed",
+            text: "Lencana filter yang panjang dipotong dengan elipsis alih-alih mendorong filter lain ke luar baris, dan nilai lengkapnya tetap tersedia lewat tooltip.",
+          },
+          {
+            kind: "added",
+            text: "Kolom Hasil Reset di tabel mencatat status tiap baris untuk run terakhir, termasuk pesan penolakan dari portal.",
+          },
+          {
+            kind: "fixed",
+            text: "Dialog tidak lagi menutup sendiri setelah selesai, karena pesan penolakan portal sering kali satu-satunya catatan alasan sebuah sertifikat ditolak.",
+          },
+        ],
+      },
+      {
+        id: "bsre-cert-manage-2026-09-29",
+        date: "2026-09-29",
+        title: "Kelola Sertifikat per Pengguna",
+        audience: "admin",
+        changes: [
+          {
+            kind: "added",
+            text: "Daftar sertifikat tiap pengguna tampil di modal detail: status, produk, nomor seri, masa berlaku, dan jenis sertifikat.",
+          },
+          {
+            kind: "added",
+            text: "Tombol Reset Passphrase untuk sertifikat berstatus ISSUE, memakai nomor seri sebagai kunci permintaan.",
+          },
+          {
+            kind: "added",
+            text: "Buat Sertifikat Baru: pilih produk (Tanda Tangan Elektronik / Digital) dan jenis, dengan CN terisi otomatis dari nama pengguna.",
+          },
+          {
+            kind: "improved",
+            text: "Nomor seri ditampilkan penuh agar mudah dicocokkan dengan sertifikat fisik.",
+          },
+          {
+            kind: "fixed",
+            text: "Permintaan reset dan pembuatan sertifikat memakai nomor seri, bukan ID internal - sebelumnya ditolak dengan 404.",
+          },
+        ],
+      },
+      {
+        id: "bsre-bulk-email-2026-09-28",
+        date: "2026-09-28",
+        title: "Penyaringan Email Massal",
+        audience: "admin",
+        changes: [
+          {
+            kind: "added",
+            text: "Filter email menerima banyak alamat sekaligus, satu email per baris, dengan lencana jumlah yang diperbarui saat mengetik.",
+          },
+          {
+            kind: "improved",
+            text: "Baris baru, koma, dan titik koma juga diterima sebagai pemisah, sehingga daftar yang ditempel tidak perlu dibersihkan lebih dulu.",
+          },
+          {
+            kind: "fixed",
+            text: "Alamat duplikat diabaikan secara case-insensitive, dan input tidak di-round-trip lewat `value` sehingga tombol Enter masih bisa dipakai untuk baris berikutnya.",
+          },
+        ],
+      },
+      {
+        id: "bsre-sync-2026-09-20",
+        date: "2026-09-20",
+        title: "Sinkronisasi & Sesi Portal",
+        audience: "admin",
+        changes: [
+          {
+            kind: "added",
+            text: "Tombol Sinkron untuk mengambil data pengguna BSrE terbaru, plus Update Tanggal untuk memperbarui masa berlaku sertifikat.",
+          },
+          {
+            kind: "improved",
+            text: "Token sesi disimpan dan dipakai ulang, dengan percobaan ulang otomatis saat kedaluwarsa.",
+          },
+          {
+            kind: "added",
+            text: "Panel status sesi: sesi aktif, status token, dan mode browser jarak jauh.",
+          },
+          {
+            kind: "improved",
+            text: "Status buka/tutup panel grafik diingat antar-muat halaman, dan tidak lagi melompat kembali terbuka setiap kali profil dimuat ulang.",
+          },
+        ],
+      },
+      {
+        id: "bsre-daily-sync-2026-08-11",
+        date: "2026-08-11",
+        title: "Sinkronisasi Harian & Login BeID",
+        audience: "admin",
+        changes: [
+          {
+            kind: "added",
+            text: "Sinkronisasi pengguna BSrE berjalan otomatis setiap hari lewat cron, lalu mengirim notifikasi WhatsApp ke operator bila ada hasil.",
+          },
+          {
+            kind: "added",
+            text: "Login BeID memakai otomatisasi peramban, dengan implementasi TOTP sendiri di atas crypto bawaan Node.",
+          },
+          {
+            kind: "improved",
+            text: "Data pribadi (PII) pengguna disamarkan di antarmuka portal.",
+          },
+          {
+            kind: "added",
+            text: "Pindai QR untuk verifikasi dokumen, dengan opsional footer BSrE pada alur penandatanganan.",
+          },
+        ],
+      },
+      {
+        id: "bsre-session-2026-06-15",
+        date: "2026-06-15",
+        title: "Sesi Portal",
+        audience: "admin",
+        changes: [
+          {
+            kind: "fixed",
+            text: "Pengambilan token BSrE dirampingkan dan sesi peramban dipakai ulang, sehingga login portal lebih jarang terputus.",
+          },
+        ],
+      },
+      {
+        id: "bsre-stats-dashboard-2026-06-08",
+        date: "2026-06-08",
+        title: "Statistik BSrE",
+        audience: "admin",
+        changes: [
+          {
+            kind: "added",
+            text: "Dasbor statistik BSrE dengan penyaringan dan visualisasi interaktif.",
+          },
+          {
+            kind: "added",
+            text: "Grafik aktivitas pengguna BSrE.",
+          },
+          {
+            kind: "improved",
+            text: "Agregasi statistik dihitung di server, bukan di peramban.",
+          },
+          {
+            kind: "improved",
+            text: "Notifikasi Toast memakai state aplikasi global, konsisten di seluruh halaman.",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    route: "/editor",
+    page: "Editor Dokumen",
+    entries: [
+      {
+        id: "editor-ai-2026-09-29",
+        date: "2026-09-29",
+        title: "Edit dengan AI",
+        changes: [
+          {
+            kind: "added",
+            text: "Mode Edit with AI menyusun rencana perubahan struktural - tabel, gambar, paragraf, dan format - untuk ditinjau sebelum diterapkan.",
+          },
+          {
+            kind: "improved",
+            text: "Rencana yang sudah ditinjau dapat diterima atau dibuang sebelum dieksekusi.",
+          },
+          {
+            kind: "fixed",
+            text: "Menu AI tidak lagi keluar dari layar di ponsel; popup-nya diratakan ke tepi kanan tombol pemicu pada layar di bawah 640px.",
+          },
+        ],
+      },
+      {
+        id: "editor-fab-2026-09-26",
+        date: "2026-09-26",
+        title: "Bilah Kendali Mengambang",
+        changes: [
+          {
+            kind: "added",
+            text: "Bilah kendali muncul saat kursor berada di area kerja pratinjau.",
+          },
+          {
+            kind: "improved",
+            text: "Tombol Baru dan Tandatangani dipindahkan ke posisi mengambang supaya tidak menutupi dokumen.",
+          },
+        ],
+      },
+      {
+        id: "editor-tables-2026-09-11",
+        date: "2026-09-11",
+        title: "Tabel & Tata Letak",
+        changes: [
+          {
+            kind: "added",
+            text: "Sisip tabel dengan pengatur lebar kolom yang bisa diseret.",
+          },
+          {
+            kind: "added",
+            text: "Gabung dan pecah sel, perataan vertikal, serta isi sel.",
+          },
+          {
+            kind: "added",
+            text: "Penggar dengan pegangan indentasi yang bisa diseret, plus zoom otomatis dan sesuaikan lebar.",
+          },
+        ],
+      },
+      {
+        id: "editor-tables-origin-2026-04-09",
+        date: "2026-04-09",
+        title: "Tabel Pertama",
+        changes: [
+          {
+            kind: "added",
+            text: "Penyuntingan tabel langsung di dalam dokumen, dengan navigasi antar tabel lewat URL.",
+          },
+          {
+            kind: "improved",
+            text: "Tampilan tabel memakai header lengket dan perataan kolom yang konsisten.",
+          },
+        ],
+      },
+      {
+        id: "editor-shortcuts-2026-02-02",
+        date: "2026-02-02",
+        title: "Pintasan Papan Ketik",
+        changes: [
+          {
+            kind: "added",
+            text: "Pintasan papan ketik untuk navigasi tabel dan pencarian.",
+          },
+          {
+            kind: "fixed",
+            text: "Pintasan tidak lagi bentrok saat kursor berada di kolom isian.",
+          },
+          {
+            kind: "fixed",
+            text: "Paginasi tidak melewati jumlah catatan.",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    route: "/me/documents",
+    page: "Dokumen Saya",
+    entries: [
+      {
+        id: "me-docs-bulk-2026-09-28",
+        date: "2026-09-28",
+        title: "Dokumen Saya",
+        audience: "member",
+        changes: [
+          {
+            kind: "added",
+            text: "Tab Dokumen Saya, Permintaan, dan Sudah Ditandatangani dengan jumlah per tab.",
+          },
+          {
+            kind: "added",
+            text: "Tandatangani banyak dokumen sekaligus, hapus banyak, dan ekspor CSV.",
+          },
+          {
+            kind: "improved",
+            text: "Pratinjau dokumen dalam modal tanpa meninggalkan halaman.",
+          },
+        ],
+      },
+      {
+        id: "me-docs-preview-2026-06-05",
+        date: "2026-06-05",
+        title: "Daftar Dokumen",
+        audience: "member",
+        changes: [
+          {
+            kind: "added",
+            text: "Pratinjau dokumen dalam modal, lengkap dengan konfirmasi hapus yang lebih jelas.",
+          },
+          {
+            kind: "improved",
+            text: "Tampilan daftar dokumen dirapikan agar mudah dipindai.",
+          },
+        ],
+      },
+      {
+        id: "me-docs-list-2026-01-30",
+        date: "2026-01-30",
+        title: "Daftar Dokumen & Ekspor",
+        audience: "member",
+        changes: [
+          {
+            kind: "added",
+            text: "Halaman Dokumen Saya di `/me/documents` dengan toolbar cari dan saring.",
+          },
+          {
+            kind: "added",
+            text: "Unggah dokumen, tandatangani dari daftar, dan hapus banyak berkas.",
+          },
+          {
+            kind: "added",
+            text: "Ekspor data ke CSV, JSON, dan XLSX langsung dari toolbar.",
+          },
+          {
+            kind: "improved",
+            text: "Pencarian grabbing API generik, dengan paginasi yang tidak melewati total catatan.",
           },
         ],
       },

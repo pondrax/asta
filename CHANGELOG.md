@@ -78,6 +78,18 @@
   Admin     admin only; `hooks.server.ts` 403s every other role on `/main*`
 -->
 
+## 2026-10-14
+
+### Spesimen Tanda Tangan
+
+<!-- id: sign-specimen-template-2026-10-14 -->
+
+Halaman: /sign - Tanda Tangan Dokumen
+Audiens: Tamu
+
+- **Perbaikan** - Teks spesimen tidak lagi menggandakan nama penandatangan ke dalam data dokumen; baris contoh tetap disimpan sebagai templat dan baru diisi saat ditampilkan.
+- **Perbaikan** - Baris kosong pada spesimen tidak lagi terisi otomatis, sehingga jarak antarbaris tetap sesuai yang ditulis.
+
 ## 2026-09-30
 
 ### Reset Passphrase Massal
