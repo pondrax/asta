@@ -80,6 +80,16 @@
 
 ## 2026-10-14
 
+### Add download-all button to bundle signed documents as ZIP
+
+<!-- id: add-download-all-button-to-bundle-signed-documents-2026-10-14 -->
+
+Halaman: /sign - Tanda Tangan Dokumen
+Audiens: Tamu
+
+- **Baru** - add download-all button to bundle signed documents as ZIP
+- **Baru** - Adds an Unduh Semua (N) ZIP button to the sign success panel. Signed PDFs are packed client-side into a single archive by a dependency-free STORE-method ZIP writer, so a batch of signed documents downloads in one go instead of tripping the browser's multi-download throttle.
+
 ### Pengajuan Helpdesk
 
 <!-- id: helpdesk-nip-nik-org-2026-10-14 -->

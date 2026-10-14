@@ -115,60 +115,24 @@ export function audienceForRole(
  */
 export const PAGE_CHANGELOGS: PageChangelog[] = [
   {
-    route: "/helpdesk",
-    page: "Helpdesk Layanan",
-    entries: [
-      {
-        id: "helpdesk-nip-nik-org-2026-10-14",
-        date: "2026-10-14",
-        title: "Pengajuan Helpdesk",
-        changes: [
-          {
-            kind: "added",
-            text: "Kolom NIP dan NIK kini terpisah pada formulir pengajuan email maupun sertifikat (mandiri), tidak lagi digabung dalam satu isian.",
-          },
-          {
-            kind: "fixed",
-            text: "Pengajuan tiket tidak lagi gagal saat perangkat daerah belum selesai dipilih; nama organisasi kini dipetakan otomatis ke data yang benar.",
-          },
-        ],
-      },
-      {
-        id: "helpdesk-bulk-2026-09-21",
-        date: "2026-09-21",
-        title: "Permintaan Sertifikat Massal",
-        changes: [
-          {
-            kind: "added",
-            text: "Mode permintaan banyak: periksa kelayakan seluruh pengguna sekaligus sebelum mengirim.",
-          },
-          {
-            kind: "added",
-            text: "Lacak tiket yang sudah dibuat dan lihat statusnya.",
-          },
-          {
-            kind: "added",
-            text: "Notifikasi WhatsApp saat tiket terkirim.",
-          },
-        ],
-      },
-      {
-        id: "helpdesk-origin-page-2026-08-22",
-        date: "2026-08-22",
-        title: "Helpdesk Pertama",
-        changes: [
-          {
-            kind: "added",
-            text: "Halaman utama helpdesk layanan untuk mengirim tiket baru.",
-          },
-        ],
-      },
-    ],
-  },
-  {
     route: "/sign",
     page: "Tanda Tangan Dokumen",
     entries: [
+      {
+        id: "add-download-all-button-to-bundle-signed-documents-2026-10-14",
+        date: "2026-10-14",
+        title: "Add download-all button to bundle signed documents as ZIP",
+        changes: [
+          {
+            kind: "added",
+            text: "add download-all button to bundle signed documents as ZIP",
+          },
+          {
+            kind: "added",
+            text: "Adds an Unduh Semua (N) ZIP button to the sign success panel. Signed PDFs are packed client-side into a single archive by a dependency-free STORE-method ZIP writer, so a batch of signed documents downloads in one go instead of tripping the browser's multi-download throttle.",
+          },
+        ],
+      },
       {
         id: "move-specimen-editor-into-a-popup-on-the-box-visua-2026-10-14",
         date: "2026-10-14",
@@ -578,6 +542,57 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
           {
             kind: "fixed",
             text: "Pratinjau dokumen draf menampilkan isi yang benar.",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    route: "/helpdesk",
+    page: "Helpdesk Layanan",
+    entries: [
+      {
+        id: "helpdesk-nip-nik-org-2026-10-14",
+        date: "2026-10-14",
+        title: "Pengajuan Helpdesk",
+        changes: [
+          {
+            kind: "added",
+            text: "Kolom NIP dan NIK kini terpisah pada formulir pengajuan email maupun sertifikat (mandiri), tidak lagi digabung dalam satu isian.",
+          },
+          {
+            kind: "fixed",
+            text: "Pengajuan tiket tidak lagi gagal saat perangkat daerah belum selesai dipilih; nama organisasi kini dipetakan otomatis ke data yang benar.",
+          },
+        ],
+      },
+      {
+        id: "helpdesk-bulk-2026-09-21",
+        date: "2026-09-21",
+        title: "Permintaan Sertifikat Massal",
+        changes: [
+          {
+            kind: "added",
+            text: "Mode permintaan banyak: periksa kelayakan seluruh pengguna sekaligus sebelum mengirim.",
+          },
+          {
+            kind: "added",
+            text: "Lacak tiket yang sudah dibuat dan lihat statusnya.",
+          },
+          {
+            kind: "added",
+            text: "Notifikasi WhatsApp saat tiket terkirim.",
+          },
+        ],
+      },
+      {
+        id: "helpdesk-origin-page-2026-08-22",
+        date: "2026-08-22",
+        title: "Helpdesk Pertama",
+        changes: [
+          {
+            kind: "added",
+            text: "Halaman utama helpdesk layanan untuk mengirim tiket baru.",
           },
         ],
       },

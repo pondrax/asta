@@ -34,6 +34,7 @@
   import { sendMessage } from "$lib/remotes/whatsapp.remote";
   import { stashSignFile, takeSignFile } from "$lib/utils/sign-handoff";
   import { vault } from "$lib/utils/vault";
+  import { createZip } from "$lib/utils/zip";
 
   const { data } = $props();
   let turnstileSuccess = $state(false);
@@ -104,6 +105,39 @@
     base64?: string;
     blob?: Blob;
   }[] = $state([]);
+
+  /** How many signed documents are ready to be bundled into the ZIP. */
+  const signedCount = $derived(signResults.filter((r) => r.blob).length);
+
+  /**
+   * Bundle every signed document into a single ZIP download.
+   *
+   * Browsers throttle (and often block) a burst of programmatic downloads, so
+   * "download all" hands back one archive instead of firing N separate saves.
+   */
+  async function downloadAllSigned() {
+    const files = signResults.filter((r) => r.blob);
+    if (files.length === 0) return;
+
+    try {
+      const entries = await Promise.all(
+        files.map(async (r) => ({
+          name: r.fileName.replace(/\.pdf$/i, "") + ".pdf",
+          data: new Uint8Array(await r.blob!.arrayBuffer()),
+        })),
+      );
+
+      const url = URL.createObjectURL(createZip(entries));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `signed-${d().format("YYYYMMDD-HHmmss")}.zip`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("[sign] download all failed", err);
+      app.showToast("error", "Gagal mengunduh semua dokumen.");
+    }
+  }
 
   // ── Passphrase vault (WebAuthn PRF) ───────────────────────────────
   let vaultSupported = $state(false);
@@ -1187,6 +1221,16 @@
               >
                 Tandatangani
               </a>
+            {/if}
+            {#if signedCount > 0}
+              <button
+                type="button"
+                class="btn btn-sm btn-secondary"
+                onclick={downloadAllSigned}
+              >
+                <iconify-icon icon="bx:download"></iconify-icon>
+                Unduh Semua ({signedCount}) ZIP
+              </button>
             {/if}
             {#if saveDocument}
               <a
