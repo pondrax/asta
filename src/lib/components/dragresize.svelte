@@ -8,6 +8,9 @@
     height,
     scale,
     onchange,
+    onselect,
+    selected = false,
+    resizable = true,
     children,
   }: {
     x: number;
@@ -21,6 +24,12 @@
       width: number;
       height: number;
     }) => void;
+    /** Fired on pointer-down so the owner can mark this box as the selection. */
+    onselect?: () => void;
+    /** Highlights the box as the active selection. */
+    selected?: boolean;
+    /** When false the resize corners are hidden (e.g. a checkbox). */
+    resizable?: boolean;
     children?: Snippet;
   } = $props();
 
@@ -32,6 +41,7 @@
 
   function pointerDown(e: PointerEvent, m: typeof mode) {
     e.stopPropagation();
+    onselect?.();
     mode = m;
     startX = e.clientX;
     startY = e.clientY;
@@ -96,6 +106,7 @@
   tabindex="0"
   role="button"
   class="absolute select-none"
+  class:selected
   style="
     left: {x * scale}px;
     top: {y * scale}px;
@@ -105,34 +116,40 @@
 >
   {@render children?.()}
 
-  <!-- corners -->
-  <div
-    tabindex="0"
-    role="button"
-    class="corner nw"
-    onpointerdown={(e) => pointerDown(e, "nw")}
-  ></div>
-  <div
-    tabindex="0"
-    role="button"
-    class="corner ne"
-    onpointerdown={(e) => pointerDown(e, "ne")}
-  ></div>
-  <div
-    tabindex="0"
-    role="button"
-    class="corner sw"
-    onpointerdown={(e) => pointerDown(e, "sw")}
-  ></div>
-  <div
-    tabindex="0"
-    role="button"
-    class="corner se"
-    onpointerdown={(e) => pointerDown(e, "se")}
-  ></div>
+  {#if resizable}
+    <!-- corners -->
+    <div
+      tabindex="0"
+      role="button"
+      class="corner nw"
+      onpointerdown={(e) => pointerDown(e, "nw")}
+    ></div>
+    <div
+      tabindex="0"
+      role="button"
+      class="corner ne"
+      onpointerdown={(e) => pointerDown(e, "ne")}
+    ></div>
+    <div
+      tabindex="0"
+      role="button"
+      class="corner sw"
+      onpointerdown={(e) => pointerDown(e, "sw")}
+    ></div>
+    <div
+      tabindex="0"
+      role="button"
+      class="corner se"
+      onpointerdown={(e) => pointerDown(e, "se")}
+    ></div>
+  {/if}
 </div>
 
 <style>
+  .selected {
+    outline: 2px solid #2563eb;
+    outline-offset: 1px;
+  }
   .corner {
     position: absolute;
     width: 10px;

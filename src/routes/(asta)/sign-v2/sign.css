@@ -1,0 +1,766 @@
+/* =========================================================================
+   sign-v2 chrome — layout shell around the daisyUI components.
+
+   Scoped to `.sign-page` so it never leaks into the navbar or the rest of the
+   app. Buttons, tabs, badges and menus come from daisyUI; this file only keeps
+   the structural layout (topbar, menubar, toolbar pill, nav pane, preview
+   frame, placement overlay) plus the `body.dark` refinements.
+   ========================================================================= */
+
+@scope (.sign-page) {
+  :scope {
+    /* chrome tokens (light) */
+    --workspace: #e9ebee;
+    --toolbar: #ffffff;
+    --hairline: #d5d8dc;
+    --hairline-dark: #c5c9ce;
+    --text: #202124;
+    --muted: #6b7075;
+    --hover: #f1f3f4;
+    --active: #dbeafe;
+    --active-border: #93c5fd;
+    --blue: #2563eb;
+    --danger: #dc2626;
+    --ok: #16a34a;
+
+    --menu-height: 32px;
+    --nav-width: 26rem;
+    --page-nav-width: 10rem;
+
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--workspace);
+    color: var(--text);
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  /* Icons inside the topbar/toolbar only — keeps button clicks on the button
+     and does NOT leak into the daisyUI controls in the nav pane. */
+  .topbar iconify-icon {
+    font-size: 17px;
+    pointer-events: none;
+  }
+
+  /* ============================ topbar ============================ */
+
+  .topbar {
+    flex: none;
+    position: relative;
+    z-index: 100;
+    background: var(--toolbar);
+    border-bottom: 1px solid var(--hairline);
+    user-select: none;
+  }
+
+  .header-row {
+    height: var(--menu-height);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 8px;
+    min-width: 0;
+    position: relative;
+  }
+
+  .header-logo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    color: var(--blue);
+    text-decoration: none;
+  }
+
+  .header-logo:hover {
+    background: var(--hover);
+  }
+
+  .header-center {
+    display: flex;
+    align-items: center;
+    flex: 1 1 0;
+    min-width: 0;
+    height: 24px;
+    gap: 8px;
+  }
+
+  .filename-input {
+    height: 24px;
+    max-width: 220px;
+    min-width: 80px;
+    padding: 0 8px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text);
+    font-size: 12px;
+  }
+
+  .filename-input:hover {
+    border-color: var(--hairline);
+  }
+
+  .filename-input:focus {
+    outline: none;
+    border-color: var(--active-border);
+    background: #fff;
+  }
+
+  /* Title is hidden on small screens, same as the editor's header. */
+  @media (max-width: 640px) {
+    .filename-input {
+      display: none;
+    }
+  }
+
+  /* ============================ menu bar ============================ */
+
+  .menu-bar {
+    display: flex;
+    align-items: center;
+    height: 24px;
+    flex: none;
+    user-select: none;
+  }
+
+  /* File/Edit etc. sit centred in the header on large screens (same intent as
+     the editor), and drop back into normal flow on smaller ones. */
+  @media (min-width: 900px) {
+    /* Centred with auto margins rather than a transform: a transform would make
+       .menu-bar its own stacking context and trap the popup underneath the
+       toolbar that follows it in the DOM. */
+    .menu-bar {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      width: max-content;
+      height: 24px;
+      margin: auto;
+      z-index: 60;
+    }
+  }
+
+  .menubar-item {
+    position: relative;
+    display: block;
+    flex: none;
+    width: auto;
+    height: 100%;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: inherit;
+    color: inherit;
+    background: transparent;
+    border: 0;
+  }
+
+  .menu-button {
+    height: 100%;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: #30343b;
+    font-size: 12px;
+  }
+
+  .menubar-item.open .menu-button,
+  .menu-button:hover {
+    background: var(--hover);
+  }
+
+  .menu-popup {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    min-width: 240px;
+    display: none;
+    padding: 5px 0;
+    background: var(--toolbar);
+    border: 1px solid var(--hairline-dark);
+    border-radius: 6px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    z-index: 5000;
+  }
+
+  .menubar-item.open .menu-popup {
+    display: block;
+  }
+
+  .menu-item {
+    width: 100%;
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 12px;
+    border: 0;
+    background: transparent;
+    text-align: left;
+    font-size: 13px;
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  .menu-item:hover {
+    background: var(--hover);
+  }
+
+  .menu-item:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  .menu-item-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 18px;
+    height: 18px;
+    color: var(--muted);
+  }
+
+  .menu-item-icon iconify-icon {
+    font-size: 18px;
+  }
+
+  .menu-shortcut {
+    margin-left: auto;
+    color: #888d93;
+    font-size: 11px;
+  }
+
+  .menu-separator {
+    height: 1px;
+    margin: 5px 0;
+    background: #e6e8eb;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex: none;
+  }
+
+  /* ============================ toolbar ============================ */
+
+  .toolbar {
+    height: 40px;
+    min-height: 40px;
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 2px;
+    margin: 0 6px 6px;
+    padding: 0 6px;
+    background: #f1f5f9;
+    border-radius: 9999px;
+    overflow: visible;
+    user-select: none;
+  }
+
+  .toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    flex-shrink: 0;
+  }
+
+  .toolbar-separator {
+    width: 1px;
+    height: 24px;
+    margin: 0 4px;
+    background: #d7dde3;
+    flex-shrink: 0;
+  }
+
+  /* Zoom + page steppers — ghost style lifted from the editor's .zoom-stepper
+     so both toolbar controls share one look: transparent box, 20x24 buttons and
+     a 44px tabular readout. */
+  .stepper {
+    display: inline-flex;
+    align-items: center;
+    flex: none;
+    height: 26px;
+    position: relative;
+    background: transparent;
+  }
+
+  .stepper__button {
+    width: 20px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 3px;
+    color: #30343b;
+    font-size: 15px;
+    line-height: 1;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .stepper__button iconify-icon {
+    font-size: 16px;
+  }
+
+  .stepper__button:hover:not(:disabled) {
+    background: var(--hover);
+  }
+
+  .stepper__button:disabled {
+    cursor: default;
+    opacity: 0.35;
+  }
+
+  .stepper__value {
+    min-width: 44px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 0 4px;
+    background: transparent;
+    border: none;
+    border-radius: 3px;
+    color: #30343b;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .stepper__value:hover:not(:disabled) {
+    background: var(--hover);
+  }
+
+  .stepper__caret {
+    font-size: 10px;
+    color: #64748b;
+  }
+
+  .stepper__input {
+    width: 20px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    color: inherit;
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+  }
+
+  .stepper__input:focus {
+    outline: none;
+  }
+
+  .stepper-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 4px;
+    min-width: 132px;
+    padding: 4px;
+    background: var(--toolbar);
+    border: 1px solid var(--hairline-dark);
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    z-index: 40;
+  }
+
+  .stepper-menu__item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: var(--text);
+    font-size: 13px;
+    line-height: 18px;
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .stepper-menu__item:hover {
+    background: var(--hover);
+  }
+
+  .stepper-menu__check {
+    margin-left: auto;
+    font-size: 12px;
+    padding-left: 16px;
+  }
+
+  /* Toolbar buttons that open a small popup (e.g. the Footer scope picker). */
+  .tool-dropdown {
+    position: relative;
+    display: inline-flex;
+  }
+
+  /* daisyUI buttons: drop the depth halo/shadow (the faint "outline" ring) and
+     keep the toolbar labels at normal weight rather than daisyUI's 600. */
+  .btn {
+    --depth: 0;
+  }
+
+  .topbar .btn {
+    font-weight: 400;
+  }
+
+  /* ============================ work area ============================ */
+
+  .sign-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    background: var(--workspace);
+  }
+
+  /* ---- page navigation rail (left) ---- */
+
+  .page-pane {
+    width: var(--page-nav-width);
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: var(--toolbar);
+    border-right: 1px solid var(--hairline);
+  }
+
+  .page-pane--hidden {
+    display: none;
+  }
+
+  .page-pane__head {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--hairline);
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .page-pane__count {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .page-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 10px;
+    list-style: none;
+  }
+
+  .page-card {
+    position: relative;
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .page-card__canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    background: #fff;
+    border: 1px solid var(--hairline);
+    border-radius: 4px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+    transition:
+      border-color 0.15s,
+      box-shadow 0.15s;
+  }
+
+  .page-card:hover .page-card__canvas {
+    border-color: var(--active-border);
+  }
+
+  .page-card--active .page-card__canvas {
+    border-color: var(--blue);
+    box-shadow:
+      0 0 0 2px var(--blue),
+      0 1px 3px rgba(0, 0, 0, 0.18);
+  }
+
+  .page-card__num {
+    position: absolute;
+    right: 4px;
+    bottom: 4px;
+    padding: 0 5px;
+    border-radius: 9999px;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    font-size: 10px;
+    line-height: 16px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .page-card--active .page-card__num {
+    background: var(--blue);
+  }
+
+  .page-pane__empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  .page-pane__empty iconify-icon {
+    font-size: 22px;
+  }
+
+  /* ---- documents / metadata panel (right) ---- */
+
+  .side-pane {
+    width: var(--nav-width);
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: var(--toolbar);
+    border-left: 1px solid var(--hairline);
+  }
+
+  .side-pane--hidden {
+    display: none;
+  }
+
+  .nav-content {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .nav-section-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px 4px;
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .nav-section-title .spacer {
+    margin-left: auto;
+  }
+
+  /* ============================ preview frame ============================ */
+
+  .center-pane {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding:  0;
+    gap: 8px;
+  }
+
+  .doc-alerts {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: none;
+    padding: 0 8px;
+  }
+
+  .preview-host {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+  }
+
+  .preview-host.armed {
+    cursor: crosshair;
+  }
+
+  /* ============================ placement overlay ============================ */
+
+  .placement-img {
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    object-fit: fill;
+  }
+
+  .placement-delete {
+    position: absolute;
+    top: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 999px;
+    background: var(--danger);
+    color: #fff;
+    font-size: 11px;
+    line-height: 1;
+    z-index: 2;
+    cursor: pointer;
+  }
+
+  .placement-delete iconify-icon {
+    font-size: 12px;
+  }
+
+  .placement-text,
+  .placement-date {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    padding: 0 2px;
+    border: 1px dashed transparent;
+    border-radius: 2px;
+    background: rgba(37, 99, 235, 0.06);
+    color: #111827;
+    font-family: Helvetica, Arial, sans-serif;
+    line-height: 1.1;
+    overflow: hidden;
+    cursor: text;
+    outline: none;
+    white-space: nowrap;
+  }
+
+  .placement-text:hover,
+  .placement-date:hover,
+  .placement-text:focus,
+  .placement-date:focus {
+    border-color: var(--blue);
+    background: rgba(37, 99, 235, 0.1);
+  }
+
+  .placement-checkbox {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #111827;
+    border-radius: 2px;
+    background: #fff;
+    color: #111827;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .placement-checkbox.checked::after {
+    content: "✓";
+    font-weight: 700;
+  }
+
+  /* ============================ dark ============================ */
+
+  :scope:where(body.dark *) {
+    --workspace: var(--color-base-300);
+    --toolbar: var(--color-base-100);
+    --hairline: color-mix(in oklab, var(--color-base-content) 12%, var(--color-base-100));
+    --hairline-dark: color-mix(in oklab, var(--color-base-content) 22%, var(--color-base-100));
+    --text: var(--color-base-content);
+    --muted: color-mix(in oklab, var(--color-base-content) 62%, var(--color-base-200));
+    --hover: color-mix(in oklab, var(--color-base-content) 10%, var(--color-base-200));
+    --active: color-mix(in oklab, var(--color-primary) 18%, var(--color-base-200));
+    --active-border: var(--color-primary);
+    --blue: var(--color-primary);
+    color-scheme: dark;
+  }
+
+  :scope:where(body.dark *) .filename-input:focus {
+    background: var(--toolbar);
+  }
+
+  :scope:where(body.dark *) .toolbar-separator {
+    background: var(--hairline);
+  }
+
+  :scope:where(body.dark *) .toolbar {
+    background: var(--color-base-200);
+  }
+
+  :scope:where(body.dark *) .stepper__button,
+  :scope:where(body.dark *) .stepper__value,
+  :scope:where(body.dark *) .stepper-menu__item {
+    color: var(--text);
+  }
+
+  :scope:where(body.dark *) .menu-button,
+  :scope:where(body.dark *) .filename-input {
+    color: var(--text);
+  }
+
+  :scope:where(body.dark *) .menu-popup {
+    background: var(--toolbar);
+  }
+
+  :scope:where(body.dark *) .menu-separator {
+    background: var(--hairline);
+  }
+
+  :scope:where(body.dark *) .placement-text,
+  :scope:where(body.dark *) .placement-date {
+    color: var(--color-base-content);
+  }
+
+  :scope:where(body.dark *) .placement-checkbox {
+    background: var(--color-base-100);
+    border-color: var(--color-base-content);
+    color: var(--color-base-content);
+  }
+}

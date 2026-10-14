@@ -6,6 +6,7 @@ import {
   PDFDropdown,
   PDFOptionList,
   PDFSignature,
+  StandardFonts,
   rgb
 } from 'pdf-lib';
 
@@ -104,9 +105,10 @@ export async function drawFooter(
     imageBase64?: string;
     paddingY?: number;
     lineHeight?: number;
+    page?: number;
   }
 ) {
-  const { text = '', imageBase64, paddingY = 20, lineHeight = 14 } = opts;
+  const { text = '', imageBase64, paddingY = 20, lineHeight = 14, page: onlyPage } = opts;
 
   const pdfDoc = await PDFDocument.load(bytes, { ignoreEncryption: true });
 
@@ -124,7 +126,11 @@ export async function drawFooter(
     }
   }
 
-  for (const page of pdfDoc.getPages()) {
+  const pages = pdfDoc.getPages();
+  const targets =
+    onlyPage && pages[onlyPage - 1] ? [pages[onlyPage - 1]] : pages;
+
+  for (const page of targets) {
     const y = paddingY;
     let imgWidth = 0;
     let imgHeight = 0;
@@ -260,6 +266,147 @@ export async function drawImages(
         width: width,
         height: height
       });
+    }
+  }
+
+  return pdfDoc.save();
+}
+
+// ---------------------------------------------------------
+// Draw mixed placements (signature image, text, date, checkbox)
+//
+// A generalisation of `drawImages` used by `/sign-v2`. All placements share the
+// same geometry contract: PDF points, top-left origin, page-relative, 1-indexed
+// page. Text/checkbox are baked client-side so the same document can be signed
+// manually or handed to BSrE (which only draws the signature itself).
+// ---------------------------------------------------------
+export type PlacementKind = 'signature' | 'text' | 'date' | 'checkbox';
+
+export type Placement = {
+  id: string;
+  /** Missing on legacy drafts — treated as `signature`. */
+  kind?: PlacementKind;
+  page: number;
+  originX: number;
+  originY: number;
+  width: number;
+  height: number;
+  imageBase64?: string;
+  text?: string;
+  size?: number;
+  checked?: boolean;
+};
+
+export async function drawPlacements(
+  bytes: Uint8Array | ArrayBuffer,
+  placements: Placement[],
+  options?: { pageIndexing?: 'zero' | 'one' }
+): Promise<Uint8Array> {
+  const pageIndexing = options?.pageIndexing || 'one';
+
+  const pdfDoc = await PDFDocument.load(bytes, { ignoreEncryption: true });
+  const pages = pdfDoc.getPages();
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+  const byPage: { [page: number]: Placement[] } = {};
+
+  for (const placement of placements) {
+    let pageIndex = placement.page;
+    if (pageIndexing === 'one') pageIndex = placement.page - 1;
+
+    if (pageIndex < 0 || pageIndex >= pages.length) {
+      const displayed =
+        pageIndexing === 'one' ? placement.page : pageIndex;
+      throw new Error(
+        `Page ${displayed} does not exist for placement ${placement.id}. Document has ${pages.length} pages.`
+      );
+    }
+    if (!byPage[pageIndex]) byPage[pageIndex] = [];
+    byPage[pageIndex].push(placement);
+  }
+
+  for (const pageNumStr in byPage) {
+    const pageNum = parseInt(pageNumStr);
+    const page = pages[pageNum];
+    const { height: pageHeight } = page.getSize();
+
+    for (const placement of byPage[pageNumStr]) {
+      const kind = placement.kind || 'signature';
+      const { originX, originY, width, height } = placement;
+      // top-left (0,0) → bottom-left coordinate system
+      const finalY = pageHeight - originY - height;
+
+      if (kind === 'signature') {
+        if (!placement.imageBase64) continue;
+        const imageBytes = Uint8Array.from(
+          atob(placement.imageBase64)
+            .split('')
+            .map((c) => c.charCodeAt(0))
+        );
+        let image;
+        try {
+          image = await pdfDoc.embedPng(imageBytes);
+        } catch {
+          try {
+            image = await pdfDoc.embedJpg(imageBytes);
+          } catch {
+            console.warn(
+              `Failed to embed image for placement ${placement.id}. Skipping.`
+            );
+            continue;
+          }
+        }
+        page.drawImage(image, {
+          x: originX,
+          y: finalY,
+          width,
+          height
+        });
+      } else if (kind === 'text' || kind === 'date') {
+        const text = placement.text ?? '';
+        if (!text) continue;
+        const size = placement.size ?? 11;
+        try {
+          page.drawText(text, {
+            x: originX,
+            // The box top is the text top; step down by the font size to reach
+            // the baseline so the rendered text stays inside the box.
+            y: pageHeight - originY - size,
+            size,
+            font,
+            color: rgb(0, 0, 0)
+          });
+        } catch (err) {
+          console.warn(
+            `Failed to draw text for placement ${placement.id}. Skipping.`,
+            err
+          );
+        }
+      } else if (kind === 'checkbox') {
+        page.drawRectangle({
+          x: originX,
+          y: finalY,
+          width,
+          height,
+          borderColor: rgb(0, 0, 0),
+          borderWidth: 1
+        });
+        if (placement.checked) {
+          // A tick made of two strokes, drawn inside the box corners.
+          page.drawLine({
+            start: { x: originX + width * 0.2, y: finalY + height * 0.5 },
+            end: { x: originX + width * 0.42, y: finalY + height * 0.22 },
+            thickness: 1.4,
+            color: rgb(0, 0, 0)
+          });
+          page.drawLine({
+            start: { x: originX + width * 0.42, y: finalY + height * 0.22 },
+            end: { x: originX + width * 0.8, y: finalY + height * 0.8 },
+            thickness: 1.4,
+            color: rgb(0, 0, 0)
+          });
+        }
+      }
     }
   }
 

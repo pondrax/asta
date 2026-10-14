@@ -48,6 +48,25 @@ export const signers = pgTable('signers', {
   updated,
 })
 
+/**
+ * Reusable signing profiles. One email may own many profiles (specimens),
+ * so the rows for an email are the specimen list shown in /sign-v2.
+ */
+export const signerProfiles = pgTable('signer_profiles', {
+  id,
+  email: text('email').notNull(),
+  label: text('label'),
+  nama: text('nama'),
+  jabatan: text('jabatan'),
+  pangkat: text('pangkat'),
+  instansi: text('instansi'),
+  specimen: text('specimen'),
+  created,
+  updated,
+}, table => [
+  index('signer_profiles_email_idx').on(table.email),
+])
+
 export const documents = pgTable('documents', {
   id,
   owner: text('owner'),

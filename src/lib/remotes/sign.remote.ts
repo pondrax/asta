@@ -101,6 +101,8 @@ export const signDocument = command(type({
   __saveDocument: 'boolean?',
   id: 'string',
   email: 'string?',
+  /** Document owner when it differs from the signer (e.g. signing on behalf). */
+  owner: 'string?',
   nik: 'string?',
   nama: 'string?',
   jabatan: 'string?',
@@ -186,7 +188,7 @@ export const signDocument = command(type({
           await db.query.documents.upsert({
             data: {
               id: props.id,
-              owner: props.email,
+              owner: props.owner || props.email,
               title: props.fileName,
               files: [saved.url],
               checksums: [checksum],
@@ -215,7 +217,7 @@ export const signDocument = command(type({
         await db.query.documents.upsert({
           data: {
             id: props.id,
-            owner: props.email,
+            owner: props.owner || props.email,
             title: props.fileName,
             status: 'signed',
             esign: !props.__manual,

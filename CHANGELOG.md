@@ -78,6 +78,17 @@
   Admin     admin only; `hooks.server.ts` 403s every other role on `/main*`
 -->
 
+## 2026-10-15
+
+### Rebuild signing page with editor-style chrome\012\012Add a new /sign-v2 route that mirrors the editor chrome: File/Edit/\012Template/Metadata menubar (hover + click), stepper zoom and page\012controls, page-thumbnail rail, docs/metadata side pane and a Footer\012scope dropdown (current page vs all pages).\012\012Supporting changes:\012- pdf: drawFooter gains a page option; add drawPlacements/drawImages\012- sign.remote: pass owner through when signing on behalf\012- signer profiles (spesimen) table, remote and migration\012- preview: bindable controller/state handle + renderThumbnail\012- dragresize: selection + optional resize corners
+
+<!-- id: rebuild-signing-page-with-editor-style-chrome01201-2026-10-15 -->
+
+Halaman: /sign-v2 - Sign V2
+Audiens: Tamu
+
+- **Baru** - rebuild signing page with editor-style chrome\012\012Add a new /sign-v2 route that mirrors the editor chrome: File/Edit/\012Template/Metadata menubar (hover + click), stepper zoom and page\012controls, page-thumbnail rail, docs/metadata side pane and a Footer\012scope dropdown (current page vs all pages).\012\012Supporting changes:\012- pdf: drawFooter gains a page option; add drawPlacements/drawImages\012- sign.remote: pass owner through when signing on behalf\012- signer profiles (spesimen) table, remote and migration\012- preview: bindable controller/state handle + renderThumbnail\012- dragresize: selection + optional resize corners
+
 ## 2026-10-14
 
 ### Stop the signing timer on error and resume it on retry

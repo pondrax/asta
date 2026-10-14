@@ -1,3 +1,37 @@
+<script module lang="ts">
+  /**
+   * Imperative handle the owning page can bind to and drive from its own
+   * chrome (toolbar). The component still owns the scroller/scale so the
+   * toolbar can never drift out of sync with what is rendered.
+   */
+  export type PreviewController = {
+    zoomIn: () => void;
+    zoomOut: () => void;
+    setZoom: (z: number) => void;
+    resetZoom: () => void;
+    goToPage: (p: number) => void;
+    changePage: (delta: number) => void;
+    /**
+     * Render a single page into an external `<canvas>` at `targetWidth` CSS
+     * pixels. Used by callers that build their own page-thumbnail rail without
+     * reaching into the pdf.js document this component owns.
+     */
+    renderThumbnail: (
+      pageNumber: number,
+      canvas: HTMLCanvasElement,
+      targetWidth: number,
+    ) => Promise<void>;
+  };
+
+  export type PreviewState = {
+    zoom: number;
+    page: number;
+    pageCount: number;
+    /** Page viewport sizes at scale 1, in PDF points. */
+    sizes: { width: number; height: number; ratio: number }[];
+  };
+</script>
+
 <script lang="ts">
   import { onMount, onDestroy, tick, type Snippet } from "svelte";
 
@@ -5,13 +39,23 @@
     file,
     hasSignature = true,
     controls = false,
+    bare = false,
     onclose = undefined,
     ondownload = undefined,
+    controller = $bindable(null),
+    onstate = undefined,
     children = undefined,
   }: {
     file: File | null;
     hasSignature?: boolean;
     controls?: boolean;
+    /**
+     * Frameless mode: transparent page backdrop and no max-width cap, so the
+     * scroller fills its parent edge-to-edge (scrollbar flush right). Defaults
+     * to the framed look (grey rounded backdrop, centred, capped at `max-w-7xl`)
+     * that the sign/verify pages were built against.
+     */
+    bare?: boolean;
     /**
      * Called by the toolbar's close button. The `file` prop is owned by the
      * parent, so the parent has to clear it — the component only tears down its
@@ -26,6 +70,10 @@
      * save has nothing to read and this takes over.
      */
     ondownload?: (file: File | null) => void;
+    /** Imperative handle for external chrome (see {@link PreviewController}). */
+    controller?: PreviewController | null;
+    /** Fires whenever zoom, current page or page count change. */
+    onstate?: (state: PreviewState) => void;
     children?: Snippet<
       [number, { width: number; height: number; ratio: number }[], number]
     >;
@@ -118,6 +166,27 @@
       pageDraft = "";
       openFile(file);
     }
+  });
+
+  // Publish the imperative handle for external chrome, and push state changes
+  // out so an owning toolbar can mirror zoom/page without owning the scroller.
+  $effect(() => {
+    controller = {
+      zoomIn,
+      zoomOut,
+      setZoom,
+      resetZoom,
+      goToPage,
+      changePage,
+      renderThumbnail,
+    };
+    return () => {
+      controller = null;
+    };
+  });
+
+  $effect(() => {
+    onstate?.({ zoom, page: currentPage, pageCount, sizes: pageSizes });
   });
 
   // --- Password prompt ---
@@ -346,6 +415,41 @@
     goToPage(currentPage + delta);
   }
 
+  /**
+   * Render `pageNumber` into an external canvas at `targetWidth` CSS pixels,
+   * preserving aspect ratio. Kept separate from `renderPage` (which draws into
+   * the scrolling layer) so a caller's own thumbnail rail can reuse the same
+   * pdf.js document without owning it.
+   */
+  async function renderThumbnail(
+    pageNumber: number,
+    canvas: HTMLCanvasElement,
+    targetWidth: number,
+  ) {
+    if (!pdfDoc) return;
+    const page = await pdfDoc.getPage(pageNumber);
+    const base = page.getViewport({ scale: 1 });
+    const scale = targetWidth / base.width;
+    const dpr = Math.min(
+      typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1,
+      2,
+    );
+    const vp = page.getViewport({ scale });
+    canvas.width = Math.max(1, Math.floor(vp.width * dpr));
+    canvas.height = Math.max(1, Math.floor(vp.height * dpr));
+    canvas.style.width = `${vp.width}px`;
+    canvas.style.height = `${vp.height}px`;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    await page.render({
+      canvasContext: ctx,
+      viewport: page.getViewport({ scale: scale * dpr }),
+    }).promise;
+    page.cleanup();
+  }
+
   // Track the page in view so the input reflects where the user actually is.
   $effect(() => {
     if (!containerEl || pageCount === 0) return;
@@ -483,7 +587,9 @@
 </script>
 
 <div
-  class="group/preview relative w-full h-full min-h-0 max-w-7xl mx-auto flex flex-col"
+  class="group/preview relative w-full h-full min-h-0 {bare
+    ? ''
+    : 'max-w-7xl mx-auto'} flex flex-col"
 >
   <!--
     View controls. The component owns `pageCount`, the scroller and the scale, so
@@ -628,7 +734,9 @@
 
   <div
     bind:this={containerEl}
-    class="relative w-full min-h-0 grow overflow-y-auto rounded-2xl bg-base-200 p-4"
+    class="relative w-full min-h-0 grow overflow-y-auto {bare
+      ? 'bg-transparent'
+      : 'rounded-2xl bg-base-200'} p-4"
     onscroll={scheduleUpdate}
   >
     {#if passwordCancelled}
