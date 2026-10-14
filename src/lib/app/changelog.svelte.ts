@@ -119,6 +119,17 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
     page: "Tanda Tangan Dokumen",
     entries: [
       {
+        id: "stop-the-signing-timer-on-error-and-resume-it-on-r-2026-10-14",
+        date: "2026-10-14",
+        title: "Stop the signing timer on error and resume it on retry",
+        changes: [
+          {
+            kind: "fixed",
+            text: "stop the signing timer on error and resume it on retry",
+          },
+        ],
+      },
+      {
         id: "add-download-all-button-to-bundle-signed-documents-2026-10-14",
         date: "2026-10-14",
         title: "Add download-all button to bundle signed documents as ZIP",

@@ -768,6 +768,10 @@
     disabled={!(allowSigning && forms.sign == undefined)}
     onclick={async () => {
       signResults = [];
+      // A fresh signing session starts the clock over; a retry inside the
+      // modal resumes from wherever it stopped.
+      timer = 0;
+      elapsedTime = 0;
       forms.sign = {
         ...form,
         passphrase: "",
@@ -894,11 +898,9 @@
         forms.sign!.__error = "";
         elapsedTime = 0;
 
-        if (item.completed.length == 0) {
-          startTime = performance.now();
-        } else {
-          startTime = performance.now() - timer;
-        }
+        // Resume from wherever the clock stopped (e.g. after an error). On the
+        // first run `timer` is 0, so this starts from zero.
+        startTime = performance.now() - timer;
 
         let interval = setInterval(() => {
           timer = Math.floor(performance.now() - startTime);
@@ -1031,9 +1033,6 @@
 
           // console.log(results, item);
 
-          elapsedTime = performance.now() - startTime;
-          clearInterval(interval);
-
           // console.log(results);
         } catch (err: any) {
           if (err?.body) {
@@ -1042,6 +1041,11 @@
           }
           console.error(err);
         } finally {
+          // Freeze the clock at the exact point the run ended — success or
+          // failure — so the elapsed time stops and a retry resumes from here.
+          timer = Math.floor(performance.now() - startTime);
+          elapsedTime = timer;
+          clearInterval(interval);
           loading = false;
           asTemplate = false;
           //@ts-ignore - window.turnstile is not typed in TS

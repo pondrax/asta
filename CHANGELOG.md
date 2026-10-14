@@ -80,6 +80,15 @@
 
 ## 2026-10-14
 
+### Stop the signing timer on error and resume it on retry
+
+<!-- id: stop-the-signing-timer-on-error-and-resume-it-on-r-2026-10-14 -->
+
+Halaman: /sign - Tanda Tangan Dokumen
+Audiens: Tamu
+
+- **Perbaikan** - stop the signing timer on error and resume it on retry
+
 ### Add download-all button to bundle signed documents as ZIP
 
 <!-- id: add-download-all-button-to-bundle-signed-documents-2026-10-14 -->
