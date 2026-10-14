@@ -25,31 +25,6 @@
 
   let visual = $state<"image" | "qr" | "box" | "draw">("box");
 
-  // Spesimen: lines matching an identity field stay linked to it (resolved
-  // into the textarea/canvas), other lines are kept as literal text.
-  const specimenKeys = ["jabatan", "instansi", "nama"];
-  const defaultSpecimen = "jabatan\ninstansi\n\nnama";
-
-  const resolveSpecimen = (tpl: string) =>
-    tpl
-      .split("\n")
-      .map((line) => {
-        const key = line.trim();
-        return key in form ? (form[key] ?? "") : line;
-      })
-      .join("\n")
-      .replace(/^\n+|\n+$/g, "");
-
-  const reverseSpecimen = (value: string) =>
-    value
-      .split("\n")
-      .map((line) =>
-        line.trim() === ""
-          ? line
-          : (specimenKeys.find((k) => form[k] === line) ?? line),
-      )
-      .join("\n");
-
   const predefinedForms = [
     "email",
     "nik",
@@ -440,27 +415,6 @@
         />
       </label>
     </li>
-    {#if visual === "box"}
-      <li class="p-2">
-        <label class="floating-label p-0 bg-transparent">
-          <span>Spesimen Tanda Tangan</span>
-          <textarea
-            bind:value={
-              () => resolveSpecimen(form.specimen ?? defaultSpecimen),
-              (value) => (form.specimen = reverseSpecimen(value))
-            }
-            placeholder="Spesimen tanda tangan"
-            class="textarea textarea-sm w-full h-24"
-            disabled={locked}
-          ></textarea>
-          <!-- <div class="text-[10px] text-gray-400">
-            Satu baris = satu baris teks. Tulis nama field (jabatan, instansi,
-            nama) untuk diisi otomatis. Baris kosong jadi jarak. Klik Box pada
-            Visualisasi untuk melihat hasilnya.
-          </div> -->
-        </label>
-      </li>
-    {/if}
     <li class="p-2">
       <label
         class="btn btn-xs btn-ghost tooltip flex gap-2 items-center justify-start"
@@ -573,6 +527,7 @@
           {setSignature}
           {hasSignature}
           bind:visual
+          disabled={locked}
           availableVisual={bsre ? ["image", "qr", "box", "draw"] : ["draw"]}
         />
 

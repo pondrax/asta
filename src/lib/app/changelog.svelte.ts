@@ -119,6 +119,17 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
     page: "Tanda Tangan Dokumen",
     entries: [
       {
+        id: "move-specimen-editor-into-a-popup-on-the-box-visua-2026-10-14",
+        date: "2026-10-14",
+        title: "Move specimen editor into a popup on the box visualisation",
+        changes: [
+          {
+            kind: "added",
+            text: "move specimen editor into a popup on the box visualisation",
+          },
+        ],
+      },
+      {
         id: "sign-specimen-template-2026-10-14",
         date: "2026-10-14",
         title: "Spesimen Tanda Tangan",

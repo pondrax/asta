@@ -80,6 +80,15 @@
 
 ## 2026-10-14
 
+### Move specimen editor into a popup on the box visualisation
+
+<!-- id: move-specimen-editor-into-a-popup-on-the-box-visua-2026-10-14 -->
+
+Halaman: /sign - Tanda Tangan Dokumen
+Audiens: Tamu
+
+- **Baru** - move specimen editor into a popup on the box visualisation
+
 ### Spesimen Tanda Tangan
 
 <!-- id: sign-specimen-template-2026-10-14 -->

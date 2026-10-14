@@ -7,12 +7,14 @@
     form,
     setSignature,
     hasSignature,
+    disabled = false,
     availableVisual = ["image", "qr", "box", "draw"],
     visual = $bindable("box"),
   }: {
     form: Record<string, string>;
     hasSignature?: boolean;
     setSignature: (props: SignatureType) => void;
+    disabled?: boolean;
     availableVisual?: Visual[];
     visual?: Visual;
   } = $props();
@@ -39,10 +41,32 @@
     draw: { originX: 310, originY: 640, width: 200, height: 100 },
   };
 
-  const defaultSpecimen = `jabatan
-instansi
+  // Spesimen: lines matching an identity field stay linked to it (resolved
+  // into the textarea/canvas), other lines are kept as literal text.
+  const specimenKeys = ["jabatan", "instansi", "nama"];
+  const defaultSpecimen = "jabatan\ninstansi\n\nnama";
 
-nama`;
+  const resolveSpecimen = (tpl: string) =>
+    tpl
+      .split("\n")
+      .map((line) => {
+        const key = line.trim();
+        return key in form ? (form[key] ?? "") : line;
+      })
+      .join("\n")
+      .replace(/^\n+|\n+$/g, "");
+
+  const reverseSpecimen = (value: string) =>
+    value
+      .split("\n")
+      .map((line) =>
+        line.trim() === ""
+          ? line
+          : (specimenKeys.find((k) => form[k] === line) ?? line),
+      )
+      .join("\n");
+
+  let specimenDialog = $state<HTMLDialogElement>();
 
   let canvasMap = $derived({
     image: canvasImage,
@@ -87,16 +111,13 @@ nama`;
     ctxBox.drawImage(logo, 20, 25, 140, 140);
     ctxBox.fillStyle = "#000";
     ctxBox.fillText("Ditandatangani secara elektronik oleh:", 180, 30);
-    const specimen = (form?.specimen ?? defaultSpecimen).replace(
-      /^\n+|\n+$/g,
-      "",
-    );
-    specimen.split("\n").forEach((line, i) => {
-      const y = 60 + i * 30;
-      if (y >= canvasBox.height) return;
-      const key = line.trim();
-      ctxBox.fillText(key in form ? form[key] : line, 180, y);
-    });
+    resolveSpecimen(form?.specimen ?? defaultSpecimen)
+      .split("\n")
+      .forEach((line, i) => {
+        const y = 60 + i * 30;
+        if (y >= canvasBox.height) return;
+        ctxBox.fillText(line, 180, y);
+      });
   };
 
   const drawStaticLayers = async () => {
@@ -273,6 +294,15 @@ nama`;
       width="640"
       height="180"
     ></canvas>
+    <button
+      type="button"
+      class="btn btn-sm btn-square absolute top-3 right-3"
+      aria-label="Edit spesimen tanda tangan"
+      disabled={disabled}
+      onclick={() => specimenDialog?.showModal()}
+    >
+      <iconify-icon icon="bx:edit" class="text-lg"></iconify-icon>
+    </button>
   </div>
 
   <label class="tab" class:invisible={!availableVisual.includes("draw")}>
@@ -315,6 +345,48 @@ nama`;
     </button>
   </div>
 </div>
+
+<dialog class="modal" bind:this={specimenDialog}>
+  <div class="modal-box">
+    <button
+      type="button"
+      class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+      aria-label="Tutup"
+      onclick={() => specimenDialog?.close()}
+    >
+      ✕
+    </button>
+    <h3 class="text-lg font-bold">Spesimen Tanda Tangan</h3>
+    <p class="py-2 text-xs opacity-60">
+      Satu baris = satu baris teks. Tulis nama field (jabatan, instansi, nama)
+      untuk diisi otomatis. Baris kosong jadi jarak.
+    </p>
+    <textarea
+      bind:value={
+        () => resolveSpecimen(form.specimen ?? defaultSpecimen),
+        (value) => (form.specimen = reverseSpecimen(value))
+      }
+      placeholder="Spesimen tanda tangan"
+      class="textarea textarea-sm w-full h-32"
+      disabled={disabled}
+    ></textarea>
+    <div class="modal-action">
+      <button
+        type="button"
+        class="btn btn-sm btn-primary"
+        onclick={() => specimenDialog?.close()}
+      >
+        Selesai
+      </button>
+    </div>
+  </div>
+  <button
+    type="button"
+    class="modal-backdrop"
+    aria-label="Tutup"
+    onclick={() => specimenDialog?.close()}
+  ></button>
+</dialog>
 
 <svelte:window
   onmousemove={draw}
