@@ -87,7 +87,7 @@
 </svelte:head>
 
 <div
-  class="docx-editor-page h-[calc(100dvh-4rem)] flex flex-col overflow-hidden"
+  class="docx-editor-page h-[calc(100dvh-3rem)] flex flex-col overflow-hidden"
   bind:this={rootEl}
 >
   <!-- ============ TOPBAR ============ -->

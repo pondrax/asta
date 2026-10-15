@@ -119,6 +119,45 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
     page: "Sign V2",
     entries: [
       {
+        id: "rombak-halaman-tanda-tangan-2026-10-15",
+        date: "2026-10-15",
+        title: "Rombak tata letak halaman tanda tangan",
+        changes: [
+          {
+            kind: "added",
+            text: "panel Dokumen dipindah ke kiri dan panel Halaman ke kanan",
+          },
+          {
+            kind: "added",
+            text: "mode TTE/Manual dan email penandatangan digabung dalam satu grup",
+          },
+          {
+            kind: "added",
+            text: "menu visualisasi dipisah menjadi tombol Gambar, QR, Kotak, dan Tanda Tangan",
+          },
+          {
+            kind: "added",
+            text: "status tanda tangan dokumen tampil di toolbar beserta rincian dan tombol Verifikasi",
+          },
+          {
+            kind: "added",
+            text: "bilah dokumen (judul, zoom, halaman, unduh, tutup) mengapung di atas kanvas",
+          },
+          {
+            kind: "fixed",
+            text: "penandatanganan kini tetap bisa dilakukan tanpa mengisi nama",
+          },
+          {
+            kind: "fixed",
+            text: "satu visualisasi ditandatangani oleh BSrE, lebih dari satu langsung dibakar ke PDF",
+          },
+          {
+            kind: "fixed",
+            text: "tampilan toolbar dan panel disesuaikan untuk layar kecil",
+          },
+        ],
+      },
+      {
         id: "rebuild-signing-page-with-editor-style-chrome01201-2026-10-15",
         date: "2026-10-15",
         title: "Rebuild signing page with editor-style chrome\\012\\012Add a new /sign-v2 route that mirrors the editor chrome: File/Edit/\\012Template/Metadata menubar (hover + click), stepper zoom and page\\012controls, page-thumbnail rail, docs/metadata side pane and a Footer\\012scope dropdown (current page vs all pages).\\012\\012Supporting changes:\\012- pdf: drawFooter gains a page option; add drawPlacements/drawImages\\012- sign.remote: pass owner through when signing on behalf\\012- signer profiles (spesimen) table, remote and migration\\012- preview: bindable controller/state handle + renderThumbnail\\012- dragresize: selection + optional resize corners",

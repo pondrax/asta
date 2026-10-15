@@ -43,7 +43,7 @@
   }
 </script>
 
-<div bind:this={container} class="lottie-svg"></div>
+  <div bind:this={container} class="lottie-svg"></div>
 
 <style>
   .lottie-svg {

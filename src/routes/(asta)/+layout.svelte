@@ -3,6 +3,8 @@
   import { page } from "$app/state";
   import { env } from "$env/dynamic/public";
   import { app } from "$lib/app/index.svelte";
+  import { workspace } from "$lib/app/sign-workspace.svelte";
+  import WorkspaceMenuBar from "$lib/components/workspace-menubar.svelte";
   import Lottie from "$lib/components/lottie.svelte";
   import Chatbot from "$lib/components/chatbot.svelte";
   import Changelog from "$lib/components/changelog.svelte";
@@ -50,6 +52,12 @@
 
   const isManageActive = $derived(page.url.pathname.startsWith("/main"));
 
+  // The signing workspace keeps its own editor menubar, so its site navigation
+  // is collapsed into a single full-width "Menu" mega dropdown in the navbar.
+  const isWorkspace = $derived(
+    page.url.pathname === "/sign-v2" || page.url.pathname.startsWith("/sign-v2/"),
+  );
+
   // Per-scope document counts for nav badges
   const status = $derived(user ? getStatus({}) : undefined);
   const statusCounts = $derived(
@@ -91,12 +99,21 @@
        viewport down, so the navbar's right-hand controls would end up beneath
        it. Shrinking the navbar by the panel's width keeps them reachable; the
        rule lives in app.css and only applies while the panel is docked. -->
-  <div class="relative z-10 chat-navbar">
-    <div class="navbar bg-base-100 lg:px-5 py-0 shrink-0 h-16">
-      <div class="navbar-start">
+  <div class="relative chat-navbar {isWorkspace ? 'z-[110]' : 'z-10'}">
+    <div
+      class="navbar bg-base-100 lg:px-5 py-0 shrink-0 h-12"
+      style="min-height: 0; padding-block: 0"
+    >
+      <div class="navbar-start gap-2">
         <div class="dropdown">
-          <div tabindex="0" role="button" class="btn btn-ghost lg:hidden">
-            <iconify-icon icon="bx:menu-alt-left" class="text-2xl"
+          <div
+            tabindex="0"
+            role="button"
+            class={isWorkspace
+              ? "btn btn-ghost btn-sm btn-circle"
+              : "btn btn-ghost btn-sm btn-circle lg:hidden"}
+          >
+            <iconify-icon icon="bx:menu-alt-left" class="text-xl"
             ></iconify-icon>
           </div>
           <!-- `min-w-72` because the longest labels here — "Riwayat Tanda
@@ -305,12 +322,18 @@
             {/if}
           </ul>
         </div>
-        <a class="btn btn-ghost text-xl px-0 h-15" href="/" aria-label="Logo">
+        <a class="text-xl px-0 h-12 -my-2" href="/" aria-label="Logo">
           <Lottie url="/asta-themed.json" loop autoplay />
         </a>
+        {#if isWorkspace}
+          <div class="hidden lg:flex">
+            <WorkspaceMenuBar />
+          </div>
+        {/if}
       </div>
 
       <div class="navbar-center hidden lg:flex">
+        {#if !isWorkspace}
         <ul class="menu menu-horizontal px-1 gap-1">
           <li
             onmouseenter={() => showMenu("beranda")}
@@ -403,16 +426,17 @@
             </li>
           {/if}
         </ul>
+        {/if}
       </div>
 
-      <div class="navbar-end gap-5">
-        {#if ["/sign", "/verify", "/me", "/main"].includes(page.url.pathname)}
+      <div class="navbar-end gap-1">
+        {#if ["/sign", "/sign-v2", "/verify", "/me", "/main"].includes(page.url.pathname)}
           <button
-            class="btn btn-ghost btn-sm gap-1 relative animate-pulse"
+            class="btn btn-ghost btn-sm rounded-full gap-1 relative animate-pulse"
             onclick={() => (app.showTour = true)}
           >
             <iconify-icon icon="bx:help-circle" class="text-xl"></iconify-icon>
-            <span class="hidden md:inline">Panduan</span>
+            <!-- <span class="hidden md:inline">Panduan</span> -->
           </button>
         {/if}
         <button
@@ -427,7 +451,7 @@
             ></span>
           {/if}
         </button>
-        <label class="swap swap-rotate">
+        <label class="swap swap-rotate rounded-full px-2 py-1.5 hover:bg-base-200">
           <input
             type="checkbox"
             onchange={(e) => {
@@ -436,21 +460,21 @@
             }}
             checked={app.theme === "dark"}
           />
-          <iconify-icon icon="bx:sun" class="swap-off fill-current w-10"
+          <iconify-icon icon="bx:sun" class="swap-off fill-current text-xl"
           ></iconify-icon>
-          <iconify-icon icon="bx:moon" class="swap-on fill-current w-10"
+          <iconify-icon icon="bx:moon" class="swap-on fill-current text-xl"
           ></iconify-icon>
         </label>
         {#if user}
           <div class="dropdown dropdown-end">
-            <div tabindex="0" role="button" class="btn btn-ghost">
+            <div tabindex="0" role="button" class="btn btn-ghost btn-sm rounded-full">
               <div class="indicator">
                 {#if data.impersonated}
                   <span class="indicator-item badge badge-warning badge-xs mt-1"
                     >impersonate</span
                   >
                 {/if}
-                <div class="avatar rounded-full bg-secondary w-12 -ml-6">
+                <div class="avatar rounded-full bg-secondary w-8 -ml-3">
                   <img src="/ava.svg" alt={user.email} />
                 </div>
               </div>
@@ -524,7 +548,7 @@
             </ul>
           </div>
         {:else}
-          <a href="/auth/openid" class="btn btn-primary btn-soft">Masuk</a>
+          <a href="/auth/openid" class="btn btn-primary btn-soft btn-sm rounded-full">Masuk</a>
         {/if}
       </div>
     </div>

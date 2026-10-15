@@ -1,6 +1,8 @@
 <script lang="ts">
   import { env } from "$env/dynamic/public";
   import { app } from "$lib/app/index.svelte";
+  import { workspace } from "$lib/app/sign-workspace.svelte";
+  import WorkspaceMenuBar from "$lib/components/workspace-menubar.svelte";
   import {
     type PlacementType,
     type SignaturePlacement,
@@ -13,12 +15,14 @@
   import { submitSurvey } from "$lib/remotes/survey.remote";
   import Documents from "./documents.svelte";
   import Metadata from "./metadata.svelte";
+  import SignerEmail from "./signer-email.svelte";
   import Preview, {
     type PreviewController,
     type PreviewState,
   } from "$lib/components/preview.svelte";
   import Upload from "./upload.svelte";
   import Visualizer from "./visualizer.svelte";
+  import Signature from "./signature.svelte";
   import Template from "../templates/template.svelte";
   import Toolbar, { type SignTool } from "./toolbar.svelte";
   import PageNav from "./page-nav.svelte";
@@ -58,12 +62,15 @@
   let asDraft = $state(false);
   let isDraft = $state(false);
   let status = $state("NOT_REGISTERED");
+  let emailLoading = $state(false);
+  let emailOpen = $state(false);
   let bsre = $state(true);
   let form: Record<string, any> = $state({});
   // svelte-ignore state_referenced_locally
   let useEmail = $state(true);
   let fields: Record<string, any> = $state({});
   let hasSignature = $state(true);
+  let signatureInfos = $state<pdfLib.SignatureInfo[]>([]);
   let isEncrypted = $state(false);
   let previewFile: File | null = $state(null);
   let startTime = $state(0);
@@ -71,16 +78,50 @@
   let elapsedTime = $state(0);
   let turnstileId = $state("");
 
-  let activeTab = $state("metadata");
+  let activeTab = $state("documents");
 
   /** Where the signing footer (QR + note) is drawn: only the active page or all. */
   let footerScope = $state<"all" | "current">("all");
 
+  /** Three-state footer control for the toolbar: none | this page | all pages. */
+  const footerMode = $derived<"none" | "current" | "all">(
+    form.footer ? footerScope : "none",
+  );
+
   // ── editor-style chrome state ────────────────────────────────────
-  let docName = $state("Tanpa Judul");
-  let navOpen = $state(true);
+  // Document name lives in the shared workspace store so the global navbar
+  // can render the filename input alongside the menubar.
+  let navOpen = $state(false);
   let pageNavOpen = $state(false);
-  let openMenuId = $state<string | null>(null);
+
+  /** Zoom control floating at the bottom-right of the document. */
+  let zoomMenuOpen = $state(false);
+  const ZOOM_PRESETS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+
+  /** Visualisation picker dialog (reuses `Signature`). */
+  let visualDialog: HTMLDialogElement | undefined = $state();
+  let visualTab = $state<"image" | "qr" | "box" | "draw">("box");
+
+  /** Page-number draft for the centred document bar's pagination. */
+  let pageDraft = $state<string | number>("");
+
+  $effect(() => {
+    pageDraft = previewState.page;
+  });
+
+  function commitPage() {
+    const value = Number(pageDraft);
+    if (
+      Number.isFinite(value) &&
+      pageDraft !== "" &&
+      value >= 1 &&
+      value <= previewState.pageCount
+    ) {
+      previewCtl?.goToPage(value);
+    } else {
+      pageDraft = previewState.page;
+    }
+  }
 
   /** Which armed placement tool is active (click-to-place on the preview). */
   let activeTool = $state<SignTool>("select");
@@ -294,8 +335,9 @@
 
   let placements: PlacementType[] = $state([]);
 
-  /** Open the "add signature" dialog living inside the Metadata panel. */
-  let openVisual: (() => void) | undefined = $state(undefined);
+  /** Per-signer visualisation sets, keyed by the signer identity. */
+  let placementsByEmail = $state<Record<string, PlacementType[]>>({});
+  let signerKey = $state("");
 
   function snapshot() {
     undoStack.push(JSON.stringify(placements));
@@ -327,7 +369,7 @@
     const idx = placements.findIndex((p) => p.id === sign.id);
     if (idx > -1) {
       placements[idx] = sign;
-    } else if (bsre && (sign.kind ?? "signature") === "signature") {
+    } else if (bsre && hasSignature && (sign.kind ?? "signature") === "signature") {
       // BSrE allows a single signature; other field types are kept.
       placements = [
         ...placements.filter((p) => (p.kind ?? "signature") !== "signature"),
@@ -460,17 +502,184 @@
   }
 
   const hasDocuments = $derived(Object.keys(documents).length > 0);
-  // Signing only requires an identity, a note and a location for BSrE; manual
-  // signing just needs at least one signature visualisation.
+  // Signing only requires an identity and a valid TTE signer; note/location are
+  // optional (they default server-side). Manual signing just needs at least one
+  // signature visualisation. The Metadata panel is hidden for now.
   const hasMetadata = $derived(
     String(form.email).length > 0 &&
       (bsre
-        ? status === "ISSUE" &&
-          String(form.note).length > 0 &&
-          String(form.location).length > 0
+        ? status === "ISSUE"
         : placements.some((p) => (p.kind ?? "signature") === "signature")),
   );
   const allowSigning = $derived(hasDocuments && hasMetadata && !isEncrypted);
+
+  /**
+   * Which visualisation tools are available: everything for a valid TTE signer,
+   * only the drawn signature in Manual mode, nothing otherwise.
+   */
+  const visualMode = $derived<"all" | "draw" | "none">(
+    !hasDocuments ? "none" : !bsre ? "draw" : status === "ISSUE" ? "all" : "none",
+  );
+
+  // Mirror the page's menu actions into the shared workspace store so the
+  // global navbar can render the editor menubar on the same row.
+  $effect(() => {
+    const undoOk = canUndo;
+    const redoOk = canRedo;
+    const hasDocs = hasDocuments;
+    const hasSel = !!selectedId;
+    workspace.menus = [
+      {
+        id: "file",
+        label: "File",
+        items: [
+          {
+            icon: "bx:upload",
+            label: "Unggah PDF/DOCX…",
+            action: () => fileInput?.click(),
+          },
+          {
+            icon: "bx:file",
+            label: "Daftar Dokumen",
+            action: () => {
+              activeTab = "documents";
+              navOpen = true;
+            },
+          },
+          "sep",
+          {
+            icon: "bx:plus",
+            label: "Buat Dokumen",
+            href: "/editor",
+            badge: "Baru",
+          },
+          "sep",
+          {
+            icon: "bx:download",
+            label: "Unduh Dokumen",
+            disabled: !hasDocs,
+            action: () => downloadActive(),
+          },
+          {
+            icon: "bx:x",
+            label: "Tutup Dokumen",
+            disabled: !hasDocs,
+            action: () => closeDocument(),
+          },
+        ],
+      },
+      {
+        id: "edit",
+        label: "Edit",
+        items: [
+          {
+            icon: "bx:undo",
+            label: "Undo",
+            shortcut: "—",
+            disabled: !undoOk,
+            action: () => undo(),
+          },
+          {
+            icon: "bx:redo",
+            label: "Redo",
+            disabled: !redoOk,
+            action: () => redo(),
+          },
+          "sep",
+          {
+            icon: "bx:trash",
+            label: "Hapus Item Terpilih",
+            disabled: !hasSel,
+            action: () => {
+              if (selectedId) removePlacement(selectedId);
+            },
+          },
+          {
+            icon: "bx:eraser",
+            label: "Hapus Semua Item",
+            action: () => {
+              snapshot();
+              placements = [];
+              selectedId = null;
+            },
+          },
+          "sep",
+          {
+            icon: "bx:pointer",
+            label: "Pilih / Geser",
+            action: () => {
+              activeTool = "select";
+            },
+          },
+        ],
+      },
+      {
+        id: "template",
+        label: "Template",
+        items: [
+          {
+            icon: "bx:book",
+            label: "Template PDF",
+            action: () => {
+              forms.template = "open";
+            },
+          },
+          { icon: "bx:folder", label: "Kelola Template", href: "/templates" },
+        ],
+      },
+      {
+        id: "metadata",
+        label: "Metadata",
+        items: [
+          {
+            icon: "bx:list-ul",
+            label: "Buka Panel Metadata",
+            action: () => {
+              activeTab = "metadata";
+              navOpen = true;
+            },
+          },
+          {
+            icon: "bx:file",
+            label: "Daftar Dokumen",
+            action: () => {
+              activeTab = "documents";
+              navOpen = true;
+            },
+          },
+        ],
+      },
+    ];
+  });
+
+  $effect(() => {
+    workspace.active = true;
+    workspace.toggleRight = () => (navOpen = !navOpen);
+    workspace.sign = openSign;
+    return () => {
+      workspace.active = false;
+    };
+  });
+
+  // Keep the navbar right-pane toggle in step with the panel.
+  $effect(() => {
+    workspace.right = navOpen;
+  });
+
+  // Keep the navbar sign button in step with the form.
+  $effect(() => {
+    workspace.canSign = allowSigning && forms.sign == undefined;
+    workspace.signing = loading;
+  });
+
+  // Persist the panel layout so it is preserved across visits.
+  $effect(() => {
+    if (typeof localStorage === "undefined") return;
+    localStorage.setItem(
+      "sign-panes",
+      JSON.stringify({ left: pageNavOpen, right: navOpen }),
+    );
+  });
 
   async function getDocumentDetails(file: File) {
     const buffer = await file.arrayBuffer();
@@ -479,6 +688,7 @@
 
     fields = await pdfLib.getAllFormFields(buffer);
     hasSignature = await pdfLib.hasSignature(buffer);
+    signatureInfos = await pdfLib.getSignatures(buffer);
 
     await pdfLib.fillFormFields(buffer, form);
   }
@@ -533,6 +743,15 @@
     init();
   });
   onMount(async () => {
+    // Restore the last panel layout (defaults to no panel open).
+    try {
+      const saved = JSON.parse(localStorage.getItem("sign-panes") || "{}");
+      if (typeof saved.left === "boolean") pageNavOpen = saved.left;
+      if (typeof saved.right === "boolean") navOpen = saved.right;
+    } catch {
+      /* ignore malformed storage */
+    }
+
     let owner = page.url.searchParams.get("owner") || "";
     if (owner) {
       try {
@@ -630,7 +849,7 @@
               normalizePlacement,
             );
             documents[key] = file;
-            docName = (doc.title || file.name).replace(/\.pdf$/i, "");
+            workspace.docName = (doc.title || file.name).replace(/\.pdf$/i, "");
 
             if (isFirst) {
               activeIndex = key;
@@ -660,7 +879,7 @@
       item.name.replace(/\.pdf$/i, "") + ".pdf",
     );
     documents = { [docId]: file };
-    docName = String(item.name || "Template").replace(/\.pdf$/i, "");
+    workspace.docName = String(item.name || "Template").replace(/\.pdf$/i, "");
 
     bsre = item.sign_type == "bsre";
     form.note = item.description || "Tanda Tangan Elektronik";
@@ -691,7 +910,7 @@
       documents = Object.fromEntries(files.map((file) => [createId(10), file]));
       activeIndex = Object.keys(documents)[0];
       const first = files[0];
-      if (first) docName = first.name.replace(/\.pdf$/i, "");
+      if (first) workspace.docName = first.name.replace(/\.pdf$/i, "");
       files = [];
       saveDocument = form.save_document ?? !!data.user;
     }
@@ -741,16 +960,35 @@
     URL.revokeObjectURL(url);
   }
 
-  function requestAddSignature() {
-    // The dialog lives inside the Metadata panel; make sure it is mounted.
-    activeTab = "metadata";
-    navOpen = true;
-    setTimeout(() => openVisual?.(), 0);
+  function openVisualDialog(tab: "image" | "qr" | "box" | "draw") {
+    visualTab = tab;
+    if (!visualDialog?.open) visualDialog?.showModal();
   }
 
-  /** Change where the QR/note footer is drawn and refresh the preview. */
-  function applyFooterScope(scope: "all" | "current") {
-    footerScope = scope;
+  function requestAddSignature() {
+    openVisualDialog(bsre ? "box" : "draw");
+  }
+
+  async function verifyActive() {
+    const file = documents[activeIndex];
+    if (!file) return;
+    try {
+      const blobId = await stashSignFile(file);
+      goto(`/verify?blob=${blobId}&fileName=${encodeURIComponent(file.name)}`);
+    } catch (err) {
+      console.error("[verify] handoff failed", err);
+      app.showToast("error", "Gagal membuka dokumen untuk verifikasi.");
+    }
+  }
+
+  /** Apply the footer to nothing, the active page only, or every page. */
+  function applyFooterScope(mode: "none" | "current" | "all") {
+    if (mode === "none") {
+      form.footer = false;
+    } else {
+      form.footer = true;
+      footerScope = mode;
+    }
     if (documents[activeIndex]) debounceFillFormFields();
   }
 
@@ -785,8 +1023,23 @@
     if (!documents[activeIndex]) return;
     getDocumentDetails(documents[activeIndex]);
     const file = documents[activeIndex];
-    if (file && !asTemplate) docName = file.name.replace(/\.pdf$/i, "");
+    if (file && !asTemplate)
+      workspace.docName = file.name.replace(/\.pdf$/i, "");
     debounceFillFormFields();
+  });
+
+  $effect(() => {
+    // Swap the visualisation set when the signer identity changes.
+    const key = String((useEmail ? form.email : form.nik) ?? "");
+    if (key === signerKey) return;
+    if (signerKey) {
+      placementsByEmail[signerKey] = $state.snapshot(
+        placements,
+      ) as PlacementType[];
+    }
+    const stored = placementsByEmail[key];
+    placements = stored ? ($state.snapshot(stored) as PlacementType[]) : [];
+    signerKey = key;
   });
 
   $effect(() => {
@@ -796,12 +1049,22 @@
   $effect(() => {
     if (!bsre) form.footer = true;
   });
+
+  $effect(() => {
+    // Redraw when the footer is toggled or its scope changes.
+    form.footer;
+    footerScope;
+    if (documents[activeIndex]) debounceFillFormFields();
+  });
 </script>
 
 <svelte:window
-  onclick={() => (openMenuId = null)}
+  onclick={() => (zoomMenuOpen = false)}
   onkeydown={(e) => {
-    if (e.key === "Escape" && armed) activeTool = "select";
+    if (e.key === "Escape") {
+      zoomMenuOpen = false;
+      if (armed) activeTool = "select";
+    }
     if (
       (e.key === "Delete" || e.key === "Backspace") &&
       selectedId &&
@@ -814,211 +1077,71 @@
 />
 
 <div
-  class="sign-page h-[calc(100dvh-4rem)] flex flex-col overflow-hidden"
+  class="sign-page h-[calc(100dvh-3rem)] flex flex-col overflow-hidden"
 >
   <!-- ============ TOPBAR ============ -->
   <div class="topbar">
-    <div class="header-row">
-      <a class="header-logo" href="/sign-v2" title="Tapak Astà — Tanda Tangan">
-        <iconify-icon icon="bx:file" width="20" height="20"></iconify-icon>
-      </a>
-      <div class="header-center">
-        <input
-          class="filename-input"
-          type="text"
-          placeholder="Tanpa Judul"
-          aria-label="Nama dokumen"
-          spellcheck="false"
-          bind:value={docName}
-        />
-        <div class="menu-bar">
-          <!-- File -->
-          <div
-            class="menubar-item"
-            class:open={openMenuId === "file"}
-            onmouseenter={() => (openMenuId = "file")}
-            onmouseleave={() => (openMenuId = null)}
-          >
-            <button
-              type="button"
-              class="menu-button"
-              aria-haspopup="true"
-              aria-expanded={openMenuId === "file"}
-              onclick={(e) => {
-                e.stopPropagation();
-                openMenuId = openMenuId === "file" ? null : "file";
-              }}
-            >
-              File
-            </button>
-            <div class="menu-popup" role="menu" tabindex="-1">
-              <button class="menu-item" role="menuitem" onclick={() => { openMenuId = null; fileInput?.click(); }}>
-                <span class="menu-item-icon"><iconify-icon icon="bx:upload" width="18" height="18"></iconify-icon></span>
-                Unggah PDF/DOCX…
-              </button>
-              <button class="menu-item" role="menuitem" onclick={() => { openMenuId = null; activeTab = "documents"; navOpen = true; }}>
-                <span class="menu-item-icon"><iconify-icon icon="bx:file" width="18" height="18"></iconify-icon></span>
-                Daftar Dokumen
-              </button>
-              <div class="menu-separator"></div>
-              <a class="menu-item" role="menuitem" href="/editor">
-                <span class="menu-item-icon"><iconify-icon icon="bx:plus" width="18" height="18"></iconify-icon></span>
-                Buat Dokumen
-                <span class="menu-shortcut">Baru</span>
-              </a>
-              <div class="menu-separator"></div>
-              <button class="menu-item" role="menuitem" disabled={!hasDocuments} onclick={() => { openMenuId = null; downloadActive(); }}>
-                <span class="menu-item-icon"><iconify-icon icon="bx:download" width="18" height="18"></iconify-icon></span>
-                Unduh Dokumen
-              </button>
-              <button class="menu-item" role="menuitem" disabled={!hasDocuments} onclick={() => { openMenuId = null; closeDocument(); }}>
-                <span class="menu-item-icon"><iconify-icon icon="bx:x" width="18" height="18"></iconify-icon></span>
-                Tutup Dokumen
-              </button>
-            </div>
-          </div>
+    <!-- On small screens the navbar can't host the menubar, so keep it here. -->
+    <div class="lg:hidden px-2 pt-1">
+      <WorkspaceMenuBar />
+    </div>
 
-          <!-- Edit -->
-          <div
-            class="menubar-item"
-            class:open={openMenuId === "edit"}
-            onmouseenter={() => (openMenuId = "edit")}
-            onmouseleave={() => (openMenuId = null)}
-          >
-            <button
-              type="button"
-              class="menu-button"
-              aria-haspopup="true"
-              aria-expanded={openMenuId === "edit"}
-              onclick={(e) => {
-                e.stopPropagation();
-                openMenuId = openMenuId === "edit" ? null : "edit";
-              }}
-            >
-              Edit
-            </button>
-            <div class="menu-popup" role="menu" tabindex="-1">
-              <button class="menu-item" role="menuitem" disabled={!canUndo} onclick={() => { openMenuId = null; undo(); }}>
-                <span class="menu-item-icon"><iconify-icon icon="bx:undo" width="18" height="18"></iconify-icon></span>
-                Undo
-                <span class="menu-shortcut">—</span>
-              </button>
-              <button class="menu-item" role="menuitem" disabled={!canRedo} onclick={() => { openMenuId = null; redo(); }}>
-                <span class="menu-item-icon"><iconify-icon icon="bx:redo" width="18" height="18"></iconify-icon></span>
-                Redo
-              </button>
-              <div class="menu-separator"></div>
-              <button class="menu-item" role="menuitem" disabled={!selectedId} onclick={() => { openMenuId = null; if (selectedId) removePlacement(selectedId); }}>
-                <span class="menu-item-icon"><iconify-icon icon="bx:trash" width="18" height="18"></iconify-icon></span>
-                Hapus Item Terpilih
-              </button>
-              <button class="menu-item" role="menuitem" onclick={() => { openMenuId = null; snapshot(); placements = []; selectedId = null; }}>
-                <span class="menu-item-icon"><iconify-icon icon="bx:eraser" width="18" height="18"></iconify-icon></span>
-                Hapus Semua Item
-              </button>
-              <div class="menu-separator"></div>
-              <button class="menu-item" role="menuitem" onclick={() => { openMenuId = null; activeTool = "select"; }}>
-                <span class="menu-item-icon"><iconify-icon icon="bx:pointer" width="18" height="18"></iconify-icon></span>
-                Pilih / Geser
-              </button>
-            </div>
-          </div>
-
-          <!-- Template -->
-          <div
-            class="menubar-item"
-            class:open={openMenuId === "template"}
-            onmouseenter={() => (openMenuId = "template")}
-            onmouseleave={() => (openMenuId = null)}
-          >
-            <button
-              type="button"
-              class="menu-button"
-              aria-haspopup="true"
-              aria-expanded={openMenuId === "template"}
-              onclick={(e) => {
-                e.stopPropagation();
-                openMenuId = openMenuId === "template" ? null : "template";
-              }}
-            >
-              Template
-            </button>
-            <div class="menu-popup" role="menu" tabindex="-1">
-              <button class="menu-item" role="menuitem" onclick={() => { openMenuId = null; forms.template = "open"; }}>
-                <span class="menu-item-icon"><iconify-icon icon="bx:book" width="18" height="18"></iconify-icon></span>
-                Template PDF
-              </button>
-              <a class="menu-item" role="menuitem" href="/templates">
-                <span class="menu-item-icon"><iconify-icon icon="bx:folder" width="18" height="18"></iconify-icon></span>
-                Kelola Template
-              </a>
-            </div>
-          </div>
-
-          <!-- Metadata -->
-          <div
-            class="menubar-item"
-            class:open={openMenuId === "metadata"}
-            onmouseenter={() => (openMenuId = "metadata")}
-            onmouseleave={() => (openMenuId = null)}
-          >
-            <button
-              type="button"
-              class="menu-button"
-              aria-haspopup="true"
-              aria-expanded={openMenuId === "metadata"}
-              onclick={(e) => {
-                e.stopPropagation();
-                openMenuId = openMenuId === "metadata" ? null : "metadata";
-              }}
-            >
-              Metadata
-            </button>
-            <div class="menu-popup" role="menu" tabindex="-1">
-              <button class="menu-item" role="menuitem" onclick={() => { openMenuId = null; activeTab = "metadata"; navOpen = true; }}>
-                <span class="menu-item-icon"><iconify-icon icon="bx:list-ul" width="18" height="18"></iconify-icon></span>
-                Buka Panel Metadata
-              </button>
-              <button class="menu-item" role="menuitem" onclick={() => { openMenuId = null; activeTab = "documents"; navOpen = true; }}>
-                <span class="menu-item-icon"><iconify-icon icon="bx:file" width="18" height="18"></iconify-icon></span>
-                Daftar Dokumen
-              </button>
-            </div>
-          </div>
+    {#snippet signerEmail()}
+      <div class="join items-center!" role="group" aria-label="Mode tanda tangan">
+        <label
+          class="btn btn-sm btn-ghost join-item gap-1"
+          title="Centang untuk TTE, kosongkan untuk Manual"
+        >
+          <input
+            type="checkbox"
+            class="checkbox checkbox-sm"
+            checked={bsre}
+            onchange={(e) =>
+              (bsre = (e.currentTarget as HTMLInputElement).checked)}
+          />
+          TTE
+        </label>
+        <button
+          type="button"
+          class="btn btn-sm btn-ghost btn-square join-item lg:hidden!"
+          title="Tampilkan email penandatangan"
+          aria-label="Tampilkan email penandatangan"
+          aria-pressed={emailOpen}
+          onclick={() => (emailOpen = !emailOpen)}
+        >
+          <iconify-icon icon="bx:envelope"></iconify-icon>
+        </button>
+        <div class="signer-pop join-item border-0!" class:open={emailOpen}>
+          <SignerEmail
+            bind:form
+            bind:status
+            bind:loading={emailLoading}
+            bind:useEmail
+            placement="bottom"
+            verify={bsre}
+          />
         </div>
       </div>
-      <div class="header-actions">
-        <button
-          type="button"
-          class="btn btn-sm btn-ghost btn-square"
-          class:btn-active={pageNavOpen}
-          title="Panel navigasi halaman"
-          aria-label="Panel navigasi halaman"
-          aria-pressed={pageNavOpen}
-          onclick={() => (pageNavOpen = !pageNavOpen)}
-        >
-          <iconify-icon icon="bx:sidebar"></iconify-icon>
-        </button>
-        <button
-          type="button"
-          class="btn btn-sm btn-ghost btn-square"
-          class:btn-active={navOpen}
-          title="Panel dokumen & metadata"
-          aria-label="Panel dokumen & metadata"
-          aria-pressed={navOpen}
-          onclick={() => (navOpen = !navOpen)}
-        >
-          <iconify-icon icon="bx:dock-right"></iconify-icon>
-        </button>
-      </div>
-    </div>
+    {/snippet}
 
     <Toolbar
       {activeTool}
       onTool={(t) => (activeTool = t)}
       onAddSignature={requestAddSignature}
-      {footerScope}
+      onAddVisual={openVisualDialog}
+      {visualMode}
+      {hasDocuments}
+      {hasSignature}
+      {signatureInfos}
+      onVerify={verifyActive}
+      pageNavOpen={pageNavOpen}
+      rightPaneOpen={navOpen}
+      onTogglePageNav={() => (pageNavOpen = !pageNavOpen)}
+      onToggleRight={() => (navOpen = !navOpen)}
+      onUpload={() => fileInput?.click()}
+      footerMode={footerMode}
       onFooterScope={applyFooterScope}
+      {signerEmail}
       onUndo={undo}
       onRedo={redo}
       {canUndo}
@@ -1030,19 +1153,7 @@
         placements = [];
         selectedId = null;
       }}
-      zoom={previewState.zoom}
-      page={previewState.page}
-      pageCount={previewState.pageCount}
-      onZoomIn={() => previewCtl?.zoomIn()}
-      onZoomOut={() => previewCtl?.zoomOut()}
-      onZoomSet={(z) => previewCtl?.setZoom(z)}
-      onPagePrev={() => previewCtl?.changePage(-1)}
-      onPageNext={() => previewCtl?.changePage(1)}
-      onPageSet={(p) => previewCtl?.goToPage(p)}
       onDownload={downloadActive}
-      onSign={openSign}
-      canSign={allowSigning && forms.sign == undefined}
-      signing={loading}
     />
   </div>
 
@@ -1051,6 +1162,176 @@
     <PageNav controller={previewCtl} preview={previewState} open={pageNavOpen} />
 
     <main class="center-pane">
+      <button
+        type="button"
+        class="pane-toggle pane-toggle--left"
+        class:active={navOpen}
+        title="Panel dokumen & metadata"
+        aria-label="Panel dokumen & metadata"
+        aria-pressed={navOpen}
+        onclick={() => (navOpen = !navOpen)}
+      >
+        <iconify-icon icon="bx:sidebar"></iconify-icon>
+      </button>
+      <button
+        type="button"
+        class="pane-toggle pane-toggle--right"
+        class:active={pageNavOpen}
+        title="Panel navigasi halaman"
+        aria-label="Panel navigasi halaman"
+        aria-pressed={pageNavOpen}
+        onclick={() => (pageNavOpen = !pageNavOpen)}
+      >
+        <iconify-icon icon="bx:dock-right"></iconify-icon>
+      </button>
+
+      {#if hasDocuments}
+      <div class="doc-bar">
+        <input
+          class="doc-bar__title"
+          type="text"
+          placeholder="Tanpa Judul"
+          aria-label="Nama dokumen"
+          spellcheck="false"
+          bind:value={workspace.docName}
+        />
+        <span class="doc-bar__sep hidden lg:block" aria-hidden="true"></span>
+        <div class="stepper">
+          <button
+            type="button"
+            class="stepper__button"
+            title="Perkecil"
+            aria-label="Perkecil"
+            disabled={previewState.zoom <= 0.25}
+            onclick={() => previewCtl?.zoomOut()}>−</button
+          >
+          <button
+            type="button"
+            class="stepper__value"
+            title="Zoom"
+            aria-label="Zoom"
+            aria-haspopup="menu"
+            aria-expanded={zoomMenuOpen}
+            onclick={(e) => {
+              e.stopPropagation();
+              zoomMenuOpen = !zoomMenuOpen;
+            }}
+          >
+            {Math.round(previewState.zoom * 100)}%
+            <span class="stepper__caret" aria-hidden="true">▾</span>
+          </button>
+          <button
+            type="button"
+            class="stepper__button"
+            title="Perbesar"
+            aria-label="Perbesar"
+            disabled={previewState.zoom >= 4}
+            onclick={() => previewCtl?.zoomIn()}>+</button
+          >
+
+          {#if zoomMenuOpen}
+            <ul class="stepper-menu" role="menu">
+              <li>
+                <button
+                  type="button"
+                  class="stepper-menu__item"
+                  onclick={() => {
+                    previewCtl?.setZoom(1);
+                    zoomMenuOpen = false;
+                  }}
+                >
+                  Sesuai Jendela
+                  {#if Math.abs(previewState.zoom - 1) < 0.001}
+                    <span class="stepper-menu__check">✓</span>
+                  {/if}
+                </button>
+              </li>
+              {#each ZOOM_PRESETS as preset (preset)}
+                <li>
+                  <button
+                    type="button"
+                    class="stepper-menu__item"
+                    onclick={() => {
+                      previewCtl?.setZoom(preset);
+                      zoomMenuOpen = false;
+                    }}
+                  >
+                    {Math.round(preset * 100)}%
+                    {#if Math.abs(previewState.zoom - preset) < 0.001}
+                      <span class="stepper-menu__check">✓</span>
+                    {/if}
+                  </button>
+                </li>
+              {/each}
+            </ul>
+          {/if}
+        </div>
+        <span class="doc-bar__sep" aria-hidden="true"></span>
+        <div class="stepper">
+          <button
+            type="button"
+            class="stepper__button"
+            title="Halaman sebelumnya"
+            aria-label="Halaman sebelumnya"
+            disabled={previewState.page <= 1}
+            onclick={() => previewCtl?.changePage(-1)}
+          >
+            <iconify-icon icon="bx:chevron-left"></iconify-icon>
+          </button>
+          <span class="stepper__value">
+            <input
+              class="stepper__input"
+              type="text"
+              inputmode="numeric"
+              aria-label="Nomor halaman"
+              bind:value={pageDraft}
+              onkeydown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  commitPage();
+                  (e.currentTarget as HTMLInputElement).blur();
+                }
+              }}
+              onblur={commitPage}
+            />
+            <span class="stepper__caret">/ {previewState.pageCount}</span>
+          </span>
+          <button
+            type="button"
+            class="stepper__button"
+            title="Halaman berikutnya"
+            aria-label="Halaman berikutnya"
+            disabled={previewState.pageCount === 0 ||
+              previewState.page >= previewState.pageCount}
+            onclick={() => previewCtl?.changePage(1)}
+          >
+            <iconify-icon icon="bx:chevron-right"></iconify-icon>
+          </button>
+        </div>
+        <span class="doc-bar__sep" aria-hidden="true"></span>
+        <button
+          type="button"
+          class="doc-bar__btn"
+          title="Unduh dokumen"
+          aria-label="Unduh dokumen"
+          onclick={() => downloadActive()}
+        >
+          <iconify-icon icon="bx:download"></iconify-icon>
+          <span class="hidden lg:inline">Unduh</span>
+        </button>
+        <button
+          type="button"
+          class="doc-bar__btn"
+          title="Tutup dokumen"
+          aria-label="Tutup dokumen"
+          onclick={() => closeDocument()}
+        >
+          <iconify-icon icon="bx:x"></iconify-icon>
+          <span class="hidden lg:inline">Tutup</span>
+        </button>
+      </div>
+      {/if}
+
       {#if hasDocuments && isEncrypted}
         <div class="doc-alerts">
           <div class="alert alert-error py-1 px-4 flex-none">
@@ -1060,35 +1341,6 @@
               sandi dan tidak dapat ditandatangani. Hapus proteksi terlebih
               dahulu.
             </span>
-          </div>
-        </div>
-      {:else if hasDocuments && hasSignature}
-        <div class="doc-alerts">
-          <div class="alert alert-warning py-1 px-4 flex-none">
-            <iconify-icon icon="bx:error" class="text-xl"></iconify-icon>
-            <span>
-              <strong>Peringatan:</strong> Terdapat tanda tangan elektronik pada
-              dokumen ini.
-            </span>
-            <button
-              type="button"
-              class="btn btn-xs btn-primary"
-              onclick={async () => {
-                const file = documents[activeIndex];
-                if (!file) return;
-                try {
-                  const blobId = await stashSignFile(file);
-                  goto(
-                    `/verify?blob=${blobId}&fileName=${encodeURIComponent(file.name)}`,
-                  );
-                } catch (err) {
-                  console.error("[verify] handoff failed", err);
-                  app.showToast("error", "Gagal membuka dokumen untuk verifikasi.");
-                }
-              }}
-            >
-              Verifikasi
-            </button>
           </div>
         </div>
       {:else if hasDocuments && isDraft}
@@ -1219,6 +1471,36 @@
       </div>
     </main>
 
+    <dialog class="modal" bind:this={visualDialog}>
+      <div class="modal-box w-11/12 max-w-3xl">
+        <button
+          type="button"
+          class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+          aria-label="Tutup"
+          onclick={() => visualDialog?.close()}
+        >
+          ✕
+        </button>
+        <h3 class="text-lg font-bold">Tambah Visualisasi</h3>
+        <Signature
+          {form}
+          setSignature={(p) => {
+            setSignature(p);
+            visualDialog?.close();
+          }}
+          {hasSignature}
+          bind:visual={visualTab}
+          availableVisual={bsre ? ["image", "qr", "box", "draw"] : ["draw"]}
+        />
+      </div>
+      <button
+        type="button"
+        class="modal-backdrop"
+        aria-label="Tutup"
+        onclick={() => visualDialog?.close()}
+      ></button>
+    </dialog>
+
     <aside class="side-pane" class:side-pane--hidden={!navOpen}>
       <div class="tabs tabs-border tabs-sm m-2">
         <button
@@ -1230,16 +1512,6 @@
           <iconify-icon icon="bx:file"></iconify-icon>
           Dokumen
           <span class="badge badge-sm">{Object.keys(documents).length}</span>
-        </button>
-        <button
-          type="button"
-          class={activeTab === "metadata" ? "tab tab-active gap-1" : "tab gap-1"}
-          aria-pressed={activeTab === "metadata"}
-          onclick={() => (activeTab = "metadata")}
-        >
-          <iconify-icon icon="bx:detail"></iconify-icon>
-          Meta Data
-          <span class="badge badge-sm">{bsre ? "TTE" : "Manual"}</span>
         </button>
       </div>
 
@@ -1257,7 +1529,6 @@
             {hasSignature}
             bind:signatures={placements}
             {setSignature}
-            bind:openVisual
             onSign={openSign}
           >
             <Visualizer bind:signatures={placements} {selectedId} onSelect={(id) => (selectedId = id)} onDelete={removePlacement} />
@@ -1265,6 +1536,28 @@
         {/if}
       </div>
     </aside>
+  </div>
+
+  <div class="fab right-24">
+    <button
+      type="button"
+      id="tour-sign-button"
+      class="btn btn-secondary tooltip rounded-full font-normal {allowSigning &&
+      forms.sign == undefined
+        ? 'animate-bounce'
+        : 'bg-base-300'}"
+      aria-label="Tanda Tangan Dokumen"
+      data-tip="Tanda Tangan"
+      disabled={!(allowSigning && forms.sign == undefined)}
+      onclick={openSign}
+    >
+      {#if loading}
+        <span class="loading loading-spinner"></span>
+      {:else}
+        <iconify-icon icon="bx:pen" class="text-lg"></iconify-icon>
+      {/if}
+      Tanda Tangan
+    </button>
   </div>
 </div>
 
@@ -1341,13 +1634,18 @@
 
                 const fileSign = await fillFormFields(file, true, id, item.footer);
 
-                // Bake text/date/checkbox always; bake signatures only when
-                // signing manually (BSrE draws the signature itself).
-                const toDraw = bsre
-                  ? item.signatureProperties.filter(
+                // Signature visuals: with more than one (or in Manual mode) the
+                // visuals are burned into the PDF and BSrE applies an invisible
+                // signature; a single visual is left for BSrE to place.
+                const signatureProps = item.signatureProperties.filter(
+                  (p: any) => (p.kind ?? "signature") === "signature",
+                );
+                const burnSignatures = !bsre || signatureProps.length > 1;
+                const toDraw = burnSignatures
+                  ? item.signatureProperties
+                  : item.signatureProperties.filter(
                       (p: any) => (p.kind ?? "signature") !== "signature",
-                    )
-                  : item.signatureProperties;
+                    );
 
                 let fileBase64 = await fileToBase64(fileSign);
                 if (toDraw.length > 0) {
@@ -1370,11 +1668,12 @@
                     ".pdf"
                   : file.name.replace(/\.pdf$/i, "") + ".pdf";
 
-                // BSrE only consumes the first signature — send signatures first.
+                // When the signature is burned into the PDF, the remote request
+                // carries no signature properties so BSrE signs invisibly.
                 const sigForServer = bsre
-                  ? item.signatureProperties.filter(
-                      (p: any) => (p.kind ?? "signature") === "signature",
-                    )
+                  ? burnSignatures
+                    ? []
+                    : signatureProps
                   : item.signatureProperties;
 
                 const props = {
@@ -1384,14 +1683,16 @@
                   __saveDocument: saveDocument,
                   to: item.to,
                   ...(useEmail ? { email: item.email } : { nik: item.nik }),
-                  owner: item.owner || undefined,
-                  nama: item.nama,
+                  ...(item.owner ? { owner: item.owner } : {}),
+                  ...(item.nama ? { nama: item.nama } : {}),
                   jabatan: item.jabatan || "-",
                   pangkat: item.pangkat || "-",
                   instansi: item.instansi || "-",
                   passphrase: item.passphrase,
                   note: item.note || "-",
-                  nomor_telepon: item.nomor_telepon,
+                  ...(item.nomor_telepon
+                    ? { nomor_telepon: item.nomor_telepon }
+                    : {}),
                   location: item.location || "-",
                   signatureProperties: sigForServer,
                   fileName,

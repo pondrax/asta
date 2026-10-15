@@ -155,7 +155,7 @@
   {/snippet}
 </Modal>
 
-<div class="px-6 py-4 space-y-3 mx-auto flex flex-col h-[calc(100vh-4rem)]">
+<div class="px-6 py-4 space-y-3 mx-auto flex flex-col h-[calc(100vh-3rem)]">
   <div class="flex items-center justify-between gap-4">
     <div>
       <h1

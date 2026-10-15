@@ -1,8 +1,7 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import { debounce } from "$lib/utils";
-  import { checkUser } from "$lib/remotes/sign.remote";
   import Signature from "./signature.svelte";
+  import SignerEmail from "./signer-email.svelte";
   import { type } from "arktype";
   import { getData } from "$lib/remotes/api.remote";
   import { Select } from "$lib/components";
@@ -15,7 +14,6 @@
   let {
     data,
     children,
-    loading = $bindable(false),
     status = $bindable("NOT_REGISTERED"),
     bsre = $bindable(true),
     // footer = $bindable(true),
@@ -194,40 +192,6 @@
   // Manual signing always allows editing.
   const locked = $derived(bsre && status !== "ISSUE");
   let signaturePanel = $state(true);
-  let emailFocused = $state(false);
-  const checkEmail = async (el: Event) => {
-    if (!form.email && !form.nik) return;
-    const cancel = useEmail
-      ? form.email.startsWith("@") || form.email.length === 0
-      : form.nik.length == 0;
-    if (cancel) return;
-    // console.log(form, cancel);
-    loading = true;
-
-    try {
-      const result = await checkUser(
-        useEmail ? { email: form.email } : { nik: form.nik },
-      );
-      status = result.status;
-      form = {
-        ...form,
-        nama: result.user?.name,
-        pangkat: result.user?.rank,
-        instansi: result.user?.organizations,
-        jabatan: result.user?.position,
-        nomor_telepon: result.user?.phone || "",
-      };
-      // A picked profile is the source of truth for the identity fields, so
-      // re-apply it after the BSrE lookup lands.
-      if (selectedProfile) applyProfile(selectedProfile);
-      // console.log(result);
-      localStorage.setItem("email", form.email);
-    } catch {
-      status = "[Server Esign Error] Check User Failed";
-    }
-    loading = false;
-  };
-  const debounceCheckEmail = debounce(checkEmail, 500);
 
   async function getUserCity() {
     if (!navigator.geolocation) {
@@ -255,12 +219,6 @@
       },
     );
   }
-
-  onMount(() => {
-    // getUserCity();
-    //@ts-ignore - debounceCheckEmail is called on mount before its definition in the parent
-    debounceCheckEmail(new Event("init"));
-  });
 
   // Reload the signer's saved profiles whenever the email changes — this also
   // covers emails pre-filled from URL params or localStorage.
@@ -314,83 +272,19 @@
       </div>
     </li>
     {#if bsre}
-      <li
-        class="p-2 tooltip bg-base-100 sticky top-10 z-25"
-        class:tooltip-open={status === "NOT_REGISTERED"}
-      >
-        {#if form.email?.split("@").at(0) !== ""}
-          <div class="tooltip-content pointer-events-auto!">
-            {#if status === "ISSUE"}
-              <div class="">
-                Status Akun : {status}
-              </div>
-            {:else if status === "NOT_REGISTERED"}
-              <div class="">
-                {status}
-              </div>
-              <div>
-                <a
-                  href={`/services/register?identity=${form.email}`}
-                  class="btn btn-xs btn-error"
-                  target="_blank"
-                >
-                  Daftar Sekarang
-                </a>
-              </div>
-            {:else}
-              <div class="">
-                {status}
-              </div>
-            {/if}
-          </div>
-        {/if}
-
+      <li class="p-2 bg-base-100 sticky top-10 z-25">
         <label class="floating-label p-0 bg-transparent">
           <span class="text-nowrap">Email Dinas Penandatangan ({status})</span>
-          <div class="input input-sm">
-            <input
-              bind:value={
-                () => form.email?.split("@")?.at(0),
-                (value) =>
-                  (form.email =
-                    String(value)
-                      .toLowerCase()
-                      .replace(/@mojokertokota\.go\.id/gi, "") +
-                    "@mojokertokota.go.id")
-              }
-              required
-              type="text"
-              placeholder="Email Dinas"
-              oninput={debounceCheckEmail}
-              onfocus={() => (emailFocused = true)}
-              onblur={() => (emailFocused = false)}
-              onpaste={(e) => {
-                const text = e.clipboardData?.getData("text") || "";
-                if (/@mojokertokota\.go\.id/i.test(text)) {
-                  e.preventDefault();
-                  const cleaned = text.replace(/@mojokertokota\.go\.id/gi, "");
-                  const input = e.currentTarget as HTMLInputElement;
-                  const start = input.selectionStart ?? input.value.length;
-                  const end = input.selectionEnd ?? input.value.length;
-                  input.value =
-                    input.value.slice(0, start) +
-                    cleaned +
-                    input.value.slice(end);
-                  input.dispatchEvent(new Event("input", { bubbles: true }));
-                }
-              }}
-            />
-            <span class="label"
-              >{emailFocused ? "***go.id" : "@mojokertokota.go.id"}</span
-            >
-            {#if loading}
-              <span class="loading"></span>
-            {:else if status == "ISSUE"}
-              <iconify-icon icon="bx:check" class="text-success"></iconify-icon>
-            {:else}
-              <iconify-icon icon="bx:x" class="text-error"></iconify-icon>
-            {/if}
-          </div>
+          <SignerEmail
+            bind:form
+            bind:status
+            bind:useEmail
+            onUser={() => {
+              // A picked profile is the source of truth for the identity
+              // fields, so re-apply it after the BSrE lookup lands.
+              if (selectedProfile) applyProfile(selectedProfile);
+            }}
+          />
           <div class="text-[10px] text-gray-400">
             Contoh: mail@mojokertokota.go.id
           </div>

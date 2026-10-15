@@ -755,7 +755,7 @@
   }
 </script>
 
-<div class="px-6 py-4 space-y-4 mx-auto flex flex-col h-[calc(100vh-4rem)]">
+<div class="px-6 py-4 space-y-4 mx-auto flex flex-col h-[calc(100vh-3rem)]">
   <div class="flex items-start justify-between gap-4">
     <div>
       <h1

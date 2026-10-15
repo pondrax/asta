@@ -80,6 +80,22 @@
 
 ## 2026-10-15
 
+### Rombak tata letak halaman tanda tangan
+
+<!-- id: rombak-halaman-tanda-tangan-2026-10-15 -->
+
+Halaman: /sign-v2 - Sign V2
+Audiens: Tamu
+
+- **Baru** - panel Dokumen dipindah ke kiri dan panel Halaman ke kanan
+- **Baru** - mode TTE/Manual dan email penandatangan digabung dalam satu grup
+- **Baru** - menu visualisasi dipisah menjadi tombol Gambar, QR, Kotak, dan Tanda Tangan
+- **Baru** - status tanda tangan dokumen tampil di toolbar beserta rincian dan tombol Verifikasi
+- **Baru** - bilah dokumen (judul, zoom, halaman, unduh, tutup) mengapung di atas kanvas
+- **Perbaikan** - penandatanganan kini tetap bisa dilakukan tanpa mengisi nama
+- **Perbaikan** - satu visualisasi ditandatangani oleh BSrE, lebih dari satu langsung dibakar ke PDF
+- **Perbaikan** - tampilan toolbar dan panel disesuaikan untuk layar kecil
+
 ### Rebuild signing page with editor-style chrome\012\012Add a new /sign-v2 route that mirrors the editor chrome: File/Edit/\012Template/Metadata menubar (hover + click), stepper zoom and page\012controls, page-thumbnail rail, docs/metadata side pane and a Footer\012scope dropdown (current page vs all pages).\012\012Supporting changes:\012- pdf: drawFooter gains a page option; add drawPlacements/drawImages\012- sign.remote: pass owner through when signing on behalf\012- signer profiles (spesimen) table, remote and migration\012- preview: bindable controller/state handle + renderThumbnail\012- dragresize: selection + optional resize corners
 
 <!-- id: rebuild-signing-page-with-editor-style-chrome01201-2026-10-15 -->

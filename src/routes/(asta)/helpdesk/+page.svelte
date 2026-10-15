@@ -764,7 +764,7 @@ label: det === "active_issue" ? "Reset" : DETERMINATION_LABELS[det],
 />
 
 <div
-  class="max-w-7xl mx-auto px-5 py-10 min-h-[calc(100vh-4rem)] flex flex-col w-full"
+  class="max-w-7xl mx-auto px-5 py-10 min-h-[calc(100vh-3rem)] flex flex-col w-full"
 >
   <div class="text-center mb-10 shrink-0">
     <h1 class="text-3xl font-black">Helpdesk Layanan Digital</h1>
