@@ -8,6 +8,7 @@ import dayjs from "dayjs";
 import { sql } from "drizzle-orm";
 import { Esign } from "../server/plugins/esign";
 import { validateTurnstile } from "$lib/server/plugins/turnstile";
+import { hashPasscode, verifyPasscode } from "$lib/server/passcode";
 import type { StatisticMode } from "$lib/server/db/schema";
 
 const storage = new FileStorage;
@@ -116,6 +117,7 @@ export const signDocument = command(type({
   fileBase64: 'string',
   fileName: 'string',
   to: 'string[]|undefined',
+  passcode: 'string?',
 }), async (props) => {
   try {
     let response: {
@@ -194,6 +196,7 @@ export const signDocument = command(type({
               checksums: [checksum],
               esign: !props.__manual,
               to: props.to,
+              passcode: props.passcode ? hashPasscode(props.passcode) : null,
               signer: props.__asDraft ? props.email : null,
               status: props.__asDraft ? 'draft' : 'signed',
               signatureProperties: props.__asDraft ? props.signatureProperties : null,
@@ -222,6 +225,7 @@ export const signDocument = command(type({
             status: 'signed',
             esign: !props.__manual,
             to: props.to,
+            passcode: props.passcode ? hashPasscode(props.passcode) : null,
             histories: [history],
           },
           update: doc => ({
@@ -277,6 +281,16 @@ export const verifyDocument = command(type({
   }
 })
 
+
+/** Check a viewer-supplied passcode against a saved "Dokumen Rahasia". */
+export const checkPasscode = command(type({
+  id: 'string',
+  passcode: 'string',
+}), async (props) => {
+  const doc = await db.query.documents.findFirst({ where: { id: props.id } });
+  if (!doc?.passcode) return { valid: true };
+  return { valid: verifyPasscode(props.passcode, doc.passcode) };
+})
 
 export const getDocument = query(type({
   id: 'string|string[]',

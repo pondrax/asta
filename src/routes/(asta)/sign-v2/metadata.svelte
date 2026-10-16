@@ -20,10 +20,12 @@
     form = $bindable({}),
     fields = $bindable({}),
     hasSignature,
+    hasDocuments = true,
     signatures = $bindable([]),
     setSignature,
     openVisual = $bindable(undefined),
     onSign,
+    onAddVisual,
     useEmail = $bindable(true),
   } = $props();
 
@@ -250,13 +252,43 @@
     "tanggal",
     "nomor_telepon",
   ];
-  // Lock identity fields until the BSrE account is verified (ISSUE).
-  // Manual signing always allows editing.
-  const locked = $derived(bsre && status !== "ISSUE");
+  // Lock identity fields until the BSrE account is verified (ISSUE), and while
+  // there is no document loaded. Manual signing always allows editing.
+  const locked = $derived(!hasDocuments || (bsre && status !== "ISSUE"));
   const emailOk = $derived(
     !!form.email && !(type("string.email")(form.email) instanceof type.errors),
   );
   let signaturePanel = $state(true);
+
+  /** Spesimen editor — opened from the visualisasi section header, edits the
+   *  shared form.specimen used by both the QR and the signature box. */
+  let specimenDialog = $state<HTMLDialogElement>();
+  // Whether the "Simpan Dokumen" owner-email field is expanded.
+  let ownerOpen = $state(false);
+  const specimenKeys = ["jabatan", "instansi", "nama"];
+  const defaultSpecimen = "jabatan\ninstansi\n\nnama";
+
+  const resolveSpecimen = (tpl: string) =>
+    tpl
+      .split("\n")
+      .map((line) => {
+        const key = line.trim();
+        return key in form ? (form[key] ?? "") : line;
+      })
+      .join("\n")
+      .replace(/^\n+|\n+$/g, "");
+
+  const reverseSpecimen = (value: string) =>
+    value
+      .split("\n")
+      .map((line) =>
+        line.trim() === ""
+          ? line
+          : (specimenKeys.find((k) => form[k] === line) ?? line),
+      )
+      .join("\n");
+
+  const savedSpecimens = $derived(profiles.filter((p) => p.specimen));
 
   async function getUserCity() {
     if (!navigator.geolocation) {
@@ -315,46 +347,7 @@
     id="tour-metadata"
     class="menu grow overflow-auto flex-nowrap rounded-xl w-full relative"
   >
-    {#if data.whatsappNotifyDocument}
-      <li class="p-2">
-        <label class="floating-label p-0 bg-transparent">
-          <span>Nomor Telepon (Whatsapp)</span>
-          <div class="flex gap-2 items-center w-full mt-1">
-            <div class="input input-sm grow flex items-center">
-              <span class="text-gray-500 mr-1">+62</span>
-              <input
-                bind:value={
-                  () => String(form.nomor_telepon ?? "").replace(/^62/, ""),
-                  (value) =>
-                    (form.nomor_telepon =
-                      "62" +
-                      String(value)
-                        .replace(/[^0-9]/g, "")
-                        .replace(/^0+/, "")
-                        .replace(/^62/, ""))
-                }
-                required
-                type="text"
-                placeholder="Nomor Telepon WA"
-                class="w-full bg-transparent outline-none"
-                disabled={locked}
-              />
-            </div>
-            <label
-              class="btn btn-sm tooltip tooltip-left flex gap-2 items-center"
-              data-tip="Kirim File PDF ke Whatsapp"
-            >
-              <input
-                type="checkbox"
-                class="checkbox checkbox-xs"
-                bind:checked={form.send_file}
-              />
-              Kirim File
-            </label>
-          </div>
-        </label>
-      </li>
-    {/if}
+    <li class="menu-title">Informasi Dokumen</li>
     <li class="p-2">
       <label class="floating-label p-0 bg-transparent">
         <span>Keterangan Dokumen</span>
@@ -395,10 +388,79 @@
         />
       </label>
     </li>
-    <li class="p-2">
-      <label class="floating-label p-0 bg-transparent">
-        <span>Simpan Dokumen</span>
-        <div class="input input-sm gap-1 px-2" class:opacity-60={locked}>
+    <li class="px-2">
+      <div class="flex items-center gap-1.5 py-0">
+        <input
+          type="checkbox"
+          class="checkbox checkbox-xs"
+          title="Simpan Dokumen"
+          aria-label="Simpan Dokumen"
+          bind:checked={form.save_document}
+          disabled={locked}
+        />
+        <span class="text-xs">Simpan Dokumen</span>
+        {#if form.save_document && !locked}
+          <button
+            type="button"
+            class="ml-auto flex cursor-pointer items-center"
+            title="Tampilkan email pemilik"
+            aria-pressed={ownerOpen}
+            onclick={() => (ownerOpen = !ownerOpen)}
+          >
+            <iconify-icon
+              icon={ownerOpen ? "bx:chevron-down" : "bx:chevron-right"}
+              class="text-base"
+            ></iconify-icon>
+          </button>
+          <details
+            class="dropdown dropdown-end"
+            class:pointer-events-none={locked}
+          >
+          <summary
+            class="btn btn-xs btn-ghost btn-square"
+            class:btn-disabled={locked}
+            title="Ambil email"
+          >
+            <iconify-icon icon="bx:user-circle" class="text-base"></iconify-icon>
+          </summary>
+          <ul
+            class="dropdown-content menu menu-xs bg-base-100 rounded-box z-50 w-80 p-1 shadow-xl"
+          >
+            {#if data.user}
+              <li>
+                <button
+                  type="button"
+                  onclick={(e) => {
+                    form.owner = data.user?.email ?? "";
+                    e.currentTarget.closest("details")?.removeAttribute("open");
+                  }}
+                >
+                  <iconify-icon
+                    icon="bx:user-circle"
+                    class="shrink-0 text-base"
+                  ></iconify-icon>
+                  <span class="truncate">Akun login ({data.user.email})</span>
+                </button>
+              </li>
+            {/if}
+            <li>
+              <button
+                type="button"
+                onclick={(e) => {
+                  form.owner = form.email;
+                  e.currentTarget.closest("details")?.removeAttribute("open");
+                }}
+              >
+                <iconify-icon icon="bx:pen" class="shrink-0 text-base"></iconify-icon>
+                <span class="truncate">Sama dengan penandatangan</span>
+              </button>
+            </li>
+          </ul>
+          </details>
+        {/if}
+      </div>
+      {#if form.save_document && ownerOpen}
+        <div class="input input-sm mt-1 w-full">
           <input
             type="email"
             bind:value={form.owner}
@@ -406,70 +468,30 @@
             aria-label="Email Pemilik Dokumen"
             disabled={locked}
           />
-          <details
-            class="dropdown dropdown-end"
-            class:pointer-events-none={locked}
-          >
-            <summary
-              class="btn btn-xs btn-ghost btn-square"
-              class:btn-disabled={locked}
-              title="Ambil email"
-            >
-              <iconify-icon icon="bx:user-circle" class="text-base"></iconify-icon>
-            </summary>
-            <ul
-              class="dropdown-content menu menu-xs bg-base-100 rounded-box z-50 w-80 p-1 shadow-xl"
-            >
-              {#if data.user}
-                <li>
-                  <button
-                    type="button"
-                    onclick={(e) => {
-                      form.owner = data.user?.email ?? "";
-                      e.currentTarget.closest("details")?.removeAttribute("open");
-                    }}
-                  >
-                    <iconify-icon
-                      icon="bx:user-circle"
-                      class="shrink-0 text-base"
-                    ></iconify-icon>
-                    <span class="truncate">Akun login ({data.user.email})</span>
-                  </button>
-                </li>
-              {/if}
-              <li>
-                <button
-                  type="button"
-                  onclick={(e) => {
-                    form.owner = form.email;
-                    e.currentTarget.closest("details")?.removeAttribute("open");
-                  }}
-                >
-                  <iconify-icon icon="bx:pen" class="shrink-0 text-base"></iconify-icon>
-                  <span class="truncate">Sama dengan penandatangan</span>
-                </button>
-              </li>
-            </ul>
-          </details>
-          <label class="flex cursor-pointer items-center" title="Simpan Dokumen">
-            <input
-              type="checkbox"
-              class="peer sr-only"
-              bind:checked={form.save_document}
-              disabled={locked}
-            />
-            <iconify-icon
-              icon={form.save_document ? "bx:checkbox-checked" : "bx:checkbox"}
-              class={form.save_document
-                ? "text-xl text-base-content"
-                : "text-xl text-base-content/40"}
-            ></iconify-icon>
-          </label>
         </div>
-        <div class="text-[10px] text-gray-400">
-          Simpan dokumen pada akun pemilik.
-        </div>
+      {/if}
+    </li>
+    <li class="px-2">
+      <label class="flex cursor-pointer items-center gap-1.5">
+        <input
+          type="checkbox"
+          class="checkbox checkbox-xs"
+          bind:checked={form.secret}
+          disabled={locked}
+        />
+        <span class="text-xs">Dokumen Rahasia</span>
       </label>
+      {#if form.secret}
+        <div class="input input-sm w-full">
+          <input
+            type="password"
+            bind:value={form.password}
+            placeholder="Kata sandi dokumen"
+            aria-label="Kata sandi dokumen"
+            disabled={locked}
+          />
+        </div>
+      {/if}
     </li>
 
     {#each Object.keys(fields) as key}
@@ -500,40 +522,28 @@
       {/if}
     {/each}
 
-    <li class="mx-2 mt-0">
-    </li>
-    <li class="p-2">
-      <div class="floating-label p-0 bg-transparent">
-        <span>Profil Penandatangan</span>
+    <li class="menu-title">
+      <div class="relative flex flex-col">
+          <span>Profil Penandatangan</span>
+        <span class="text-[10px] font-normal text-base-content/50">
+          {currentProfile ? profileLabel(currentProfile) : "Belum ada profil dipilih"}
+        </span>
         <details
-          class="dropdown w-full"
-          onfocusout={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget as Node))
-              e.currentTarget.removeAttribute("open");
-          }}
+          class="dropdown dropdown-end absolute right-0 top-0"
+        onfocusout={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node))
+            e.currentTarget.removeAttribute("open");
+        }}
+      >
+        <summary
+          class="btn btn-xs btn-ghost btn-square"
+          title="Profil Penandatangan"
+          aria-label="Profil Penandatangan"
         >
-          <summary
-            class="btn btn-sm w-full justify-between font-normal"
-            title="Profil Penandatangan"
-          >
-            <span class="flex min-w-0 items-center gap-2">
-              <iconify-icon
-                icon="bx:user-circle"
-                class="shrink-0 text-base"
-              ></iconify-icon>
-              <span class="truncate">
-                {currentProfile
-                  ? profileLabel(currentProfile)
-                  : "Simpan sebagai profil baru…"}
-              </span>
-            </span>
-            <iconify-icon
-              icon="bx:chevron-down"
-              class="shrink-0 text-base opacity-60"
-            ></iconify-icon>
-          </summary>
+          <iconify-icon icon="bx:edit" class="text-base"></iconify-icon>
+        </summary>
           <ul
-            class="dropdown-content menu menu-xs bg-base-100 rounded-box z-50 w-full p-1 shadow-xl"
+            class="dropdown-content menu menu-xs bg-base-100 text-base-content rounded-box z-50 w-56 p-1 shadow-xl"
           >
             <li>
               <button
@@ -608,16 +618,7 @@
               </li>
             {/if}
           </ul>
-        </details>
-        <div class="text-[10px] text-gray-400">
-          {#if !emailOk}
-            Email penandatangan belum diisi.
-          {:else if profiles.length}
-            {profiles.length} profil tersimpan
-          {:else}
-            Belum ada profil tersimpan.
-          {/if}
-        </div>
+      </details>
       </div>
     </li>
     <li class="p-2">
@@ -630,11 +631,6 @@
             placeholder="Nama Lengkap Beserta Gelar"
             disabled={locked}
           />
-          {#if form.nama}
-            <iconify-icon icon="bx:check" class="text-success"></iconify-icon>
-          {:else}
-            <iconify-icon icon="bx:x" class="text-error"></iconify-icon>
-          {/if}
         </div>
         <div class="text-[10px] text-gray-400">
           Contoh: Budi Pekerti Akhlak, S.H
@@ -653,6 +649,46 @@
         />
         <div class="text-[10px] text-gray-400">Contoh: Kepala Dinas / Guru</div>
       </label>
+    </li>
+    <li class="p-2">
+      <div class="floating-label p-0 bg-transparent">
+        <span>Nomor Telepon (WhatsApp)</span>
+        <div class="flex items-center gap-1.5">
+          <div class="input input-sm grow flex items-center">
+            <span class="mr-1 text-gray-500">+62</span>
+            <input
+              type="text"
+              bind:value={
+                () => String(form.nomor_telepon ?? "").replace(/^62/, ""),
+                (value) =>
+                  (form.nomor_telepon =
+                    "62" +
+                    String(value)
+                      .replace(/[^0-9]/g, "")
+                      .replace(/^0+/, "")
+                      .replace(/^62/, ""))
+              }
+              placeholder="Nomor Telepon"
+              class="w-full bg-transparent outline-none"
+              disabled={locked}
+            />
+          </div>
+          {#if data.whatsappNotifyDocument}
+            <label
+              class="flex shrink-0 cursor-pointer items-center gap-1"
+              title="Kirim File"
+            >
+              <input
+                type="checkbox"
+                class="checkbox checkbox-xs"
+                bind:checked={form.send_file}
+                disabled={locked}
+              />
+              <span class="text-xs">Kirim File</span>
+            </label>
+          {/if}
+        </div>
+      </div>
     </li>
     <li class="p-2">
       <div class="p-0 bg-transparent flex flex-col gap-0">
@@ -686,10 +722,126 @@
         />
       </div>
     </li>
-    <li class="p-2">
-      <SignaturePreview {form} onChange={saveCurrentProfile} />
+    <li class="menu-title">
+      <div class="relative flex flex-col">
+        <span>Visualisasi Tanda Tangan</span>
+        <span class="text-[10px] font-normal text-base-content/50">
+          Klik atau seret untuk menambahkan visualisasi ke dokumen.
+        </span>
+        <button
+          type="button"
+          class="btn btn-xs btn-ghost btn-square absolute right-0 top-0"
+          title="Edit spesimen tanda tangan"
+          aria-label="Edit spesimen tanda tangan"
+          onclick={() => specimenDialog?.showModal()}
+        >
+          <iconify-icon icon="bx:edit" class="text-base"></iconify-icon>
+        </button>
+      </div>
+    </li>
+    <li>
+      <div class="flex flex-col gap-2 bg-transparent">
+        <SignaturePreview
+          {form}
+          visual="qr"
+          onAdd={onAddVisual}
+          disabled={!hasDocuments}
+        />
+        <SignaturePreview
+          {form}
+          visual="box"
+          onAdd={onAddVisual}
+          disabled={!hasDocuments}
+        />
+
+        <div class="flex items-center justify-between pt-1">
+          <span class="text-xs font-medium">Spesimen Tersimpan</span>
+          <button
+            type="button"
+            class="btn btn-xs"
+            disabled={!emailOk || profileSaving}
+            onclick={saveCurrentProfile}
+          >
+            {#if profileSaving}
+              <span class="loading loading-xs"></span>
+            {:else}
+              <iconify-icon icon="bx:save" class="text-base"></iconify-icon>
+            {/if}
+            Simpan
+          </button>
+        </div>
+        {#if profiles.some((p) => p.specimen)}
+          <div class="flex flex-col gap-1">
+            {#each profiles.filter((p) => p.specimen) as p (p.id)}
+              <button
+                type="button"
+                class="btn btn-xs justify-start font-normal {p.id ===
+                selectedProfile
+                  ? 'btn-active'
+                  : ''}"
+                onclick={() => {
+                  selectedProfile = p.id;
+                  applyProfile(p.id);
+                  rememberProfile(p.id);
+                }}
+              >
+                <iconify-icon
+                  icon="bx:check"
+                  class="shrink-0 text-base {p.id === selectedProfile
+                    ? 'text-success'
+                    : 'opacity-0'}"
+                ></iconify-icon>
+                <span class="truncate">{profileLabel(p)}</span>
+              </button>
+            {/each}
+          </div>
+        {:else}
+          <div class="text-[10px] text-gray-400">Belum ada spesimen tersimpan.</div>
+        {/if}
+      </div>
     </li>
   </ul>
+
+  <dialog class="modal" bind:this={specimenDialog}>
+    <div class="modal-box">
+      <button
+        type="button"
+        class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+        aria-label="Tutup"
+        onclick={() => specimenDialog?.close()}
+      >
+        ✕
+      </button>
+      <h3 class="text-lg font-bold">Spesimen Tanda Tangan</h3>
+      <p class="py-2 text-xs opacity-60">
+        Satu baris = satu baris teks. Tulis nama field (jabatan, instansi, nama)
+        untuk diisi otomatis. Baris kosong jadi jarak.
+      </p>
+      <textarea
+        bind:value={
+          () => resolveSpecimen(form.specimen ?? defaultSpecimen),
+          (value) => (form.specimen = reverseSpecimen(value))
+        }
+        placeholder="Spesimen tanda tangan"
+        class="textarea textarea-sm h-32 w-full"
+      ></textarea>
+      <div class="modal-action">
+        <button
+          type="button"
+          class="btn btn-sm btn-primary"
+          onclick={() => specimenDialog?.close()}
+        >
+          Selesai
+        </button>
+      </div>
+    </div>
+    <button
+      type="button"
+      class="modal-backdrop"
+      aria-label="Tutup"
+      onclick={() => specimenDialog?.close()}
+    ></button>
+  </dialog>
 
 </form>
 

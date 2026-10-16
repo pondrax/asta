@@ -2,12 +2,17 @@
   import "iconify-icon";
   import "../app.css";
   import { app } from "$lib/app/index.svelte";
+  import { dev } from "$app/environment";
   import { onMount } from "svelte";
 
   let { children, data } = $props();
 
   onMount(async () => {
     app.theme = localStorage.theme || "light";
+  });
+  onMount(() => {
+    if (dev || !("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
   });
   $effect(() => {
     if (app.theme) {

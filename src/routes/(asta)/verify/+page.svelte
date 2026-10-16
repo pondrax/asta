@@ -2,7 +2,7 @@
   import { page } from "$app/state";
   import { onDestroy, onMount } from "svelte";
   import Preview from "$lib/components/preview.svelte";
-  import { getDocument, verifyDocument } from "$lib/remotes/sign.remote";
+  import { getDocument, verifyDocument, checkPasscode } from "$lib/remotes/sign.remote";
   import { calculateFileChecksum, createId, fileToBase64 } from "$lib/utils";
   import { isPdf } from "$lib/utils/docx";
   import Status from "./status.svelte";
@@ -17,6 +17,13 @@
   let guestEmail = $state("");
   let tempEmail = $state("");
   let emailError = $state("");
+
+  // "Dokumen Rahasia" gate — a saved document can carry a passcode that must be
+  // entered before its preview is fetched.
+  let passcodeInput = $state("");
+  let passcodeOk = $state(false);
+  let passcodeError = $state("");
+  let passcodeChecking = $state(false);
 
   const MODES = ["upload", "id", "scan"] as const;
   type Mode = (typeof MODES)[number];
@@ -238,6 +245,27 @@
 
   const docsData = $derived(documents.current || []);
 
+  /** A saved "Dokumen Rahasia" blocks its preview until the passcode matches. */
+  const needsPasscode = $derived(!!docsData[0]?.passcode && !passcodeOk);
+
+  async function submitPasscode() {
+    if (!docsData[0]?.id || !passcodeInput) return;
+    passcodeChecking = true;
+    passcodeError = "";
+    try {
+      const res = await checkPasscode({
+        id: docsData[0].id,
+        passcode: passcodeInput,
+      });
+      if (res.valid) passcodeOk = true;
+      else passcodeError = "Kata sandi salah.";
+    } catch {
+      passcodeError = "Gagal memeriksa kata sandi.";
+    } finally {
+      passcodeChecking = false;
+    }
+  }
+
   /**
    * A server document carrying no e-sign stamp is reported as valid-but-unsigned
    * without calling the verification service. Derived rather than stored so the
@@ -362,6 +390,7 @@
     // Trigger preview fetch if authorized and file details are known
     if (
       isAuthorized &&
+      !needsPasscode &&
       fileURL &&
       (!previewFile || lastFetchedURL !== fileURL)
     ) {
@@ -954,6 +983,45 @@
     <!-- Sidebar Footer -->
   </div>
 </div>
+
+{#if needsPasscode}
+  <div class="modal modal-open">
+    <div class="modal-box">
+      <h3 class="text-lg font-bold">Dokumen Rahasia</h3>
+      <p class="py-2 text-sm opacity-70">
+        Masukkan kata sandi untuk membuka dokumen ini.
+      </p>
+      {#if passcodeError}
+        <div class="alert alert-error mb-2 py-2 text-sm">{passcodeError}</div>
+      {/if}
+      <form
+        class="flex flex-col gap-2"
+        onsubmit={(e) => {
+          e.preventDefault();
+          submitPasscode();
+        }}
+      >
+        <input
+          type="password"
+          class="input input-bordered w-full"
+          placeholder="Kata sandi"
+          autocomplete="off"
+          bind:value={passcodeInput}
+        />
+        <button
+          type="submit"
+          class="btn btn-primary"
+          disabled={passcodeChecking || !passcodeInput}
+        >
+          {#if passcodeChecking}
+            <span class="loading loading-spinner loading-sm"></span>
+          {/if}
+          Buka
+        </button>
+      </form>
+    </div>
+  </div>
+{/if}
 
 {#if app.showTour}
   <Tour

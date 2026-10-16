@@ -1,11 +1,32 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { workspace } from "$lib/app/sign-workspace.svelte";
 
   let openId = $state<string | null>(null);
+  let small = $state(false);
+  let pos = $state({ top: 48 });
 
   function close() {
     openId = null;
   }
+
+  /**
+   * On small screens the bar is a horizontal scroller, which would clip an
+   * absolutely-positioned dropdown. Pin it to the viewport instead, right under
+   * the trigger that opened it.
+   */
+  function anchor(event: MouseEvent) {
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    pos = { top: rect.bottom + 4 };
+  }
+
+  onMount(() => {
+    const mq = window.matchMedia("(max-width: 1023.98px)");
+    const update = () => (small = mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  });
 </script>
 
 <svelte:window
@@ -15,12 +36,17 @@
   }}
 />
 
-<div class="flex items-center h-8 shrink-0 ml-0 md:ml-5">
+<div
+  class="flex items-center h-8 shrink-0 ml-0 md:ml-5 max-lg:mb-1 max-lg:overflow-x-auto max-lg:overflow-y-hidden"
+>
   {#each workspace.menus as menu (menu.id)}
     <div
-      class="relative h-full"
+      class="relative h-full shrink-0"
       role="none"
-      onmouseenter={() => (openId = menu.id)}
+      onmouseenter={(e) => {
+        openId = menu.id;
+        anchor(e);
+      }}
       onmouseleave={close}
     >
       <button
@@ -32,7 +58,12 @@
         aria-expanded={openId === menu.id}
         onclick={(e) => {
           e.stopPropagation();
-          openId = openId === menu.id ? null : menu.id;
+          if (openId === menu.id) {
+            openId = null;
+          } else {
+            openId = menu.id;
+            anchor(e);
+          }
         }}
       >
         {#if menu.variant === "primary"}
@@ -49,9 +80,12 @@
       </button>
       <!-- Pseudo-element bridges the 4px gap so hover carries into the popup. -->
       <div
-        class="absolute left-0 top-[calc(100%+4px)] min-w-60 py-1 bg-base-100 border border-base-300 rounded-lg shadow-xl z-[60]
+        class="min-w-60 py-1 bg-base-100 border border-base-300 rounded-lg shadow-xl z-[70]
           before:content-[''] before:absolute before:-top-1 before:left-0 before:right-0 before:h-1
+          max-lg:min-w-0 max-lg:w-[calc(100vw-1rem)] max-lg:max-h-[70vh] max-lg:overflow-y-auto
+          {small ? 'fixed left-2' : 'absolute left-0 top-[calc(100%+4px)]'}
           {openId === menu.id ? 'block' : 'hidden'}"
+        style={small ? `top:${pos.top}px;` : ""}
         role="menu"
         tabindex="-1"
       >

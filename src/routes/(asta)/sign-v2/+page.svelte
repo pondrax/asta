@@ -3,6 +3,7 @@
   import { app } from "$lib/app/index.svelte";
   import { chat } from "$lib/app/chat.svelte";
   import { workspace } from "$lib/app/sign-workspace.svelte";
+  import { getVisualDrag, setVisualDrag } from "$lib/app/visual-drag.svelte";
   import WorkspaceMenuBar from "$lib/components/workspace-menubar.svelte";
   import {
     type PlacementType,
@@ -69,6 +70,11 @@
   let form: Record<string, any> = $state({});
   // svelte-ignore state_referenced_locally
   let useEmail = $state(true);
+  // Small screens hide the email field behind the envelope toggle. Keep it
+  // open while it still needs attention: unverified, or empty in manual mode.
+  let emailAlwaysVisible = $derived(
+    status !== "ISSUE" || (!bsre && !form.email),
+  );
   let fields: Record<string, any> = $state({});
   let hasSignature = $state(true);
   let signatureInfos = $state<pdfLib.SignatureInfo[]>([]);
@@ -142,6 +148,20 @@
   let activeTool = $state<SignTool>("select");
   let selectedId = $state<string | null>(null);
   let overlayEl: HTMLDivElement | null = $state(null);
+  // Live ghost showing where a dragged visual would land, in PDF points.
+  let dragPreview = $state<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    src: string;
+  } | null>(null);
+
+  // The source clears its geometry on dragend; mirror that here so the ghost
+  // never lingers when a drag is cancelled.
+  $effect(() => {
+    if (!getVisualDrag()) dragPreview = null;
+  });
   let previewCtl: PreviewController | null = $state(null);
   let previewState: PreviewState = $state({
     zoom: 1,
@@ -503,6 +523,83 @@
       }
       acc += h + gapPts;
     }
+  }
+
+  /** Drop a visual dragged from the metadata panel onto the document, centred
+   *  on the cursor. */
+  function handleOverlayDrop(
+    e: DragEvent,
+    scale: number,
+    pageSizes: { width: number; height: number }[],
+    gapPts: number,
+  ) {
+    const raw = e.dataTransfer?.getData("application/x-asta-visual");
+    if (!raw || !overlayEl) return;
+    e.preventDefault();
+    let payload: {
+      visual: "qr" | "box";
+      imageBase64: string;
+      width: number;
+      height: number;
+    };
+    try {
+      payload = JSON.parse(raw);
+    } catch {
+      return;
+    }
+
+    const rect = overlayEl.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / scale;
+    const yTop = (e.clientY - rect.top) / scale;
+
+    let page = 1;
+    let y = yTop;
+    let acc = 0;
+    for (let i = 0; i < pageSizes.length; i++) {
+      const h = pageSizes[i].height;
+      if (yTop < acc + h) {
+        page = i + 1;
+        y = yTop - acc;
+        break;
+      }
+      acc += h + gapPts;
+    }
+
+    const width = payload.visual === "qr" ? 100 : 200;
+    const height = (width / payload.width) * payload.height;
+    snapshot();
+    setSignature({
+      id: createId(6),
+      kind: "signature",
+      imageBase64: payload.imageBase64,
+      page,
+      tampilan: "VISIBLE",
+      originX: Math.max(0, x - width / 2),
+      originY: Math.max(0, y - height / 2),
+      width,
+      height,
+      location: "",
+      reason: "",
+    });
+  }
+
+  /** Position the live ghost at the cursor while a visual is dragged over the
+   *  document. */
+  function updateDragPreview(e: DragEvent, scale: number) {
+    const drag = getVisualDrag();
+    if (!drag || !overlayEl) return;
+    const rect = overlayEl.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / scale;
+    const y = (e.clientY - rect.top) / scale;
+    const width = drag.visual === "qr" ? 100 : 200;
+    const height = (width / drag.width) * drag.height;
+    dragPreview = {
+      x: Math.max(0, x - width / 2),
+      y: Math.max(0, y - height / 2),
+      width,
+      height,
+      src: drag.src,
+    };
   }
 
   function isEditableTarget(t: EventTarget | null) {
@@ -867,7 +964,7 @@
       note: qNote || "Tanda Tangan Elektronik",
       tanggal: d().format("DD MMMM YYYY"),
       location: "",
-      send_file: data.whatsappNotifyDocument ?? false,
+      send_file: false,
       save_document: true,
     };
 
@@ -1038,6 +1135,33 @@
     openVisualDialog(bsre ? "box" : "draw");
   }
 
+  /** Place a visualisation from the metadata panel onto the page currently open
+   *  in the preview. */
+  function placePreviewVisual(payload: {
+    visual: "qr" | "box";
+    imageBase64: string;
+    width: number;
+    height: number;
+  }) {
+    const cfg =
+      payload.visual === "qr"
+        ? { x: 350, y: 630, width: 100 }
+        : { x: 310, y: 700, width: 200 };
+    setSignature({
+      id: createId(6),
+      kind: "signature",
+      imageBase64: payload.imageBase64,
+      page: previewState.page ?? 1,
+      tampilan: "VISIBLE",
+      originX: cfg.x,
+      originY: cfg.y,
+      width: cfg.width,
+      height: (cfg.width / payload.width) * payload.height,
+      location: "",
+      reason: "",
+    });
+  }
+
   async function verifyActive() {
     const file = documents[activeIndex];
     if (!file) return;
@@ -1202,16 +1326,23 @@
       <div class="flex items-center gap-1 min-w-0">
         <button
           type="button"
-          class="btn btn-sm btn-ghost hover:bg-base-300 btn-square shrink-0 lg:hidden!"
+          class="btn btn-sm btn-ghost hover:bg-base-300 btn-square relative shrink-0 lg:hidden!"
           title="Tampilkan email penandatangan"
           aria-label="Tampilkan email penandatangan"
           aria-pressed={emailOpen}
           onclick={() => (emailOpen = !emailOpen)}
         >
           <iconify-icon icon="bx:envelope"></iconify-icon>
+    {#if status === "ISSUE"}
+      <iconify-icon
+        icon="bx:check"
+        class="absolute -top-0.5 -right-0.5 text-success text-[10px]"
+      ></iconify-icon>
+    {/if}
         </button>
         <div
-          class="min-w-0 flex items-center max-lg:absolute max-lg:top-full max-lg:left-1.5 max-lg:right-1.5 max-lg:mt-1.5 max-lg:p-2 max-lg:bg-base-100 max-lg:border max-lg:border-base-300 max-lg:rounded-lg max-lg:shadow-xl max-lg:z-60 max-lg:[&_.tooltip]:w-full max-lg:[&_.input]:w-full! max-lg:[&_.input]:max-w-none! max-lg:[&_.input]:flex-auto {emailOpen
+          class="min-w-0 flex items-center max-lg:absolute max-lg:top-full max-lg:left-1.5 max-lg:right-1.5 max-lg:mt-1.5 max-lg:p-2 max-lg:bg-base-100 max-lg:border max-lg:border-base-300 max-lg:rounded-lg max-lg:shadow-xl max-lg:z-60 max-lg:[&_.tooltip]:w-full max-lg:[&_.input]:w-full! max-lg:[&_.input]:max-w-none! max-lg:[&_.input]:flex-auto {emailOpen ||
+          emailAlwaysVisible
             ? ''
             : 'max-lg:hidden'}"
         >
@@ -1515,7 +1646,26 @@
                 class="absolute inset-0"
                 onclick={(e) =>
                   handleOverlayClick(e, scale, pageSizes, gapPts)}
+                ondragover={(e) => {
+                  if (
+                    !e.dataTransfer?.types.includes("application/x-asta-visual")
+                  )
+                    return;
+                  e.preventDefault();
+                  updateDragPreview(e, scale);
+                }}
+                ondrop={(e) => handleOverlayDrop(e, scale, pageSizes, gapPts)}
               >
+                {#if dragPreview}
+                  <img
+                    src={dragPreview.src}
+                    alt=""
+                    class="pointer-events-none absolute z-1 rounded-sm object-fill opacity-90 outline-2 outline-dashed outline-primary"
+                    style="left: {dragPreview.x * scale}px; top: {dragPreview
+                      .y * scale}px; width: {dragPreview.width *
+                      scale}px; height: {dragPreview.height * scale}px;"
+                  />
+                {/if}
                 {#each placements as pl (pl.id)}
                   {@const sumPrevHeight = pageSizes
                     .slice(0, pl.page - 1)
@@ -1639,7 +1789,7 @@
     </dialog>
 
     <aside
-      class="w-88 max-lg:w-60 flex-none order-0 flex flex-col min-h-0 bg-base-100 border-r border-base-300 {navOpen
+      class="w-90 flex-none order-0 flex flex-col min-h-0 bg-base-100 border-r border-base-300 {navOpen
         ? ''
         : 'hidden'}"
     >
@@ -1677,8 +1827,10 @@
             bind:useEmail
             {fields}
             {hasSignature}
+            {hasDocuments}
             bind:signatures={placements}
             {setSignature}
+            onAddVisual={placePreviewVisual}
             onSign={openSign}
           >
             <Visualizer bind:signatures={placements} {selectedId} onSelect={(id) => (selectedId = id)} onDelete={removePlacement} />
@@ -1847,6 +1999,9 @@
                   signatureProperties: sigForServer,
                   fileName,
                   fileBase64,
+                  ...(form.secret && form.password
+                    ? { passcode: form.password }
+                    : {}),
                 };
                 const signing = await signDocument(props);
 
