@@ -80,6 +80,20 @@
 
 ## 2026-10-16
 
+### Secret-document passcode, drag-to-place visual, and PWA
+
+<!-- id: secret-document-passcode-drag-to-place-visual-2026-10-16 -->
+
+Halaman: /sign-v2 - Sign V2
+Audiens: Tamu
+
+- **Baru** - add a "Dokumen Rahasia" passcode: it is hashed on the server and required before a saved document opens from its `/verify?id` link
+- **Baru** - drag a QR or signature-box visual from the metadata panel onto the document to place it, with a live ghost showing the drop position at the real size
+- **Baru** - split the metadata panel into Informasi Dokumen, Profil Penandatangan, and Visualisasi sections; make the identity fields optional
+- **Baru** - WhatsApp sending is now a checkbox that reuses the signer's phone number
+- **Baru** - the workspace menubar scrolls horizontally on small screens, and the email toggle shows a verified success check
+- **Baru** - add a PWA manifest and service worker for installability
+
 ### Rapikan panel metadata dan tambah pratinjau tanda tangan
 
 <!-- id: rapikan-panel-metadata-dan-tambah-pratinjau-tanda--2026-10-16 -->

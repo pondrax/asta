@@ -119,6 +119,37 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
     page: "Sign V2",
     entries: [
       {
+        id: "secret-document-passcode-drag-to-place-visual-2026-10-16",
+        date: "2026-10-16",
+        title: "Secret-document passcode, drag-to-place visual, and PWA",
+        changes: [
+          {
+            kind: "added",
+            text: "add a \"Dokumen Rahasia\" passcode: it is hashed on the server and required before a saved document opens from its `/verify?id` link",
+          },
+          {
+            kind: "added",
+            text: "drag a QR or signature-box visual from the metadata panel onto the document to place it, with a live ghost showing the drop position at the real size",
+          },
+          {
+            kind: "added",
+            text: "split the metadata panel into Informasi Dokumen, Profil Penandatangan, and Visualisasi sections; make the identity fields optional",
+          },
+          {
+            kind: "added",
+            text: "WhatsApp sending is now a checkbox that reuses the signer's phone number",
+          },
+          {
+            kind: "added",
+            text: "the workspace menubar scrolls horizontally on small screens, and the email toggle shows a verified success check",
+          },
+          {
+            kind: "added",
+            text: "add a PWA manifest and service worker for installability",
+          },
+        ],
+      },
+      {
         id: "rapikan-panel-metadata-dan-tambah-pratinjau-tanda--2026-10-16",
         date: "2026-10-16",
         title: "Rapikan panel metadata dan tambah pratinjau tanda tangan",
