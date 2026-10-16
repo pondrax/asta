@@ -611,3 +611,74 @@ export async function isEncrypted(bytes: Uint8Array | ArrayBuffer): Promise<bool
     return err?.name === 'EncryptedPDFError' || String(err?.message).includes('encrypted');
   }
 }
+
+// ---------------------------------------------------------
+// Text extraction (pdf.js)
+// ---------------------------------------------------------
+let pdfjsPromise: Promise<typeof import('pdfjs-dist')> | null = null;
+
+/**
+ * Loads pdf.js once per session with its worker wired up.
+ *
+ * Kept separate from the copy `preview.svelte` parks on `window`, because text
+ * extraction has to work whether or not a preview has been rendered yet.
+ */
+async function loadPdfjs() {
+  if (!pdfjsPromise) {
+    pdfjsPromise = (async () => {
+      const pdfjs = await import('pdfjs-dist');
+      const worker = await import('pdfjs-dist/build/pdf.worker.min.mjs?url');
+      pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
+      return pdfjs;
+    })();
+  }
+  return pdfjsPromise;
+}
+
+/**
+ * The document's text layer, page by page.
+ *
+ * The signing workspace has no editor, so "summarise this document" has to
+ * read the file itself. A page with no text layer — a scan — contributes
+ * nothing, which is the honest answer rather than an error.
+ *
+ * `maxChars` caps the result: the whole point is to hand it to a model, and a
+ * hundred-page contract would blow the context window for no benefit.
+ */
+export async function extractText(
+  bytes: Uint8Array | ArrayBuffer,
+  maxChars = 20000,
+): Promise<string> {
+  const pdfjs = await loadPdfjs();
+  // pdf.js takes ownership of the buffer it is handed, and the caller's bytes
+  // are still needed for preview and signing, so give it a copy.
+  const data = bytes instanceof Uint8Array ? bytes.slice() : new Uint8Array(bytes.slice(0));
+  const task = pdfjs.getDocument({ data });
+  try {
+    const doc = await task.promise;
+    const pages: string[] = [];
+    let total = 0;
+    for (let i = 1; i <= doc.numPages; i++) {
+      const page = await doc.getPage(i);
+      const content = await page.getTextContent();
+      const text = content.items
+        .map((item) => ('str' in item ? item.str : ''))
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (text) {
+        pages.push(text);
+        total += text.length;
+      }
+      if (total >= maxChars) break;
+    }
+    return pages.join('\n\n').slice(0, maxChars);
+  } finally {
+    // pdfjs-dist v4+ destroys the document through the loading task.
+    try {
+      await task.destroy();
+    } catch {
+      /* teardown is best-effort */
+    }
+  }
+}

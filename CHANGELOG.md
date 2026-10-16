@@ -78,6 +78,17 @@
   Admin     admin only; `hooks.server.ts` 403s every other role on `/main*`
 -->
 
+## 2026-10-16
+
+### Rapikan panel metadata dan tambah pratinjau tanda tangan\012\012- Susun ulang panel metadata: pilih pemilik, simpan dokumen, dan urutan medan identitas\012- Tambah komponen pratinjau QR Code dan kotak tanda tangan dengan unduh per-visual\012- Perbaiki pemilih profil penandatangan (simpan, pilih terakhir, hapus)\012- Perbarui tata letak halaman tanda tangan, workspace, dan chatbot
+
+<!-- id: rapikan-panel-metadata-dan-tambah-pratinjau-tanda--2026-10-16 -->
+
+Halaman: /sign-v2 - Sign V2
+Audiens: Tamu
+
+- **Baru** - rapikan panel metadata dan tambah pratinjau tanda tangan\012\012- Susun ulang panel metadata: pilih pemilik, simpan dokumen, dan urutan medan identitas\012- Tambah komponen pratinjau QR Code dan kotak tanda tangan dengan unduh per-visual\012- Perbaiki pemilih profil penandatangan (simpan, pilih terakhir, hapus)\012- Perbarui tata letak halaman tanda tangan, workspace, dan chatbot
+
 ## 2026-10-15
 
 ### Rombak tata letak halaman tanda tangan

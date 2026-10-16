@@ -15,18 +15,19 @@
   }}
 />
 
-<div class="ws-menubar ml-0 md:ml-5">
+<div class="flex items-center h-8 shrink-0 ml-0 md:ml-5">
   {#each workspace.menus as menu (menu.id)}
     <div
-      class="ws-item"
+      class="relative h-full"
       role="none"
-      class:open={openId === menu.id}
       onmouseenter={() => (openId = menu.id)}
       onmouseleave={close}
     >
       <button
         type="button"
-        class="ws-btn"
+        class={menu.variant === "primary"
+          ? `btn btn-sm btn-soft btn-primary rounded-full justify-between gap-1 ${menu.width ?? ""}`
+          : `h-full px-3 rounded-full text-xs text-base-content cursor-pointer border-0 ${openId === menu.id ? "bg-base-200" : "bg-transparent hover:bg-base-200"}`}
         aria-haspopup="true"
         aria-expanded={openId === menu.id}
         onclick={(e) => {
@@ -34,24 +35,51 @@
           openId = openId === menu.id ? null : menu.id;
         }}
       >
-        {menu.label}
+        {#if menu.variant === "primary"}
+          <span class="flex-1 text-center">{menu.label}</span>
+          <iconify-icon
+            icon="bx:chevron-down"
+            width="14"
+            height="14"
+            class="opacity-80"
+          ></iconify-icon>
+        {:else}
+          {menu.label}
+        {/if}
       </button>
-      <div class="ws-popup" role="menu" tabindex="-1">
+      <!-- Pseudo-element bridges the 4px gap so hover carries into the popup. -->
+      <div
+        class="absolute left-0 top-[calc(100%+4px)] min-w-60 py-1 bg-base-100 border border-base-300 rounded-lg shadow-xl z-[60]
+          before:content-[''] before:absolute before:-top-1 before:left-0 before:right-0 before:h-1
+          {openId === menu.id ? 'block' : 'hidden'}"
+        role="menu"
+        tabindex="-1"
+      >
         {#each menu.items as item, i (i)}
           {#if item === "sep"}
-            <div class="ws-sep"></div>
+            <div class="h-px my-1 bg-base-300"></div>
           {:else if item.href}
-            <a class="ws-menuitem" role="menuitem" href={item.href}>
-              <span class="ws-icon">
-                <iconify-icon icon={item.icon} width="18" height="18"
-                ></iconify-icon>
+            <a
+              class="flex items-center gap-2.5 w-full min-h-8 px-3 text-[13px] text-base-content no-underline cursor-pointer hover:bg-base-200"
+              role="menuitem"
+              href={item.href}
+            >
+              <span
+                class="flex size-4 shrink-0 items-center justify-center text-[16px] leading-none opacity-70"
+              >
+                <iconify-icon icon={item.icon}></iconify-icon>
               </span>
-              {item.label}
-              {#if item.badge}<span class="ws-badge">{item.badge}</span>{/if}
+              <span class="text-[13px] leading-none">{item.label}</span>
+              {#if item.badge}
+                <span
+                  class="ml-auto text-[10px] px-1.5 py-px rounded-full bg-primary text-primary-content"
+                  >{item.badge}</span
+                >
+              {/if}
             </a>
           {:else}
             <button
-              class="ws-menuitem"
+              class="flex items-center gap-2.5 w-full min-h-8 px-3 text-left text-[13px] text-base-content border-0 bg-transparent cursor-pointer hover:bg-base-200 disabled:opacity-40 disabled:cursor-default"
               role="menuitem"
               disabled={item.disabled}
               onclick={() => {
@@ -59,13 +87,15 @@
                 item.action?.();
               }}
             >
-              <span class="ws-icon">
-                <iconify-icon icon={item.icon} width="18" height="18"
-                ></iconify-icon>
+              <span
+                class="flex size-4 shrink-0 items-center justify-center text-[16px] leading-none opacity-70"
+              >
+                <iconify-icon icon={item.icon}></iconify-icon>
               </span>
-              {item.label}
-              {#if item.shortcut}<span class="ws-kbd">{item.shortcut}</span
-                >{/if}
+              <span class="text-[13px] leading-none">{item.label}</span>
+              {#if item.shortcut}
+                <span class="ml-auto text-[11px] opacity-50">{item.shortcut}</span>
+              {/if}
             </button>
           {/if}
         {/each}
@@ -73,105 +103,3 @@
     </div>
   {/each}
 </div>
-
-<style>
-  .ws-menubar {
-    display: flex;
-    align-items: center;
-    height: 32px;
-    flex: none;
-  }
-  .ws-item {
-    position: relative;
-    height: 100%;
-  }
-  .ws-btn {
-    height: 100%;
-    padding: 0 12px;
-    border: 0;
-    border-radius: 9999px;
-    background: transparent;
-    color: var(--color-base-content);
-    font-size: 12px;
-    cursor: pointer;
-  }
-  .ws-btn:hover,
-  .ws-item.open .ws-btn {
-    background: var(--color-base-200);
-  }
-  .ws-popup {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0;
-    min-width: 240px;
-    display: none;
-    padding: 5px 0;
-    background: var(--color-base-100);
-    border: 1px solid var(--color-base-300);
-    border-radius: 8px;
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
-    z-index: 60;
-  }
-  /* Bridge the gap between the trigger and the popup so the pointer can
-     travel down without the item losing hover. */
-  .ws-popup::before {
-    content: "";
-    position: absolute;
-    top: -4px;
-    left: 0;
-    right: 0;
-    height: 4px;
-  }
-  .ws-item.open .ws-popup {
-    display: block;
-  }
-  .ws-menuitem {
-    width: 100%;
-    min-height: 32px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 0 12px;
-    border: 0;
-    background: transparent;
-    text-align: left;
-    font-size: 13px;
-    color: var(--color-base-content);
-    text-decoration: none;
-    cursor: pointer;
-  }
-  .ws-menuitem:hover {
-    background: var(--color-base-200);
-  }
-  .ws-menuitem:disabled {
-    opacity: 0.4;
-    cursor: default;
-  }
-  .ws-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex: none;
-    width: 18px;
-    height: 18px;
-    opacity: 0.7;
-  }
-  .ws-kbd {
-    margin-left: auto;
-    font-size: 11px;
-    opacity: 0.5;
-  }
-  .ws-badge {
-    margin-left: auto;
-    font-size: 10px;
-    padding: 1px 6px;
-    border-radius: 999px;
-    background: var(--color-primary);
-    color: var(--color-primary-content);
-  }
-  .ws-sep {
-    height: 1px;
-    margin: 5px 0;
-    background: var(--color-base-300);
-  }
-</style>

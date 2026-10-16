@@ -27,10 +27,12 @@ import type {
   RulerIndentHandle,
   RulerPageMetrics,
   SupportedImageMime,
+  TextMatch,
 } from "@docx-editor.dev/core/editor";
 // EditorSelection is a contract type, not an editor-runtime export: the
 // editor entry re-exports commands, not the selection shapes they consume.
 import type { EditorSelection } from "@docx-editor.dev/core/contracts/editor";
+import { packagedFonts } from "@docx-editor.dev/fonts";
 import { runPlan, readDocumentStructure, applyTextWithTables } from "$lib/editor-ai-executor";
 import type { PlanStep } from "$lib/editor-ai-plan";
 
@@ -54,7 +56,11 @@ interface RulerPageState extends RulerPageMetrics {
   readonly bottomMargin: number;
 }
 
-type EditorTextMatch = ReturnType<DocxEditorInstance["findMatches"]>[number];
+// `findMatches` is overloaded (single query vs. many queries), and
+// `ReturnType` resolves to the LAST overload — the many-query one, whose
+// element type is `readonly TextMatch[]`. Name the element type directly so a
+// single hit is a `TextMatch`, not an array of them.
+type EditorTextMatch = TextMatch;
 type RulerMarginSide = "left" | "right" | "top" | "bottom";
 
 interface RulerDragState {
@@ -376,6 +382,11 @@ export interface DocxEditorSetupOptions {
 export interface DocxEditorSetupHandle {
   editor: DocxEditorInstance | null;
   /**
+   * Inserts a table through the same grid path the in-page Insert → Table
+   * menu uses, so the global navbar's "Table (3×3)" item behaves identically.
+   */
+  insertTable: (rows: number, cols: number) => void;
+  /**
    * Starts a blank document. Wrapped in `confirmDiscard` so the FAB and the
    * File menu / Ctrl+N all get the same "discard unsaved changes?" prompt
    * before the current document is thrown away.
@@ -387,6 +398,12 @@ export interface DocxEditorSetupHandle {
    * synchronously from the click to avoid the browser blocking it.
    */
   openSignPage: () => Promise<void>;
+  /**
+   * Runs a menubar item by its `data-slot` / `data-action`. The global navbar
+   * renders the editor menus inline (the in-page menubar stays in the DOM but
+   * is hidden), so it needs a way to trigger the same handlers.
+   */
+  runMenu: (item: { slot?: string; action?: string }) => void;
   /**
    * The text the chat assistant should work on: the current selection, or the
    * whole document when nothing is selected.
@@ -515,6 +532,10 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
   const hDragGuide = root.querySelector("#hDragGuide") as HTMLElement | null;
   const vDragGuide = root.querySelector("#vDragGuide") as HTMLElement | null;
   const pageStatus = root.querySelector("#pageStatus") as HTMLElement | null;
+  const pagePrevBtn = root.querySelector("#pagePrev") as HTMLButtonElement | null;
+  const pageNextBtn = root.querySelector("#pageNext") as HTMLButtonElement | null;
+  const pageInput = root.querySelector("#pageInput") as HTMLInputElement | null;
+  const pageTotal = root.querySelector("#pageTotal") as HTMLElement | null;
   const zoomOutBtn = root.querySelector("#zoomOut") as HTMLButtonElement | null;
   const zoomInBtn = root.querySelector("#zoomIn") as HTMLButtonElement | null;
   const zoomValue = root.querySelector("#zoomValue") as HTMLElement | null;
@@ -1018,6 +1039,14 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
     updateAll();
   }
 
+  function setDocumentTitle(name: string) {
+    const clean = name.trim();
+    document.title =
+      clean && clean !== "Untitled"
+        ? `${clean} – Tapak Astà`
+        : "Buat Dokumen – Tapak Astà";
+  }
+
   async function newDocument() {
     const instance = editor;
     if (!instance) return;
@@ -1032,6 +1061,7 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
         filenameInput.value = "Untitled";
         filenameInput.blur();
       }
+      setDocumentTitle("Untitled");
       hideError();
       updateAll();
     } catch (error) {
@@ -2843,6 +2873,12 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
       if (Number.isFinite(editorPage)) current = editorPage;
     }
     if (current !== null) pageStatus.textContent = `Page ${current} of ${total}`;
+    if (pageTotal) pageTotal.textContent = String(total);
+    if (pageInput && document.activeElement !== pageInput && current !== null) {
+      pageInput.value = String(current);
+    }
+    if (pagePrevBtn) pagePrevBtn.disabled = current !== null && current <= 1;
+    if (pageNextBtn) pageNextBtn.disabled = current !== null && current >= total;
   }
 
   function flashPageStatus() {
@@ -3319,6 +3355,41 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
     };
     zoomInBtn?.addEventListener("click", () => applyZoomStep("in"), { signal: eventSignal });
     zoomOutBtn?.addEventListener("click", () => applyZoomStep("out"), { signal: eventSignal });
+
+    // Page navigation (mirrors the signing doc-bar): scroll to a page by moving
+    // the document viewport to the target .docx-page.
+    const pageElements = () =>
+      editorContainer
+        ? Array.from(editorContainer.querySelectorAll<HTMLElement>(".docx-page"))
+        : [];
+    const currentPageIndex = () => {
+      const pages = pageElements();
+      if (!pages.length || !documentViewport) return 0;
+      const probeY = documentViewport.getBoundingClientRect().top + 1;
+      let idx = pages.findIndex((p) => p.getBoundingClientRect().bottom > probeY);
+      if (idx < 0) idx = pages.length - 1;
+      return idx;
+    };
+    const scrollToPageIndex = (index: number) => {
+      const pages = pageElements();
+      if (!pages.length) return;
+      const target = Math.max(0, Math.min(pages.length - 1, index));
+      pages[target]?.scrollIntoView({ block: "start", behavior: "smooth" });
+    };
+    pagePrevBtn?.addEventListener("click", () => scrollToPageIndex(currentPageIndex() - 1), { signal: eventSignal });
+    pageNextBtn?.addEventListener("click", () => scrollToPageIndex(currentPageIndex() + 1), { signal: eventSignal });
+    pageInput?.addEventListener("keydown", (event) => {
+      if (!pageInput) return;
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      const n = parseInt(pageInput.value, 10);
+      if (Number.isFinite(n) && n >= 1) scrollToPageIndex(n - 1);
+      pageInput.blur();
+    });
+    pageInput?.addEventListener("blur", () => {
+      if (!pageInput) return;
+      pageInput.value = String(currentPageIndex() + 1);
+    });
     for (const item of zoomMenuItems) {
       item.addEventListener("mousedown", (event) => event.preventDefault(), { signal: eventSignal });
       item.addEventListener("click", () => {
@@ -3587,6 +3658,7 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
         await instance.load(bytes);
         setDirty(false);
         if (filenameInput) filenameInput.value = file.name;
+        setDocumentTitle(file.name);
         if (documentViewport) documentViewport.scrollTo({ top: 0, left: 0 });
         hideError();
         updateAll();
@@ -3631,6 +3703,7 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
     }, { signal: eventSignal });
     const updateDocIconTitle = () => {
       if (docIcon) docIcon.title = filenameInput?.value.trim() || "Untitled";
+      setDocumentTitle(filenameInput?.value ?? "");
     };
     updateDocIconTitle();
     filenameInput?.addEventListener("input", updateDocIconTitle, { signal: eventSignal });
@@ -3960,10 +4033,16 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
 
   function init() {
     try {
+      // Word-accurate layout (line wrap, pagination, table column widths) needs
+      // real font metrics. Without `fonts` the engine falls back to a fixed-width
+      // estimate, which mis-sizes tables (they overflow the page). `packagedFonts()`
+      // is a resolver: it fetches only the families each document declares, from
+      // the bundler's asset URLs, on every load.
       editor = createDocxEditor({
         container: editorContainer ?? undefined,
         document: "blank",
         locale: "en-US",
+        fonts: packagedFonts(),
       }) as DocxEditorInstance;
       applyA4Default();
       registerEditorSubscriptions();
@@ -3994,10 +4073,12 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
     }
   }
 
-  init();
+  void init();
 
   return {
     editor,
+    // Inserts a table via the same grid path the in-page Insert → Table uses.
+    insertTable: (rows: number, cols: number) => insertTableFromGrid(rows, cols),
     // Exposed so the page's floating action button reuses the exact same
     // guard as the File menu and the Ctrl+N shortcut, rather than blowing
     // away unsaved work without asking.
@@ -4006,6 +4087,30 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
     // action button) to the very same flow the header button used, rather
     // than re-implementing the export → stash → handoff dance.
     openSignPage,
+    // Runs a menubar item by its `data-slot` / `data-action` — used by the
+    // global navbar menubar, which renders the editor menus inline (the in-page
+    // menubar stays in the DOM but is hidden).
+    runMenu: ({ slot, action }: { slot?: string; action?: string }) => {
+      try {
+        if (slot) {
+          handleSlot(slot, null);
+          updateAll();
+        }
+        if (action === "new") confirmDiscard(newDocument);
+        if (action === "open") confirmDiscard(() => fileInput?.click());
+        if (action === "save") void saveDocument();
+        if (action === "exportMarkdown") void exportMarkdown();
+        if (action === "savePdf") void saveAsPdf();
+        if (action === "print") printDocument();
+        if (action === "pageSetup") openPageSetup();
+        if (action?.startsWith("ai.")) {
+          const aiAction = action.slice(3);
+          if (aiAction in AI_ACTIONS) handleAiAction(aiAction as AiActionId);
+        }
+      } catch (error) {
+        showError(error instanceof Error ? error.message : String(error));
+      }
+    },
     // Exposed for the global chatbot, which lives in the root layout and has
     // no handle on this engine. It reads the current selection and asks for
     // text to be written back; both are routed through the same `paste` lane

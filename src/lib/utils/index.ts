@@ -6,11 +6,19 @@ dayjs.locale('id');
 
 
 export const d = dayjs;
-export function debounce(fn: (el: Event) => Promise<void>, delay: number) {
+/**
+ * Trailing-edge debounce. Generic over the wrapped function's arguments so a
+ * debounced handler can be called with exactly the arguments it declares —
+ * including none, which is the common case for "re-run this computation".
+ */
+export function debounce<A extends unknown[]>(
+  fn: (...args: A) => unknown,
+  delay: number,
+) {
   let timeoutId: number | NodeJS.Timeout;
-  return (el: Event) => {
+  return (...args: A) => {
     clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => fn(el), delay);
+    timeoutId = setTimeout(() => fn(...args), delay);
   };
 }
 

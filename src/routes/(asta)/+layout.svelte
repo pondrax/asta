@@ -52,10 +52,13 @@
 
   const isManageActive = $derived(page.url.pathname.startsWith("/main"));
 
-  // The signing workspace keeps its own editor menubar, so its site navigation
-  // is collapsed into a single full-width "Menu" mega dropdown in the navbar.
+  // The signing workspace and the DOCX editor keep their own menubar, so the
+  // site navigation is collapsed into a single grouped dropdown in the navbar.
   const isWorkspace = $derived(
-    page.url.pathname === "/sign-v2" || page.url.pathname.startsWith("/sign-v2/"),
+    page.url.pathname === "/sign-v2" ||
+      page.url.pathname.startsWith("/sign-v2/") ||
+      page.url.pathname === "/editor" ||
+      page.url.pathname.startsWith("/editor/"),
   );
 
   // Per-scope document counts for nav badges
@@ -430,7 +433,7 @@
       </div>
 
       <div class="navbar-end gap-1">
-        {#if ["/sign", "/sign-v2", "/verify", "/me", "/main"].includes(page.url.pathname)}
+        {#if ["/sign", "/sign-v2", "/verify", "/me", "/main", "/editor"].includes(page.url.pathname)}
           <button
             class="btn btn-ghost btn-sm rounded-full gap-1 relative animate-pulse"
             onclick={() => (app.showTour = true)}
@@ -466,7 +469,7 @@
           ></iconify-icon>
         </label>
         {#if user}
-          <div class="dropdown dropdown-end">
+          <div class="dropdown dropdown-end ">
             <div tabindex="0" role="button" class="btn btn-ghost btn-sm rounded-full">
               <div class="indicator">
                 {#if data.impersonated}
@@ -474,12 +477,12 @@
                     >impersonate</span
                   >
                 {/if}
-                <div class="avatar rounded-full bg-secondary w-8 -ml-3">
+                <div class="avatar rounded-full bg-secondary w-10 -ml-3 ">
                   <img src="/ava.svg" alt={user.email} />
                 </div>
               </div>
               <div>
-                <div>
+                <div class="max-w-15 truncate">
                   {user.email?.split("@")[0]}
                 </div>
               </div>

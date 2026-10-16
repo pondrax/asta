@@ -34,6 +34,7 @@
     onDeleteSelected,
     onClearAll,
     onDownload,
+    onShowMetadata,
     signerEmail,
   }: {
     activeTool?: SignTool;
@@ -65,6 +66,7 @@
     onDeleteSelected?: () => void;
     onClearAll?: () => void;
     onDownload?: () => void;
+    onShowMetadata?: () => void;
     signerEmail?: Snippet;
   } = $props();
 
@@ -91,12 +93,16 @@
   }}
 />
 
-<div class="toolbar" role="toolbar" aria-label="Alat tanda tangan">
+<div
+  class="relative flex flex-nowrap items-center gap-0.5 h-10 min-h-10 mx-1.5 mb-1.5 px-1.5 bg-base-200 rounded-full overflow-visible select-none"
+  role="toolbar"
+  aria-label="Alat tanda tangan"
+>
   <!-- history -->
-  <div class="toolbar-group">
+  <div class="flex items-center gap-px shrink-0">
     <button
       type="button"
-      class="btn btn-sm btn-ghost btn-square"
+      class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
       title="Undo"
       aria-label="Undo"
       disabled={!canUndo}
@@ -106,7 +112,7 @@
     </button>
     <button
       type="button"
-      class="btn btn-sm btn-ghost btn-square"
+      class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
       title="Redo"
       aria-label="Redo"
       disabled={!canRedo}
@@ -116,19 +122,20 @@
     </button>
   </div>
 
-  <div class="toolbar-separator"></div>
+  <div class="w-px h-6 mx-1 bg-base-300 shrink-0"></div>
 
   {#if signerEmail}
-    <div class="toolbar-signer">{@render signerEmail()}</div>
+    <div class="relative max-lg:static shrink-0 flex items-center">
+      {@render signerEmail()}
+    </div>
+    <div class="w-px h-6 mx-1 bg-base-300 shrink-0"></div>
   {/if}
 
-  <div class="toolbar-separator"></div>
-
   <!-- visualisasi -->
-  <div class="toolbar-group">
+  <div class="flex items-center gap-px shrink-0">
     <button
       type="button"
-      class="btn btn-sm btn-ghost btn-square hidden! lg:inline-flex!"
+      class="btn btn-sm btn-ghost hover:bg-base-300 btn-square hidden! lg:inline-flex!"
       title="Tambah Gambar"
       aria-label="Tambah Gambar"
       disabled={visualMode !== "all"}
@@ -138,7 +145,7 @@
     </button>
     <button
       type="button"
-      class="btn btn-sm btn-ghost btn-square hidden! lg:inline-flex!"
+      class="btn btn-sm btn-ghost hover:bg-base-300 btn-square hidden! lg:inline-flex!"
       title="Tambah QR"
       aria-label="Tambah QR"
       disabled={visualMode !== "all"}
@@ -148,7 +155,7 @@
     </button>
     <button
       type="button"
-      class="btn btn-sm btn-ghost btn-square hidden! lg:inline-flex!"
+      class="btn btn-sm btn-ghost hover:bg-base-300 btn-square hidden! lg:inline-flex!"
       title="Tambah Kotak"
       aria-label="Tambah Kotak"
       disabled={visualMode !== "all"}
@@ -158,7 +165,7 @@
     </button>
     <button
       type="button"
-      class="btn btn-sm btn-ghost btn-square hidden! lg:inline-flex!"
+      class="btn btn-sm btn-ghost hover:bg-base-300 btn-square hidden! lg:inline-flex!"
       title="Tanda Tangan"
       aria-label="Tanda Tangan"
       disabled={visualMode === "none"}
@@ -168,10 +175,10 @@
     </button>
 
     <!-- small screens: one grouped dropdown -->
-    <div class="tool-dropdown lg:hidden!">
+    <div class="relative inline-flex lg:hidden!">
       <button
         type="button"
-        class="btn btn-sm btn-ghost btn-square"
+        class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
         title="Visualisasi"
         aria-label="Visualisasi"
         aria-haspopup="menu"
@@ -185,12 +192,15 @@
         <iconify-icon icon="bx:image-add"></iconify-icon>
       </button>
       {#if visualMenuOpen}
-        <ul class="stepper-menu" role="menu">
+        <ul
+          class="absolute top-full left-0 mt-1 min-w-[132px] p-1 bg-base-100 border border-base-300 rounded-lg shadow-xl z-40"
+          role="menu"
+        >
           {#if visualMode === "all"}
             <li>
               <button
                 type="button"
-                class="stepper-menu__item"
+                class="flex items-center gap-3 w-full px-2.5 py-1.5 text-left text-[13px] text-base-content rounded hover:bg-base-200"
                 onclick={() => {
                   closeMenus();
                   onAddVisual?.("image");
@@ -203,7 +213,7 @@
             <li>
               <button
                 type="button"
-                class="stepper-menu__item"
+                class="flex items-center gap-3 w-full px-2.5 py-1.5 text-left text-[13px] text-base-content rounded hover:bg-base-200"
                 onclick={() => {
                   closeMenus();
                   onAddVisual?.("qr");
@@ -216,7 +226,7 @@
             <li>
               <button
                 type="button"
-                class="stepper-menu__item"
+                class="flex items-center gap-3 w-full px-2.5 py-1.5 text-left text-[13px] text-base-content rounded hover:bg-base-200"
                 onclick={() => {
                   closeMenus();
                   onAddVisual?.("box");
@@ -230,7 +240,7 @@
           <li>
             <button
               type="button"
-              class="stepper-menu__item"
+              class="flex items-center gap-3 w-full px-2.5 py-1.5 text-left text-[13px] text-base-content rounded hover:bg-base-200"
               onclick={() => {
                 closeMenus();
                 onAddVisual?.("draw");
@@ -244,12 +254,12 @@
       {/if}
     </div>
 
-    <div class="toolbar-separator"></div>
+    <div class="w-px h-6 mx-1 bg-base-300 shrink-0"></div>
 
-    <div class="tool-dropdown">
+    <div class="relative inline-flex">
       <button
         type="button"
-        class="btn btn-sm btn-ghost"
+        class="btn btn-sm btn-ghost hover:bg-base-300"
         title="Footer"
         aria-label="Footer"
         aria-haspopup="menu"
@@ -262,60 +272,76 @@
       >
         <iconify-icon icon="bx:file-blank"></iconify-icon>
         <span class="hidden lg:inline">Footer</span>
-        <span class="stepper__caret" aria-hidden="true">▾</span>
+        <span class="text-[10px] text-base-content/60" aria-hidden="true"
+          >▾</span
+        >
       </button>
       {#if footerMenuOpen}
-        <ul class="stepper-menu" role="menu">
+        <ul
+          class="absolute top-full left-0 mt-1 min-w-[132px] p-1 bg-base-100 border border-base-300 rounded-lg shadow-xl z-40"
+          role="menu"
+        >
           <li>
             <button
               type="button"
-              class="stepper-menu__item"
+              class="flex items-center gap-3 w-full px-2.5 py-1.5 text-left text-[13px] text-base-content rounded hover:bg-base-200"
               onclick={() => pickFooterScope("none")}
             >
               Tanpa Footer
               {#if footerMode === "none"}
-                <span class="stepper-menu__check">✓</span>
+                <span class="ml-auto text-xs pl-4">✓</span>
               {/if}
             </button>
           </li>
           <li>
             <button
               type="button"
-              class="stepper-menu__item"
+              class="flex items-center gap-3 w-full px-2.5 py-1.5 text-left text-[13px] text-base-content rounded hover:bg-base-200"
               onclick={() => pickFooterScope("current")}
             >
               Halaman Ini
               {#if footerMode === "current"}
-                <span class="stepper-menu__check">✓</span>
+                <span class="ml-auto text-xs pl-4">✓</span>
               {/if}
             </button>
           </li>
           <li>
             <button
               type="button"
-              class="stepper-menu__item"
+              class="flex items-center gap-3 w-full px-2.5 py-1.5 text-left text-[13px] text-base-content rounded hover:bg-base-200"
               onclick={() => pickFooterScope("all")}
             >
               Semua Halaman
               {#if footerMode === "all"}
-                <span class="stepper-menu__check">✓</span>
+                <span class="ml-auto text-xs pl-4">✓</span>
               {/if}
             </button>
           </li>
         </ul>
       {/if}
     </div>
-    </div>
 
-  <div class="toolbar-separator hidden! lg:block!"></div>
+    <button
+      type="button"
+      class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
+      title="Panel Metadata"
+      aria-label="Panel Metadata"
+      disabled={!hasDocuments}
+      onclick={() => onShowMetadata?.()}
+    >
+      <iconify-icon icon="bx:info-circle"></iconify-icon>
+    </button>
+  </div>
+
+  <div class="w-px h-6 mx-1 bg-base-300 shrink-0 hidden! lg:block!"></div>
 
   <!-- select -->
-  <div class="toolbar-group hidden! lg:flex!">
+  <div class="flex items-center gap-px shrink-0 hidden! lg:flex!">
     <button
       type="button"
       class={activeTool === "select"
-        ? "btn btn-sm btn-ghost btn-square btn-active"
-        : "btn btn-sm btn-ghost btn-square"}
+        ? "btn btn-sm btn-ghost hover:bg-base-300 btn-square bg-primary/10 text-primary"
+        : "btn btn-sm btn-ghost hover:bg-base-300 btn-square"}
       title="Pilih / Geser"
       aria-label="Pilih / Geser"
       aria-pressed={activeTool === "select"}
@@ -326,7 +352,7 @@
     </button>
     <button
       type="button"
-      class="btn btn-sm btn-ghost btn-square"
+      class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
       title="Hapus item terpilih"
       aria-label="Hapus item terpilih"
       disabled={!hasSelection}
@@ -336,7 +362,7 @@
     </button>
     <button
       type="button"
-      class="btn btn-sm btn-ghost btn-square"
+      class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
       title="Hapus semua item"
       aria-label="Hapus semua item"
       disabled={!hasDocuments}
@@ -349,13 +375,13 @@
   <div class="ml-auto"></div>
 
   <!-- document signature status -->
-  <div class="toolbar-group">
-    <div class="tool-dropdown tool-dropdown--end">
+  <div class="flex items-center gap-px shrink-0">
+    <div class="relative inline-flex">
       <button
         type="button"
-        class="btn btn-sm btn-ghost gap-1"
+        class="btn btn-sm btn-ghost hover:bg-base-300 gap-1"
         title={hasSignature
-          ? "Peringatan: Terdapat tanda tangan elektronik pada dokumen ini"
+          ? "Dokumen sudah memiliki tanda tangan elektronik"
           : "Status tanda tangan dokumen"}
         aria-label="Status tanda tangan dokumen"
         aria-haspopup="menu"
@@ -377,7 +403,7 @@
           >{!hasDocuments
             ? "Tidak ada dokumen"
             : hasSignature
-              ? "Peringatan: Terdapat TTD"
+              ? "Sudah ditandatangani"
               : "Belum ditandatangani"}</span
         >
         {#if signatureInfos.length > 0}
@@ -385,7 +411,9 @@
             >{signatureInfos.length}</span
           >
         {/if}
-        <span class="stepper__caret" aria-hidden="true">▾</span>
+        <span class="text-[10px] text-base-content/60" aria-hidden="true"
+          >▾</span
+        >
       </button>
       {#if hasDocuments && hasSignature}
         <button
@@ -400,16 +428,19 @@
         </button>
       {/if}
       {#if statusMenuOpen}
-        <ul class="stepper-menu stepper-menu--wide" role="menu">
+        <ul
+          class="absolute top-full right-0 mt-1 min-w-[280px] p-1 bg-base-100 border border-base-300 rounded-lg shadow-xl z-40"
+          role="menu"
+        >
           {#if !hasDocuments}
             <li>
-              <div class="stepper-menu__item opacity-60">
+              <div class="flex items-center px-2.5 py-1.5 text-[13px] opacity-60">
                 Tidak ada dokumen
               </div>
             </li>
           {:else if signatureInfos.length === 0}
             <li>
-              <div class="stepper-menu__item opacity-60">
+              <div class="flex items-center px-2.5 py-1.5 text-[13px] opacity-60">
                 Tidak ada tanda tangan
               </div>
             </li>
@@ -417,8 +448,7 @@
             {#each signatureInfos as sig (sig.name)}
               <li>
                 <div
-                  class="stepper-menu__item"
-                  style="display:block;text-align:left;white-space:normal"
+                  class="block px-2.5 py-1.5 text-left text-[13px] whitespace-normal"
                 >
                   <div class="flex items-center gap-1">
                     <iconify-icon icon="bx:check-shield"></iconify-icon>

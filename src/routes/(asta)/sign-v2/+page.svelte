@@ -1,6 +1,7 @@
 <script lang="ts">
   import { env } from "$env/dynamic/public";
   import { app } from "$lib/app/index.svelte";
+  import { chat } from "$lib/app/chat.svelte";
   import { workspace } from "$lib/app/sign-workspace.svelte";
   import WorkspaceMenuBar from "$lib/components/workspace-menubar.svelte";
   import {
@@ -107,6 +108,20 @@
 
   $effect(() => {
     pageDraft = previewState.page;
+  });
+
+  /** "Page X of X" overlay: flashes on page change, then fades (like the editor). */
+  let pageOverlayVisible = $state(false);
+  let pageOverlayTimer: ReturnType<typeof setTimeout> | null = null;
+  $effect(() => {
+    previewState.page;
+    previewState.pageCount;
+    pageOverlayVisible = true;
+    if (pageOverlayTimer) clearTimeout(pageOverlayTimer);
+    pageOverlayTimer = setTimeout(() => (pageOverlayVisible = false), 1200);
+    return () => {
+      if (pageOverlayTimer) clearTimeout(pageOverlayTimer);
+    };
   });
 
   function commitPage() {
@@ -504,7 +519,7 @@
   const hasDocuments = $derived(Object.keys(documents).length > 0);
   // Signing only requires an identity and a valid TTE signer; note/location are
   // optional (they default server-side). Manual signing just needs at least one
-  // signature visualisation. The Metadata panel is hidden for now.
+  // signature visualisation.
   const hasMetadata = $derived(
     String(form.email).length > 0 &&
       (bsre
@@ -529,6 +544,24 @@
     const hasDocs = hasDocuments;
     const hasSel = !!selectedId;
     workspace.menus = [
+      {
+        id: "mode",
+        label: bsre ? "TTE" : "Manual",
+        variant: "primary",
+        width: "w-[5.5rem]",
+        items: [
+          {
+            icon: bsre ? "bx:radio-circle-marked" : "bx:radio-circle",
+            label: "Tanda Tangan Elektronik",
+            action: () => (bsre = true),
+          },
+          {
+            icon: !bsre ? "bx:radio-circle-marked" : "bx:radio-circle",
+            label: "Tanda Tangan Manual",
+            action: () => (bsre = false),
+          },
+        ],
+      },
       {
         id: "file",
         label: "File",
@@ -646,6 +679,36 @@
               activeTab = "documents";
               navOpen = true;
             },
+          },
+        ],
+      },
+      {
+        id: "ai",
+        label: "AI",
+        items: [
+          {
+            icon: "bx:bot",
+            label: "Buka Asisten AI",
+            action: () => chat.openChat(),
+          },
+          "sep",
+          {
+            icon: "bx:list-ul",
+            label: "Ringkas Dokumen",
+            disabled: !hasDocs,
+            action: () => askAboutDocument("summarize"),
+          },
+          {
+            icon: "bx:check-shield",
+            label: "Periksa Dokumen",
+            disabled: !hasDocs,
+            action: () => askAboutDocument("review"),
+          },
+          {
+            icon: "bx:edit",
+            label: "Saran Keterangan",
+            disabled: !hasDocs,
+            action: () => askAboutDocument("note"),
           },
         ],
       },
@@ -890,7 +953,6 @@
     saveDocument = form.save_document ?? true;
   }
 
-  //@ts-ignore - debounce return type doesn't match the debounced function signature
   const debounceFillFormFields = debounce(() => {
     fillFormFields(documents[activeIndex]);
   }, 500);
@@ -907,10 +969,17 @@
 
   $effect(() => {
     if (files.length > 0) {
-      documents = Object.fromEntries(files.map((file) => [createId(10), file]));
-      activeIndex = Object.keys(documents)[0];
+      const hadDocuments = Object.keys(documents).length > 0;
+      const added = Object.fromEntries(
+        files.map((file) => [createId(10), file]),
+      );
+      // Append the picked files to the existing set rather than replacing it.
+      documents = { ...documents, ...added };
+      activeIndex = Object.keys(added)[0];
       const first = files[0];
-      if (first) workspace.docName = first.name.replace(/\.pdf$/i, "");
+      if (first && !hadDocuments) {
+        workspace.docName = first.name.replace(/\.pdf$/i, "");
+      }
       files = [];
       saveDocument = form.save_document ?? !!data.user;
     }
@@ -978,6 +1047,47 @@
     } catch (err) {
       console.error("[verify] handoff failed", err);
       app.showToast("error", "Gagal membuka dokumen untuk verifikasi.");
+    }
+  }
+
+  // ── AI menu ──────────────────────────────────────────────────────
+  /**
+   * What each AI menu entry asks for. The document's text is handed over as
+   * context rather than pasted into the question, so the transcript shows the
+   * request and not twenty thousand characters of contract.
+   */
+  const AI_PROMPTS = {
+    summarize:
+      "Ringkas dokumen yang sedang saya buka. Sebutkan jenis dokumennya, pihak yang terlibat, dan hal-hal penting yang perlu saya perhatikan sebelum menandatanganinya.",
+    review:
+      "Periksa dokumen yang sedang saya buka. Tandai hal yang berisiko atau tidak lazim — klausul yang merugikan, bagian yang kosong, tanggal atau nominal yang tidak konsisten — dan jelaskan singkat mengapa.",
+    note: "Berdasarkan dokumen yang sedang saya buka, usulkan satu kalimat pendek untuk kolom keterangan tanda tangan. Cukup satu kalimat, tanpa penjelasan tambahan.",
+  } as const;
+
+  /**
+   * Opens the AI assistant with a question about the active document.
+   *
+   * The text is read here rather than server-side because the file only ever
+   * exists in the browser. A document with no text layer (a scan) is reported
+   * as such instead of being sent as an empty context, which would have the
+   * model invent a document to talk about.
+   */
+  async function askAboutDocument(kind: keyof typeof AI_PROMPTS) {
+    const file = documents[activeIndex];
+    if (!file) {
+      chat.openChat(AI_PROMPTS[kind]);
+      return;
+    }
+    try {
+      const text = await pdfLib.extractText(await file.arrayBuffer());
+      chat.openChat(
+        AI_PROMPTS[kind],
+        text ||
+          "(Dokumen ini tidak memiliki lapisan teks — kemungkinan hasil pindai, sehingga isinya tidak dapat dibaca.)",
+      );
+    } catch (err) {
+      console.error("[sign] AI document read failed", err);
+      app.showToast("error", "Gagal membaca teks dokumen.");
     }
   }
 
@@ -1080,30 +1190,19 @@
   class="sign-page h-[calc(100dvh-3rem)] flex flex-col overflow-hidden"
 >
   <!-- ============ TOPBAR ============ -->
-  <div class="topbar">
+  <div
+    class="flex-none relative z-100 bg-base-100 border-b border-base-300 select-none [&_iconify-icon]:text-[17px] [&_iconify-icon]:pointer-events-none [&_.btn]:font-normal"
+  >
     <!-- On small screens the navbar can't host the menubar, so keep it here. -->
     <div class="lg:hidden px-2 pt-1">
       <WorkspaceMenuBar />
     </div>
 
     {#snippet signerEmail()}
-      <div class="join items-center!" role="group" aria-label="Mode tanda tangan">
-        <label
-          class="btn btn-sm btn-ghost join-item gap-1"
-          title="Centang untuk TTE, kosongkan untuk Manual"
-        >
-          <input
-            type="checkbox"
-            class="checkbox checkbox-sm"
-            checked={bsre}
-            onchange={(e) =>
-              (bsre = (e.currentTarget as HTMLInputElement).checked)}
-          />
-          TTE
-        </label>
+      <div class="flex items-center gap-1 min-w-0">
         <button
           type="button"
-          class="btn btn-sm btn-ghost btn-square join-item lg:hidden!"
+          class="btn btn-sm btn-ghost hover:bg-base-300 btn-square shrink-0 lg:hidden!"
           title="Tampilkan email penandatangan"
           aria-label="Tampilkan email penandatangan"
           aria-pressed={emailOpen}
@@ -1111,7 +1210,11 @@
         >
           <iconify-icon icon="bx:envelope"></iconify-icon>
         </button>
-        <div class="signer-pop join-item border-0!" class:open={emailOpen}>
+        <div
+          class="min-w-0 flex items-center max-lg:absolute max-lg:top-full max-lg:left-1.5 max-lg:right-1.5 max-lg:mt-1.5 max-lg:p-2 max-lg:bg-base-100 max-lg:border max-lg:border-base-300 max-lg:rounded-lg max-lg:shadow-xl max-lg:z-60 max-lg:[&_.tooltip]:w-full max-lg:[&_.input]:w-full! max-lg:[&_.input]:max-w-none! max-lg:[&_.input]:flex-auto {emailOpen
+            ? ''
+            : 'max-lg:hidden'}"
+        >
           <SignerEmail
             bind:form
             bind:status
@@ -1154,18 +1257,25 @@
         selectedId = null;
       }}
       onDownload={downloadActive}
+      onShowMetadata={() => {
+        activeTab = "metadata";
+        navOpen = true;
+      }}
     />
   </div>
 
   <!-- ============ BODY ============ -->
-  <div class="sign-body">
+  <div class="flex-1 min-h-0 flex bg-base-200 max-lg:overflow-hidden">
     <PageNav controller={previewCtl} preview={previewState} open={pageNavOpen} />
 
-    <main class="center-pane">
+    <main
+      class="flex-1 min-w-0 min-h-0 order-1 flex flex-col relative p-0 gap-2 max-lg:min-w-72"
+    >
       <button
         type="button"
-        class="pane-toggle pane-toggle--left"
-        class:active={navOpen}
+        class="absolute top-2 left-2 z-20 w-7.5 h-7.5 inline-flex items-center justify-center border rounded-full shadow cursor-pointer {navOpen
+          ? 'bg-primary border-primary text-primary-content'
+          : 'bg-base-100 border-base-300 text-base-content hover:bg-base-200'}"
         title="Panel dokumen & metadata"
         aria-label="Panel dokumen & metadata"
         aria-pressed={navOpen}
@@ -1175,8 +1285,9 @@
       </button>
       <button
         type="button"
-        class="pane-toggle pane-toggle--right"
-        class:active={pageNavOpen}
+        class="absolute top-2 right-2 z-20 w-7.5 h-7.5 inline-flex items-center justify-center border rounded-full shadow cursor-pointer {pageNavOpen
+          ? 'bg-primary border-primary text-primary-content'
+          : 'bg-base-100 border-base-300 text-base-content hover:bg-base-200'}"
         title="Panel navigasi halaman"
         aria-label="Panel navigasi halaman"
         aria-pressed={pageNavOpen}
@@ -1186,20 +1297,34 @@
       </button>
 
       {#if hasDocuments}
-      <div class="doc-bar">
+      <div
+        class="absolute top-2 right-12 z-10 rounded-md bg-neutral/85 px-3 py-1.5 text-xs leading-none text-neutral-content pointer-events-none select-none tabular-nums transition-opacity duration-300 {pageOverlayVisible
+          ? 'opacity-100'
+          : 'opacity-0'}"
+      >
+        Page {previewState.page} of {previewState.pageCount}
+      </div>
+      <div
+        class="absolute left-1/2 top-2 lg:top-auto lg:bottom-4 -translate-x-1/2 z-20 flex items-center gap-0.5 h-8 px-2 bg-base-100 border border-base-300 rounded-full shadow-lg"
+      >
         <input
-          class="doc-bar__title"
+          class="w-48 h-6 px-2.5 border-0 rounded-full bg-transparent text-xs text-center text-base-content hover:bg-base-200 focus:outline-none focus:bg-base-200 max-lg:hidden"
           type="text"
           placeholder="Tanpa Judul"
           aria-label="Nama dokumen"
           spellcheck="false"
           bind:value={workspace.docName}
         />
-        <span class="doc-bar__sep hidden lg:block" aria-hidden="true"></span>
-        <div class="stepper">
+        <span
+          class="w-px h-4 flex-none bg-base-300 hidden! lg:block!"
+          aria-hidden="true"
+        ></span>
+        <div
+          class="relative inline-flex items-center flex-none h-6.5 bg-transparent"
+        >
           <button
             type="button"
-            class="stepper__button"
+            class="w-5 h-6 inline-flex items-center justify-center bg-transparent border-0 rounded text-[13px] leading-none p-0 cursor-pointer text-base-content hover:bg-base-200 disabled:opacity-35 disabled:cursor-default"
             title="Perkecil"
             aria-label="Perkecil"
             disabled={previewState.zoom <= 0.25}
@@ -1207,7 +1332,7 @@
           >
           <button
             type="button"
-            class="stepper__value"
+            class="min-w-11 h-6 inline-flex items-center justify-center gap-0.5 px-1 bg-transparent border-0 rounded text-xs tabular-nums whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200"
             title="Zoom"
             aria-label="Zoom"
             aria-haspopup="menu"
@@ -1218,11 +1343,13 @@
             }}
           >
             {Math.round(previewState.zoom * 100)}%
-            <span class="stepper__caret" aria-hidden="true">▾</span>
+            <span class="text-[10px] text-base-content/60" aria-hidden="true"
+              >▾</span
+            >
           </button>
           <button
             type="button"
-            class="stepper__button"
+            class="w-5 h-6 inline-flex items-center justify-center bg-transparent border-0 rounded text-[13px] leading-none p-0 cursor-pointer text-base-content hover:bg-base-200 disabled:opacity-35 disabled:cursor-default"
             title="Perbesar"
             aria-label="Perbesar"
             disabled={previewState.zoom >= 4}
@@ -1230,11 +1357,18 @@
           >
 
           {#if zoomMenuOpen}
-            <ul class="stepper-menu" role="menu">
+            <ul
+              class="absolute top-full left-0 mt-1.5 min-w-33 p-1 bg-base-100 border border-base-300 rounded-lg shadow-xl z-40"
+              role="menu"
+            >
               <li>
                 <button
                   type="button"
-                  class="stepper-menu__item"
+                  class="w-full flex items-center gap-2 px-2.5 py-1.75 bg-transparent border-0 rounded text-[13px] leading-4.5 text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200 {Math.abs(
+                    previewState.zoom - 1,
+                  ) < 0.001
+                    ? 'bg-primary/10 text-primary'
+                    : ''}"
                   onclick={() => {
                     previewCtl?.setZoom(1);
                     zoomMenuOpen = false;
@@ -1242,7 +1376,7 @@
                 >
                   Sesuai Jendela
                   {#if Math.abs(previewState.zoom - 1) < 0.001}
-                    <span class="stepper-menu__check">✓</span>
+                    <span class="ml-auto text-xs pl-4">✓</span>
                   {/if}
                 </button>
               </li>
@@ -1250,7 +1384,11 @@
                 <li>
                   <button
                     type="button"
-                    class="stepper-menu__item"
+                    class="w-full flex items-center gap-2 px-2.5 py-1.75 bg-transparent border-0 rounded text-[13px] leading-4.5 text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200 {Math.abs(
+                      previewState.zoom - preset,
+                    ) < 0.001
+                      ? 'bg-primary/10 text-primary'
+                      : ''}"
                     onclick={() => {
                       previewCtl?.setZoom(preset);
                       zoomMenuOpen = false;
@@ -1258,7 +1396,7 @@
                   >
                     {Math.round(preset * 100)}%
                     {#if Math.abs(previewState.zoom - preset) < 0.001}
-                      <span class="stepper-menu__check">✓</span>
+                      <span class="ml-auto text-xs pl-4">✓</span>
                     {/if}
                   </button>
                 </li>
@@ -1266,11 +1404,14 @@
             </ul>
           {/if}
         </div>
-        <span class="doc-bar__sep" aria-hidden="true"></span>
-        <div class="stepper">
+        <span class="w-px h-4 flex-none bg-base-300" aria-hidden="true"
+        ></span>
+        <div
+          class="relative inline-flex items-center flex-none h-6.5 bg-transparent"
+        >
           <button
             type="button"
-            class="stepper__button"
+            class="w-5 h-6 inline-flex items-center justify-center bg-transparent border-0 rounded text-[13px] leading-none p-0 cursor-pointer text-base-content hover:bg-base-200 disabled:opacity-35 disabled:cursor-default"
             title="Halaman sebelumnya"
             aria-label="Halaman sebelumnya"
             disabled={previewState.page <= 1}
@@ -1278,9 +1419,11 @@
           >
             <iconify-icon icon="bx:chevron-left"></iconify-icon>
           </button>
-          <span class="stepper__value">
+          <span
+            class="min-w-11 h-6 inline-flex items-center justify-center gap-0.5 px-1 bg-transparent border-0 rounded text-xs tabular-nums whitespace-nowrap text-base-content"
+          >
             <input
-              class="stepper__input"
+              class="w-5 p-0 bg-transparent border-0 text-inherit text-center tabular-nums focus:outline-none"
               type="text"
               inputmode="numeric"
               aria-label="Nomor halaman"
@@ -1294,11 +1437,13 @@
               }}
               onblur={commitPage}
             />
-            <span class="stepper__caret">/ {previewState.pageCount}</span>
+            <span class="text-[10px] text-base-content/60"
+              >/ {previewState.pageCount}</span
+            >
           </span>
           <button
             type="button"
-            class="stepper__button"
+            class="w-5 h-6 inline-flex items-center justify-center bg-transparent border-0 rounded text-[13px] leading-none p-0 cursor-pointer text-base-content hover:bg-base-200 disabled:opacity-35 disabled:cursor-default"
             title="Halaman berikutnya"
             aria-label="Halaman berikutnya"
             disabled={previewState.pageCount === 0 ||
@@ -1308,10 +1453,11 @@
             <iconify-icon icon="bx:chevron-right"></iconify-icon>
           </button>
         </div>
-        <span class="doc-bar__sep" aria-hidden="true"></span>
+        <span class="w-px h-4 flex-none bg-base-300" aria-hidden="true"
+        ></span>
         <button
           type="button"
-          class="doc-bar__btn"
+          class="h-6 inline-flex items-center gap-1 px-2 flex-none border-0 rounded bg-transparent text-[13px] text-base-content cursor-pointer hover:bg-base-200"
           title="Unduh dokumen"
           aria-label="Unduh dokumen"
           onclick={() => downloadActive()}
@@ -1319,21 +1465,11 @@
           <iconify-icon icon="bx:download"></iconify-icon>
           <span class="hidden lg:inline">Unduh</span>
         </button>
-        <button
-          type="button"
-          class="doc-bar__btn"
-          title="Tutup dokumen"
-          aria-label="Tutup dokumen"
-          onclick={() => closeDocument()}
-        >
-          <iconify-icon icon="bx:x"></iconify-icon>
-          <span class="hidden lg:inline">Tutup</span>
-        </button>
       </div>
       {/if}
 
       {#if hasDocuments && isEncrypted}
-        <div class="doc-alerts">
+        <div class="flex flex-col gap-1.5 flex-none px-2">
           <div class="alert alert-error py-1 px-4 flex-none">
             <iconify-icon icon="bx:lock-alt" class="text-xl"></iconify-icon>
             <span>
@@ -1344,7 +1480,7 @@
           </div>
         </div>
       {:else if hasDocuments && isDraft}
-        <div class="doc-alerts">
+        <div class="flex flex-col gap-1.5 flex-none px-2">
           <div class="alert alert-info py-1 px-4 flex-none">
             <iconify-icon icon="bx:error" class="text-xl"></iconify-icon>
             <span>
@@ -1355,7 +1491,7 @@
       {/if}
 
       {#if hasDocuments}
-        <div class="preview-host" class:armed>
+        <div class="flex-1 min-h-0 relative {armed ? 'cursor-crosshair' : ''}">
           <Preview
             file={previewFile}
             {hasSignature}
@@ -1414,7 +1550,7 @@
                   >
                     <button
                       type="button"
-                      class="placement-delete"
+                      class="absolute -top-4.5 left-1/2 -translate-x-1/2 w-4.5 h-4.5 inline-flex items-center justify-center border-0 rounded-full bg-error text-error-content text-[11px] leading-none z-2 cursor-pointer [&_iconify-icon]:text-[12px]"
                       aria-label="Hapus item"
                       onclick={() => removePlacement(pl.id)}
                     >
@@ -1426,15 +1562,16 @@
                       <img
                         id={`sign-${sig.id}`}
                         src={`data:image/png;base64,${sig.imageBase64}`}
-                        class="placement-img"
+                        class="w-full h-full pointer-events-none object-fill"
                         alt="Visualisasi"
                       />
                     {:else if pl.kind === "checkbox"}
                       {@const cb = pl as CheckboxPlacement}
                       <button
                         type="button"
-                        class="placement-checkbox"
-                        class:checked={cb.checked}
+                        class="w-full h-full flex items-center justify-center border border-base-content rounded-sm bg-base-100 text-base-content text-sm leading-none cursor-pointer {cb.checked
+                          ? `after:content-['✓'] after:font-bold`
+                          : ''}"
                         aria-label="Centang"
                         onclick={() => {
                           snapshot();
@@ -1445,7 +1582,7 @@
                       {@const tp = pl as TextPlacement}
                       <input
                         id={`sign-${tp.id}`}
-                        class="placement-{tp.kind}"
+                        class="w-full h-full flex items-center px-0.5 border border-dashed border-transparent rounded-sm bg-primary/5 text-[#111827] font-[Helvetica,Arial,sans-serif] leading-[1.1] overflow-hidden cursor-text outline-none whitespace-nowrap hover:border-primary hover:bg-primary/10 focus:border-primary focus:bg-primary/10"
                         type="text"
                         style="font-size:{(tp.size ?? 11) * scale}px"
                         bind:value={tp.text}
@@ -1461,7 +1598,7 @@
         </div>
       {/if}
 
-      <div class:hidden={hasDocuments} class="preview-host p-2">
+      <div class="flex-1 min-h-0 relative p-2 {hasDocuments ? 'hidden' : ''}">
         <Upload
           bind:fileInput
           bind:files
@@ -1501,7 +1638,11 @@
       ></button>
     </dialog>
 
-    <aside class="side-pane" class:side-pane--hidden={!navOpen}>
+    <aside
+      class="w-88 max-lg:w-60 flex-none order-0 flex flex-col min-h-0 bg-base-100 border-r border-base-300 {navOpen
+        ? ''
+        : 'hidden'}"
+    >
       <div class="tabs tabs-border tabs-sm m-2">
         <button
           type="button"
@@ -1513,9 +1654,18 @@
           Dokumen
           <span class="badge badge-sm">{Object.keys(documents).length}</span>
         </button>
+        <button
+          type="button"
+          class={activeTab === "metadata" ? "tab tab-active gap-1" : "tab gap-1"}
+          aria-pressed={activeTab === "metadata"}
+          onclick={() => (activeTab = "metadata")}
+        >
+          <iconify-icon icon="bx:info-circle"></iconify-icon>
+          Metadata
+        </button>
       </div>
 
-      <div class="nav-content">
+      <div class="flex-1 min-h-0 overflow-y-auto flex flex-col">
         {#if activeTab === "documents"}
           <Documents bind:documents bind:activeIndex {fileInput} />
         {:else}
@@ -1789,7 +1939,7 @@
           {@const result = signResults.find((r) => r.id === id)}
           <li>
             <div
-              class="flex justify-between w-full btn btn-sm btn-ghost gap-1 p-1"
+              class="flex justify-between w-full btn btn-sm btn-ghost hover:bg-base-300 gap-1 p-1"
             >
               <div class="text-sm text-base-content/80 truncate mr-auto">
                 {file.name}
@@ -2236,7 +2386,7 @@
   </div>
   <div class="flex justify-end gap-2">
     <button
-      class="btn btn-sm btn-ghost"
+      class="btn btn-sm btn-ghost hover:bg-base-300"
       onclick={() => (forms.survey = undefined)}
     >
       Lewati

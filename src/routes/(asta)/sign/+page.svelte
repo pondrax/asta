@@ -558,7 +558,6 @@
 
     getDocumentDetails(documents[activeIndex]);
     const serialized = JSON.stringify(form);
-    //@ts-ignore - debounceFillFormFields type mismatch but works at runtime
     debounceFillFormFields();
   });
 

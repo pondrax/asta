@@ -22,6 +22,10 @@ export type WorkspaceMenu = {
   id: string;
   label: string;
   items: WorkspaceMenuEntry[];
+  /** Trigger styling. `primary` renders a filled primary pill with a dropdown caret. */
+  variant?: "ghost" | "primary";
+  /** Fixed width class for a `primary` trigger (keeps the label from resizing). */
+  width?: string;
 };
 
 export const workspace = $state<{

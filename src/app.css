@@ -48,23 +48,6 @@ iconify-icon {
   -webkit-text-security: disc;
 }
 
-/* play state */
-@utility animate-run {
-  animation-play-state: running;
-}
-
-@utility animate-play {
-  animation-play-state: running;
-}
-
-@utility animate-pause {
-  animation-play-state: paused;
-}
-
-/* .grecaptcha-badge {
-  bottom: 80px !important;
-} */
-
 @keyframes move {
   100% {
     transform: translate3d(0, 0, 1px) rotate(360deg);
@@ -138,7 +121,7 @@ iconify-icon {
 }
 
 .background span:nth-child(0) {
-  color: oklch(var(--p));
+  color: var(--color-primary);
   top: 33%;
   left: 49%;
   animation-duration: 105s;
@@ -148,7 +131,7 @@ iconify-icon {
 }
 
 .background span:nth-child(1) {
-  color: oklch(var(--s));
+  color: var(--color-secondary);
   top: 46%;
   left: 85%;
   animation-duration: 290s;
@@ -158,7 +141,7 @@ iconify-icon {
 }
 
 .background span:nth-child(2) {
-  color: oklch(var(--a));
+  color: var(--color-accent);
   top: 45%;
   left: 71%;
   animation-duration: 20s;
@@ -168,7 +151,7 @@ iconify-icon {
 }
 
 .background span:nth-child(3) {
-  color: oklch(var(--s));
+  color: var(--color-secondary);
   top: 67%;
   left: 51%;
   animation-duration: 19s;
@@ -178,7 +161,7 @@ iconify-icon {
 }
 
 .background span:nth-child(4) {
-  color: oklch(var(--p));
+  color: var(--color-primary);
   top: 15%;
   left: 12%;
   animation-duration: 85s;
@@ -188,7 +171,7 @@ iconify-icon {
 }
 
 .background span:nth-child(5) {
-  color: oklch(var(--p));
+  color: var(--color-primary);
   top: 26%;
   left: 84%;
   animation-duration: 139s;
@@ -198,7 +181,7 @@ iconify-icon {
 }
 
 .background span:nth-child(6) {
-  color: oklch(var(--a));
+  color: var(--color-accent);
   top: 96%;
   left: 49%;
   animation-duration: 81s;
@@ -208,7 +191,7 @@ iconify-icon {
 }
 
 .background span:nth-child(7) {
-  color: oklch(var(--a));
+  color: var(--color-accent);
   top: 92%;
   left: 42%;
   animation-duration: 385s;
@@ -218,7 +201,7 @@ iconify-icon {
 }
 
 .background span:nth-child(8) {
-  color: oklch(var(--p));
+  color: var(--color-primary);
   top: 72%;
   left: 68%;
   animation-duration: 43s;
@@ -228,7 +211,7 @@ iconify-icon {
 }
 
 .background span:nth-child(9) {
-  color: oklch(var(--s));
+  color: var(--color-secondary);
   top: 88%;
   left: 58%;
   animation-duration: 357s;
@@ -238,7 +221,7 @@ iconify-icon {
 }
 
 .background span:nth-child(10) {
-  color: oklch(var(--a));
+  color: var(--color-accent);
   top: 81%;
   left: 9%;
   animation-duration: 142s;
@@ -248,7 +231,7 @@ iconify-icon {
 }
 
 .background span:nth-child(11) {
-  color: oklch(var(--s));
+  color: var(--color-secondary);
   top: 59%;
   left: 66%;
   animation-duration: 183s;
@@ -258,7 +241,7 @@ iconify-icon {
 }
 
 .background span:nth-child(12) {
-  color: oklch(var(--s));
+  color: var(--color-secondary);
   top: 16%;
   left: 20%;
   animation-duration: 53s;
@@ -268,7 +251,7 @@ iconify-icon {
 }
 
 .background span:nth-child(13) {
-  color: oklch(var(--a));
+  color: var(--color-accent);
   top: 79%;
   left: 59%;
   animation-duration: 109s;
@@ -278,7 +261,7 @@ iconify-icon {
 }
 
 .background span:nth-child(14) {
-  color: oklch(var(--a));
+  color: var(--color-accent);
   top: 67%;
   left: 61%;
   animation-duration: 122s;
@@ -288,7 +271,7 @@ iconify-icon {
 }
 
 .background span:nth-child(15) {
-  color: oklch(var(--s));
+  color: var(--color-secondary);
   top: 49%;
   left: 3%;
   animation-duration: 126s;
@@ -298,7 +281,7 @@ iconify-icon {
 }
 
 .background span:nth-child(16) {
-  color: oklch(var(--s));
+  color: var(--color-secondary);
   top: 2%;
   left: 56%;
   animation-duration: 193s;
@@ -308,7 +291,7 @@ iconify-icon {
 }
 
 .background span:nth-child(17) {
-  color: oklch(var(--s));
+  color: var(--color-secondary);
   top: 84%;
   left: 28%;
   animation-duration: 317s;
@@ -318,7 +301,7 @@ iconify-icon {
 }
 
 .background span:nth-child(18) {
-  color: oklch(var(--a));
+  color: var(--color-accent);
   top: 62%;
   left: 91%;
   animation-duration: 194s;
@@ -328,7 +311,7 @@ iconify-icon {
 }
 
 .background span:nth-child(19) {
-  color: oklch(var(--s));
+  color: var(--color-secondary);
   top: 84%;
   left: 36%;
   animation-duration: 64s;

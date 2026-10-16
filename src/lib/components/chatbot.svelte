@@ -3,6 +3,7 @@
   import { goto } from "$app/navigation";
   import Char from "./char.svelte";
   import { app } from "$lib/app/index.svelte";
+  import { chat } from "$lib/app/chat.svelte";
   import {
     getEditorBridge,
     hasEditorBridge,
@@ -36,10 +37,47 @@
     return `<${tag}>${text}</${tag}>`;
   };
 
+  // GitHub-style alerts: "> [!info] Title". The system prompt tells the model to
+  // emit these and the FAQ fast-path is built out of them, but marked has no
+  // notion of the syntax — without this they reach the user as literal
+  // "[!info]" text.
+  //
+  // Rendered as a coloured header rather than a box: send() splits the finished
+  // reply on blank lines into one bubble per paragraph, so a title and its body
+  // land in different bubbles and any wrapper would be left holding nothing.
+  const ALERT_ICONS: Record<string, string> = {
+    info: "bx:info-circle",
+    note: "bx:note",
+    tip: "bx:bulb",
+    success: "bx:check-circle",
+    warning: "bx:error",
+    error: "bx:x-circle",
+    step: "bx:right-arrow-circle",
+  };
+
+  renderer.blockquote = (token: any) => {
+    const text: string = token?.text ?? "";
+    const match = text.match(/^\[!(\w+)\]\s*(.*)/);
+    if (!match) return `<blockquote>${marked.parse(text)}</blockquote>`;
+    const kind = match[1].toLowerCase();
+    const title = match[2].trim();
+    const icon = ALERT_ICONS[kind] ?? "bx:info-circle";
+    const rest = text.slice(match[0].length).replace(/^\n+/, "");
+    const head =
+      `<div class="chat-alert chat-alert-${kind}">` +
+      `<iconify-icon icon="${icon}"></iconify-icon>` +
+      `<span>${title ? marked.parseInline(title) : ""}</span>` +
+      `</div>`;
+    return rest.trim() ? head + (marked.parse(rest) as string) : head;
+  };
+
   marked.setOptions({ renderer });
   const render = (text: string) => marked.parse(text) as string;
 
-  let open = $state(false);
+  // Visibility lives in a shared store rather than here, because pages offer
+  // their own "AI" menu entries that open this panel and the panel is mounted
+  // once, in the root layout, with no handle for them to reach.
+  const open = $derived(chat.open);
   let messages = $state<{ role: "user" | "assistant"; content: string }[]>([]);
   let input = $state("");
   let loading = $state(false);
@@ -51,6 +89,20 @@
   let scrollTick = $state(0);
   let ttfb = $state(0); // time to first token (ms)
   let totalTime = $state(0); // total response time (ms)
+  // Set when the user stops a reply, so the transcript can say why it ends
+  // mid-sentence instead of looking like the model gave up.
+  let stopped = $state(false);
+
+  // Retry repeats the last question, so it needs one to exist and needs the
+  // reply to have settled first.
+  const canRetry = $derived(!loading && messages.some((m) => m.role === "user"));
+
+  // The streaming placeholder is appended empty so deltas have somewhere to
+  // land. It is filtered out here so an empty bubble is never on screen — the
+  // dots bubble stands in for it until the first token arrives.
+  const visible = $derived(
+    messages.filter((m) => !(loading && m.role === "assistant" && !m.content)),
+  );
 
   let {
     user = $bindable(undefined),
@@ -297,9 +349,18 @@ Saya juga bisa mengubah bentuk dokumennya, bukan hanya kalimatnya: menambah tabe
   });
 
   function toggle() {
-    open = !open;
-    if (open) followTail = true;
-    if (open && messages.length === 0) {
+    if (chat.open) {
+      chat.open = false;
+      return;
+    }
+    chat.openChat();
+  }
+
+  // The greeting is seeded on first open, whichever way the panel was opened.
+  $effect(() => {
+    if (!chat.open) return;
+    followTail = true;
+    if (messages.length === 0) {
       messages = [
         {
           role: "assistant",
@@ -310,12 +371,51 @@ Silakan tanyakan apa saja tentang layanan ini! 😊`,
         },
       ];
     }
+  });
+
+  // A question handed over by a page's AI menu is sent as soon as the panel is
+  // on screen: the user asked for it by picking the menu entry, so it should
+  // not need a second click to actually go.
+  $effect(() => {
+    if (!chat.open) return;
+    const prompt = chat.pending;
+    if (!prompt) return;
+    chat.pending = null;
+    void ask(prompt);
+  });
+
+  /** Sends `text` as if the user had typed it. Used by page-level AI menus. */
+  async function ask(text: string) {
+    input = text;
+    await send();
+  }
+
+  /**
+   * Splits a reply into one bubble per paragraph. Used both while the reply is
+   * still streaming and on the finished text, so the transcript looks the same
+   * throughout instead of collapsing into a single bubble and then jumping
+   * apart when the stream ends.
+   *
+   * The trailing element is whatever follows the last blank line — during
+   * streaming that is the paragraph still being written, so it keeps growing in
+   * place. Empty parts are dropped so a trailing blank line never renders as an
+   * empty bubble.
+   */
+  function splitParagraphs(text: string): string[] {
+    return text
+      .split(/\n{2,}/)
+      .map((p) => p.trim())
+      .filter(Boolean);
   }
 
   async function send() {
     const text = input.trim();
     if (!text) return;
     input = "";
+    // Context handed over by a page's AI menu rides along with this question
+    // only, so it cannot leak into unrelated later turns.
+    const docContext = chat.context;
+    chat.context = null;
     // Cancel previous stream
     if (abortCtrl) {
       abortCtrl.abort();
@@ -327,6 +427,7 @@ Silakan tanyakan apa saja tentang layanan ini! 😊`,
     scrollTick++;
     scrollChat(true);
     loading = true;
+    stopped = false;
     ttfb = 0;
     totalTime = 0;
     if (editMode) {
@@ -335,6 +436,14 @@ Silakan tanyakan apa saja tentang layanan ini! 😊`,
     }
     const t0 = performance.now();
     let firstToken = true;
+    // Declared outside the try so the abort path can keep whatever had
+    // already streamed in before the user pressed Stop.
+    let full = "";
+    // Index of the streaming placeholder in `messages`. Every update rebuilds
+    // the transcript from this point, so the reply can be re-split into bubbles
+    // as it arrives without disturbing the history above it. Declared here so
+    // the abort and error paths can rebuild from the same point.
+    let streamStart = messages.length;
     try {
       const userCtx = user
         ? {
@@ -347,9 +456,28 @@ Silakan tanyakan apa saja tentang layanan ini! 😊`,
           role: m.role,
           content: m.content,
         }));
-        return userCtx ? [userCtx, ...msgs] : msgs;
+        if (docContext) {
+          // The gateway only honours the first system message, so a document
+          // handed over as its own system turn is silently dropped and the
+          // model answers "I can't see the document". It has to ride inside
+          // the user turn instead. Only this outgoing copy is augmented — the
+          // bubble keeps showing just the question.
+          for (let i = msgs.length - 1; i >= 0; i--) {
+            if (msgs[i].role === "user") {
+              msgs[i] = {
+                role: "user",
+                content: `<dokumen>\n${docContext}\n</dokumen>\n\n${msgs[i].content}`,
+              };
+              break;
+            }
+          }
+        }
+        const ctx: { role: "system"; content: string }[] = [];
+        if (userCtx) ctx.push(userCtx);
+        return [...ctx, ...msgs];
       };
-      // Add empty assistant message for streaming
+      // Add empty assistant message for streaming.
+      streamStart = messages.length;
       messages = [...messages, { role: "assistant", content: "" }];
       scrollTick++;
       scrollChat(true);
@@ -363,7 +491,6 @@ Silakan tanyakan apa saja tentang layanan ini! 😊`,
       if (!res.ok) throw new Error(`${res.status}`);
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
-      let full = "";
       let buf = "";
       while (true) {
         const { done, value } = await reader.read();
@@ -387,10 +514,13 @@ Silakan tanyakan apa saja tentang layanan ini! 😊`,
                 ttfb = Math.round(performance.now() - t0);
                 firstToken = false;
               }
-              messages[messages.length - 1] = {
-                role: "assistant",
-                content: full,
-              };
+              messages = [
+                ...messages.slice(0, streamStart),
+                ...splitParagraphs(full).map((c) => ({
+                  role: "assistant" as const,
+                  content: c,
+                })),
+              ];
               scrollTick++;
             }
           } catch {}
@@ -403,16 +533,36 @@ Silakan tanyakan apa saja tentang layanan ini! 😊`,
       // the character-level strip above already kept the live render clean, so
       // this pass only tidies spacing and drops leftover filler rows.
       const clean = sanitizeModelText(full);
-      const chunks = clean.split(/\n\n+/).filter(Boolean);
       messages = [
-        ...messages.slice(0, -1),
-        ...chunks.map((c: any) => ({ role: "assistant" as const, content: c })),
+        ...messages.slice(0, streamStart),
+        ...splitParagraphs(clean).map((c) => ({
+          role: "assistant" as const,
+          content: c,
+        })),
       ];
       scrollTick++;
     } catch (e) {
-      if (e instanceof DOMException && e.name === "AbortError") return;
+      if (e instanceof DOMException && e.name === "AbortError") {
+        // Stopping keeps the part that already arrived. The bubble is kept
+        // even when nothing arrived, because it is what carries the
+        // "Dihentikan" note and the Retry button — dropping it would leave
+        // the question with no way to ask it again.
+        const kept = splitParagraphs(sanitizeModelText(full));
+        messages = [
+          ...messages.slice(0, streamStart),
+          // An empty bubble is kept when nothing arrived, because it is what
+          // carries the "Dihentikan" note and the Retry button.
+          ...(kept.length ? kept : [""]).map((c) => ({
+            role: "assistant" as const,
+            content: c,
+          })),
+        ];
+        stopped = true;
+        scrollTick++;
+        return;
+      }
       messages = [
-        ...messages.slice(0, -1),
+        ...messages.slice(0, streamStart),
         {
           role: "assistant",
           content: "Maaf, terjadi kesalahan. Silakan coba lagi.",
@@ -423,6 +573,30 @@ Silakan tanyakan apa saja tentang layanan ini! 😊`,
       abortCtrl = null;
       loading = false;
     }
+  }
+
+  /** Cancels the reply in flight. Whatever already streamed in is kept. */
+  function stop() {
+    abortCtrl?.abort();
+  }
+
+  /**
+   * Asks the last question again. The previous reply is dropped first, so
+   * retrying replaces the answer instead of stacking a second one under it.
+   */
+  function retry() {
+    if (loading) return;
+    let lastUser = -1;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "user") {
+        lastUser = i;
+        break;
+      }
+    }
+    if (lastUser < 0) return;
+    const text = messages[lastUser].content;
+    messages = messages.slice(0, lastUser);
+    void ask(text);
   }
 
   /**
@@ -552,8 +726,15 @@ Silakan tanyakan apa saja tentang layanan ini! 😊`,
 </script>
 
 {#if open}
+  <!-- `z-120`, not `z-50`: docked, the panel runs from the top of the viewport
+       down, so its header shares the navbar's band. The navbar is `z-[110]`
+       (see the root layout) and was painting over the header, leaving the
+       minimise and close buttons unclickable. The panel is meant to be on top
+       there — that is why app.css shifts the navbar's right-hand controls left
+       by the panel's width. Still below the editor FAB (`z-1000`) and the
+       toast stack (`z-9999`). -->
   <div
-    class="fixed z-50 flex flex-col overflow-hidden bg-base-100
+    class="fixed z-120 flex flex-col overflow-hidden bg-base-100
       {docked
       ? 'inset-y-0 right-0 w-full max-w-md border-l border-base-300 shadow-2xl'
       : 'bottom-18 right-4 w-80 max-h-[70dvh] rounded-box border border-base-300 shadow-2xl sm:w-96'}"
@@ -624,7 +805,7 @@ Silakan tanyakan apa saja tentang layanan ini! 😊`,
       class="flex-1 overflow-y-auto p-3 space-y-3
         {docked ? 'min-h-0' : 'min-h-72 max-h-96'}"
     >
-      {#each messages as msg, i (msg.role + i)}
+      {#each visible as msg, i (msg.role + i)}
         <div class="chat {msg.role === 'user' ? 'chat-end' : 'chat-start'}">
           <div
             class="chat-bubble {msg.role === 'user'
@@ -635,9 +816,27 @@ Silakan tanyakan apa saja tentang layanan ini! 😊`,
               {msg.content}
             {:else}
               {@html render(msg.content)}
-              {#if !loading && totalTime > 0 && i === messages.length - 1}
-                <div class="text-[10px] text-base-content/40 mt-1 select-none">
-                  ⚡ {ttfb}ms first token · {totalTime}ms total
+              {#if !loading && i === visible.length - 1}
+                <div class="flex items-center gap-2 mt-1 select-none">
+                  {#if totalTime > 0}
+                    <span class="text-[10px] text-base-content/40">
+                      ⚡ {ttfb}ms first token · {totalTime}ms total
+                    </span>
+                  {:else if stopped}
+                    <span class="text-[10px] text-base-content/40">
+                      Dihentikan
+                    </span>
+                  {/if}
+                  {#if canRetry}
+                    <button
+                      class="btn btn-ghost btn-xs gap-1 normal-case text-base-content/50"
+                      onclick={retry}
+                      aria-label="Ulangi"
+                    >
+                      <iconify-icon icon="bx:refresh"></iconify-icon>
+                      Ulangi
+                    </button>
+                  {/if}
                 </div>
               {/if}
               {@const urls = extractUrls(msg.content)}
@@ -736,14 +935,24 @@ Silakan tanyakan apa saja tentang layanan ini! 😊`,
           class="grow"
         />
       </label>
-      <button
-        class="btn btn-primary btn-sm"
-        onclick={send}
-        disabled={!input.trim()}
-        aria-label="Kirim"
-      >
-        <iconify-icon icon="bx:send"></iconify-icon>
-      </button>
+      {#if loading}
+        <button
+          class="btn btn-error btn-sm"
+          onclick={stop}
+          aria-label="Hentikan"
+        >
+          <iconify-icon icon="bx:stop"></iconify-icon>
+        </button>
+      {:else}
+        <button
+          class="btn btn-primary btn-sm"
+          onclick={send}
+          disabled={!input.trim()}
+          aria-label="Kirim"
+        >
+          <iconify-icon icon="bx:send"></iconify-icon>
+        </button>
+      {/if}
       {#if showEmoji}
         <div
           class="absolute bottom-full left-0 mb-1 p-2 bg-base-100 border border-base-300 rounded-box shadow-xl grid grid-cols-8 text-lg"
@@ -817,5 +1026,34 @@ Silakan tanyakan apa saja tentang layanan ini! 😊`,
     padding: 0.0625rem 0.25rem;
     border-radius: 0.25rem;
     background: oklch(var(--neutral) / 0.15);
+  }
+
+  /* Alert headers built from "> [!type] Title" blockquotes. The reply is split
+     into one bubble per paragraph, so this is a coloured header line rather
+     than a box — the body follows as its own bubble. */
+  .chat-sm :global(.chat-alert) {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-weight: 700;
+    font-size: 0.75rem;
+    margin: 0.125rem 0;
+    color: var(--color-info);
+  }
+  .chat-sm :global(.chat-alert-note) {
+    color: var(--color-neutral);
+  }
+  .chat-sm :global(.chat-alert-tip),
+  .chat-sm :global(.chat-alert-success) {
+    color: var(--color-success);
+  }
+  .chat-sm :global(.chat-alert-warning) {
+    color: var(--color-warning);
+  }
+  .chat-sm :global(.chat-alert-error) {
+    color: var(--color-error);
+  }
+  .chat-sm :global(.chat-alert-step) {
+    color: var(--color-primary);
   }
 </style>

@@ -119,6 +119,17 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
     page: "Sign V2",
     entries: [
       {
+        id: "rapikan-panel-metadata-dan-tambah-pratinjau-tanda--2026-10-16",
+        date: "2026-10-16",
+        title: "Rapikan panel metadata dan tambah pratinjau tanda tangan\\012\\012- Susun ulang panel metadata: pilih pemilik, simpan dokumen, dan urutan medan identitas\\012- Tambah komponen pratinjau QR Code dan kotak tanda tangan dengan unduh per-visual\\012- Perbaiki pemilih profil penandatangan (simpan, pilih terakhir, hapus)\\012- Perbarui tata letak halaman tanda tangan, workspace, dan chatbot",
+        changes: [
+          {
+            kind: "added",
+            text: "rapikan panel metadata dan tambah pratinjau tanda tangan\\012\\012- Susun ulang panel metadata: pilih pemilik, simpan dokumen, dan urutan medan identitas\\012- Tambah komponen pratinjau QR Code dan kotak tanda tangan dengan unduh per-visual\\012- Perbaiki pemilih profil penandatangan (simpan, pilih terakhir, hapus)\\012- Perbarui tata letak halaman tanda tangan, workspace, dan chatbot",
+          },
+        ],
+      },
+      {
         id: "rombak-halaman-tanda-tangan-2026-10-15",
         date: "2026-10-15",
         title: "Rombak tata letak halaman tanda tangan",

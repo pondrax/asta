@@ -8,6 +8,7 @@
 export const ROUTE_TITLES: Record<string, string> = {
   "/sign": "Tanda Tangan Dokumen",
   "/sign-v2": "Tanda Tangan Dokumen",
+  "/editor": "Buat Dokumen",
   "/verify": "Verifikasi Dokumen",
   "/me": "Dashboard",
   "/me/documents": "Dokumen Saya",

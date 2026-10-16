@@ -2,7 +2,12 @@
   import { onMount, onDestroy } from "svelte";
   import { app } from "$lib/app/index.svelte";
   import { registerEditorBridge } from "$lib/app/editor-bridge.svelte";
+  import {
+    workspace,
+    type WorkspaceMenu,
+  } from "$lib/app/sign-workspace.svelte";
   import { stashSignFile } from "$lib/utils/sign-handoff";
+  import WorkspaceMenuBar from "$lib/components/workspace-menubar.svelte";
   import { setupDocxEditor } from "./editor-logic";
   import "./editor.css";
 
@@ -24,6 +29,203 @@
     document.body.classList.toggle("dark", app.theme === "dark");
     return () => document.body.classList.remove("dark");
   });
+
+  /** Editor menus, rendered inline in the global navbar (like /sign-v2). */
+  function buildMenus(): WorkspaceMenu[] {
+    const run = (item: { slot?: string; action?: string }) =>
+      handle?.runMenu(item);
+    return [
+      {
+        id: "file",
+        label: "File",
+        items: [
+          {
+            icon: "bx:folder-open",
+            label: "Open Docx…",
+            shortcut: "Ctrl+O",
+            action: () => run({ action: "open" }),
+          },
+          {
+            icon: "bx:save",
+            label: "Save",
+            shortcut: "Ctrl+S",
+            action: () => run({ action: "save" }),
+          },
+          "sep",
+          {
+            icon: "bx:file",
+            label: "Export PDF…",
+            shortcut: "Ctrl+Shift+S",
+            action: () => run({ action: "savePdf" }),
+          },
+          {
+            icon: "bx:text",
+            label: "Export Markdown…",
+            action: () => run({ action: "exportMarkdown" }),
+          },
+          "sep",
+          {
+            icon: "bx:printer",
+            label: "Print",
+            shortcut: "Ctrl+P",
+            action: () => run({ action: "print" }),
+          },
+          {
+            icon: "bx:slider",
+            label: "Page Setup…",
+            action: () => run({ action: "pageSetup" }),
+          },
+        ],
+      },
+      {
+        id: "format",
+        label: "Format",
+        items: [
+          {
+            icon: "bx:paragraph",
+            label: "Paragraph…",
+            action: () => run({ slot: "paragraph.dialog" }),
+          },
+          {
+            icon: "bx:brush",
+            label: "Format Painter",
+            action: () => run({ slot: "format.painter" }),
+          },
+          {
+            icon: "bx:eraser",
+            label: "Clear Formatting",
+            action: () => run({ slot: "format.clear" }),
+          },
+        ],
+      },
+      {
+        id: "insert",
+        label: "Insert",
+        items: [
+          {
+            icon: "bx:table",
+            label: "Table (3×3)",
+            action: () => handle?.insertTable(3, 3),
+          },
+          {
+            icon: "bx:image",
+            label: "Picture",
+            action: () => run({ slot: "image.insert" }),
+          },
+          "sep",
+          {
+            icon: "bx:minus",
+            label: "Page Break",
+            action: () => run({ slot: "insert.pageBreak" }),
+          },
+          {
+            icon: "bx:minus-circle",
+            label: "Section Break — Next Page",
+            action: () => run({ slot: "insert.sectionBreakNextPage" }),
+          },
+          {
+            icon: "bx:minus-circle",
+            label: "Section Break — Continuous",
+            action: () => run({ slot: "insert.sectionBreakContinuous" }),
+          },
+          "sep",
+          {
+            icon: "bx:note",
+            label: "Footnote",
+            action: () => run({ slot: "insert.footnote" }),
+          },
+          {
+            icon: "bx:bookmark",
+            label: "Endnote",
+            action: () => run({ slot: "insert.endnote" }),
+          },
+          {
+            icon: "bx:list-ul",
+            label: "Table of Contents",
+            action: () => run({ slot: "insert.toc" }),
+          },
+        ],
+      },
+      {
+        id: "review",
+        label: "Review",
+        items: [
+          {
+            icon: "bx:show",
+            label: "Show/Hide ¶",
+            action: () => run({ slot: "review.paragraphMarks" }),
+          },
+          {
+            icon: "bx:edit",
+            label: "Editing Mode",
+            action: () => run({ slot: "review.editingMode" }),
+          },
+        ],
+      },
+      {
+        id: "ai",
+        label: "AI",
+        items: [
+          {
+            icon: "bx:edit",
+            label: "Edit with AI",
+            disabled: !canUseAi,
+            action: () => run({ action: "ai.structure" }),
+          },
+          "sep",
+          {
+            icon: "bx:bulb",
+            label: "Improve Writing",
+            disabled: !canUseAi,
+            action: () => run({ action: "ai.improve" }),
+          },
+          {
+            icon: "bx:check-circle",
+            label: "Fix Grammar",
+            disabled: !canUseAi,
+            action: () => run({ action: "ai.fix" }),
+          },
+          {
+            icon: "bx:align-justify",
+            label: "Shorten",
+            disabled: !canUseAi,
+            action: () => run({ action: "ai.shorten" }),
+          },
+          {
+            icon: "bx:expand",
+            label: "Expand",
+            disabled: !canUseAi,
+            action: () => run({ action: "ai.expand" }),
+          },
+          {
+            icon: "bx:align-left",
+            label: "Simplify",
+            disabled: !canUseAi,
+            action: () => run({ action: "ai.simplify" }),
+          },
+          {
+            icon: "bx:briefcase",
+            label: "Make Formal",
+            disabled: !canUseAi,
+            action: () => run({ action: "ai.formal" }),
+          },
+          "sep",
+          {
+            icon: "bx:list-ul",
+            label: "Summarize Document",
+            disabled: !canUseAi,
+            action: () => run({ action: "ai.summarize" }),
+          },
+          {
+            icon: "bx:edit-alt",
+            label: "Continue Writing",
+            disabled: !canUseAi,
+            action: () => run({ action: "ai.continue" }),
+          },
+        ],
+      },
+    ];
+  }
 
   onMount(() => {
     if (!rootEl) return;
@@ -55,6 +257,9 @@
       },
     });
 
+    // Expose the editor menus to the global navbar (rendered inline).
+    workspace.menus = buildMenus();
+
     // The editor is ready, so let the global chatbot act on this document.
     // Registered only for signed-in users, matching the AI menu: an anonymous
     // visitor should not be offered document editing even if the server would
@@ -76,39 +281,29 @@
   onDestroy(() => {
     handle?.destroy();
     handle = null;
+    workspace.menus = [];
     // The chatbot reads this to decide whether it can edit, so a stale
     // handler would keep offering document actions after leaving the page.
     registerEditorBridge(null);
   });
 </script>
 
-<svelte:head>
-  <title>Document Editor</title>
-</svelte:head>
-
 <div
   class="docx-editor-page h-[calc(100dvh-3rem)] flex flex-col overflow-hidden"
   bind:this={rootEl}
 >
   <!-- ============ TOPBAR ============ -->
-  <div class="topbar border-t border-t-base-content/5">
-    <div class="header-row">
-      <a class="header-logo" href="/editor" title="DOCX Editor">
-        <iconify-icon icon="bx:file" width="20" height="20"></iconify-icon>
-      </a>
+  <!-- The visible topbar (border/logo/title) is gone; this stays in the DOM
+       (hidden) so the editor's hidden menubar — the data-slot/data-action
+       targets and the table grid — remains available to the engine. -->
+  <div class="topbar flex-none bg-base-100">
+    <div class="header-row" style="display:none">
       <div class="header-center">
-        <span class="filename-wrap" id="filenameWrap">
-          <input
-            class="filename-input"
-            id="filenameInput"
-            type="text"
-            placeholder="Untitled"
-            aria-label="Document name"
-            spellcheck="false"
-          />
-        </span>
         <!-- ============ MENU BAR ============ -->
-        <div class="menu-bar">
+        <!-- The menubar is rendered inline in the global navbar (see
+             buildMenus); this copy stays in the DOM (hidden) so the editor's
+             data-slot/data-action event delegation and table grid keep working. -->
+        <div class="menu-bar" style="display:none">
           <div class="menu h-fit">
             <button
               class="menu-button"
@@ -480,120 +675,32 @@
            the primary handoff is always one click away. -->
     </div>
 
+    <!-- Small screens: the shared menubar can't fit in the navbar, show it here. -->
+    <div class="lg:hidden px-2 py-1">
+      <WorkspaceMenuBar />
+    </div>
+
     <!-- ============ TOOLBAR ============ -->
-    <div class="toolbar">
+    <div
+      class="toolbar flex flex-nowrap items-center gap-0.5 h-10 min-h-10 mx-1.5 mb-1.5 px-1.5 bg-base-200 rounded-full overflow-visible select-none"
+    >
       <!-- HISTORY -->
-      <div class="toolbar-group toolbar-group--history">
-        <button class="tool command" data-slot="history.undo" title="Undo"
+      <div class="toolbar-group flex items-center gap-px shrink-0 toolbar-group--history">
+        <button class="tool h-[30px] min-w-[30px] inline-flex items-center justify-center px-1.5 border border-transparent rounded-md bg-transparent text-[13px] whitespace-nowrap text-base-content enabled:hover:bg-base-300 disabled:opacity-40 disabled:cursor-default [&.active]:bg-primary/10 [&.active]:border-primary/20 [&.active]:text-primary [&_iconify-icon]:text-[17px] command" data-slot="history.undo" title="Undo"
           ><iconify-icon icon="bx:undo"></iconify-icon></button
         >
-        <button class="tool command" data-slot="history.redo" title="Redo"
+        <button class="tool h-[30px] min-w-[30px] inline-flex items-center justify-center px-1.5 border border-transparent rounded-md bg-transparent text-[13px] whitespace-nowrap text-base-content enabled:hover:bg-base-300 disabled:opacity-40 disabled:cursor-default [&.active]:bg-primary/10 [&.active]:border-primary/20 [&.active]:text-primary [&_iconify-icon]:text-[17px] command" data-slot="history.redo" title="Redo"
           ><iconify-icon icon="bx:redo"></iconify-icon></button
         >
-        <button class="tool" id="printButton" title="Print"
+        <button class="tool h-[30px] min-w-[30px] inline-flex items-center justify-center px-1.5 border border-transparent rounded-md bg-transparent text-[13px] whitespace-nowrap text-base-content enabled:hover:bg-base-300 disabled:opacity-40 disabled:cursor-default [&.active]:bg-primary/10 [&.active]:border-primary/20 [&.active]:text-primary [&_iconify-icon]:text-[17px]" id="printButton" title="Print"
           ><iconify-icon icon="bx:printer"></iconify-icon></button
         >
       </div>
 
-      <div class="toolbar-separator toolbar-sep--zoom"></div>
-
-      <!-- ZOOM -->
-      <div class="toolbar-group toolbar-group--zoom">
-        <span class="zoom-stepper" id="zoomStepper">
-          <button
-            class="zoom-stepper__button"
-            id="zoomOut"
-            aria-label="Zoom out"
-            title="Zoom out">−</button
-          >
-          <button
-            class="zoom-stepper__value"
-            id="zoomValue"
-            aria-haspopup="listbox"
-            aria-expanded="false"
-            aria-label="Zoom level: 100%"
-            title="Zoom level"
-            >100%<span class="zoom-stepper__caret" aria-hidden="true">▾</span
-            ></button
-          >
-          <button
-            class="zoom-stepper__button"
-            id="zoomIn"
-            aria-label="Zoom in"
-            title="Zoom in">+</button
-          >
-          <div
-            class="zoom-menu"
-            id="zoomMenu"
-            role="listbox"
-            aria-label="Zoom level"
-            hidden
-          >
-            <button
-              class="zoom-menu__item"
-              role="option"
-              aria-selected="false"
-              data-zoom-mode="auto"
-              >Automatic<span class="zoom-menu__check">✓</span></button
-            >
-            <button
-              class="zoom-menu__item"
-              role="option"
-              aria-selected="false"
-              data-zoom-mode="fit-width"
-              >Fit width<span class="zoom-menu__check">✓</span></button
-            >
-            <hr class="zoom-menu__separator" role="presentation" />
-            <button
-              class="zoom-menu__item"
-              role="option"
-              aria-selected="false"
-              data-zoom-level="0.25">25%</button
-            >
-            <button
-              class="zoom-menu__item"
-              role="option"
-              aria-selected="false"
-              data-zoom-level="0.5">50%</button
-            >
-            <button
-              class="zoom-menu__item"
-              role="option"
-              aria-selected="false"
-              data-zoom-level="0.75">75%</button
-            >
-            <button
-              class="zoom-menu__item"
-              role="option"
-              aria-selected="false"
-              data-zoom-level="1">100%</button
-            >
-            <button
-              class="zoom-menu__item"
-              role="option"
-              aria-selected="false"
-              data-zoom-level="1.25">125%</button
-            >
-            <button
-              class="zoom-menu__item"
-              role="option"
-              aria-selected="false"
-              data-zoom-level="1.5">150%</button
-            >
-            <button
-              class="zoom-menu__item"
-              role="option"
-              aria-selected="false"
-              data-zoom-level="2">200%</button
-            >
-          </div>
-        </span>
-      </div>
-
-      <div class="toolbar-separator toolbar-sep--style"></div>
+      <div class="toolbar-separator w-px h-6 mx-1 bg-base-300 shrink-0 toolbar-sep--style"></div>
 
       <!-- STYLE -->
-      <div class="toolbar-group toolbar-group--style">
+      <div class="toolbar-group flex items-center gap-px shrink-0 toolbar-group--style">
         <span class="style-dropdown" id="styleDropdown">
           <button
             class="style-dropdown__trigger"
@@ -619,13 +726,6 @@
               aria-selected="false"
               data-style-value="Normal"
               ><span class="style-dropdown__label">Normal</span></button
-            >
-            <button
-              class="style-dropdown__item"
-              role="option"
-              aria-selected="false"
-              data-style-value="Title"
-              ><span class="style-dropdown__label">Title</span></button
             >
             <button
               class="style-dropdown__item"
@@ -709,7 +809,7 @@
       </div>
 
       <!-- FONT -->
-      <div class="toolbar-group toolbar-group--font">
+      <div class="toolbar-group flex items-center gap-px shrink-0 toolbar-group--font">
         <span class="font-dropdown" id="fontDropdown">
           <button
             class="font-dropdown__trigger"
@@ -826,51 +926,51 @@
         </span>
       </div>
 
-      <div class="toolbar-separator toolbar-sep--text"></div>
+      <div class="toolbar-separator w-px h-6 mx-1 bg-base-300 shrink-0 toolbar-sep--text"></div>
 
       <!-- TEXT -->
-      <div class="toolbar-group toolbar-group--text">
-        <button class="tool command" data-slot="text.bold" title="Bold"
+      <div class="toolbar-group flex items-center gap-px shrink-0 toolbar-group--text">
+        <button class="tool h-[30px] min-w-[30px] inline-flex items-center justify-center px-1.5 border border-transparent rounded-md bg-transparent text-[13px] whitespace-nowrap text-base-content enabled:hover:bg-base-300 disabled:opacity-40 disabled:cursor-default [&.active]:bg-primary/10 [&.active]:border-primary/20 [&.active]:text-primary [&_iconify-icon]:text-[17px] command" data-slot="text.bold" title="Bold"
           ><iconify-icon icon="bx:bold"></iconify-icon></button
         >
-        <button class="tool command" data-slot="text.italic" title="Italic"
+        <button class="tool h-[30px] min-w-[30px] inline-flex items-center justify-center px-1.5 border border-transparent rounded-md bg-transparent text-[13px] whitespace-nowrap text-base-content enabled:hover:bg-base-300 disabled:opacity-40 disabled:cursor-default [&.active]:bg-primary/10 [&.active]:border-primary/20 [&.active]:text-primary [&_iconify-icon]:text-[17px] command" data-slot="text.italic" title="Italic"
           ><iconify-icon icon="bx:italic"></iconify-icon></button
         >
         <button
-          class="tool command"
+          class="tool h-[30px] min-w-[30px] inline-flex items-center justify-center px-1.5 border border-transparent rounded-md bg-transparent text-[13px] whitespace-nowrap text-base-content enabled:hover:bg-base-300 disabled:opacity-40 disabled:cursor-default [&.active]:bg-primary/10 [&.active]:border-primary/20 [&.active]:text-primary [&_iconify-icon]:text-[17px] command"
           data-slot="text.underline"
           title="Underline"
           ><iconify-icon icon="bx:underline"></iconify-icon></button
         >
         <button
-          class="tool command"
+          class="tool h-[30px] min-w-[30px] inline-flex items-center justify-center px-1.5 border border-transparent rounded-md bg-transparent text-[13px] whitespace-nowrap text-base-content enabled:hover:bg-base-300 disabled:opacity-40 disabled:cursor-default [&.active]:bg-primary/10 [&.active]:border-primary/20 [&.active]:text-primary [&_iconify-icon]:text-[17px] command"
           data-slot="text.strike"
           title="Strikethrough"
           ><iconify-icon icon="bx:strikethrough"></iconify-icon></button
         >
       </div>
 
-      <div class="toolbar-separator toolbar-sep--script"></div>
+      <div class="toolbar-separator w-px h-6 mx-1 bg-base-300 shrink-0 toolbar-sep--script"></div>
 
       <!-- SCRIPT (sub/sup) -->
-      <div class="toolbar-group toolbar-group--script">
+      <div class="toolbar-group flex items-center gap-px shrink-0 toolbar-group--script">
         <button
-          class="tool command"
+          class="tool h-[30px] min-w-[30px] inline-flex items-center justify-center px-1.5 border border-transparent rounded-md bg-transparent text-[13px] whitespace-nowrap text-base-content enabled:hover:bg-base-300 disabled:opacity-40 disabled:cursor-default [&.active]:bg-primary/10 [&.active]:border-primary/20 [&.active]:text-primary [&_iconify-icon]:text-[17px] command"
           data-slot="script.super"
           title="Superscript">x²</button
         >
-        <button class="tool command" data-slot="script.sub" title="Subscript"
+        <button class="tool h-[30px] min-w-[30px] inline-flex items-center justify-center px-1.5 border border-transparent rounded-md bg-transparent text-[13px] whitespace-nowrap text-base-content enabled:hover:bg-base-300 disabled:opacity-40 disabled:cursor-default [&.active]:bg-primary/10 [&.active]:border-primary/20 [&.active]:text-primary [&_iconify-icon]:text-[17px] command" data-slot="script.sub" title="Subscript"
           >x₂</button
         >
       </div>
 
-      <div class="toolbar-separator toolbar-sep--colors"></div>
+      <div class="toolbar-separator w-px h-6 mx-1 bg-base-300 shrink-0 toolbar-sep--colors"></div>
 
       <!-- COLORS -->
-      <div class="toolbar-group toolbar-group--colors">
+      <div class="toolbar-group flex items-center gap-px shrink-0 toolbar-group--colors">
         <div class="colorsplit" id="fontColorSplit" data-slot="text.color">
           <button
-            class="tool colorsplit__main"
+            class="tool h-[30px] min-w-[30px] inline-flex items-center justify-center px-1.5 border border-transparent rounded-md bg-transparent text-[13px] whitespace-nowrap text-base-content enabled:hover:bg-base-300 disabled:opacity-40 disabled:cursor-default [&.active]:bg-primary/10 [&.active]:border-primary/20 [&.active]:text-primary [&_iconify-icon]:text-[17px] colorsplit__main"
             id="fontColorMain"
             title="Font Color"
             aria-label="Font Color"
@@ -940,7 +1040,7 @@
         </div>
         <div class="colorsplit" id="highlightSplit" data-slot="text.highlight">
           <button
-            class="tool colorsplit__main"
+            class="tool h-[30px] min-w-[30px] inline-flex items-center justify-center px-1.5 border border-transparent rounded-md bg-transparent text-[13px] whitespace-nowrap text-base-content enabled:hover:bg-base-300 disabled:opacity-40 disabled:cursor-default [&.active]:bg-primary/10 [&.active]:border-primary/20 [&.active]:text-primary [&_iconify-icon]:text-[17px] colorsplit__main"
             id="highlightMain"
             title="Text Highlight"
             aria-label="Text Highlight"
@@ -986,13 +1086,13 @@
         </div>
       </div>
 
-      <div class="toolbar-separator toolbar-sep--alignment"></div>
+      <div class="toolbar-separator w-px h-6 mx-1 bg-base-300 shrink-0 toolbar-sep--alignment"></div>
 
       <!-- ALIGNMENT -->
-      <div class="toolbar-group toolbar-group--alignment">
+      <div class="toolbar-group flex items-center gap-px shrink-0 toolbar-group--alignment">
         <div class="alignment" id="alignment">
           <button
-            class="tool alignment__trigger"
+            class="tool h-[30px] min-w-[30px] inline-flex items-center justify-center px-1.5 border border-transparent rounded-md bg-transparent text-[13px] whitespace-nowrap text-base-content enabled:hover:bg-base-300 disabled:opacity-40 disabled:cursor-default [&.active]:bg-primary/10 [&.active]:border-primary/20 [&.active]:text-primary [&_iconify-icon]:text-[17px] alignment__trigger"
             id="alignmentTrigger"
             title="Align Left"
             aria-haspopup="true"
@@ -1010,7 +1110,7 @@
           >
             <button
               type="button"
-              class="tool alignment__option"
+              class="tool h-[30px] min-w-[30px] inline-flex items-center justify-center px-1.5 border border-transparent rounded-md bg-transparent text-[13px] whitespace-nowrap text-base-content enabled:hover:bg-base-300 disabled:opacity-40 disabled:cursor-default [&.active]:bg-primary/10 [&.active]:border-primary/20 [&.active]:text-primary [&_iconify-icon]:text-[17px] alignment__option"
               data-slot="alignment.left"
               title="Align Left"
               aria-pressed="false"
@@ -1018,7 +1118,7 @@
             >
             <button
               type="button"
-              class="tool alignment__option"
+              class="tool h-[30px] min-w-[30px] inline-flex items-center justify-center px-1.5 border border-transparent rounded-md bg-transparent text-[13px] whitespace-nowrap text-base-content enabled:hover:bg-base-300 disabled:opacity-40 disabled:cursor-default [&.active]:bg-primary/10 [&.active]:border-primary/20 [&.active]:text-primary [&_iconify-icon]:text-[17px] alignment__option"
               data-slot="alignment.center"
               title="Center"
               aria-pressed="false"
@@ -1026,7 +1126,7 @@
             >
             <button
               type="button"
-              class="tool alignment__option"
+              class="tool h-[30px] min-w-[30px] inline-flex items-center justify-center px-1.5 border border-transparent rounded-md bg-transparent text-[13px] whitespace-nowrap text-base-content enabled:hover:bg-base-300 disabled:opacity-40 disabled:cursor-default [&.active]:bg-primary/10 [&.active]:border-primary/20 [&.active]:text-primary [&_iconify-icon]:text-[17px] alignment__option"
               data-slot="alignment.right"
               title="Align Right"
               aria-pressed="false"
@@ -1034,7 +1134,7 @@
             >
             <button
               type="button"
-              class="tool alignment__option"
+              class="tool h-[30px] min-w-[30px] inline-flex items-center justify-center px-1.5 border border-transparent rounded-md bg-transparent text-[13px] whitespace-nowrap text-base-content enabled:hover:bg-base-300 disabled:opacity-40 disabled:cursor-default [&.active]:bg-primary/10 [&.active]:border-primary/20 [&.active]:text-primary [&_iconify-icon]:text-[17px] alignment__option"
               data-slot="alignment.justify"
               title="Justify"
               aria-pressed="false"
@@ -1044,31 +1144,31 @@
         </div>
       </div>
 
-      <div class="toolbar-separator toolbar-sep--list"></div>
+      <div class="toolbar-separator w-px h-6 mx-1 bg-base-300 shrink-0 toolbar-sep--list"></div>
 
       <!-- LIST -->
-      <div class="toolbar-group toolbar-group--list">
-        <button class="tool command" data-slot="list.bullet" title="Bullets"
+      <div class="toolbar-group flex items-center gap-px shrink-0 toolbar-group--list">
+        <button class="tool h-[30px] min-w-[30px] inline-flex items-center justify-center px-1.5 border border-transparent rounded-md bg-transparent text-[13px] whitespace-nowrap text-base-content enabled:hover:bg-base-300 disabled:opacity-40 disabled:cursor-default [&.active]:bg-primary/10 [&.active]:border-primary/20 [&.active]:text-primary [&_iconify-icon]:text-[17px] command" data-slot="list.bullet" title="Bullets"
           ><iconify-icon icon="bx:list-ul"></iconify-icon></button
         >
-        <button class="tool command" data-slot="list.numbered" title="Numbering"
+        <button class="tool h-[30px] min-w-[30px] inline-flex items-center justify-center px-1.5 border border-transparent rounded-md bg-transparent text-[13px] whitespace-nowrap text-base-content enabled:hover:bg-base-300 disabled:opacity-40 disabled:cursor-default [&.active]:bg-primary/10 [&.active]:border-primary/20 [&.active]:text-primary [&_iconify-icon]:text-[17px] command" data-slot="list.numbered" title="Numbering"
           ><iconify-icon icon="bx:list-ol"></iconify-icon></button
         >
         <button
-          class="tool command"
+          class="tool h-[30px] min-w-[30px] inline-flex items-center justify-center px-1.5 border border-transparent rounded-md bg-transparent text-[13px] whitespace-nowrap text-base-content enabled:hover:bg-base-300 disabled:opacity-40 disabled:cursor-default [&.active]:bg-primary/10 [&.active]:border-primary/20 [&.active]:text-primary [&_iconify-icon]:text-[17px] command"
           data-slot="list.outdent"
           title="Decrease Indent"
           ><iconify-icon icon="bx:left-indent"></iconify-icon></button
         >
         <button
-          class="tool command"
+          class="tool h-[30px] min-w-[30px] inline-flex items-center justify-center px-1.5 border border-transparent rounded-md bg-transparent text-[13px] whitespace-nowrap text-base-content enabled:hover:bg-base-300 disabled:opacity-40 disabled:cursor-default [&.active]:bg-primary/10 [&.active]:border-primary/20 [&.active]:text-primary [&_iconify-icon]:text-[17px] command"
           data-slot="list.indent"
           title="Increase Indent"
           ><iconify-icon icon="bx:right-indent"></iconify-icon></button
         >
         <div class="line-spacing" id="lineSpacing">
           <button
-            class="tool line-spacing__trigger"
+            class="tool h-[30px] min-w-[30px] inline-flex items-center justify-center px-1.5 border border-transparent rounded-md bg-transparent text-[13px] whitespace-nowrap text-base-content enabled:hover:bg-base-300 disabled:opacity-40 disabled:cursor-default [&.active]:bg-primary/10 [&.active]:border-primary/20 [&.active]:text-primary [&_iconify-icon]:text-[17px] line-spacing__trigger"
             id="lineSpacingTrigger"
             title="Line Spacing"
             aria-haspopup="menu"
@@ -1149,195 +1249,59 @@
         </div>
       </div>
 
-      <div class="toolbar-separator toolbar-sep--format"></div>
+      <div class="toolbar-separator w-px h-6 mx-1 bg-base-300 shrink-0 toolbar-sep--format"></div>
 
       <!-- FORMAT -->
-      <div class="toolbar-group toolbar-group--format">
+      <div class="toolbar-group flex items-center gap-px shrink-0 toolbar-group--format">
         <button
-          class="tool command"
+          class="tool h-[30px] min-w-[30px] inline-flex items-center justify-center px-1.5 border border-transparent rounded-md bg-transparent text-[13px] whitespace-nowrap text-base-content enabled:hover:bg-base-300 disabled:opacity-40 disabled:cursor-default [&.active]:bg-primary/10 [&.active]:border-primary/20 [&.active]:text-primary [&_iconify-icon]:text-[17px] command"
           data-slot="format.painter"
           title="Format Painter"
           ><iconify-icon icon="bx:brush"></iconify-icon></button
         >
         <button
-          class="tool command"
+          class="tool h-[30px] min-w-[30px] inline-flex items-center justify-center px-1.5 border border-transparent rounded-md bg-transparent text-[13px] whitespace-nowrap text-base-content enabled:hover:bg-base-300 disabled:opacity-40 disabled:cursor-default [&.active]:bg-primary/10 [&.active]:border-primary/20 [&.active]:text-primary [&_iconify-icon]:text-[17px] command"
           data-slot="format.clear"
           title="Clear Formatting"
           ><iconify-icon icon="bx:eraser"></iconify-icon></button
         >
         <button
-          class="tool command"
+          class="tool h-[30px] min-w-[30px] inline-flex items-center justify-center px-1.5 border border-transparent rounded-md bg-transparent text-[13px] whitespace-nowrap text-base-content enabled:hover:bg-base-300 disabled:opacity-40 disabled:cursor-default [&.active]:bg-primary/10 [&.active]:border-primary/20 [&.active]:text-primary [&_iconify-icon]:text-[17px] command"
           data-slot="paragraph.dialog"
           title="Paragraph"
           ><iconify-icon icon="bx:paragraph"></iconify-icon></button
         >
       </div>
 
-      <div class="toolbar-separator toolbar-sep--insert"></div>
+      <div class="toolbar-separator w-px h-6 mx-1 bg-base-300 shrink-0 toolbar-sep--insert"></div>
 
       <!-- INSERT -->
-      <div class="toolbar-group toolbar-group--insert">
+      <div class="toolbar-group flex items-center gap-px shrink-0 toolbar-group--insert">
         <button
-          class="tool command"
+          class="tool h-[30px] min-w-[30px] inline-flex items-center justify-center px-1.5 border border-transparent rounded-md bg-transparent text-[13px] whitespace-nowrap text-base-content enabled:hover:bg-base-300 disabled:opacity-40 disabled:cursor-default [&.active]:bg-primary/10 [&.active]:border-primary/20 [&.active]:text-primary [&_iconify-icon]:text-[17px] command"
           data-slot="table.insert"
           title="Insert Table"
           ><iconify-icon icon="bx:table"></iconify-icon></button
         >
         <button
-          class="tool command"
+          class="tool h-[30px] min-w-[30px] inline-flex items-center justify-center px-1.5 border border-transparent rounded-md bg-transparent text-[13px] whitespace-nowrap text-base-content enabled:hover:bg-base-300 disabled:opacity-40 disabled:cursor-default [&.active]:bg-primary/10 [&.active]:border-primary/20 [&.active]:text-primary [&_iconify-icon]:text-[17px] command"
           data-slot="image.insert"
           title="Insert Image"
           ><iconify-icon icon="bx:image"></iconify-icon></button
         >
         <button
-          class="tool command"
+          class="tool h-[30px] min-w-[30px] inline-flex items-center justify-center px-1.5 border border-transparent rounded-md bg-transparent text-[13px] whitespace-nowrap text-base-content enabled:hover:bg-base-300 disabled:opacity-40 disabled:cursor-default [&.active]:bg-primary/10 [&.active]:border-primary/20 [&.active]:text-primary [&_iconify-icon]:text-[17px] command"
           data-slot="insert.pageBreak"
           title="Page Break"
           ><iconify-icon icon="bx:file-blank"></iconify-icon></button
         >
       </div>
 
-      <!-- MODE -->
-      <div class="toolbar-group toolbar-group--mode">
-        <button
-          class="tool"
-          id="commentsButton"
-          data-slot="review.comments"
-          title="Comments & Changes"
-          aria-label="Comments & Changes"
-        >
-          <svg
-            viewBox="0 -960 960 960"
-            width="18"
-            height="18"
-            aria-hidden="true"
-            focusable="false"
-          >
-            <path
-              fill="currentColor"
-              d="M240-400h480v-80H240v80Zm0-120h480v-80H240v80Zm0-120h480v-80H240v80ZM80-80v-720q0-33 23.5-56.5T160-880h640q33 0 56.5 23.5T880-800v480q0 33-23.5 56.5T800-240H240L80-80Zm126-240h594v-480H160v525l46-45Zm-46 0v-480 480Z"
-            />
-          </svg>
-        </button>
-        <div class="mode" id="mode">
-          <button
-            class="mode__trigger"
-            id="modeTrigger"
-            data-mode="editing"
-            aria-haspopup="menu"
-            aria-expanded="false"
-            aria-label="Editing mode"
-          >
-            <svg
-              viewBox="0 -960 960 960"
-              width="14"
-              height="14"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <path
-                fill="currentColor"
-                d="M200-200h57l391-391-57-57-391 391v57Zm-80 80v-170l528-527q12-11 26.5-17t30.5-6q16 0 31 6t26 18l55 56q12 11 17.5 26t5.5 30q0 16-5.5 30.5T817-647L290-120H120Zm640-584-56-56 56 56Zm-141 85-28-29 57 57-29-28Z"
-              />
-            </svg>
-            <span class="mode__value" id="modeValue">Editing</span>
-            <span class="picker-caret" aria-hidden="true">▾</span>
-          </button>
-          <div
-            class="mode__menu"
-            id="modeMenu"
-            role="menu"
-            aria-label="Editing mode"
-            hidden
-          >
-            <button
-              type="button"
-              class="mode__item"
-              role="menuitemradio"
-              data-mode="editing"
-              aria-checked="true"
-            >
-              <svg
-                viewBox="0 -960 960 960"
-                width="18"
-                height="18"
-                aria-hidden="true"
-                focusable="false"
-              >
-                <path
-                  fill="currentColor"
-                  d="M200-200h57l391-391-57-57-391 391v57Zm-80 80v-170l528-527q12-11 26.5-17t30.5-6q16 0 31 6t26 18l55 56q12 11 17.5 26t5.5 30q0 16-5.5 30.5T817-647L290-120H120Zm640-584-56-56 56 56Zm-141 85-28-29 57 57-29-28Z"
-                />
-              </svg>
-              <span class="mode__text">
-                <span class="mode__label">Editing</span>
-                <span class="mode__hint"
-                  >Changes are applied directly to the document.</span
-                >
-              </span>
-              <span class="mode__check" aria-hidden="true">✓</span>
-            </button>
-            <button
-              type="button"
-              class="mode__item"
-              role="menuitemradio"
-              data-mode="suggesting"
-              aria-checked="false"
-            >
-              <svg
-                viewBox="0 -960 960 960"
-                width="18"
-                height="18"
-                aria-hidden="true"
-                focusable="false"
-              >
-                <path
-                  fill="currentColor"
-                  d="M240-400h122l40-40H240v40Zm0-100h222l40-40H240v40Zm0-100h322l40-40H240v40ZM80-80v-720q0-33 23.5-56.5T160-880h640q33 0 56.5 23.5T880-800v320h-80v-320H160v525l46-45h274v80H240L80-80Zm520-80v-123l221-220q9-9 20-13t22-4q12 0 23 4.5t20 13.5l37 37q8 9 12.5 20t4.5 22q0 11-4 22.5T943-380L723-160H600Zm300-263-37-37 37 37ZM660-220h38l121-122-19-18-18-19-122 121v38Zm140-141-18-19 37 37-19-18Z"
-                />
-              </svg>
-              <span class="mode__text">
-                <span class="mode__label">Suggesting</span>
-                <span class="mode__hint"
-                  >Changes become proposals for others to review.</span
-                >
-              </span>
-              <span class="mode__check" aria-hidden="true"></span>
-            </button>
-            <button
-              type="button"
-              class="mode__item"
-              role="menuitemradio"
-              data-mode="viewing"
-              aria-checked="false"
-            >
-              <svg
-                viewBox="0 -960 960 960"
-                width="18"
-                height="18"
-                aria-hidden="true"
-                focusable="false"
-              >
-                <path
-                  fill="currentColor"
-                  d="M480-320q75 0 127.5-52.5T660-500q0-75-52.5-127.5T480-680q-75 0-127.5 52.5T300-500q0 75 52.5 127.5T480-320Zm0-72q-45 0-76.5-31.5T372-500q0-45 31.5-76.5T480-608q45 0 76.5 31.5T588-500q0 45-31.5 76.5T480-392Zm0 192q-146 0-266-81.5T40-500q54-137 174-218.5T480-800q146 0 266 81.5T920-500q-54 137-174 218.5T480-200Z"
-                />
-              </svg>
-              <span class="mode__text">
-                <span class="mode__label">Viewing</span>
-                <span class="mode__hint">Read-only — no edits are allowed.</span
-                >
-              </span>
-              <span class="mode__check" aria-hidden="true"></span>
-            </button>
-          </div>
-        </div>
-      </div>
 
       <!-- MORE -->
-      <div class="toolbar-more" id="toolbarMore">
+      <div class="toolbar-more relative flex-none ml-auto" id="toolbarMore">
         <button
-          class="toolbar-more__button"
+          class="toolbar-more__button h-[30px] min-w-[30px] inline-flex items-center justify-center px-1.5 border border-transparent rounded-md bg-transparent text-base-content cursor-pointer hover:bg-base-300"
           id="toolbarMoreButton"
           aria-haspopup="dialog"
           aria-expanded="false"
@@ -1812,7 +1776,161 @@
       ></div>
     </div>
 
-    <!-- Floating page indicator -->
+    <!-- Floating document bar: zoom | page | close (large screens). -->
+    <div
+      class="hidden lg:absolute lg:bottom-4 lg:left-1/2 lg:z-40 lg:-translate-x-1/2 lg:flex lg:items-center lg:gap-0.5 lg:h-8 lg:px-2 lg:bg-base-100 lg:border lg:border-base-300 lg:rounded-full lg:shadow-md"
+    >
+      <div
+        class="flex items-center gap-px shrink-0"
+      >
+        <span
+          class="relative inline-flex items-center flex-none h-[26px] bg-transparent"
+          id="zoomStepper"
+        >
+          <button
+            class="w-5 h-6 inline-flex items-center justify-center bg-transparent border-0 rounded text-[13px] leading-none p-0 cursor-pointer text-base-content hover:bg-base-200 disabled:opacity-35 disabled:cursor-default"
+            id="zoomOut"
+            aria-label="Zoom out"
+            title="Zoom out">−</button
+          >
+          <button
+            class="min-w-11 h-6 inline-flex items-center justify-center gap-0.5 px-1 bg-transparent border-0 rounded text-xs tabular-nums cursor-pointer text-base-content hover:bg-base-200"
+            id="zoomValue"
+            aria-haspopup="listbox"
+            aria-expanded="false"
+            aria-label="Zoom level: 100%"
+            title="Zoom level"
+            >100%<span
+              class="text-[10px] text-base-content/60"
+              aria-hidden="true">▾</span
+            ></button
+          >
+          <button
+            class="w-5 h-6 inline-flex items-center justify-center bg-transparent border-0 rounded text-[13px] leading-none p-0 cursor-pointer text-base-content hover:bg-base-200 disabled:opacity-35 disabled:cursor-default"
+            id="zoomIn"
+            aria-label="Zoom in"
+            title="Zoom in">+</button
+          >
+          <div
+            class="absolute top-full left-0 mt-1 min-w-[132px] p-1 bg-base-100 border border-base-300 rounded-lg shadow-xl z-50"
+            id="zoomMenu"
+            role="listbox"
+            aria-label="Zoom level"
+            hidden
+          >
+            <button
+              class="zoom-menu__item w-full flex items-center gap-2 px-2.5 py-[7px] bg-transparent border-0 rounded text-[13px] leading-[18px] text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200 [&[data-selected]]:bg-primary/10 [&[data-selected]]:font-semibold [&[data-selected]]:text-primary"
+              role="option"
+              aria-selected="false"
+              data-zoom-mode="auto"
+              >Automatic<span class="zoom-menu__check ml-auto text-xs pl-4"
+                >✓</span
+              ></button
+            >
+            <button
+              class="zoom-menu__item w-full flex items-center gap-2 px-2.5 py-[7px] bg-transparent border-0 rounded text-[13px] leading-[18px] text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200 [&[data-selected]]:bg-primary/10 [&[data-selected]]:font-semibold [&[data-selected]]:text-primary"
+              role="option"
+              aria-selected="false"
+              data-zoom-mode="fit-width"
+              >Fit width<span class="zoom-menu__check ml-auto text-xs pl-4"
+                >✓</span
+              ></button
+            >
+            <hr
+              class="h-px my-1 border-0 bg-base-300"
+              role="presentation"
+            />
+            <button
+              class="zoom-menu__item w-full flex items-center gap-2 px-2.5 py-[7px] bg-transparent border-0 rounded text-[13px] leading-[18px] text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200 [&[data-selected]]:bg-primary/10 [&[data-selected]]:font-semibold [&[data-selected]]:text-primary"
+              role="option"
+              aria-selected="false"
+              data-zoom-level="0.25">25%</button
+            >
+            <button
+              class="zoom-menu__item w-full flex items-center gap-2 px-2.5 py-[7px] bg-transparent border-0 rounded text-[13px] leading-[18px] text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200 [&[data-selected]]:bg-primary/10 [&[data-selected]]:font-semibold [&[data-selected]]:text-primary"
+              role="option"
+              aria-selected="false"
+              data-zoom-level="0.5">50%</button
+            >
+            <button
+              class="zoom-menu__item w-full flex items-center gap-2 px-2.5 py-[7px] bg-transparent border-0 rounded text-[13px] leading-[18px] text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200 [&[data-selected]]:bg-primary/10 [&[data-selected]]:font-semibold [&[data-selected]]:text-primary"
+              role="option"
+              aria-selected="false"
+              data-zoom-level="0.75">75%</button
+            >
+            <button
+              class="zoom-menu__item w-full flex items-center gap-2 px-2.5 py-[7px] bg-transparent border-0 rounded text-[13px] leading-[18px] text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200 [&[data-selected]]:bg-primary/10 [&[data-selected]]:font-semibold [&[data-selected]]:text-primary"
+              role="option"
+              aria-selected="false"
+              data-zoom-level="1">100%</button
+            >
+            <button
+              class="zoom-menu__item w-full flex items-center gap-2 px-2.5 py-[7px] bg-transparent border-0 rounded text-[13px] leading-[18px] text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200 [&[data-selected]]:bg-primary/10 [&[data-selected]]:font-semibold [&[data-selected]]:text-primary"
+              role="option"
+              aria-selected="false"
+              data-zoom-level="1.25">125%</button
+            >
+            <button
+              class="zoom-menu__item w-full flex items-center gap-2 px-2.5 py-[7px] bg-transparent border-0 rounded text-[13px] leading-[18px] text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200 [&[data-selected]]:bg-primary/10 [&[data-selected]]:font-semibold [&[data-selected]]:text-primary"
+              role="option"
+              aria-selected="false"
+              data-zoom-level="1.5">150%</button
+            >
+            <button
+              class="zoom-menu__item w-full flex items-center gap-2 px-2.5 py-[7px] bg-transparent border-0 rounded text-[13px] leading-[18px] text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200 [&[data-selected]]:bg-primary/10 [&[data-selected]]:font-semibold [&[data-selected]]:text-primary"
+              role="option"
+              aria-selected="false"
+              data-zoom-level="2">200%</button
+            >
+          </div>
+        </span>
+      </div>
+
+      <span
+        class="w-px h-4 flex-none bg-base-300"
+        aria-hidden="true"
+      ></span>
+
+      <div
+        class="relative inline-flex items-center flex-none h-[26px] bg-transparent"
+      >
+        <button
+          type="button"
+          id="pagePrev"
+          class="w-5 h-6 inline-flex items-center justify-center bg-transparent border-0 rounded text-base-content cursor-pointer hover:bg-base-200 disabled:opacity-35 disabled:cursor-default"
+          title="Halaman sebelumnya"
+          aria-label="Halaman sebelumnya"
+        >
+          <iconify-icon icon="bx:chevron-left"></iconify-icon>
+        </button>
+        <span
+          class="min-w-11 h-6 inline-flex items-center justify-center gap-0.5 px-1 bg-transparent border-0 rounded text-xs tabular-nums whitespace-nowrap text-base-content"
+        >
+          <input
+            id="pageInput"
+            class="w-5 p-0 bg-transparent border-0 text-inherit text-center tabular-nums focus:outline-none"
+            type="text"
+            inputmode="numeric"
+            aria-label="Nomor halaman"
+            value="1"
+          />
+          <span class="text-[10px] text-base-content/60"
+            >/ <span id="pageTotal">1</span></span
+          >
+        </span>
+        <button
+          type="button"
+          id="pageNext"
+          class="w-5 h-6 inline-flex items-center justify-center bg-transparent border-0 rounded text-base-content cursor-pointer hover:bg-base-200 disabled:opacity-35 disabled:cursor-default"
+          title="Halaman berikutnya"
+          aria-label="Halaman berikutnya"
+        >
+          <iconify-icon icon="bx:chevron-right"></iconify-icon>
+        </button>
+      </div>
+    </div>
+
+    <!-- Page X of X overlay (top-right of the editor area). -->
     <div class="page-indicator" id="pageStatus" aria-live="polite">
       Page 1 of 1
     </div>
@@ -1962,79 +2080,83 @@
   </div>
 
   <!-- ============ PAGE SETUP DIALOG ============ -->
-  <dialog id="pageSetupDialog">
-    <div class="dialog-title">Page Setup</div>
-    <div class="dialog-body">
-      <div class="dialog-row">
-        <label for="paperSize">Paper Size</label>
-        <select id="paperSize" class="dialog-input">
-          <option value="a4">A4 (210 × 297 mm)</option>
-          <option value="letter">Letter (8.5 × 11 in)</option>
-          <option value="legal">Legal (8.5 × 14 in)</option>
-        </select>
+  <dialog id="pageSetupDialog" class="modal">
+    <div class="modal-box">
+      <h3 class="text-lg font-bold">Page Setup</h3>
+      <div class="flex flex-col gap-3 py-2">
+        <div class="grid grid-cols-[150px_1fr] items-center gap-3">
+          <label for="paperSize" class="text-sm">Paper Size</label>
+          <select id="paperSize" class="select select-sm">
+            <option value="a4">A4 (210 × 297 mm)</option>
+            <option value="letter">Letter (8.5 × 11 in)</option>
+            <option value="legal">Legal (8.5 × 14 in)</option>
+          </select>
+        </div>
+        <div class="grid grid-cols-[150px_1fr] items-center gap-3">
+          <label for="orientation" class="text-sm">Orientation</label>
+          <select id="orientation" class="select select-sm">
+            <option value="portrait">Portrait</option>
+            <option value="landscape">Landscape</option>
+          </select>
+        </div>
+        <div class="grid grid-cols-[150px_1fr] items-center gap-3">
+          <label for="marginTop" class="text-sm">Top (mm)</label>
+          <input
+            id="marginTop"
+            class="input input-sm"
+            type="number"
+            step="0.1"
+            min="0"
+            value="25.4"
+          />
+        </div>
+        <div class="grid grid-cols-[150px_1fr] items-center gap-3">
+          <label for="marginBottom" class="text-sm">Bottom (mm)</label>
+          <input
+            id="marginBottom"
+            class="input input-sm"
+            type="number"
+            step="0.1"
+            min="0"
+            value="25.4"
+          />
+        </div>
+        <div class="grid grid-cols-[150px_1fr] items-center gap-3">
+          <label for="marginLeft" class="text-sm">Left (mm)</label>
+          <input
+            id="marginLeft"
+            class="input input-sm"
+            type="number"
+            step="0.1"
+            min="0"
+            value="31.8"
+          />
+        </div>
+        <div class="grid grid-cols-[150px_1fr] items-center gap-3">
+          <label for="marginRight" class="text-sm">Right (mm)</label>
+          <input
+            id="marginRight"
+            class="input input-sm"
+            type="number"
+            step="0.1"
+            min="0"
+            value="31.8"
+          />
+        </div>
+        <div class="grid grid-cols-[150px_1fr] items-center gap-3">
+          <label for="pageSetupScope" class="text-sm">Apply to</label>
+          <select id="pageSetupScope" class="select select-sm">
+            <option value="document">Whole document</option>
+            <option value="section">This section</option>
+          </select>
+        </div>
       </div>
-      <div class="dialog-row">
-        <label for="orientation">Orientation</label>
-        <select id="orientation" class="dialog-input">
-          <option value="portrait">Portrait</option>
-          <option value="landscape">Landscape</option>
-        </select>
+      <div class="modal-action">
+        <button class="btn btn-sm" id="pageSetupCancel">Cancel</button>
+        <button class="btn btn-sm btn-primary" id="pageSetupApply">
+          Apply
+        </button>
       </div>
-      <div class="dialog-row">
-        <label for="marginTop">Top (mm)</label>
-        <input
-          id="marginTop"
-          class="dialog-input"
-          type="number"
-          step="0.1"
-          min="0"
-          value="25.4"
-        />
-      </div>
-      <div class="dialog-row">
-        <label for="marginBottom">Bottom (mm)</label>
-        <input
-          id="marginBottom"
-          class="dialog-input"
-          type="number"
-          step="0.1"
-          min="0"
-          value="25.4"
-        />
-      </div>
-      <div class="dialog-row">
-        <label for="marginLeft">Left (mm)</label>
-        <input
-          id="marginLeft"
-          class="dialog-input"
-          type="number"
-          step="0.1"
-          min="0"
-          value="31.8"
-        />
-      </div>
-      <div class="dialog-row">
-        <label for="marginRight">Right (mm)</label>
-        <input
-          id="marginRight"
-          class="dialog-input"
-          type="number"
-          step="0.1"
-          min="0"
-          value="31.8"
-        />
-      </div>
-      <div class="dialog-row">
-        <label for="pageSetupScope">Apply to</label>
-        <select id="pageSetupScope" class="dialog-input">
-          <option value="document">Whole document</option>
-          <option value="section">This section</option>
-        </select>
-      </div>
-    </div>
-    <div class="dialog-footer">
-      <button class="dialog-button" id="pageSetupCancel">Cancel</button>
-      <button class="dialog-button primary" id="pageSetupApply">Apply</button>
     </div>
   </dialog>
 

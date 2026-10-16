@@ -54,36 +54,54 @@
 </script>
 
 <aside
-  class="page-pane"
-  class:page-pane--hidden={!open}
+  class="w-60 max-lg:w-36 flex-none order-2 flex flex-col min-h-0 bg-base-100 border-l border-base-300 {open
+    ? ''
+    : 'hidden'}"
   aria-label="Navigasi halaman"
 >
-  <div class="page-pane__head">
+  <div
+    class="flex-none flex items-center justify-between gap-1 px-2.5 py-2 border-b border-base-300 text-[10px] font-bold tracking-[0.06em] uppercase text-base-content/60"
+  >
     <span>Halaman</span>
-    <span class="page-pane__count">{preview.pageCount || "-"}</span>
+    <span class="tabular-nums">{preview.pageCount || "-"}</span>
   </div>
 
   {#if preview.pageCount > 0}
-    <ol class="page-list" bind:this={listEl}>
+    <ol
+      class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden flex flex-col gap-2 m-0 p-2.5 list-none"
+      bind:this={listEl}
+    >
       {#each Array(preview.pageCount) as _, i (i)}
         <li>
           <button
             type="button"
-            class="page-card"
-            class:page-card--active={preview.page === i + 1}
+            class="relative block w-full p-0 border-0 bg-transparent cursor-pointer"
             aria-label={`Ke halaman ${i + 1}`}
             aria-current={preview.page === i + 1 ? "page" : undefined}
             onclick={() => controller?.goToPage(i + 1)}
           >
-            <canvas data-thumb class="page-card__canvas"></canvas>
-            <span class="page-card__num">{i + 1}</span>
+            <canvas
+              data-thumb
+              class="block w-full h-auto bg-base-100 border rounded shadow-sm transition-[border-color,box-shadow] duration-150 {preview.page ===
+              i + 1
+                ? 'border-primary ring-2 ring-primary'
+                : 'border-base-300'}"
+            ></canvas>
+            <span
+              class="absolute right-1 bottom-1 px-1.5 rounded-full text-[10px] leading-4 tabular-nums {preview.page ===
+              i + 1
+                ? 'bg-primary text-primary-content'
+                : 'bg-neutral/70 text-neutral-content'}">{i + 1}</span
+            >
           </button>
         </li>
       {/each}
     </ol>
   {:else}
-    <div class="page-pane__empty">
-      <iconify-icon icon="bx:file-blank"></iconify-icon>
+    <div
+      class="flex-1 flex flex-col items-center justify-center gap-1.5 p-3 text-center text-base-content/60 text-[11px]"
+    >
+      <iconify-icon icon="bx:file-blank" class="text-[22px]"></iconify-icon>
       <span>Belum ada dokumen</span>
     </div>
   {/if}

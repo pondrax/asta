@@ -4,6 +4,24 @@ import { exportPdf } from "@docx-editor.dev/docx-to-pdf";
 
 const MAX_INPUT_BYTES = 64 * 1024 * 1024; // 64 MiB
 
+/**
+ * `exportPdf` keeps a process-wide "active font bytes" accumulator (capped at
+ * 128 MiB). Running two conversions at once makes both documents' embedded fonts
+ * count against that cap, so a large document can fail purely because a sibling
+ * conversion is in flight. Serialise the exports so only one session holds font
+ * bytes at a time; each session releases its fonts when it disposes.
+ */
+let exportQueue: Promise<unknown> = Promise.resolve();
+
+function serializeExport<T>(task: () => Promise<T>): Promise<T> {
+  const run = exportQueue.then(task, task);
+  exportQueue = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
 export const POST: RequestHandler = async ({ request }) => {
   const contentType = request.headers.get("content-type") ?? "";
   if (!contentType.includes("application/vnd.openxmlformats-officedocument.wordprocessingml.document")) {
@@ -19,11 +37,13 @@ export const POST: RequestHandler = async ({ request }) => {
   }
 
   try {
-    const result = await exportPdf(new Uint8Array(buf), {
-      fidelityPolicy: "best-effort",
-      comments: false,
-      useSystemFonts: true,
-    });
+    const result = await serializeExport(() =>
+      exportPdf(new Uint8Array(buf), {
+        fidelityPolicy: "best-effort",
+        comments: false,
+        useSystemFonts: true,
+      }),
+    );
 
     const pdfBytes = new Uint8Array(result.bytes);
     return new Response(new Blob([pdfBytes], { type: "application/pdf" }), {
