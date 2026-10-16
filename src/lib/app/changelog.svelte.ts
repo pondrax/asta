@@ -121,31 +121,31 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
       {
         id: "secret-document-passcode-drag-to-place-visual-2026-10-16",
         date: "2026-10-16",
-        title: "Secret-document passcode, drag-to-place visual, and PWA",
+        title: "Passcode dokumen rahasia, visualisasi seret-tempat, dan PWA",
         changes: [
           {
             kind: "added",
-            text: "add a \"Dokumen Rahasia\" passcode: it is hashed on the server and required before a saved document opens from its `/verify?id` link",
+            text: "tambah \"Dokumen Rahasia\" berupa passcode yang disimpan ter-hash dan wajib dimasukkan sebelum dokumen tersimpan dibuka lewat tautan `/verify?id`",
           },
           {
             kind: "added",
-            text: "drag a QR or signature-box visual from the metadata panel onto the document to place it, with a live ghost showing the drop position at the real size",
+            text: "seret visual QR atau kotak tanda tangan dari panel metadata ke dokumen untuk menempatkannya, lengkap dengan bayangan posisi jatuh sesuai ukuran sebenarnya",
           },
           {
             kind: "added",
-            text: "split the metadata panel into Informasi Dokumen, Profil Penandatangan, and Visualisasi sections; make the identity fields optional",
+            text: "pisahkan panel metadata menjadi bagian Dokumen, Profil Penandatangan, dan Visualisasi; medan identitas kini opsional",
           },
           {
             kind: "added",
-            text: "WhatsApp sending is now a checkbox that reuses the signer's phone number",
+            text: "opsi kirim WhatsApp kini berupa centang yang memakai nomor telepon penandatangan",
           },
           {
             kind: "added",
-            text: "the workspace menubar scrolls horizontally on small screens, and the email toggle shows a verified success check",
+            text: "bilah menu halaman dapat digulir mendatar di layar kecil, dan penanda berhasil muncul pada tombol email",
           },
           {
             kind: "added",
-            text: "add a PWA manifest and service worker for installability",
+            text: "tambah manifest PWA dan service worker agar aplikasi dapat dipasang",
           },
         ],
       },
@@ -214,31 +214,31 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
       {
         id: "rebuild-signing-page-with-editor-style-chrome01201-2026-10-15",
         date: "2026-10-15",
-        title: "Rebuild signing page with editor-style chrome",
+        title: "Bangun ulang halaman tanda tangan dengan tampilan ala editor",
         changes: [
           {
             kind: "added",
-            text: "add a new /sign-v2 route that mirrors the editor chrome: File/Edit/Template/Metadata menubar (hover + click), stepper zoom and page controls, page-thumbnail rail, docs/metadata side pane and a Footer scope dropdown (current page vs all pages)",
+            text: "tambah rute /sign-v2 baru yang meniru tampilan editor: bilah menu File/Edit/Template/Metadata (hover + klik), kontrol zoom dan halaman, rel thumbnail halaman, panel dokumen/metadata, serta dropdown cakupan Footer (halaman ini vs semua halaman)",
           },
           {
             kind: "added",
-            text: "pdf: drawFooter gains a page option; add drawPlacements/drawImages",
+            text: "pdf: drawFooter mendapat opsi halaman; tambah drawPlacements/drawImages",
           },
           {
             kind: "added",
-            text: "sign.remote: pass owner through when signing on behalf",
+            text: "sign.remote: teruskan pemilik saat menandatangani atas nama",
           },
           {
             kind: "added",
-            text: "signer profiles (spesimen) table, remote and migration",
+            text: "tabel, remote, dan migrasi profil penandatangan (spesimen)",
           },
           {
             kind: "added",
-            text: "preview: bindable controller/state handle + renderThumbnail",
+            text: "preview: controller/state handle yang dapat di-bind + renderThumbnail",
           },
           {
             kind: "added",
-            text: "dragresize: selection + optional resize corners",
+            text: "dragresize: pilihan + sudut resize opsional",
           },
         ],
       },
@@ -251,37 +251,37 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
       {
         id: "stop-the-signing-timer-on-error-and-resume-it-on-r-2026-10-14",
         date: "2026-10-14",
-        title: "Stop the signing timer on error and resume it on retry",
+        title: "Hentikan pengatur waktu tanda tangan saat error dan lanjutkan saat coba lagi",
         changes: [
           {
             kind: "fixed",
-            text: "stop the signing timer on error and resume it on retry",
+            text: "hentikan pengatur waktu tanda tangan saat error dan lanjutkan saat mencoba lagi",
           },
         ],
       },
       {
         id: "add-download-all-button-to-bundle-signed-documents-2026-10-14",
         date: "2026-10-14",
-        title: "Add download-all button to bundle signed documents as ZIP",
+        title: "Tambah tombol unduh semua untuk membungkus dokumen tertanda tangan sebagai ZIP",
         changes: [
           {
             kind: "added",
-            text: "add download-all button to bundle signed documents as ZIP",
+            text: "tambah tombol unduh semua untuk membungkus dokumen tertanda tangan sebagai ZIP",
           },
           {
             kind: "added",
-            text: "Adds an Unduh Semua (N) ZIP button to the sign success panel. Signed PDFs are packed client-side into a single archive by a dependency-free STORE-method ZIP writer, so a batch of signed documents downloads in one go instead of tripping the browser's multi-download throttle.",
+            text: "tombol Unduh Semua (N) ZIP pada panel sukses tanda tangan. PDF tertanda tangan dikemas di sisi klien menjadi satu arsip oleh penulis ZIP metode STORE tanpa dependensi, sehingga satu batch dokumen terunduh sekaligus, bukan terkena pembatasan unduhan ganda peramban.",
           },
         ],
       },
       {
         id: "move-specimen-editor-into-a-popup-on-the-box-visua-2026-10-14",
         date: "2026-10-14",
-        title: "Move specimen editor into a popup on the box visualisation",
+        title: "Pindahkan editor spesimen ke popup pada visualisasi kotak",
         changes: [
           {
             kind: "added",
-            text: "move specimen editor into a popup on the box visualisation",
+            text: "pindahkan editor spesimen ke popup pada visualisasi kotak",
           },
         ],
       },

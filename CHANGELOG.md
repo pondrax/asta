@@ -80,19 +80,19 @@
 
 ## 2026-10-16
 
-### Secret-document passcode, drag-to-place visual, and PWA
+### Passcode dokumen rahasia, visualisasi seret-tempat, dan PWA
 
 <!-- id: secret-document-passcode-drag-to-place-visual-2026-10-16 -->
 
 Halaman: /sign-v2 - Sign V2
 Audiens: Tamu
 
-- **Baru** - add a "Dokumen Rahasia" passcode: it is hashed on the server and required before a saved document opens from its `/verify?id` link
-- **Baru** - drag a QR or signature-box visual from the metadata panel onto the document to place it, with a live ghost showing the drop position at the real size
-- **Baru** - split the metadata panel into Informasi Dokumen, Profil Penandatangan, and Visualisasi sections; make the identity fields optional
-- **Baru** - WhatsApp sending is now a checkbox that reuses the signer's phone number
-- **Baru** - the workspace menubar scrolls horizontally on small screens, and the email toggle shows a verified success check
-- **Baru** - add a PWA manifest and service worker for installability
+- **Baru** - tambah "Dokumen Rahasia" berupa passcode yang disimpan ter-hash dan wajib dimasukkan sebelum dokumen tersimpan dibuka lewat tautan `/verify?id`
+- **Baru** - seret visual QR atau kotak tanda tangan dari panel metadata ke dokumen untuk menempatkannya, lengkap dengan bayangan posisi jatuh sesuai ukuran sebenarnya
+- **Baru** - pisahkan panel metadata menjadi bagian Dokumen, Profil Penandatangan, dan Visualisasi; medan identitas kini opsional
+- **Baru** - opsi kirim WhatsApp kini berupa centang yang memakai nomor telepon penandatangan
+- **Baru** - bilah menu halaman dapat digulir mendatar di layar kecil, dan penanda berhasil muncul pada tombol email
+- **Baru** - tambah manifest PWA dan service worker agar aplikasi dapat dipasang
 
 ### Rapikan panel metadata dan tambah pratinjau tanda tangan
 
@@ -124,40 +124,40 @@ Audiens: Tamu
 - **Perbaikan** - satu visualisasi ditandatangani oleh BSrE, lebih dari satu langsung dibakar ke PDF
 - **Perbaikan** - tampilan toolbar dan panel disesuaikan untuk layar kecil
 
-### Rebuild signing page with editor-style chrome
+### Bangun ulang halaman tanda tangan dengan tampilan ala editor
 
 <!-- id: rebuild-signing-page-with-editor-style-chrome01201-2026-10-15 -->
 
 Halaman: /sign-v2 - Sign V2
 Audiens: Tamu
 
-- **Baru** - add a new /sign-v2 route that mirrors the editor chrome: File/Edit/Template/Metadata menubar (hover + click), stepper zoom and page controls, page-thumbnail rail, docs/metadata side pane and a Footer scope dropdown (current page vs all pages)
-- **Baru** - pdf: drawFooter gains a page option; add drawPlacements/drawImages
-- **Baru** - sign.remote: pass owner through when signing on behalf
-- **Baru** - signer profiles (spesimen) table, remote and migration
-- **Baru** - preview: bindable controller/state handle + renderThumbnail
-- **Baru** - dragresize: selection + optional resize corners
+- **Baru** - tambah rute /sign-v2 baru yang meniru tampilan editor: bilah menu File/Edit/Template/Metadata (hover + klik), kontrol zoom dan halaman, rel thumbnail halaman, panel dokumen/metadata, serta dropdown cakupan Footer (halaman ini vs semua halaman)
+- **Baru** - pdf: drawFooter mendapat opsi halaman; tambah drawPlacements/drawImages
+- **Baru** - sign.remote: teruskan pemilik saat menandatangani atas nama
+- **Baru** - tabel, remote, dan migrasi profil penandatangan (spesimen)
+- **Baru** - preview: controller/state handle yang dapat di-bind + renderThumbnail
+- **Baru** - dragresize: pilihan + sudut resize opsional
 
 ## 2026-10-14
 
-### Stop the signing timer on error and resume it on retry
+### Hentikan pengatur waktu tanda tangan saat error dan lanjutkan saat coba lagi
 
 <!-- id: stop-the-signing-timer-on-error-and-resume-it-on-r-2026-10-14 -->
 
 Halaman: /sign - Tanda Tangan Dokumen
 Audiens: Tamu
 
-- **Perbaikan** - stop the signing timer on error and resume it on retry
+- **Perbaikan** - hentikan pengatur waktu tanda tangan saat error dan lanjutkan saat mencoba lagi
 
-### Add download-all button to bundle signed documents as ZIP
+### Tambah tombol unduh semua untuk membungkus dokumen tertanda tangan sebagai ZIP
 
 <!-- id: add-download-all-button-to-bundle-signed-documents-2026-10-14 -->
 
 Halaman: /sign - Tanda Tangan Dokumen
 Audiens: Tamu
 
-- **Baru** - add download-all button to bundle signed documents as ZIP
-- **Baru** - Adds an Unduh Semua (N) ZIP button to the sign success panel. Signed PDFs are packed client-side into a single archive by a dependency-free STORE-method ZIP writer, so a batch of signed documents downloads in one go instead of tripping the browser's multi-download throttle.
+- **Baru** - tambah tombol unduh semua untuk membungkus dokumen tertanda tangan sebagai ZIP
+- **Baru** - tombol Unduh Semua (N) ZIP pada panel sukses tanda tangan. PDF tertanda tangan dikemas di sisi klien menjadi satu arsip oleh penulis ZIP metode STORE tanpa dependensi, sehingga satu batch dokumen terunduh sekaligus, bukan terkena pembatasan unduhan ganda peramban.
 
 ### Pengajuan Helpdesk
 
@@ -169,14 +169,14 @@ Audiens: Tamu
 - **Baru** - Kolom NIP dan NIK kini terpisah pada formulir pengajuan email maupun sertifikat (mandiri), tidak lagi digabung dalam satu isian.
 - **Perbaikan** - Pengajuan tiket tidak lagi gagal saat perangkat daerah belum selesai dipilih; nama organisasi kini dipetakan otomatis ke data yang benar.
 
-### Move specimen editor into a popup on the box visualisation
+### Pindahkan editor spesimen ke popup pada visualisasi kotak
 
 <!-- id: move-specimen-editor-into-a-popup-on-the-box-visua-2026-10-14 -->
 
 Halaman: /sign - Tanda Tangan Dokumen
 Audiens: Tamu
 
-- **Baru** - move specimen editor into a popup on the box visualisation
+- **Baru** - pindahkan editor spesimen ke popup pada visualisasi kotak
 
 ### Spesimen Tanda Tangan
 
