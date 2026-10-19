@@ -80,6 +80,15 @@
 
 ## 2026-10-19
 
+### Tambah tampilan berdampingan (side-by-side) dua halaman pada pratinjau PDF
+
+<!-- id: tambah-tampilan-berdampingan-side-by-side-dua-hala-2026-10-19 -->
+
+Halaman: /sign-v2 - Sign V2
+Audiens: Tamu
+
+- **Baru** - tambah tampilan berdampingan (side-by-side) dua halaman pada pratinjau PDF
+
 ### Profil penandatangan bawaan dari bsre_users dan kunci last-profile per email
 
 <!-- id: profil-penandatangan-bawaan-dari-bsre-users-dan-ku-2026-10-19 -->

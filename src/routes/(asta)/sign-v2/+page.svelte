@@ -170,6 +170,7 @@
     page: 1,
     pageCount: 0,
     sizes: [],
+    layout: { perRow: 1, boxes: [] },
   });
 
   /** Snapshot-based undo/redo over the placement list. */
@@ -1947,6 +1948,7 @@
               previewState.page = s.page;
               previewState.pageCount = s.pageCount;
               previewState.sizes = s.sizes;
+              previewState.layout = s.layout;
             }}
             controls={false}
             onclose={closeDocument}

@@ -28,6 +28,34 @@
      * Empty when the document has no text layer (scanned PDFs).
      */
     searchDocument: (query: string) => Promise<SearchHit[]>;
+    /** Flip between one column and the side-by-side (two-up) layout. */
+    toggleSpread: () => void;
+    /** Current layout mode, for chrome that renders a toggle of its own. */
+    isSpread: () => boolean;
+  };
+
+  /**
+   * Where a page sits in the scroll content, in CSS pixels.
+   *
+   * Callers that draw *on top of* the document (signature boxes, click-to-
+   * place) need this: the pages are no longer a single centred column once the
+   * side-by-side layout is on, so page-absolute coordinates have to be resolved
+   * against the page's own box — and against its own `scale`, because two pages
+   * of different sizes fit their cells at different factors.
+   */
+  export type PageBox = {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+    /** Multiply a value in PDF points by this to get pixels. */
+    scale: number;
+  };
+
+  export type PreviewLayout = {
+    /** Pages rendered per row: 1 = single column, 2 = side by side. */
+    perRow: number;
+    boxes: PageBox[];
   };
 
   export type SearchHit = {
@@ -45,6 +73,8 @@
     pageCount: number;
     /** Page viewport sizes at scale 1, in PDF points. */
     sizes: { width: number; height: number; ratio: number }[];
+    /** Pixel geometry of every page, for overlay math. */
+    layout: PreviewLayout;
   };
 </script>
 
@@ -132,14 +162,24 @@
     height: 0,
   });
 
+  /** Two-up view: two pages per row instead of a single centred column. */
+  let spread = $state(false);
+
   let pageCount = $state(0);
   let pageSizes: { width: number; height: number; ratio: number }[] = $state(
     [],
   );
 
   // $inspect(displayScale, pageSizes);
+  let pageWidths: number[] = $state([]);
   let pageHeights: number[] = $state([]);
+  /** Top of each row, duplicated onto the pages that row holds. */
   let offsets: number[] = $state([]);
+  /** Height of the row a page belongs to (pages in a row share it). */
+  let rowHeights: number[] = $state([]);
+  /** Cell width for the current layout, the fit reference for every page. */
+  let cellWidth = $state(0);
+  let pageBoxes: PageBox[] = $state([]);
   let totalHeight = $state(0);
 
   const rendered = new Map<number, HTMLDivElement>();
@@ -196,6 +236,8 @@
       changePage,
       renderThumbnail,
       searchDocument,
+      toggleSpread,
+      isSpread: () => spread,
     };
     return () => {
       controller = null;
@@ -203,7 +245,13 @@
   });
 
   $effect(() => {
-    onstate?.({ zoom, page: currentPage, pageCount, sizes: pageSizes });
+    onstate?.({
+      zoom,
+      page: currentPage,
+      pageCount,
+      sizes: pageSizes,
+      layout: { perRow: spread ? 2 : 1, boxes: pageBoxes },
+    });
   });
 
   // --- Password prompt ---
@@ -307,8 +355,12 @@
     }
     pageCount = 0;
     pageSizes = [];
+    pageWidths = [];
     pageHeights = [];
     offsets = [];
+    rowHeights = [];
+    pageBoxes = [];
+    cellWidth = 0;
     totalHeight = 0;
     showPasswordModal = false;
     passwordResolve = null;
@@ -354,24 +406,67 @@
     const containerWidth = containerEl.clientWidth - PADDING * 2;
     const containerHeight = containerEl.clientHeight - PADDING * 2;
 
-    pageHeights = pageSizes.map((s) =>
-      Math.round(
-        s.height * fitScale(s.width, s.height, containerWidth, containerHeight),
-      ),
-    );
+    const perRow = spread ? 2 : 1;
+    // Every page fits its own cell, not the whole scroller — halving the cell
+    // width is what makes the two-up view show both pages instead of two
+    // over-wide ones stacked.
+    cellWidth = (containerWidth - GAP * (perRow - 1)) / perRow;
 
+    // Fit each page once; the boxes and the rendered canvas must both use it,
+    // otherwise the placeholder geometry and the pixels disagree.
+    const scales = pageSizes.map((s) =>
+      fitScale(s.width, s.height, cellWidth, containerHeight),
+    );
+    pageWidths = pageSizes.map((s, i) => Math.round(s.width * scales[i]));
+    pageHeights = pageSizes.map((s, i) => Math.round(s.height * scales[i]));
+
+    const boxes: PageBox[] = new Array(pageCount);
     offsets = new Array(pageCount);
+    rowHeights = new Array(pageCount);
     let top = 0;
-    for (let i = 0; i < pageCount; i++) {
-      offsets[i] = top;
-      top += pageHeights[i] + GAP;
+    for (let i = 0; i < pageCount; i += perRow) {
+      const last = Math.min(pageCount, i + perRow);
+      // Rows are as tall as their tallest page so the next row never overlaps,
+      // which also keeps page tops aligned across a row.
+      let rowH = 0;
+      for (let j = i; j < last; j++) rowH = Math.max(rowH, pageHeights[j]);
+
+      for (let j = i; j < last; j++) {
+        const col = j - i;
+        boxes[j] = {
+          left: col * (cellWidth + GAP) + (cellWidth - pageWidths[j]) / 2,
+          top: top + (rowH - pageHeights[j]) / 2,
+          width: pageWidths[j],
+          height: pageHeights[j],
+          scale: scales[j],
+        };
+        offsets[j] = top;
+        rowHeights[j] = rowH;
+      }
+      top += rowH + GAP;
     }
     totalHeight = Math.max(0, top - GAP);
+    pageBoxes = boxes;
+
+    syncDisplayBox();
 
     // Re-render all visible pages with new dimensions
     rendered.forEach((wrap) => wrap.remove());
     rendered.clear();
     scheduleUpdate();
+  }
+
+  /** Keep the snippet's single `scale` in step with the page on screen. */
+  function syncDisplayBox() {
+    const i = Math.min(pageCount - 1, Math.max(0, currentPage - 1));
+    const box = pageBoxes[i];
+    if (!box) return;
+    // Called on every scroll frame; only write when something really changed,
+    // or the two state writes would churn the whole preview for no reason.
+    if (displayScale !== box.scale) displayScale = box.scale;
+    if (displayVp.width !== box.width || displayVp.height !== box.height) {
+      displayVp = { width: box.width, height: box.height };
+    }
   }
 
   // --- Scroll + Virtualization ---
@@ -408,6 +503,29 @@
 
   function resetZoom() {
     setZoom(1);
+  }
+
+  /**
+   * Flip between the single column and the side-by-side layout, keeping the
+   * reader on the same page: rows carry different tops, so scrolling back to
+   * the anchor after the relayout is what stops the toggle from jumping away
+   * from where the user was.
+   */
+  function toggleSpread() {
+    if (!containerEl) return;
+    const anchor = currentPage > 0 ? currentPage - 1 : 0;
+    const before = offsets[anchor] ?? 0;
+    const anchorScreen = before - containerEl.scrollTop;
+
+    spread = !spread;
+    recomputeLayout();
+    updateVisible();
+    if (!containerEl) return;
+    requestAnimationFrame(() => {
+      if (!containerEl) return;
+      containerEl.scrollTop = Math.max(0, (offsets[anchor] ?? 0) - anchorScreen);
+      scheduleUpdate();
+    });
   }
 
   function goToPage(target: number) {
@@ -540,6 +658,9 @@
       const index = findIndexByOffset(containerEl!.scrollTop);
       currentPage = index + 1;
       if (!pageInputFocused) pageDraft = currentPage;
+      // The snippet's `scale` follows the page in view, and in the two-up
+      // layout that can differ from its neighbour's.
+      syncDisplayBox();
     };
     containerEl.addEventListener("scroll", onScroll, { passive: true });
     onScroll();
@@ -560,24 +681,39 @@
     let lo = 0,
       hi = offsets.length - 1;
     if (off <= 0) return 0;
-    if (off >= offsets[hi]) return hi;
+    if (off >= offsets[hi]) return lastPageOfRow(hi);
     while (lo <= hi) {
       const mid = Math.floor((lo + hi) / 2);
       const top = offsets[mid];
-      const bottom = top + pageHeights[mid];
-      if (off >= top && off < bottom) return mid;
+      // A row's pages share one top and one height, so this test covers the
+      // whole row either way — which page of it we land on is decided after.
+      const bottom = top + rowHeights[mid];
+      if (off >= top && off < bottom) return lastPageOfRow(mid);
       if (off < top) hi = mid - 1;
       else lo = mid + 1;
     }
-    return Math.min(lo, offsets.length - 1);
+    return lastPageOfRow(Math.min(lo, offsets.length - 1));
+  }
+
+  /** Pages per row for the layout currently on screen. */
+  const perRow = () => (spread ? 2 : 1);
+
+  /** The last page index of the row containing `i` — the one in view with it. */
+  function lastPageOfRow(i: number) {
+    const n = perRow();
+    return Math.min(offsets.length - 1, Math.floor(i / n) * n + (n - 1));
   }
 
   async function updateVisible() {
     if (!containerEl || pageCount === 0 || !pdfDoc) return;
     const top = containerEl.scrollTop;
     const bottom = top + containerEl.clientHeight;
-    const start = Math.max(0, findIndexByOffset(top) - BUFFER);
-    const end = Math.min(pageCount - 1, findIndexByOffset(bottom) + BUFFER);
+    // Widen to whole rows: with two pages per row, stopping after the first
+    // would leave its partner blank.
+    const start = Math.max(0, firstPageOfRow(findIndexByOffset(top) - BUFFER));
+    const end = lastPageOfRow(
+      Math.min(pageCount - 1, findIndexByOffset(bottom) + BUFFER),
+    );
 
     // remove offscreen
     rendered.forEach((wrap, num) => {
@@ -592,41 +728,42 @@
     for (let i = start; i <= end; i++) {
       const num = i + 1;
       if (rendered.has(num)) continue;
-      const wrapTop = offsets[i];
-      renderPage(num, wrapTop, pageHeights[i]);
+      void renderPage(num);
     }
   }
 
-  async function renderPage(num: number, top: number, displayHeight: number) {
+  function firstPageOfRow(i: number) {
+    const n = perRow();
+    return Math.floor(Math.max(0, i) / n) * n;
+  }
+
+  async function renderPage(num: number) {
     if (!pdfDoc || !containerEl) return;
+    const box = pageBoxes[num - 1];
+    if (!box) return;
     const page = await pdfDoc.getPage(num);
+    // Re-check: the layout may have been recomputed while we awaited, in which
+    // case the box we captured is stale and the page will be laid out again.
+    const fresh = pageBoxes[num - 1];
+    if (!fresh || fresh !== box) {
+      page.cleanup();
+      return;
+    }
 
-    const containerWidth = containerEl.clientWidth - PADDING * 2;
-    const containerHeight = containerEl.clientHeight - PADDING * 2;
-    const vp1 = page.getViewport({ scale: 1 });
-
-    // Scale to fit both width and height (auto-fit), then apply the user's zoom
-    displayScale = fitScale(
-      vp1.width,
-      vp1.height,
-      containerWidth,
-      containerHeight,
-    );
-
+    const display = box.scale;
     // High-resolution scale for canvas, capped so a large zoom doesn't allocate
     // an enormous canvas backing store.
-    const renderScale = Math.min(displayScale * DPI_SCALE, MAX_RENDER_SCALE);
-
-    displayVp = page.getViewport({ scale: displayScale });
+    const renderScale = Math.min(display * DPI_SCALE, MAX_RENDER_SCALE);
     const renderVp = page.getViewport({ scale: renderScale });
 
     // Wrapper div for page and overlay
     const wrap = document.createElement("div");
     wrap.className =
-      "absolute left-1/2 -translate-x-1/2 inline-block rounded-lg bg-white border border-base-300 shadow overflow-hidden";
-    wrap.style.top = `${top}px`;
-    wrap.style.width = `${displayVp.width}px`;
-    wrap.style.height = `${displayVp.height}px`;
+      "absolute inline-block rounded-lg bg-white border border-base-300 shadow overflow-hidden";
+    wrap.style.left = `${box.left}px`;
+    wrap.style.top = `${box.top}px`;
+    wrap.style.width = `${box.width}px`;
+    wrap.style.height = `${box.height}px`;
 
     // Canvas for PDF page with high resolution
     const canvas = document.createElement("canvas");
@@ -637,8 +774,8 @@
     canvas.height = renderVp.height;
 
     // Set canvas display size to match container
-    canvas.style.width = `${displayVp.width}px`;
-    canvas.style.height = `${displayVp.height}px`;
+    canvas.style.width = `${box.width}px`;
+    canvas.style.height = `${box.height}px`;
 
     // Improve canvas rendering quality
     ctx.imageSmoothingEnabled = true;
@@ -652,7 +789,7 @@
       watermark.textContent = "DRAFT";
       watermark.className =
         "absolute inset-0 flex items-center justify-center pointer-events-none -rotate-45 text-error/20 tracking-widest select-none";
-      watermark.style.fontSize = `${displayVp.width * 0.15}px`;
+      watermark.style.fontSize = `${box.width * 0.15}px`;
 
       wrap.appendChild(watermark);
     }
@@ -780,6 +917,22 @@
         </button>
       </div>
 
+      <div class="join">
+        <button
+          type="button"
+          class="btn btn-xs btn-ghost join-item {spread ? 'btn-active' : ''}"
+          title={spread ? "Tampilkan satu halaman" : "Tampilkan dua halaman berdampingan"}
+          aria-label="Tampilan berdampingan"
+          aria-pressed={spread}
+          onclick={toggleSpread}
+        >
+          <iconify-icon
+            icon={spread ? "bx:grid-vertical" : "bx:grid-horizontal"}
+          ></iconify-icon>
+          {spread ? "2-up" : "1-up"}
+        </button>
+      </div>
+
       <button
         type="button"
         class="btn btn-xs btn-ghost"
@@ -864,10 +1017,13 @@
     {:else}
       <div class="relative w-full" style="height: {totalHeight}px">
         <div class="pdf-layer absolute top-0 left-0 right-0 bottom-0"></div>
-        <div
-          class="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 z-1 overflow-clip"
-          style="width: {displayVp.width}px;"
-        >
+        <!--
+          Spans the whole content box, not just a column as wide as one page:
+          the side-by-side layout has a second column to reach, so the children
+          resolve their coordinates against `layout.boxes` (via onstate) rather
+          than assuming this element's left edge is the left edge of a page.
+        -->
+        <div class="absolute inset-0 z-1 overflow-clip">
           {@render children?.(displayScale, pageSizes, GAP)}
         </div>
       </div>

@@ -119,6 +119,17 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
     page: "Sign V2",
     entries: [
       {
+        id: "tambah-tampilan-berdampingan-side-by-side-dua-hala-2026-10-19",
+        date: "2026-10-19",
+        title: "Tambah tampilan berdampingan (side-by-side) dua halaman pada pratinjau PDF",
+        changes: [
+          {
+            kind: "added",
+            text: "tambah tampilan berdampingan (side-by-side) dua halaman pada pratinjau PDF",
+          },
+        ],
+      },
+      {
         id: "profil-penandatangan-bawaan-dari-bsre-users-dan-ku-2026-10-19",
         date: "2026-10-19",
         title: "Profil penandatangan bawaan dari bsre_users dan kunci last-profile per email",
