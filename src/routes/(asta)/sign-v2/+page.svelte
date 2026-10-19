@@ -44,6 +44,7 @@
   } from "$lib/remotes/sign.remote";
   import { getData } from "$lib/remotes/api.remote";
 
+  import { PDFDocument } from "pdf-lib";
   import { goto } from "$app/navigation";
   import { onMount, tick } from "svelte";
   import { page } from "$app/state";
@@ -187,17 +188,6 @@
 
   const tourSteps = [
     {
-      target: "#tour-email",
-      title: "Email Penandatangan",
-      content:
-        "Masukkan Email Dinas Anda. Akun diverifikasi otomatis dan data identitas diambil dari profil BSrE bila tersedia.",
-      placement: "bottom",
-      onShow: () => {
-        emailOpen = true;
-        navOpen = false;
-      },
-    },
-    {
       target: "#tour-upload-btn",
       title: "Unggah Dokumen",
       content:
@@ -210,6 +200,37 @@
       },
     },
     {
+      target: "#tour-mode",
+      title: "TTE atau Manual",
+      content:
+        "Pilih mode Tanda Tangan Elektronik (TTE) untuk memakai sertifikat BSrE, atau Tanda Tangan Manual untuk menempel tanda tangan tanpa sertifikat.",
+      placement: "bottom",
+      onShow: () => {
+        emailOpen = false;
+      },
+    },
+    {
+      target: "#tour-email",
+      title: "Email Penandatangan",
+      content:
+        "Masukkan Email Dinas Anda. Akun diverifikasi otomatis dan data identitas diambil dari profil BSrE bila tersedia.",
+      placement: "bottom",
+      onShow: () => {
+        emailOpen = true;
+        navOpen = false;
+      },
+    },
+    {
+      target: "#tour-toolbar",
+      title: "Alat Tanda Tangan",
+      content:
+        "Atur halaman, zoom, tambahkan visualisasi (QR, kotak, gambar, coretan), dan unduh dokumen dari bilah ini.",
+      placement: "bottom",
+      onShow: () => {
+        navOpen = false;
+      },
+    },
+    {
       target: "#tour-documents",
       title: "Daftar Dokumen",
       content:
@@ -218,16 +239,6 @@
       onShow: () => {
         navOpen = true;
         activeTab = "documents";
-      },
-    },
-    {
-      target: "#tour-toolbar",
-      title: "Alat Tanda Tangan",
-      content:
-        "Atur halaman, zoom, tambahkan visualisasi (QR, kotak, gambar, coretan), pilih mode TTE/Manual, dan unduh dari sini.",
-      placement: "bottom",
-      onShow: () => {
-        navOpen = false;
       },
     },
     {
@@ -258,6 +269,51 @@
       content:
         "Setelah semua siap, klik tombol ini untuk memulai proses penandatanganan secara elektronik.",
       placement: "left",
+      onShow: () => {
+        forms.sign = undefined;
+      },
+    },
+    {
+      target: "#tour-passphrase",
+      title: "Isi Passphrase",
+      content:
+        "Masukkan Passphrase sertifikat elektronik Anda di sini untuk membubuhkan tanda tangan pada dokumen.",
+      placement: "left",
+      modal: true,
+      onShow: () => {
+        if (forms.sign) forms.sign.completed = [];
+        void openSignForTour();
+      },
+    },
+    {
+      target: "#tour-save-passkey",
+      title: "Simpan Passphrase (Opsional)",
+      content:
+        "Aktifkan agar Passphrase disimpan dengan Passkey di perangkat ini, sehingga tanda tangan berikutnya lebih cepat.",
+      placement: "left",
+      onShow: () => {
+        if (forms.sign) forms.sign.completed = [];
+      },
+    },
+    {
+      target: "#tour-sign-submit",
+      title: "Klik Tanda Tangan Elektronik",
+      content:
+        "Tekan tombol ini untuk membubuhkan tanda tangan elektronik pada dokumen.",
+      placement: "top",
+      onShow: () => {
+        if (forms.sign) forms.sign.completed = [];
+      },
+    },
+    {
+      target: "#tour-sign-status",
+      title: "Selesai",
+      content:
+        "Setelah berhasil, dokumen ditandatangani dan Anda dapat mengunduh atau menilainya.",
+      placement: "bottom",
+      onShow: () => {
+        if (forms.sign) forms.sign.completed = Object.keys(forms.sign.documents);
+      },
     },
   ];
   let signResults: {
@@ -1407,6 +1463,33 @@
     if (documents[activeIndex]) debounceFillFormFields();
   }
 
+  /** A throwaway document so the tour can demonstrate signing with no upload. */
+  async function createDemoDocument(): Promise<File> {
+    const pdf = await PDFDocument.create();
+    const page = pdf.addPage();
+    page.drawText("Contoh Dokumen", {
+      x: 40,
+      y: page.getHeight() - 60,
+      size: 18,
+    });
+    const bytes = await pdf.save();
+    return new File([bytes], "contoh-dokumen.pdf", { type: "application/pdf" });
+  }
+
+  /**
+   * Tour helper: guarantee a document, switch to TTE mode, then open the sign
+   * dialog so its Passphrase field can be highlighted.
+   */
+  async function openSignForTour() {
+    bsre = true;
+    if (Object.keys(documents).length === 0) {
+      const demo = await createDemoDocument();
+      files = [...files, demo];
+      await tick();
+    }
+    if (!forms.sign) await openSign();
+  }
+
   async function openSign() {
     signResults = [];
     timer = 0;
@@ -2057,10 +2140,12 @@
   <Tour
     steps={tourSteps}
     onComplete={() => {
+      forms.sign = undefined;
       app.showTour = false;
       localStorage.setItem("tour-sign-last-shown", Date.now().toString());
     }}
     onSkip={() => {
+      forms.sign = undefined;
       app.showTour = false;
       localStorage.setItem("tour-sign-last-shown", Date.now().toString());
     }}
@@ -2352,7 +2437,10 @@
           </li>
         {/each}
       </ul>
-      <div class="alert justify-between min-h-8 text-base-content/60 text-sm">
+      <div
+        id="tour-sign-status"
+        class="alert justify-between min-h-8 text-base-content/60 text-sm"
+      >
         {#if loading}
           Proses Penandatangan... ( {completed} / {total} )
           <span>
@@ -2475,7 +2563,7 @@
         </label>
 
         {#if bsre}
-          <label class="floating-label">
+          <label class="floating-label" id="tour-passphrase">
             <span>Passphrase</span>
             <div class="join w-full">
               <input
@@ -2514,6 +2602,7 @@
                 </button>
               {:else if vaultSupported && useEmail}
                 <label
+                  id="tour-save-passkey"
                   class="join-item flex items-center gap-1.5 px-3 cursor-pointer select-none"
                   title="Simpan Passphrase dengan Passkey"
                 >
@@ -2613,6 +2702,7 @@
         <div id="turnstile-container"></div>
 
         <button
+          id="tour-sign-submit"
           type="submit"
           class="btn {bsre ? 'btn-secondary' : 'btn-primary'}"
           disabled={loading || !turnstileSuccess || (bsre && !item.passphrase)}

@@ -119,6 +119,17 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
     page: "Sign V2",
     entries: [
       {
+        id: "tur-lengkap-dengan-langkah-mode-passphrase-dan-sim-2026-10-19",
+        date: "2026-10-19",
+        title: "Tur lengkap dengan langkah mode, passphrase, dan simulasi selesai",
+        changes: [
+          {
+            kind: "added",
+            text: "tur lengkap dengan langkah mode, passphrase, dan simulasi selesai",
+          },
+        ],
+      },
+      {
         id: "tur-panduan-membuka-panel-relevan-secara-otomatis-2026-10-19",
         date: "2026-10-19",
         title: "Tur panduan membuka panel relevan secara otomatis",

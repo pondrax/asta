@@ -80,6 +80,15 @@
 
 ## 2026-10-19
 
+### Tur lengkap dengan langkah mode, passphrase, dan simulasi selesai
+
+<!-- id: tur-lengkap-dengan-langkah-mode-passphrase-dan-sim-2026-10-19 -->
+
+Halaman: /sign-v2 - Sign V2
+Audiens: Tamu
+
+- **Baru** - tur lengkap dengan langkah mode, passphrase, dan simulasi selesai
+
 ### Tur panduan membuka panel relevan secara otomatis
 
 <!-- id: tur-panduan-membuka-panel-relevan-secara-otomatis-2026-10-19 -->

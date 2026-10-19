@@ -8,6 +8,8 @@
     content: string;
     placement?: "top" | "bottom" | "left" | "right" | "center";
     onShow?: () => void;
+    /** Step opens a native dialog; re-raise the tour so it stays on top. */
+    modal?: boolean;
   }
 
   let {
@@ -30,12 +32,49 @@
 
   let cardPos = $state({ top: 0, left: 0, placement: "bottom" });
 
+  let container = $state<HTMLElement>();
+
   const PAD = 8;
   const R = 12;
 
+  /**
+   * First *visible* match for a selector. Responsive layouts render the same id
+   * in more than one place (e.g. one hidden per breakpoint), so plain
+   * querySelector can land on a zero-size element.
+   */
+  function findTarget(selector: string): Element | null {
+    const els = document.querySelectorAll(selector);
+    for (const el of els) {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) return el;
+    }
+    return els[0] ?? null;
+  }
+
+  /** `:popover-open` throws on browsers without popover support. */
+  function isPopoverOpen(el: HTMLElement) {
+    try {
+      return el.matches(":popover-open");
+    } catch {
+      return false;
+    }
+  }
+
+  /** Re-raise the tour into the top layer so it sits above any open dialog. */
+  function raise() {
+    const el = container;
+    if (!el) return;
+    try {
+      if (isPopoverOpen(el)) el.hidePopover();
+      el.showPopover();
+    } catch {
+      /* popover unsupported */
+    }
+  }
+
   function updateRect() {
     if (!activeStep) return;
-    const el = document.querySelector(activeStep.target);
+    const el = findTarget(activeStep.target);
     if (el) {
       const r = el.getBoundingClientRect();
       rect = { top: r.top, left: r.left, width: r.width, height: r.height };
@@ -132,6 +171,13 @@
     const target = activeStep?.target;
     if (!target) return;
     if (activeStep?.onShow) activeStep.onShow();
+    // A dialog the step opened lands in the top layer *after* us, so re-raise
+    // once it has mounted to keep the tour visible above it.
+    if (activeStep?.modal) {
+      setTimeout(raise, 60);
+      setTimeout(raise, 400);
+      setTimeout(raise, 1000);
+    }
 
     let scrollListeners: { el: Element | Window; fn: () => void }[] = [];
     const removeScrollListeners = () => {
@@ -143,7 +189,7 @@
 
     const observer = new ResizeObserver(() => updateRect());
     const check = setInterval(() => {
-      const el = document.querySelector(target);
+      const el = findTarget(target);
       if (el) {
         observer.observe(el);
         clearInterval(check);
@@ -190,6 +236,18 @@
     return () => window.removeEventListener("resize", h);
   });
 
+  // Render the overlay in the browser's top layer via the popover API so it can
+  // layer above native `<dialog>` modals (which ignore z-index).
+  $effect(() => {
+    const el = container;
+    if (!el) return;
+    if (isVisible) {
+      if (!isPopoverOpen(el)) raise();
+    } else if (isPopoverOpen(el)) {
+      el.hidePopover();
+    }
+  });
+
   const next = () => {
     if (currentStep < steps.length - 1) currentStep++;
     else { isVisible = false; onComplete(); }
@@ -210,7 +268,12 @@
 </script>
 
 {#if isVisible && activeStep}
-  <div class="fixed inset-0 z-[9999] pointer-events-none">
+  <div
+    bind:this={container}
+    popover="manual"
+    class="fixed inset-0 z-[9999] pointer-events-none"
+    style="inset:0; margin:0; width:100vw; height:100vh; max-width:none; max-height:none; border:0; background:transparent; padding:0; overflow:visible;"
+  >
     <svg
       class="fixed inset-0 pointer-events-auto"
       style="width: 100vw; height: 100vh; cursor: auto;"

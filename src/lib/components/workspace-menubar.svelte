@@ -51,6 +51,7 @@
     >
       <button
         type="button"
+        id={menu.id === "mode" ? "tour-mode" : undefined}
         class={menu.variant === "primary"
           ? `btn btn-sm btn-soft btn-primary rounded-full justify-between gap-1 ${menu.width ?? ""}`
           : `h-full px-3 rounded-full text-xs text-base-content cursor-pointer border-0 ${openId === menu.id ? "bg-base-200" : "bg-transparent hover:bg-base-200"}`}
