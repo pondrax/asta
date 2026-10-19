@@ -119,6 +119,17 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
     page: "Sign V2",
     entries: [
       {
+        id: "sembunyikan-pratinjau-visual-sampai-profil-lengkap-2026-10-19",
+        date: "2026-10-19",
+        title: "Sembunyikan pratinjau visual sampai profil lengkap, tampilkan peringatan",
+        changes: [
+          {
+            kind: "added",
+            text: "sembunyikan pratinjau visual sampai profil lengkap, tampilkan peringatan",
+          },
+        ],
+      },
+      {
         id: "tombol-visualisasi-langsung-seret-visual-yang-anda-2026-10-19",
         date: "2026-10-19",
         title: "Tombol visualisasi langsung, seret visual yang andal di seluler, dan profil default dari data BSrE",

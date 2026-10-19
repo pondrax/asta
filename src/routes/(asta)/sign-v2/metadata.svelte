@@ -359,7 +359,10 @@
     if (!form.owner) form.owner = data.user?.email || form.email || "";
   });
 
-  // $inspect(form, form.instansi);
+  const profileSet = $derived(
+    !!(form.nama && form.nama !== "-") ||
+      !!(form.instansi && form.instansi !== "-"),
+  );
 </script>
 
 <form
@@ -435,7 +438,7 @@
           >
             <iconify-icon
               icon={ownerOpen ? "bx:chevron-down" : "bx:chevron-right"}
-              class="text-base"
+              class="text-base leading-none"
             ></iconify-icon>
           </button>
           <details
@@ -443,11 +446,13 @@
             class:pointer-events-none={locked}
           >
           <summary
-            class="btn btn-xs btn-ghost btn-square"
-            class:btn-disabled={locked}
+            class="flex cursor-pointer items-center"
             title="Ambil email"
           >
-            <iconify-icon icon="bx:user-circle" class="text-base"></iconify-icon>
+            <iconify-icon
+              icon="bx:user-circle"
+              class="text-base leading-none"
+            ></iconify-icon>
           </summary>
           <ul
             class="dropdown-content menu menu-xs bg-base-100 rounded-box z-50 w-80 p-1 shadow-xl"
@@ -767,18 +772,27 @@
     </li>
     <li>
       <div class="flex flex-col gap-2 bg-transparent">
-        <SignaturePreview
-          {form}
-          visual="qr"
-          onAdd={onAddVisual}
-          disabled={!hasDocuments}
-        />
-        <SignaturePreview
-          {form}
-          visual="box"
-          onAdd={onAddVisual}
-          disabled={!hasDocuments}
-        />
+        {#if profileSet}
+          <SignaturePreview
+            {form}
+            visual="qr"
+            onAdd={onAddVisual}
+            disabled={!hasDocuments}
+          />
+          <SignaturePreview
+            {form}
+            visual="box"
+            onAdd={onAddVisual}
+            disabled={!hasDocuments}
+          />
+        {:else}
+          <div
+            class="alert alert-warning text-xs"
+          >
+            <iconify-icon icon="bx:error-circle" class="text-base"></iconify-icon>
+            <span>Visualisasi tidak tersedia, lengkapi profil.</span>
+          </div>
+        {/if}
 
         <div class="flex items-center justify-between pt-1">
           <span class="text-xs font-medium">Spesimen Tersimpan</span>
