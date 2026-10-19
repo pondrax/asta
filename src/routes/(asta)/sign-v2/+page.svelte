@@ -1903,6 +1903,25 @@
         ></span>
         <button
           type="button"
+          class="h-6 inline-flex items-center gap-1 px-2 flex-none border-0 rounded bg-transparent text-[13px] text-base-content cursor-pointer hover:bg-base-200 {previewCtl?.isSpread?.()
+            ? 'bg-primary/10 text-primary'
+            : ''}"
+          title={previewCtl?.isSpread?.()
+            ? "Tampilkan satu halaman"
+            : "Tampilkan dua halaman berdampingan"}
+          aria-label="Tampilan berdampingan"
+          aria-pressed={previewCtl?.isSpread?.()}
+          onclick={() => previewCtl?.toggleSpread()}
+        >
+          <iconify-icon
+            icon={previewCtl?.isSpread?.() ? "bx:grid-vertical" : "bx:grid-horizontal"}
+          ></iconify-icon>
+          <span class="hidden lg:inline">{previewCtl?.isSpread?.() ? "2-up" : "1-up"}</span>
+        </button>
+        <span class="w-px h-4 flex-none bg-base-300" aria-hidden="true"
+        ></span>
+        <button
+          type="button"
           class="h-6 inline-flex items-center gap-1 px-2 flex-none border-0 rounded bg-transparent text-[13px] text-base-content cursor-pointer hover:bg-base-200"
           title="Unduh dokumen"
           aria-label="Unduh dokumen"

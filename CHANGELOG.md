@@ -80,6 +80,15 @@
 
 ## 2026-10-19
 
+### Tambahkan tombol tampilan berdampingan pada bilah alat pratinjau
+
+<!-- id: tambahkan-tombol-tampilan-berdampingan-pada-bilah--2026-10-19 -->
+
+Halaman: /sign-v2 - Sign V2
+Audiens: Tamu
+
+- **Baru** - tambahkan tombol tampilan berdampingan pada bilah alat pratinjau
+
 ### Tambah tampilan berdampingan (side-by-side) dua halaman pada pratinjau PDF
 
 <!-- id: tambah-tampilan-berdampingan-side-by-side-dua-hala-2026-10-19 -->

@@ -119,6 +119,17 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
     page: "Sign V2",
     entries: [
       {
+        id: "tambahkan-tombol-tampilan-berdampingan-pada-bilah--2026-10-19",
+        date: "2026-10-19",
+        title: "Tambahkan tombol tampilan berdampingan pada bilah alat pratinjau",
+        changes: [
+          {
+            kind: "added",
+            text: "tambahkan tombol tampilan berdampingan pada bilah alat pratinjau",
+          },
+        ],
+      },
+      {
         id: "tambah-tampilan-berdampingan-side-by-side-dua-hala-2026-10-19",
         date: "2026-10-19",
         title: "Tambah tampilan berdampingan (side-by-side) dua halaman pada pratinjau PDF",
