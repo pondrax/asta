@@ -119,6 +119,17 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
     page: "Sign V2",
     entries: [
       {
+        id: "kembalikan-baris-dokumen-rahasia-ke-tinggi-semula-2026-10-19",
+        date: "2026-10-19",
+        title: "Kembalikan baris Dokumen Rahasia ke tinggi semula",
+        changes: [
+          {
+            kind: "added",
+            text: "kembalikan baris Dokumen Rahasia ke tinggi semula",
+          },
+        ],
+      },
+      {
         id: "samakan-tinggi-baris-simpan-dokumen-dengan-dokumen-2026-10-19",
         date: "2026-10-19",
         title: "Samakan tinggi baris Simpan Dokumen dengan Dokumen Rahasia",

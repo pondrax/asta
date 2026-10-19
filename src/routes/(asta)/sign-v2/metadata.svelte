@@ -503,17 +503,15 @@
       {/if}
     </li>
     <li class="px-2">
-      <div class="flex items-center gap-1.5 py-0">
+      <label class="flex cursor-pointer items-center gap-1.5">
         <input
           type="checkbox"
           class="checkbox checkbox-xs"
           bind:checked={form.secret}
           disabled={locked}
-          title="Dokumen Rahasia"
-          aria-label="Dokumen Rahasia"
         />
         <span class="text-xs">Dokumen Rahasia</span>
-      </div>
+      </label>
       {#if form.secret}
         <div class="input input-sm w-full">
           <input

@@ -80,6 +80,15 @@
 
 ## 2026-10-19
 
+### Kembalikan baris Dokumen Rahasia ke tinggi semula
+
+<!-- id: kembalikan-baris-dokumen-rahasia-ke-tinggi-semula-2026-10-19 -->
+
+Halaman: /sign-v2 - Sign V2
+Audiens: Tamu
+
+- **Baru** - kembalikan baris Dokumen Rahasia ke tinggi semula
+
 ### Samakan tinggi baris Simpan Dokumen dengan Dokumen Rahasia
 
 <!-- id: samakan-tinggi-baris-simpan-dokumen-dengan-dokumen-2026-10-19 -->
