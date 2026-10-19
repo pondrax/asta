@@ -756,9 +756,11 @@
     <li class="menu-title">
       <div class="relative flex flex-col">
         <span>Visualisasi Tanda Tangan</span>
-        <span class="text-[10px] font-normal text-base-content/50">
-          Klik atau seret untuk menambahkan visualisasi ke dokumen.
-        </span>
+        {#if profileSet}
+          <span class="text-[10px] font-normal text-base-content/50">
+            Klik atau seret untuk menambahkan visualisasi ke dokumen.
+          </span>
+        {/if}
         <button
           type="button"
           class="btn btn-xs btn-ghost btn-square absolute right-0 top-0"
@@ -787,13 +789,14 @@
           />
         {:else}
           <div
-            class="alert alert-warning text-xs"
+            class="alert alert-warning text-xs animate-pulse"
           >
             <iconify-icon icon="bx:error-circle" class="text-base"></iconify-icon>
             <span>Visualisasi tidak tersedia, lengkapi profil.</span>
           </div>
         {/if}
 
+        {#if profileSet}
         <div class="flex items-center justify-between pt-1">
           <span class="text-xs font-medium">Spesimen Tersimpan</span>
           <button
@@ -837,6 +840,7 @@
           </div>
         {:else}
           <div class="text-[10px] text-gray-400">Belum ada spesimen tersimpan.</div>
+        {/if}
         {/if}
       </div>
     </li>

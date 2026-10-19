@@ -80,6 +80,15 @@
 
 ## 2026-10-19
 
+### Sembunyikan spesimen tersimpan dan animasikan peringatan visual
+
+<!-- id: sembunyikan-spesimen-tersimpan-dan-animasikan-peri-2026-10-19 -->
+
+Halaman: /sign-v2 - Sign V2
+Audiens: Tamu
+
+- **Baru** - sembunyikan spesimen tersimpan dan animasikan peringatan visual
+
 ### Samakan tinggi baris Simpan Dokumen dengan Dokumen Rahasia
 
 <!-- id: samakan-tinggi-baris-simpan-dokumen-dengan-dokumen-2-2026-10-19 -->

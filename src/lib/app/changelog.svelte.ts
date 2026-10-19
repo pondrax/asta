@@ -119,6 +119,17 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
     page: "Sign V2",
     entries: [
       {
+        id: "sembunyikan-spesimen-tersimpan-dan-animasikan-peri-2026-10-19",
+        date: "2026-10-19",
+        title: "Sembunyikan spesimen tersimpan dan animasikan peringatan visual",
+        changes: [
+          {
+            kind: "added",
+            text: "sembunyikan spesimen tersimpan dan animasikan peringatan visual",
+          },
+        ],
+      },
+      {
         id: "samakan-tinggi-baris-simpan-dokumen-dengan-dokumen-2-2026-10-19",
         date: "2026-10-19",
         title: "Samakan tinggi baris Simpan Dokumen dengan Dokumen Rahasia",
