@@ -119,6 +119,17 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
     page: "Sign V2",
     entries: [
       {
+        id: "sederhanakan-dialog-gambar-tanda-tangan-menjadi-ka-2026-10-19",
+        date: "2026-10-19",
+        title: "Sederhanakan dialog gambar tanda tangan menjadi kanvas gambar",
+        changes: [
+          {
+            kind: "added",
+            text: "sederhanakan dialog gambar tanda tangan menjadi kanvas gambar",
+          },
+        ],
+      },
+      {
         id: "sembunyikan-spesimen-tersimpan-dan-animasikan-peri-2026-10-19",
         date: "2026-10-19",
         title: "Sembunyikan spesimen tersimpan dan animasikan peringatan visual",

@@ -256,71 +256,24 @@
   class="hidden"
 />
 
-<div class="tabs tabs-xs tabs-box bg-base-300 grow mt-1 gap-0">
-  <label class="tab" class:invisible={!availableVisual.includes("image")}>
-    <input type="radio" bind:group={visual} value="image" />
-    <iconify-icon icon="bx:file"></iconify-icon>
-    <span class="ml-1">Image</span>
-  </label>
-  <div class="tab-content relative">
-    <input
-      type="file"
-      class="file-input file-input-sm mb-1 w-full"
-      accept="image/*"
-      bind:files={imageSignature}
-      onchange={loadImageSignature}
-    />
-    <canvas
-      bind:this={canvasImage}
-      width="640"
-      height="320"
-      class="border border-base-300 rounded-lg bg-white w-full h-auto"
-    ></canvas>
-  </div>
+<div class="hidden" aria-hidden="true">
+  <input
+    type="file"
+    accept="image/*"
+    bind:files={imageSignature}
+    onchange={loadImageSignature}
+  />
+  <canvas bind:this={canvasImage} width="640" height="320"></canvas>
+  <canvas bind:this={canvasQR} width="400" height="400"></canvas>
+  <canvas bind:this={canvasBox} width="640" height="180"></canvas>
+</div>
 
-  <label class="tab" class:invisible={!availableVisual.includes("qr")}>
-    <input type="radio" bind:group={visual} value="qr" />
-    <iconify-icon icon="bx:qr"></iconify-icon>
-    <span class="ml-1">QR</span>
-  </label>
-  <div class="tab-content relative">
-    <canvas
-      bind:this={canvasQR}
-      width="400"
-      height="400"
-      class="border border-base-300 rounded-lg bg-white h-32 w-auto mx-auto"
-    ></canvas>
-  </div>
-
-  <label class="tab" class:invisible={!availableVisual.includes("box")}>
-    <input type="radio" bind:group={visual} value="box" />
-    <iconify-icon icon="bx:box"></iconify-icon>
-    <span class="ml-1">Box</span>
-  </label>
-  <div class="tab-content relative">
-    <canvas
-      bind:this={canvasBox}
-      class="border border-base-300 bg-white w-full h-auto"
-      width="640"
-      height="180"
-    ></canvas>
-    <button
-      type="button"
-      class="btn btn-sm btn-square absolute top-3 right-3"
-      aria-label="Edit spesimen tanda tangan"
-      disabled={disabled}
-      onclick={() => specimenDialog?.showModal()}
-    >
-      <iconify-icon icon="bx:edit" class="text-lg"></iconify-icon>
-    </button>
-  </div>
-
-  <label class="tab" class:invisible={!availableVisual.includes("draw")}>
-    <input type="radio" bind:group={visual} value="draw" />
-    <iconify-icon icon="bx:pencil"></iconify-icon>
-    <span class="ml-1">Draw</span>
-  </label>
-  <div class="tab-content relative">
+<div class="flex flex-col gap-2 mt-1">
+  <p class="text-xs leading-snug opacity-60">
+    Buat coretan tanda tangan Anda pada kanvas di bawah, lalu tekan tombol
+    tambah untuk menaruhnya ke dokumen.
+  </p>
+  <div class="relative">
     <canvas
       bind:this={canvasPad}
       class="border border-base-300 rounded-lg bg-white w-full h-auto touch-none"
@@ -341,19 +294,14 @@
       Clear
     </button>
   </div>
-  <div
-    class="tab tooltip tooltip-left ml-auto -mt-3"
-    data-tip="Tambahkan visualisasi ke dokumen"
+  <button
+    type="button"
+    class="btn btn-secondary w-full"
+    aria-label="Tambahkan tanda tangan ke dokumen"
+    onclick={addSignature}
   >
-    <button
-      type="button"
-      class="btn btn-secondary btn-square"
-      aria-label="Tambahkan visualisasi ke dokumen"
-      onclick={addSignature}
-    >
-      <iconify-icon icon="bx:plus" class="text-2xl"></iconify-icon>
-    </button>
-  </div>
+    <iconify-icon icon="bx:plus" class="text-2xl"></iconify-icon>
+  </button>
 </div>
 
 <dialog class="modal" bind:this={specimenDialog}>

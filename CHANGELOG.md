@@ -80,6 +80,15 @@
 
 ## 2026-10-19
 
+### Sederhanakan dialog gambar tanda tangan menjadi kanvas gambar
+
+<!-- id: sederhanakan-dialog-gambar-tanda-tangan-menjadi-ka-2026-10-19 -->
+
+Halaman: /sign-v2 - Sign V2
+Audiens: Tamu
+
+- **Baru** - sederhanakan dialog gambar tanda tangan menjadi kanvas gambar
+
 ### Sembunyikan spesimen tersimpan dan animasikan peringatan visual
 
 <!-- id: sembunyikan-spesimen-tersimpan-dan-animasikan-peri-2026-10-19 -->
