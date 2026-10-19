@@ -119,6 +119,17 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
     page: "Sign V2",
     entries: [
       {
+        id: "tombol-visualisasi-langsung-seret-visual-yang-anda-2026-10-19",
+        date: "2026-10-19",
+        title: "Tombol visualisasi langsung, seret visual yang andal di seluler, dan profil default dari data BSrE",
+        changes: [
+          {
+            kind: "added",
+            text: "tombol visualisasi langsung, seret visual yang andal di seluler, dan profil default dari data BSrE",
+          },
+        ],
+      },
+      {
         id: "secret-document-passcode-drag-to-place-visual-2026-10-16",
         date: "2026-10-16",
         title: "Passcode dokumen rahasia, visualisasi seret-tempat, dan PWA",

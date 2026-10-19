@@ -105,7 +105,7 @@
 <div
   tabindex="0"
   role="button"
-  class="absolute select-none"
+  class="absolute select-none touch-none"
   class:selected
   style="
     left: {x * scale}px;
@@ -121,25 +121,25 @@
     <div
       tabindex="0"
       role="button"
-      class="corner nw"
+      class="corner touch-none nw"
       onpointerdown={(e) => pointerDown(e, "nw")}
     ></div>
     <div
       tabindex="0"
       role="button"
-      class="corner ne"
+      class="corner touch-none ne"
       onpointerdown={(e) => pointerDown(e, "ne")}
     ></div>
     <div
       tabindex="0"
       role="button"
-      class="corner sw"
+      class="corner touch-none sw"
       onpointerdown={(e) => pointerDown(e, "sw")}
     ></div>
     <div
       tabindex="0"
       role="button"
-      class="corner se"
+      class="corner touch-none se"
       onpointerdown={(e) => pointerDown(e, "se")}
     ></div>
   {/if}

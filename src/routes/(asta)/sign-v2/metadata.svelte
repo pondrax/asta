@@ -61,6 +61,10 @@
 
   let profiles = $state<Profile[]>([]);
   let selectedProfile = $state("");
+  /** Email the current `profiles` list belongs to (guards against stale loads). */
+  let loadedEmail = $state("");
+  /** Email already auto-seeded from BSrE data, so we only seed once. */
+  let autoProfileEmail = $state("");
   let profileDialog = $state<HTMLDialogElement>();
   let profileDraft = $state<Partial<Profile>>({});
   let profileSaving = $state(false);
@@ -76,10 +80,13 @@
     if (!form.email || type("string.email")(form.email) instanceof type.errors) {
       profiles = [];
       selectedProfile = "";
+      loadedEmail = "";
       return;
     }
+    const email = form.email;
     try {
-      profiles = (await listProfiles({ email: form.email })) as Profile[];
+      profiles = (await listProfiles({ email })) as Profile[];
+      loadedEmail = email;
     } catch {
       profiles = [];
     }
@@ -322,6 +329,25 @@
   $effect(() => {
     form.email;
     debounceLoadProfiles(new Event("init"));
+  });
+
+  // With no saved profile yet, seed one from the verified BSrE identity data so
+  // the picker reflects the account by default. Later visits then select the
+  // last-used profile via `loadProfiles`.
+  $effect(() => {
+    const email = form.email;
+    const nama = form.nama;
+    const jabatan = form.jabatan;
+    const pangkat = form.pangkat;
+    const instansi = form.instansi;
+    if (!email || type("string.email")(email) instanceof type.errors) return;
+    if (loadedEmail !== email) return;
+    if (profiles.length > 0) return;
+    if (autoProfileEmail === email) return;
+    if (![nama, jabatan, pangkat, instansi].some((v) => v && v !== "-"))
+      return;
+    autoProfileEmail = email;
+    saveCurrentProfile();
   });
   $effect(() => {
     hasSignature;

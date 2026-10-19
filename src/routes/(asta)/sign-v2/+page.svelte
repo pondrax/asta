@@ -107,7 +107,7 @@
 
   /** Visualisation picker dialog (reuses `Signature`). */
   let visualDialog: HTMLDialogElement | undefined = $state();
-  let visualTab = $state<"image" | "qr" | "box" | "draw">("box");
+  let visualTab = $state<"image" | "qr" | "box" | "draw">("draw");
 
   /** Page-number draft for the centred document bar's pagination. */
   let pageDraft = $state<string | number>("");
@@ -1126,13 +1126,15 @@
     URL.revokeObjectURL(url);
   }
 
-  function openVisualDialog(tab: "image" | "qr" | "box" | "draw") {
-    visualTab = tab;
+  let imageInput: HTMLInputElement | null = $state(null);
+
+  function openVisualDialog() {
+    visualTab = "draw";
     if (!visualDialog?.open) visualDialog?.showModal();
   }
 
   function requestAddSignature() {
-    openVisualDialog(bsre ? "box" : "draw");
+    handleAddVisual(bsre ? "box" : "draw");
   }
 
   /** Place a visualisation from the metadata panel onto the page currently open
@@ -1157,6 +1159,146 @@
       originY: cfg.y,
       width: cfg.width,
       height: (cfg.width / payload.width) * payload.height,
+      location: "",
+      reason: "",
+    });
+  }
+
+  /** The signer identity needed to render a QR/box straight from the toolbar. */
+  const profileSet = $derived(
+    !!(form.nama && form.nama !== "-") ||
+      !!(form.instansi && form.instansi !== "-"),
+  );
+
+  let _visualLogo: HTMLImageElement | null = null;
+  function loadVisualLogo(): Promise<HTMLImageElement> {
+    return new Promise((resolve) => {
+      if (_visualLogo?.complete) return resolve(_visualLogo);
+      const img = new Image();
+      img.onload = () => {
+        _visualLogo = img;
+        resolve(img);
+      };
+      img.onerror = () => resolve(img);
+      img.src = "/favicon.png";
+    });
+  }
+
+  /** Render a QR/box visual from the current signer identity. */
+  async function renderVisualImage(visual: "qr" | "box") {
+    const resolveSpecimen = (tpl: string) =>
+      tpl
+        .split("\n")
+        .map((line) => {
+          const key = line.trim();
+          return key in form ? (form[key] ?? "") : line;
+        })
+        .join("\n")
+        .replace(/^\n+|\n+$/g, "");
+    const specimen = resolveSpecimen(
+      form.specimen ?? "jabatan\ninstansi\n\nnama",
+    );
+
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d")!;
+
+    if (visual === "qr") {
+      canvas.width = 400;
+      canvas.height = 400;
+      const blob = (await generateQRCode({ data: specimen }, true)) as Blob;
+      const img = await createImageBitmap(blob);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      return canvas;
+    }
+
+    canvas.width = 640;
+    canvas.height = 180;
+    ctx.font = "20px Arial";
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeRect(0, 0, canvas.width, canvas.height);
+    const logo = await loadVisualLogo();
+    if (logo.complete && logo.naturalWidth) ctx.drawImage(logo, 20, 25, 140, 140);
+    ctx.fillStyle = "#000";
+    ctx.fillText("Ditandatangani secara elektronik oleh:", 180, 30);
+    specimen.split("\n").forEach((line, i) => {
+      const y = 60 + i * 30;
+      if (y >= canvas.height) return;
+      ctx.fillText(line, 180, y);
+    });
+    return canvas;
+  }
+
+  async function addVisualDirect(visual: "qr" | "box") {
+    const canvas = await renderVisualImage(visual);
+    placePreviewVisual({
+      visual,
+      imageBase64: canvas
+        .toDataURL("image/png")
+        .replace("data:image/png;base64,", ""),
+      width: canvas.width,
+      height: canvas.height,
+    });
+  }
+
+  /** Toolbar visual buttons. Image opens a file chooser, drawing opens a
+   *  drawing-only modal, and QR/box add straight away once the signer identity
+   *  is set (otherwise the metadata panel opens so it can be filled in). */
+  function handleAddVisual(tab: "image" | "qr" | "box" | "draw") {
+    if (tab === "image") {
+      imageInput?.click();
+      return;
+    }
+    if (tab === "draw") {
+      openVisualDialog();
+      return;
+    }
+    if (profileSet) {
+      void addVisualDirect(tab);
+    } else {
+      activeTab = "metadata";
+      navOpen = true;
+    }
+  }
+
+  /** Place an uploaded image file as a visualisation on the current page. */
+  async function handleImageFile(e: Event) {
+    const input = e.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = "";
+    if (!file) return;
+
+    const dataUrl = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.readAsDataURL(file);
+    });
+    const img = new Image();
+    await new Promise((resolve) => {
+      img.onload = resolve;
+      img.onerror = resolve;
+      img.src = dataUrl;
+    });
+    if (!img.naturalWidth) return;
+
+    // Re-encode to PNG so the placed placement is always a data:image/png URL.
+    const canvas = document.createElement("canvas");
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    canvas.getContext("2d")?.drawImage(img, 0, 0);
+    const width = 128;
+    setSignature({
+      id: createId(6),
+      kind: "signature",
+      imageBase64: canvas
+        .toDataURL("image/png")
+        .replace("data:image/png;base64,", ""),
+      page: previewState.page ?? 1,
+      tampilan: "VISIBLE",
+      originX: 10,
+      originY: 10,
+      width,
+      height: (width / img.naturalWidth) * img.naturalHeight,
       location: "",
       reason: "",
     });
@@ -1362,7 +1504,7 @@
       {activeTool}
       onTool={(t) => (activeTool = t)}
       onAddSignature={requestAddSignature}
-      onAddVisual={openVisualDialog}
+      onAddVisual={handleAddVisual}
       {visualMode}
       {hasDocuments}
       {hasSignature}
@@ -1758,6 +1900,14 @@
       </div>
     </main>
 
+    <input
+      type="file"
+      accept="image/*"
+      class="hidden"
+      bind:this={imageInput}
+      onchange={handleImageFile}
+    />
+
     <dialog class="modal" bind:this={visualDialog}>
       <div class="modal-box w-11/12 max-w-3xl">
         <button
@@ -1768,7 +1918,7 @@
         >
           ✕
         </button>
-        <h3 class="text-lg font-bold">Tambah Visualisasi</h3>
+        <h3 class="text-lg font-bold">Gambar Tanda Tangan</h3>
         <Signature
           {form}
           setSignature={(p) => {
@@ -1777,7 +1927,7 @@
           }}
           {hasSignature}
           bind:visual={visualTab}
-          availableVisual={bsre ? ["image", "qr", "box", "draw"] : ["draw"]}
+          availableVisual={["draw"]}
         />
       </div>
       <button

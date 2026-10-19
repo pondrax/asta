@@ -78,6 +78,17 @@
   Admin     admin only; `hooks.server.ts` 403s every other role on `/main*`
 -->
 
+## 2026-10-19
+
+### Tombol visualisasi langsung, seret visual yang andal di seluler, dan profil default dari data BSrE
+
+<!-- id: tombol-visualisasi-langsung-seret-visual-yang-anda-2026-10-19 -->
+
+Halaman: /sign-v2 - Sign V2
+Audiens: Tamu
+
+- **Baru** - tombol visualisasi langsung, seret visual yang andal di seluler, dan profil default dari data BSrE
+
 ## 2026-10-16
 
 ### Passcode dokumen rahasia, visualisasi seret-tempat, dan PWA
