@@ -21,6 +21,22 @@
       canvas: HTMLCanvasElement,
       targetWidth: number,
     ) => Promise<void>;
+    /**
+     * Full-text search of the loaded document, returning one hit per page that
+     * contains the query. `pre`/`match`/`post` are already trimmed so the
+     * caller can render the match highlighted without re-slicing the text.
+     * Empty when the document has no text layer (scanned PDFs).
+     */
+    searchDocument: (query: string) => Promise<SearchHit[]>;
+  };
+
+  export type SearchHit = {
+    page: number;
+    /** Occurrences on that page. */
+    count: number;
+    pre: string;
+    match: string;
+    post: string;
   };
 
   export type PreviewState = {
@@ -179,6 +195,7 @@
       goToPage,
       changePage,
       renderThumbnail,
+      searchDocument,
     };
     return () => {
       controller = null;
@@ -272,6 +289,7 @@
     if (containerEl) containerEl.scrollTop = 0;
     rendered.forEach((el) => el.remove());
     rendered.clear();
+    pageTextCache = null;
     if (loadingTask) {
       try {
         loadingTask.destroy();
@@ -448,6 +466,71 @@
       viewport: page.getViewport({ scale: scale * dpr }),
     }).promise;
     page.cleanup();
+  }
+
+  /**
+   * Per-page plain text, extracted once and reused across keystrokes — reading
+   * every page's content on each character typed is what makes naive search
+   * feel laggy on long documents.
+   */
+  let pageTextCache: (string | null)[] | null = null;
+
+  async function ensurePageText(): Promise<(string | null)[]> {
+    if (pageTextCache && pageTextCache.length === pdfDoc.numPages)
+      return pageTextCache;
+    const texts: (string | null)[] = [];
+    for (let i = 1; i <= pdfDoc.numPages; i++) {
+      try {
+        const page = await pdfDoc.getPage(i);
+        const content = await page.getTextContent();
+        texts.push(
+          content.items
+            .map((it: any) => it.str ?? "")
+            .join(" ")
+            .replace(/\s+/g, " ")
+            .trim(),
+        );
+        page.cleanup();
+      } catch {
+        texts.push(null);
+      }
+    }
+    pageTextCache = texts;
+    return texts;
+  }
+
+  async function searchDocument(query: string): Promise<SearchHit[]> {
+    const q = query.trim().toLowerCase();
+    if (!pdfDoc || q.length < 1) return [];
+    const texts = await ensurePageText();
+    const hits: SearchHit[] = [];
+    const CONTEXT = 42;
+
+    texts.forEach((text, i) => {
+      if (!text) return;
+      const hay = text.toLowerCase();
+      const idx = hay.indexOf(q);
+      if (idx === -1) return;
+
+      let count = 0;
+      let at = idx;
+      while (at !== -1) {
+        count++;
+        at = hay.indexOf(q, at + q.length);
+      }
+
+      const start = Math.max(0, idx - CONTEXT);
+      const end = Math.min(text.length, idx + q.length + CONTEXT);
+      hits.push({
+        page: i + 1,
+        count,
+        pre: (start > 0 ? "…" : "") + text.slice(start, idx),
+        match: text.slice(idx, idx + q.length),
+        post: text.slice(idx + q.length, end) + (end < text.length ? "…" : ""),
+      });
+    });
+
+    return hits;
   }
 
   // Track the page in view so the input reflects where the user actually is.

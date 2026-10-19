@@ -1,8 +1,5 @@
-<script lang="ts">
-  import { onMount, tick } from "svelte";
-  import { scale } from "svelte/transition";
-
-  interface Step {
+<script module lang="ts">
+  export interface Step {
     target: string;
     title: string;
     content: string;
@@ -13,6 +10,11 @@
     /** The step's target must be clickable through the overlay. */
     interactive?: boolean;
   }
+</script>
+
+<script lang="ts">
+  import { onMount, tick } from "svelte";
+  import { scale } from "svelte/transition";
 
   let {
     steps = [],
@@ -53,23 +55,40 @@
     return els[0] ?? null;
   }
 
-  /** The overlay's original parent, so we can move it back after a dialog. */
-  let homeParent: HTMLElement | null = null;
-
   /**
    * Mount the overlay inside the open `<dialog>` containing the current target
-   * (if any). A popover/overlay above a modal dialog is inert, but a *descendant*
-   * of the dialog is not — this is what keeps the tour visible above, and lets
-   * the passphrase field be clicked, while the sign dialog is open.
+   * (if any), otherwise on `<body>`.
+   *
+   * Body is not a cosmetic choice: the page lives inside `.chat-content`, which
+   * is `relative z-1` and therefore its own stacking context. An overlay nested
+   * there — even at `z-[9999]` — still paints beneath the chatbot, whose
+   * `z-50` avatar and `z-120` panel are siblings *outside* that context. On
+   * `<body>` the tour wins over everything on the page.
+   *
+   * But a `<dialog>` opened with `showModal()` sits in the *top layer*, which
+   * outranks every z-index in the normal tree. So whenever a modal is open we
+   * must be inside it — even when the current step's target is missing (a step
+   * whose element only renders under some vault/signer states) and there is no
+   * target-derived dialog to fall back on. That is what made the tour vanish
+   * after the passphrase step. Keeping it inside the dialog is also what lets
+   * the passphrase field be clicked while the sign modal is open.
    */
   function placeOverlay() {
     const el = container;
     if (!el) return;
-    if (!homeParent) homeParent = el.parentElement ?? document.body;
 
     const target = activeStep ? findTarget(activeStep.target) : null;
-    const dialog = target?.closest("dialog") as HTMLDialogElement | null;
-    const parent = dialog?.open ? dialog : (homeParent ?? document.body);
+    const targetDialog = target?.closest(
+      "dialog",
+    ) as HTMLDialogElement | null;
+    const dialogs = document.querySelectorAll<HTMLDialogElement>("dialog[open]");
+    // The last open dialog is the topmost one (nested/modal ordering).
+    const openDialog = dialogs.length
+      ? dialogs[dialogs.length - 1]
+      : (null as HTMLDialogElement | null);
+    const parent = targetDialog?.open
+      ? targetDialog
+      : (openDialog ?? document.body);
     if (el.parentElement !== parent) parent.appendChild(el);
   }
 
@@ -87,6 +106,11 @@
       let placement = activeStep.placement || "bottom";
 
       let prefer = activeStep.placement || "bottom";
+      // A narrow viewport has no room beside the target: left/right placements
+      // get clamped back toward the centre and the card lands *on* the target
+      // — which is exactly what hides the sign FAB on a phone. Go over it.
+      if (windowSize.w < 640 && (prefer === "left" || prefer === "right"))
+        prefer = "top";
 
       if (prefer === "center") {
         top = windowSize.h / 2;

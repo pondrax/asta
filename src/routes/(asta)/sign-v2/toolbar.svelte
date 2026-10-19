@@ -34,7 +34,6 @@
     onDeleteSelected,
     onClearAll,
     onDownload,
-    onShowMetadata,
     signerEmail,
   }: {
     activeTool?: SignTool;
@@ -66,7 +65,6 @@
     onDeleteSelected?: () => void;
     onClearAll?: () => void;
     onDownload?: () => void;
-    onShowMetadata?: () => void;
     signerEmail?: Snippet;
   } = $props();
 
@@ -321,17 +319,6 @@
         </ul>
       {/if}
     </div>
-
-    <button
-      type="button"
-      class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
-      title="Panel Metadata"
-      aria-label="Panel Metadata"
-      disabled={!hasDocuments}
-      onclick={() => onShowMetadata?.()}
-    >
-      <iconify-icon icon="bx:info-circle"></iconify-icon>
-    </button>
   </div>
 
   <div class="w-px h-6 mx-1 bg-base-300 shrink-0 hidden! lg:block!"></div>

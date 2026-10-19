@@ -80,6 +80,15 @@
 
 ## 2026-10-19
 
+### Perbaiki lapisan tur, pencarian teks dokumen, panel halaman/properti, dan bidang passphrase
+
+<!-- id: perbaiki-lapisan-tur-pencarian-teks-dokumen-panel--2026-10-19 -->
+
+Halaman: /sign-v2 - Sign V2
+Audiens: Tamu
+
+- **Baru** - perbaiki lapisan tur, pencarian teks dokumen, panel halaman/properti, dan bidang passphrase
+
 ### Tampilkan tur di atas dialog tanda tangan dan buat bidang passphrase dapat diklik
 
 <!-- id: tampilkan-tur-di-atas-dialog-tanda-tangan-dan-buat-2026-10-19 -->

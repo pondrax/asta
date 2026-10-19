@@ -119,6 +119,17 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
     page: "Sign V2",
     entries: [
       {
+        id: "perbaiki-lapisan-tur-pencarian-teks-dokumen-panel--2026-10-19",
+        date: "2026-10-19",
+        title: "Perbaiki lapisan tur, pencarian teks dokumen, panel halaman/properti, dan bidang passphrase",
+        changes: [
+          {
+            kind: "added",
+            text: "perbaiki lapisan tur, pencarian teks dokumen, panel halaman/properti, dan bidang passphrase",
+          },
+        ],
+      },
+      {
         id: "tampilkan-tur-di-atas-dialog-tanda-tangan-dan-buat-2026-10-19",
         date: "2026-10-19",
         title: "Tampilkan tur di atas dialog tanda tangan dan buat bidang passphrase dapat diklik",

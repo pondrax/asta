@@ -979,8 +979,9 @@ Silakan tanyakan apa saja tentang layanan ini! 😊`,
 
 <!-- Gated on `dockedOnScreen`, not on `docked`: the FAB is the only way back
      into a docked panel, so hiding it whenever docking is merely *preferred*
-     would leave no way to reopen after closing. -->
-{#if !dockedOnScreen}
+     would leave no way to reopen after closing. Hidden during the tour too, so
+     it can't sit under the tour card on small screens. -->
+{#if !dockedOnScreen && !app.showTour}
   <div class="fixed -bottom-2 right-2 z-50">
     <div class="tooltip tooltip-left" data-tip="Ada Pertanyaan?">
       <button onclick={toggle} aria-label="Buka Asisten" class="">

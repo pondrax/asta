@@ -1,5 +1,6 @@
 <script lang="ts">
   import { createId, generateQRCode } from "$lib/utils";
+  import { untrack } from "svelte";
   import type { SignatureType } from "./types";
   type Visual = "image" | "qr" | "box" | "draw";
 
@@ -36,7 +37,14 @@
   let ctxPad = $state() as CanvasRenderingContext2D;
   let ctxQR = $state() as CanvasRenderingContext2D;
 
-  let drawing = $state(false);
+  type Point = { x: number; y: number };
+
+  let strokes = $state<Point[][]>([]);
+  let past = $state<Point[][][]>([]);
+  let future = $state<Point[][][]>([]);
+  let current = $state<Point[]>([]);
+  let pointerId: number | null = null;
+  let showName = $state(true);
 
   const canvasConfigs = {
     image: { originX: 10, originY: 10, width: 128, height: 128 },
@@ -44,6 +52,12 @@
     box: { originX: 310, originY: 700, width: 200, height: 80 },
     draw: { originX: 310, originY: 640, width: 200, height: 100 },
   };
+
+  // The pad is drawn in logical coordinates and supersampled so it stays
+  // crisp when scaled down to the modal width (and on hi-dpi screens).
+  const PAD_W = 640;
+  const PAD_H = 320;
+  const PAD_SCALE = 2;
 
   // Spesimen: lines matching an identity field stay linked to it (resolved
   // into the textarea/canvas), other lines are kept as literal text.
@@ -82,30 +96,118 @@
   const initCanvas = async () => {
     if (!canvasImage || !canvasPad || !canvasBox || !canvasQR) return;
 
+    canvasPad.width = PAD_W * PAD_SCALE;
+    canvasPad.height = PAD_H * PAD_SCALE;
+
     ctxImage = canvasImage.getContext("2d")!;
     ctxBox = canvasBox.getContext("2d")!;
     ctxPad = canvasPad.getContext("2d")!;
     ctxQR = canvasQR.getContext("2d")!;
+    ctxPad.setTransform(PAD_SCALE, 0, 0, PAD_SCALE, 0, 0);
 
     ctxBox.font = "20px Arial";
     ctxBox.lineWidth = 5;
 
-    ctxPad.strokeStyle = "#1515bb"; // dark blue pen color
-    ctxPad.font = "20px Arial";
-    ctxPad.lineWidth = 3;
-
-    clearPad();
+    renderPad();
     await drawStaticLayers();
     await loadImageSignature();
   };
 
-  const clearPad = () => {
+  const drawPadBase = () => {
     ctxPad.fillStyle = "#fff";
-    ctxPad.fillRect(0, 0, canvasPad.width, canvasPad.height);
+    ctxPad.fillRect(0, 0, PAD_W, PAD_H);
+    if (!showName) return;
     ctxPad.fillStyle = "#000";
     ctxPad.textAlign = "center";
     ctxPad.textBaseline = "middle";
-    ctxPad.fillText(form?.nama || "", canvasPad.width / 2, 340);
+    ctxPad.font = "28px Arial";
+    ctxPad.fillText(form?.nama || "", PAD_W / 2, 300);
+  };
+
+  // signature_pad-style smoothing: quadratic curves through the midpoints of
+  // consecutive points keep the stroke soft instead of a jagged polyline.
+  const drawSmoothStroke = (stroke: Point[]) => {
+    if (!stroke.length) return;
+    if (stroke.length === 1) {
+      ctxPad.beginPath();
+      ctxPad.arc(
+        stroke[0].x,
+        stroke[0].y,
+        ctxPad.lineWidth / 2,
+        0,
+        Math.PI * 2,
+      );
+      ctxPad.fillStyle = ctxPad.strokeStyle;
+      ctxPad.fill();
+      return;
+    }
+    ctxPad.beginPath();
+    ctxPad.moveTo(stroke[0].x, stroke[0].y);
+    if (stroke.length < 3) {
+      const last = stroke[stroke.length - 1];
+      ctxPad.lineTo(last.x, last.y);
+    } else {
+      for (let i = 1; i < stroke.length - 1; i++) {
+        const midX = (stroke[i].x + stroke[i + 1].x) / 2;
+        const midY = (stroke[i].y + stroke[i + 1].y) / 2;
+        ctxPad.quadraticCurveTo(stroke[i].x, stroke[i].y, midX, midY);
+      }
+      const last = stroke[stroke.length - 1];
+      ctxPad.lineTo(last.x, last.y);
+    }
+    ctxPad.stroke();
+  };
+
+  const renderPad = () => {
+    if (!ctxPad) return;
+    untrack(() => {
+      drawPadBase();
+      ctxPad.strokeStyle = "#1515bb"; // dark blue pen color
+      ctxPad.lineWidth = 3;
+      ctxPad.lineCap = "round";
+      ctxPad.lineJoin = "round";
+      for (const stroke of strokes) drawSmoothStroke(stroke);
+      if (current.length) drawSmoothStroke(current);
+    });
+  };
+
+  const cloneStrokes = (list: Point[][]) =>
+    list.map((stroke) => stroke.map((p) => ({ ...p })));
+
+  const commitStroke = () => {
+    if (!current.length) {
+      current = [];
+      return;
+    }
+    past = [...past, cloneStrokes(strokes)];
+    future = [];
+    strokes = [...strokes, current];
+    current = [];
+  };
+
+  const undo = () => {
+    if (!past.length) return;
+    future = [...future, cloneStrokes(strokes)];
+    strokes = past[past.length - 1];
+    past = past.slice(0, -1);
+    renderPad();
+  };
+
+  const redo = () => {
+    if (!future.length) return;
+    past = [...past, cloneStrokes(strokes)];
+    strokes = future[future.length - 1];
+    future = future.slice(0, -1);
+    renderPad();
+  };
+
+  const clearPad = () => {
+    if (!strokes.length && !current.length) return;
+    past = [...past, cloneStrokes(strokes)];
+    future = [];
+    strokes = [];
+    current = [];
+    renderPad();
   };
 
   const drawBox = () => {
@@ -128,15 +230,6 @@
     // Draw Signature Box
     drawBox();
 
-    // Draw Signature Pad
-    ctxPad.fillStyle = "#fff";
-    ctxPad.fillRect(0, 290, 640, 100);
-    ctxPad.fillStyle = "#000";
-    ctxPad.textAlign = "center";
-    ctxPad.font = "28px Arial";
-    ctxPad.textBaseline = "middle";
-    ctxPad.fillText(form?.nama || "", 320, 300);
-
     // Draw QR CODE
     const imgQR = await createImageBitmap(
       (await generateQRCode(
@@ -148,42 +241,48 @@
     ctxQR.drawImage(imgQR, 0, 0, canvasQR.width, canvasQR.height);
   };
 
-  const getMousePosition = (event: MouseEvent | TouchEvent) => {
+  const getPosition = (event: PointerEvent | MouseEvent) => {
     const rect = canvasPad.getBoundingClientRect();
-    const scaleX = canvasPad.width / rect.width;
-    const scaleY = canvasPad.height / rect.height;
-
-    if (event instanceof TouchEvent) {
-      const touch = event.touches[0] || event.changedTouches[0];
-      return {
-        x: (touch.clientX - rect.left) * scaleX,
-        y: (touch.clientY - rect.top) * scaleY,
-      };
-    }
-
+    const scaleX = PAD_W / rect.width;
+    const scaleY = PAD_H / rect.height;
     return {
       x: (event.clientX - rect.left) * scaleX,
       y: (event.clientY - rect.top) * scaleY,
     };
   };
 
-  const startDrawing = (event: MouseEvent | TouchEvent) => {
-    drawing = true;
-    const { x, y } = getMousePosition(event);
-    ctxPad.beginPath();
-    ctxPad.moveTo(x, y);
+  const minDistanceSq = 2.25; // 1.5px
+
+  const startDrawing = (event: PointerEvent) => {
+    if (disabled || pointerId !== null) return;
+    pointerId = event.pointerId;
+    canvasPad.setPointerCapture(event.pointerId);
+    current = [getPosition(event)];
+    renderPad();
   };
 
-  const draw = (event: MouseEvent | TouchEvent) => {
-    if (!drawing) return;
-    const { x, y } = getMousePosition(event);
-    ctxPad.lineTo(x, y);
-    ctxPad.stroke();
+  const draw = (event: PointerEvent) => {
+    if (pointerId === null || event.pointerId !== pointerId) return;
+    const points =
+      typeof event.getCoalescedEvents === "function"
+        ? event.getCoalescedEvents()
+        : [event];
+    for (const point of points) {
+      const { x, y } = getPosition(point);
+      const last = current[current.length - 1];
+      const dx = x - last.x;
+      const dy = y - last.y;
+      if (dx * dx + dy * dy < minDistanceSq) continue;
+      current = [...current, { x, y }];
+    }
+    renderPad();
   };
 
-  const stopDrawing = () => {
-    drawing = false;
-    ctxPad?.closePath();
+  const stopDrawing = (event: PointerEvent) => {
+    if (pointerId === null || event.pointerId !== pointerId) return;
+    pointerId = null;
+    commitStroke();
+    renderPad();
   };
 
   async function addSignature() {
@@ -242,6 +341,16 @@
   });
 
   $effect(() => {
+    form?.nama;
+    if (ctxPad) renderPad();
+  });
+
+  $effect(() => {
+    showName;
+    if (ctxPad) renderPad();
+  });
+
+  $effect(() => {
     if (availableVisual.length && !availableVisual.includes(visual)) {
       visual = availableVisual[0];
     }
@@ -273,26 +382,70 @@
     Buat coretan tanda tangan Anda pada kanvas di bawah, lalu tekan tombol
     tambah untuk menaruhnya ke dokumen.
   </p>
+  {#if visual === "draw"}
+    <div class="flex items-center gap-2">
+      <label class="floating-label p-0 bg-transparent flex-1">
+        <span>Nama penandatangan</span>
+        <input
+          type="text"
+          bind:value={form.nama}
+          placeholder="Nama penandatangan"
+          class="input input-sm w-full"
+          disabled={disabled}
+        />
+      </label>
+      <label class="label cursor-pointer gap-2 shrink-0 py-0">
+        <input
+          type="checkbox"
+          class="checkbox checkbox-sm"
+          bind:checked={showName}
+          disabled={disabled}
+        />
+        <span class="label-text text-xs">Tampilkan nama</span>
+      </label>
+    </div>
+  {/if}
   <div class="relative">
     <canvas
       bind:this={canvasPad}
       class="border border-base-300 rounded-lg bg-white w-full h-auto touch-none"
       width="640"
       height="320"
-      onmousedown={startDrawing}
-      onmousemove={draw}
-      onmouseup={stopDrawing}
-      ontouchstart={startDrawing}
-      ontouchmove={draw}
-      ontouchend={stopDrawing}
+      onpointerdown={startDrawing}
+      onpointermove={draw}
+      onpointerup={stopDrawing}
+      onpointercancel={stopDrawing}
     ></canvas>
-    <button
-      type="button"
-      class="btn btn-sm absolute top-3 right-3"
-      onclick={initCanvas}
-    >
-      Clear
-    </button>
+    <div class="absolute top-3 right-3 flex items-center gap-2">
+      <button
+        type="button"
+        class="btn btn-sm btn-square"
+        title="Undo"
+        aria-label="Undo"
+        disabled={!past.length || disabled}
+        onclick={undo}
+      >
+        <iconify-icon icon="bx:undo" class="text-base"></iconify-icon>
+      </button>
+      <button
+        type="button"
+        class="btn btn-sm btn-square"
+        title="Redo"
+        aria-label="Redo"
+        disabled={!future.length || disabled}
+        onclick={redo}
+      >
+        <iconify-icon icon="bx:redo" class="text-base"></iconify-icon>
+      </button>
+      <button
+        type="button"
+        class="btn btn-sm"
+        disabled={disabled}
+        onclick={clearPad}
+      >
+        Clear
+      </button>
+    </div>
   </div>
   <button
     type="button"
@@ -300,7 +453,8 @@
     aria-label="Tambahkan tanda tangan ke dokumen"
     onclick={addSignature}
   >
-    <iconify-icon icon="bx:plus" class="text-2xl"></iconify-icon>
+    <iconify-icon icon="bx:plus" class="text-lg"></iconify-icon>
+    Tambah ke Dokumen
   </button>
 </div>
 
@@ -345,10 +499,3 @@
     onclick={() => specimenDialog?.close()}
   ></button>
 </dialog>
-
-<svelte:window
-  onmousemove={draw}
-  onmouseup={stopDrawing}
-  ontouchmove={draw}
-  ontouchend={stopDrawing}
-/>

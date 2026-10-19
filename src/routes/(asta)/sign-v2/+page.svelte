@@ -13,7 +13,7 @@
     normalizePlacement,
   } from "./types";
   import * as pdfLib from "$lib/utils/pdf";
-  import { Modal, Tour } from "$lib/components";
+  import { Modal, Tour, type TourStep } from "$lib/components";
   import { submitSurvey } from "$lib/remotes/survey.remote";
   import Documents from "./documents.svelte";
   import Metadata from "./metadata.svelte";
@@ -101,6 +101,7 @@
   // can render the filename input alongside the menubar.
   let navOpen = $state(false);
   let pageNavOpen = $state(false);
+  let pageNavTab = $state<"halaman" | "properti">("halaman");
 
   /** Zoom control floating at the bottom-right of the document. */
   let zoomMenuOpen = $state(false);
@@ -186,7 +187,7 @@
     return () => document.body.classList.remove("dark");
   });
 
-  const tourSteps = [
+  const tourSteps: TourStep[] = [
     {
       target: "#tour-upload-btn",
       title: "Unggah Dokumen",
@@ -288,9 +289,12 @@
     },
     {
       target: "#tour-save-passkey",
-      title: "Simpan Passphrase (Opsional)",
+      title: "Passkey (Opsional)",
+      // The target is either the "Simpan Passkey" toggle or the "TTD dengan
+      // Passkey" button depending on whether one is already stored, so the copy
+      // has to cover both — there is no "Simpan Passphrase" control.
       content:
-        "Aktifkan agar Passphrase disimpan dengan Passkey di perangkat ini, sehingga tanda tangan berikutnya lebih cepat.",
+        "Simpan Passphrase dengan Passkey agar tanda tangan berikutnya lebih cepat, atau langsung tanda tangan dengan Passkey bila sudah tersimpan.",
       placement: "left",
       onShow: () => {
         if (forms.sign) forms.sign.completed = [];
@@ -595,6 +599,14 @@
     placements = [...placements, pl];
     selectedId = id;
     activeTool = "select";
+  }
+
+  // Selecting a placement from the document tree shows its properties in the
+  // right-hand panel.
+  function selectForProps(id: string) {
+    selectedId = id;
+    pageNavTab = "properti";
+    pageNavOpen = true;
   }
 
   function handleOverlayClick(
@@ -1241,20 +1253,23 @@
     width: number;
     height: number;
   }) {
-    const cfg =
-      payload.visual === "qr"
-        ? { x: 350, y: 630, width: 100 }
-        : { x: 310, y: 700, width: 200 };
+    const cfg = payload.visual === "qr" ? { width: 100 } : { width: 200 };
+    const height = (cfg.width / payload.width) * payload.height;
+    const margin = 48;
+    const pageSize = previewState.sizes?.[previewState.page - 1] ?? {
+      width: 595,
+      height: 842,
+    };
     setSignature({
       id: createId(6),
       kind: "signature",
       imageBase64: payload.imageBase64,
       page: previewState.page ?? 1,
       tampilan: "VISIBLE",
-      originX: cfg.x,
-      originY: cfg.y,
+      originX: Math.max(0, pageSize.width - margin - cfg.width),
+      originY: Math.max(0, pageSize.height - margin - height),
       width: cfg.width,
-      height: (cfg.width / payload.width) * payload.height,
+      height,
       location: "",
       reason: "",
     });
@@ -1383,6 +1398,12 @@
     canvas.height = img.naturalHeight;
     canvas.getContext("2d")?.drawImage(img, 0, 0);
     const width = 128;
+    const height = (width / img.naturalWidth) * img.naturalHeight;
+    const margin = 48;
+    const pageSize = previewState.sizes?.[previewState.page - 1] ?? {
+      width: 595,
+      height: 842,
+    };
     setSignature({
       id: createId(6),
       kind: "signature",
@@ -1391,10 +1412,10 @@
         .replace("data:image/png;base64,", ""),
       page: previewState.page ?? 1,
       tampilan: "VISIBLE",
-      originX: 10,
-      originY: 10,
+      originX: Math.max(0, pageSize.width - margin - width),
+      originY: Math.max(0, pageSize.height - margin - height),
       width,
-      height: (width / img.naturalWidth) * img.naturalHeight,
+      height,
       location: "",
       reason: "",
     });
@@ -1476,7 +1497,13 @@
       size: 18,
     });
     const bytes = await pdf.save();
-    return new File([bytes], "contoh-dokumen.pdf", { type: "application/pdf" });
+    // Copy into a fresh `Uint8Array<ArrayBuffer>`: pdf-lib hands back a
+    // `Uint8Array<ArrayBufferLike>`, which the `File` constructor rejects.
+    return new File(
+      [new Uint8Array(bytes)],
+      "contoh-dokumen.pdf",
+      { type: "application/pdf" },
+    );
   }
 
   /** Drop the throwaway document created for the tour, if any. */
@@ -1671,16 +1698,20 @@
         selectedId = null;
       }}
       onDownload={downloadActive}
-      onShowMetadata={() => {
-        activeTab = "metadata";
-        navOpen = true;
-      }}
     />
   </div>
 
   <!-- ============ BODY ============ -->
   <div class="flex-1 min-h-0 flex bg-base-200 max-lg:overflow-hidden">
-    <PageNav controller={previewCtl} preview={previewState} open={pageNavOpen} />
+    <PageNav
+      controller={previewCtl}
+      preview={previewState}
+      open={pageNavOpen}
+      placements={placements}
+      selected={placements.find((p) => p.id === selectedId) ?? null}
+      onEdit={() => snapshot()}
+      bind:tab={pageNavTab}
+    />
 
     <main
       class="flex-1 min-w-0 min-h-0 order-1 flex flex-col relative p-0 gap-2 max-lg:min-w-72"
@@ -2124,7 +2155,7 @@
             onAddVisual={placePreviewVisual}
             onSign={openSign}
           >
-            <Visualizer bind:signatures={placements} {selectedId} onSelect={(id) => (selectedId = id)} onDelete={removePlacement} />
+            <Visualizer bind:signatures={placements} {selectedId} onSelect={(id) => selectForProps(id)} onDelete={removePlacement} />
           </Metadata>
         {/if}
       </div>
@@ -2585,6 +2616,9 @@
         {#if bsre}
           <label class="floating-label" id="tour-passphrase">
             <span>Passphrase</span>
+            <!-- Only the input and its show/hide toggle share the join row: with
+                 the passkey controls in here the input shrank to a sliver on
+                 narrow screens, where this modal is already tight. -->
             <div class="join w-full">
               <input
                 type="text"
@@ -2608,46 +2642,53 @@
                   class="text-2xl"
                 ></iconify-icon>
               </button>
-              {#if vaultSupported && useEmail && vaultHas}
-                <button
-                  type="button"
-                  class="btn join-item btn-outline btn-secondary"
-                  disabled={vaultBusy || item.completed.length > 0}
-                  onclick={async () => {
-                    await usePasskey(item.email);
-                  }}
-                >
-                  <iconify-icon icon="bx:key" class="text-xl"></iconify-icon>
-                  TTD dengan Passkey
-                </button>
-              {:else if vaultSupported && useEmail}
-                <label
-                  id="tour-save-passkey"
-                  class="join-item flex items-center gap-1.5 px-3 cursor-pointer select-none"
-                  title="Simpan Passphrase dengan Passkey"
-                >
-                  <input
-                    type="checkbox"
-                    class="toggle toggle-secondary toggle-sm"
-                    disabled={vaultBusy || !item.passphrase}
-                    onchange={async (e) => {
-                      if (!e.currentTarget.checked) return;
-                      await saveToVault(item.email, item.passphrase);
-                      if (!vaultError) {
-                        app.showToast(
-                          "success",
-                          "Passphrase tersimpan. Gunakan Passkey untuk tanda tangan berikutnya.",
-                        );
-                      }
-                    }}
-                  />
-                  <span class="text-xs text-base-content/80"
-                    >Simpan Passkey</span
-                  >
-                </label>
-              {/if}
             </div>
           </label>
+
+          {#if vaultSupported && useEmail && vaultHas}
+            <!-- Same id as the "Simpan Passkey" branch below: the two are
+                 mutually exclusive, so exactly one #tour-save-passkey is ever
+                 in the DOM. Without this the tour step lost its target — and
+                 with it, any highlight to show — once a passkey already
+                 existed. -->
+            <button
+              type="button"
+              id="tour-save-passkey"
+              class="btn btn-sm btn-outline btn-secondary w-full"
+              disabled={vaultBusy || item.completed.length > 0}
+              onclick={async () => {
+                await usePasskey(item.email);
+              }}
+            >
+              <iconify-icon icon="bx:key" class="text-xl"></iconify-icon>
+              TTD dengan Passkey
+            </button>
+          {:else if vaultSupported && useEmail}
+            <label
+              id="tour-save-passkey"
+              class="flex items-center gap-1.5 px-1 cursor-pointer select-none"
+              title="Simpan Passphrase dengan Passkey"
+            >
+              <input
+                type="checkbox"
+                class="toggle toggle-secondary toggle-sm"
+                disabled={vaultBusy || !item.passphrase}
+                onchange={async (e) => {
+                  if (!e.currentTarget.checked) return;
+                  await saveToVault(item.email, item.passphrase);
+                  if (!vaultError) {
+                    app.showToast(
+                      "success",
+                      "Passphrase tersimpan. Gunakan Passkey untuk tanda tangan berikutnya.",
+                    );
+                  }
+                }}
+              />
+              <span class="text-xs text-base-content/80"
+                >Simpan Passkey</span
+              >
+            </label>
+          {/if}
 
           {#if vaultSupported && useEmail && vaultHas && vaultSavedAt}
             <div
@@ -2689,17 +2730,19 @@
             </div>
           {/if}
 
-          <label class="label cursor-pointer justify-between -my-1 p-0">
-            <span class="label-text text-sm"
-              >Visualisasi Footer BSrE - BSSN</span
-            >
-            <input
-              type="checkbox"
-              class="toggle toggle-primary toggle-sm shrink-0"
-              bind:checked={item.footer}
-              onchange={() => (form.footer = item.footer)}
-            />
-          </label>
+          {#if !hasSignature}
+            <label class="label cursor-pointer justify-between -my-1 p-0">
+              <span class="label-text text-sm"
+                >Visualisasi Footer BSrE - BSSN</span
+              >
+              <input
+                type="checkbox"
+                class="toggle toggle-primary toggle-sm shrink-0"
+                bind:checked={item.footer}
+                onchange={() => (form.footer = item.footer)}
+              />
+            </label>
+          {/if}
 
           {#if !hasSignature && !item.footer}
             <div

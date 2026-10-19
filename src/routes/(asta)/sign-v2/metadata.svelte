@@ -295,8 +295,6 @@
       )
       .join("\n");
 
-  const savedSpecimens = $derived(profiles.filter((p) => p.specimen));
-
   async function getUserCity() {
     if (!navigator.geolocation) {
       console.error("Geolocation not supported by this browser.");
@@ -753,8 +751,8 @@
         />
       </div>
     </li>
-    <li class="menu-title" id="tour-visual">
-      <div class="relative flex flex-col">
+    <li id="tour-visual">
+      <div class="menu-title relative flex flex-col">
         <span>Visualisasi Tanda Tangan</span>
         {#if profileSet}
           <span class="text-[10px] font-normal text-base-content/50">
@@ -771,8 +769,6 @@
           <iconify-icon icon="bx:edit" class="text-base"></iconify-icon>
         </button>
       </div>
-    </li>
-    <li>
       <div class="flex flex-col gap-2 bg-transparent">
         {#if profileSet}
           <SignaturePreview
@@ -788,59 +784,10 @@
             disabled={!hasDocuments}
           />
         {:else}
-          <div
-            class="alert alert-warning text-xs animate-pulse"
-          >
+          <div class="alert alert-warning text-xs animate-pulse">
             <iconify-icon icon="bx:error-circle" class="text-base"></iconify-icon>
             <span>Visualisasi tidak tersedia, lengkapi profil.</span>
           </div>
-        {/if}
-
-        {#if profileSet}
-        <div class="flex items-center justify-between pt-1">
-          <span class="text-xs font-medium">Spesimen Tersimpan</span>
-          <button
-            type="button"
-            class="btn btn-xs"
-            disabled={!emailOk || profileSaving}
-            onclick={saveCurrentProfile}
-          >
-            {#if profileSaving}
-              <span class="loading loading-xs"></span>
-            {:else}
-              <iconify-icon icon="bx:save" class="text-base"></iconify-icon>
-            {/if}
-            Simpan
-          </button>
-        </div>
-        {#if profiles.some((p) => p.specimen)}
-          <div class="flex flex-col gap-1">
-            {#each profiles.filter((p) => p.specimen) as p (p.id)}
-              <button
-                type="button"
-                class="btn btn-xs justify-start font-normal {p.id ===
-                selectedProfile
-                  ? 'btn-active'
-                  : ''}"
-                onclick={() => {
-                  selectedProfile = p.id;
-                  applyProfile(p.id);
-                  rememberProfile(p.id);
-                }}
-              >
-                <iconify-icon
-                  icon="bx:check"
-                  class="shrink-0 text-base {p.id === selectedProfile
-                    ? 'text-success'
-                    : 'opacity-0'}"
-                ></iconify-icon>
-                <span class="truncate">{profileLabel(p)}</span>
-              </button>
-            {/each}
-          </div>
-        {:else}
-          <div class="text-[10px] text-gray-400">Belum ada spesimen tersimpan.</div>
-        {/if}
         {/if}
       </div>
     </li>
