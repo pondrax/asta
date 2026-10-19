@@ -80,6 +80,15 @@
 
 ## 2026-10-19
 
+### Profil penandatangan bawaan dari bsre_users dan kunci last-profile per email
+
+<!-- id: profil-penandatangan-bawaan-dari-bsre-users-dan-ku-2026-10-19 -->
+
+Halaman: /sign-v2 - Sign V2
+Audiens: Tamu
+
+- **Baru** - profil penandatangan bawaan dari bsre_users dan kunci last-profile per email
+
 ### Perbaiki lapisan tur, pencarian teks dokumen, panel halaman/properti, dan bidang passphrase
 
 <!-- id: perbaiki-lapisan-tur-pencarian-teks-dokumen-panel--2026-10-19 -->

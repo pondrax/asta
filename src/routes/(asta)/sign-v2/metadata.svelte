@@ -6,9 +6,11 @@
   import { getData } from "$lib/remotes/api.remote";
   import { Select } from "$lib/components";
   import {
+    getBsreProfile,
     listProfiles,
     saveProfile,
     deleteProfile,
+    type ProfileIdentity,
   } from "$lib/remotes/profile.remote";
 
   let {
@@ -61,6 +63,12 @@
 
   let profiles = $state<Profile[]>([]);
   let selectedProfile = $state("");
+  /**
+   * Identity read from `bsre_users` for the email currently loaded, used when
+   * that email has no saved profile yet — the registry is the default source,
+   * so an email with nothing in `signer_profiles` still has an identity.
+   */
+  let bsreProfile = $state<ProfileIdentity | null>(null);
   /** Email the current `profiles` list belongs to (guards against stale loads). */
   let loadedEmail = $state("");
   /** Email already auto-seeded from BSrE data, so we only seed once. */
@@ -69,32 +77,87 @@
   let profileDraft = $state<Partial<Profile>>({});
   let profileSaving = $state(false);
 
+  /** The profile in effect: a saved one when selected, otherwise the BSrE
+   *  account when this email has no saved profiles at all. */
   const currentProfile = $derived(
-    profiles.find((p) => p.id === selectedProfile),
+    profiles.find((p) => p.id === selectedProfile) ?? bsreProfile,
   );
 
   const profileLabel = (p?: Partial<Profile>) =>
     p?.jabatan || p?.label || p?.nama || "Profil";
 
+  /**
+   * Copy identity fields from a source onto the form. Unless `overwrite` is set
+   * it only fills fields that are still empty or `"-"`, so a default never
+   * clobbers something the signer typed themselves.
+   */
+  const applyIdentity = (
+    src: Partial<Profile>,
+    overwrite = false,
+  ) => {
+    const blank = (v?: string | null) => !v || v === "-";
+    const put = (key: "nama" | "jabatan" | "pangkat" | "instansi" | "specimen") => {
+      const v = src[key];
+      if (blank(v)) return;
+      if (overwrite || blank(form[key] as string | null)) {
+        (form as any)[key] = v;
+      }
+    };
+    put("nama");
+    put("jabatan");
+    put("pangkat");
+    put("instansi");
+    put("specimen");
+  };
+
   const loadProfiles = async (_el?: Event) => {
-    if (!form.email || type("string.email")(form.email) instanceof type.errors) {
+    const email = form.email;
+    if (!email || type("string.email")(email) instanceof type.errors) {
       profiles = [];
+      bsreProfile = null;
       selectedProfile = "";
       loadedEmail = "";
       return;
     }
-    const email = form.email;
+    // Whatever is selected belongs to the email loaded before this one. Drop it
+    // now so a pick can't be displayed — or saved back via `saveCurrentProfile`
+    // / `removeProfile` — under a different signer while this load is in flight.
+    if (loadedEmail !== email) selectedProfile = "";
+    bsreProfile = null;
+    let list: Profile[] = [];
     try {
-      profiles = (await listProfiles({ email })) as Profile[];
-      loadedEmail = email;
+      list = (await listProfiles({ email })) as Profile[];
     } catch {
-      profiles = [];
+      list = [];
     }
+    // The field moved on (or a later request already answered) while this round
+    // trip was in flight. Applying it anyway is what put one signer's profiles
+    // and last-used pick under another signer's email.
+    if (form.email !== email) return;
+
+    profiles = list;
+    loadedEmail = email;
     if (!profiles.some((p) => p.id === selectedProfile)) {
-      const last = lastUsedProfile();
-      selectedProfile =
-        profiles.find((p) => p.id === last)?.id ?? profiles[0]?.id ?? "";
+      // Only restore a pick this signer actually made for this email. The old
+      // `profiles[0]` fallback meant an email always came back showing a
+      // profile even when nothing had been remembered — clearing storage just
+      // re-selected the first row again.
+      const last = lastUsedProfile(email);
+      selectedProfile = profiles.find((p) => p.id === last)?.id ?? "";
     }
+
+    // No saved profile for this email: fall back to the BSrE account itself, so
+    // the default identity comes from `bsre_users` rather than showing nothing.
+    if (profiles.length > 0) return;
+    let derived: ProfileIdentity | null = null;
+    try {
+      derived = await getBsreProfile({ email });
+    } catch {
+      derived = null;
+    }
+    if (form.email !== email) return;
+    bsreProfile = derived;
+    if (derived) applyIdentity(derived);
   };
   const debounceLoadProfiles = debounce(loadProfiles, 500);
 
@@ -109,20 +172,33 @@
     form.specimen = p.specimen ?? form.specimen;
   };
 
-  const rememberProfile = (id: string) => {
-    if (typeof localStorage === "undefined" || !id || !form.email) return;
+  /** Remember the pick under the *email it belongs to*, never under whatever
+   *  `form.email` happens to hold later — the picker is re-read on every email
+   *  change, so a key written against the wrong address poisons every other
+   *  signer's default. */
+  const rememberProfile = (email: string, id: string) => {
+    if (typeof localStorage === "undefined" || !email || !id) return;
     try {
-      localStorage.setItem(`signer-profile:${form.email}`, id);
+      localStorage.setItem(`signer-profile:${email}`, id);
     } catch {}
   };
 
-  const lastUsedProfile = () => {
-    if (typeof localStorage === "undefined" || !form.email) return "";
+  const lastUsedProfile = (email: string) => {
+    if (typeof localStorage === "undefined" || !email) return "";
     try {
-      return localStorage.getItem(`signer-profile:${form.email}`) ?? "";
+      return localStorage.getItem(`signer-profile:${email}`) ?? "";
     } catch {
       return "";
     }
+  };
+
+  /** Drop the remembered pick for an email, so the next load doesn't silently
+   *  restore a selection the user explicitly cleared. */
+  const forgetProfile = (email: string) => {
+    if (typeof localStorage === "undefined" || !email) return;
+    try {
+      localStorage.removeItem(`signer-profile:${email}`);
+    } catch {}
   };
 
   const openProfileModal = (profile?: Profile) => {
@@ -140,12 +216,13 @@
   };
 
   const submitProfile = async () => {
-    if (!form.email) return;
+    const email = form.email;
+    if (!email) return;
     profileSaving = true;
     try {
       const saved = (await saveProfile({
         id: profileDraft.id,
-        email: form.email,
+        email,
         label: profileDraft.label ?? undefined,
         nama: profileDraft.nama ?? undefined,
         jabatan: profileDraft.jabatan ?? undefined,
@@ -157,6 +234,7 @@
       if (saved?.id) {
         selectedProfile = saved.id;
         applyProfile(saved.id);
+        rememberProfile(email, saved.id);
       }
       profileDialog?.close();
     } finally {
@@ -165,9 +243,14 @@
   };
 
   const removeProfile = async () => {
-    if (!selectedProfile) return;
-    await deleteProfile({ id: selectedProfile });
+    const id = selectedProfile;
+    if (!id) return;
+    const email = form.email;
+    await deleteProfile({ id });
     selectedProfile = "";
+    // Drop the pointer: leaving it would make the next load for this email
+    // resurrect a deleted id (and silently fall back to `profiles[0]`).
+    forgetProfile(email);
     await loadProfiles();
   };
 
@@ -175,6 +258,7 @@
    *  new one when nothing is selected. */
   const saveCurrentProfile = async () => {
     if (!emailOk) return;
+    const email = form.email;
     const hasIdentity = [
       form.nama,
       form.jabatan,
@@ -185,7 +269,7 @@
     profileSaving = true;
     try {
       const saved = (await saveProfile({
-        email: form.email,
+        email,
         ...(selectedProfile ? { id: selectedProfile } : {}),
         ...(selectedProfile
           ? {}
@@ -205,7 +289,7 @@
       if (saved?.id) {
         selectedProfile = saved.id;
         applyProfile(saved.id);
-        rememberProfile(saved.id);
+        rememberProfile(email, saved.id);
       }
     } catch (err) {
       console.error("Failed to save profile", err);
@@ -218,16 +302,17 @@
    *  specimen list — one profile row per specimen, so a signer can keep
    *  several. */
   const saveSpecimen = async (specimen: string) => {
-    if (!form.email || type("string.email")(form.email) instanceof type.errors)
-      return;
+    const email = form.email;
+    if (!email || type("string.email")(email) instanceof type.errors) return;
     const existing = profiles.find((p) => (p.specimen ?? "") === specimen);
     if (existing) {
       selectedProfile = existing.id;
+      rememberProfile(email, existing.id);
       return;
     }
     try {
       const saved = (await saveProfile({
-        email: form.email,
+        email,
         // BSrE returns "-" for unset fields, so skip those when naming.
         label:
           [form.nama, form.jabatan, form.instansi].find(
@@ -240,7 +325,10 @@
         specimen,
       })) as Profile;
       await loadProfiles();
-      if (saved?.id) selectedProfile = saved.id;
+      if (saved?.id) {
+        selectedProfile = saved.id;
+        rememberProfile(email, saved.id);
+      }
     } catch {
       // The visualisation is already added; failing to save the specimen
       // must not block signing.
@@ -329,9 +417,11 @@
     debounceLoadProfiles(new Event("init"));
   });
 
-  // With no saved profile yet, seed one from the verified BSrE identity data so
-  // the picker reflects the account by default. Later visits then select the
-  // last-used profile via `loadProfiles`.
+  // With no saved profile yet, seed one from identity the signer supplied (URL
+  // params, helpdesk prefill) so the picker reflects it on later visits. When a
+  // BSrE account supplied the identity we deliberately skip this — `bsre_users`
+  // stays the live default instead of being copied into a stale row on the
+  // first visit.
   $effect(() => {
     const email = form.email;
     const nama = form.nama;
@@ -341,6 +431,7 @@
     if (!email || type("string.email")(email) instanceof type.errors) return;
     if (loadedEmail !== email) return;
     if (profiles.length > 0) return;
+    if (bsreProfile) return;
     if (autoProfileEmail === email) return;
     if (![nama, jabatan, pangkat, instansi].some((v) => v && v !== "-"))
       return;
@@ -580,7 +671,10 @@
                 class:active={!selectedProfile}
                 onclick={(e) => {
                   selectedProfile = "";
-                  e.currentTarget.closest("details")?.removeAttribute("open");
+                  forgetProfile(form.email);
+                  e.currentTarget
+                    .closest("details")
+                    ?.removeAttribute("open");
                 }}
               >
                 <iconify-icon
@@ -591,6 +685,31 @@
               </button>
             </li>
             <li></li>
+            {#if !profiles.length && bsreProfile}
+              <!-- Not a saved row: the identity read from `bsre_users`, offered
+                   so an email with nothing in signer_profiles still has
+                   something to show and to copy from. -->
+              <li>
+                <button
+                  type="button"
+                  class="active"
+                  title="Diambil dari akun BSrE"
+                  onclick={(e) => {
+                    selectedProfile = "";
+                    applyIdentity(bsreProfile!, true);
+                    e.currentTarget
+                      .closest("details")
+                      ?.removeAttribute("open");
+                  }}
+                >
+                  <iconify-icon
+                    icon="bx:badge-check"
+                    class="shrink-0 text-base"
+                  ></iconify-icon>
+                  <span class="truncate">{profileLabel(bsreProfile)}</span>
+                </button>
+              </li>
+            {/if}
             {#each profiles as p (p.id)}
               <li>
                 <button
@@ -599,8 +718,10 @@
                   onclick={(e) => {
                     selectedProfile = p.id;
                     applyProfile(p.id);
-                    rememberProfile(p.id);
-                    e.currentTarget.closest("details")?.removeAttribute("open");
+                    rememberProfile(p.email || form.email, p.id);
+                    e.currentTarget
+                      .closest("details")
+                      ?.removeAttribute("open");
                   }}
                 >
                   <span class="truncate">{profileLabel(p)}</span>

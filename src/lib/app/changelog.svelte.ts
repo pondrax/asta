@@ -119,6 +119,17 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
     page: "Sign V2",
     entries: [
       {
+        id: "profil-penandatangan-bawaan-dari-bsre-users-dan-ku-2026-10-19",
+        date: "2026-10-19",
+        title: "Profil penandatangan bawaan dari bsre_users dan kunci last-profile per email",
+        changes: [
+          {
+            kind: "added",
+            text: "profil penandatangan bawaan dari bsre_users dan kunci last-profile per email",
+          },
+        ],
+      },
+      {
         id: "perbaiki-lapisan-tur-pencarian-teks-dokumen-panel--2026-10-19",
         date: "2026-10-19",
         title: "Perbaiki lapisan tur, pencarian teks dokumen, panel halaman/properti, dan bidang passphrase",

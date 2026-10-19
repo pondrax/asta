@@ -1726,7 +1726,7 @@
         aria-pressed={navOpen}
         onclick={() => (navOpen = !navOpen)}
       >
-        <iconify-icon icon="bx:sidebar"></iconify-icon>
+        <iconify-icon icon="bx:info-circle"></iconify-icon>
       </button>
       <button
         type="button"
