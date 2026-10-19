@@ -94,6 +94,7 @@
 />
 
 <div
+  id="tour-toolbar"
   class="relative flex flex-nowrap items-center gap-0.5 h-10 min-h-10 mx-1.5 mb-1.5 px-1.5 bg-base-200 rounded-full overflow-visible select-none"
   role="toolbar"
   aria-label="Alat tanda tangan"

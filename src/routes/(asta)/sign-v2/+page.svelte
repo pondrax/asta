@@ -187,38 +187,77 @@
 
   const tourSteps = [
     {
+      target: "#tour-email",
+      title: "Email Penandatangan",
+      content:
+        "Masukkan Email Dinas Anda. Akun diverifikasi otomatis dan data identitas diambil dari profil BSrE bila tersedia.",
+      placement: "bottom",
+      onShow: () => {
+        emailOpen = true;
+        navOpen = false;
+      },
+    },
+    {
       target: "#tour-upload-btn",
       title: "Unggah Dokumen",
       content:
-        "Mulai dengan mengunggah file PDF yang ingin Anda tanda tangani di sini. Anda bisa menyeret file langsung ke area ini.",
-      placement: "bottom" as const,
+        "Pilih berkas PDF atau DOCX yang ingin ditandatangani, atau seret berkas ke area ini.",
+      placement: "bottom",
+      onShow: () => {
+        emailOpen = false;
+        activeTab = "documents";
+        navOpen = false;
+      },
     },
     {
       target: "#tour-documents",
       title: "Daftar Dokumen",
       content:
-        "Semua dokumen yang Anda unggah akan muncul di sini. Anda bisa beralih antar dokumen dengan mengkliknya.",
-      onShow: () => (activeTab = "documents"),
+        "Semua berkas yang diunggah tampil di sini. Klik untuk berpindah antar dokumen.",
+      placement: "right",
+      onShow: () => {
+        navOpen = true;
+        activeTab = "documents";
+      },
+    },
+    {
+      target: "#tour-toolbar",
+      title: "Alat Tanda Tangan",
+      content:
+        "Atur halaman, zoom, tambahkan visualisasi (QR, kotak, gambar, coretan), pilih mode TTE/Manual, dan unduh dari sini.",
+      placement: "bottom",
+      onShow: () => {
+        navOpen = false;
+      },
     },
     {
       target: "#tour-metadata",
       title: "Informasi Penandatangan",
       content:
-        "Lengkapi data identitas Anda. Pastikan Email atau NIK sesuai dengan sertifikat elektronik Anda.",
-      onShow: () => (activeTab = "metadata"),
+        "Lengkapi identitas penandatangan. Data akan terisi otomatis dari profil BSrE Anda.",
+      placement: "right",
+      onShow: () => {
+        navOpen = true;
+        activeTab = "metadata";
+      },
     },
     {
-      target: "#tour-signature",
+      target: "#tour-visual",
       title: "Visualisasi Tanda Tangan",
       content:
-        "Pilih bagaimana tanda tangan Anda akan ditampilkan di dokumen: QR Code, Gambar, atau Nama. Jika tidak ingin menambahkan visualisasi, abaikan fitur ini.",
-      onShow: () => (activeTab = "metadata"),
+        "Seret QR, kotak, atau coretan ke dokumen untuk menampilkan tanda tangan. Lengkapi profil bila pratinjau belum tersedia.",
+      placement: "right",
+      onShow: () => {
+        navOpen = true;
+        activeTab = "metadata";
+      },
     },
     {
       target: "#tour-sign-button",
       title: "Proses Tanda Tangan",
       content:
         "Setelah semua siap, klik tombol ini untuk memulai proses penandatanganan secara elektronik.",
+      placement: "left",
     },
   ];
   let signResults: {
@@ -1483,6 +1522,7 @@
     {/if}
         </button>
         <div
+          id="tour-email"
           class="min-w-0 flex items-center max-lg:absolute max-lg:top-full max-lg:left-1.5 max-lg:right-1.5 max-lg:mt-1.5 max-lg:p-2 max-lg:bg-base-100 max-lg:border max-lg:border-base-300 max-lg:rounded-lg max-lg:shadow-xl max-lg:z-60 max-lg:[&_.tooltip]:w-full max-lg:[&_.input]:w-full! max-lg:[&_.input]:max-w-none! max-lg:[&_.input]:flex-auto {emailOpen ||
           emailAlwaysVisible
             ? ''

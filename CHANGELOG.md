@@ -80,6 +80,15 @@
 
 ## 2026-10-19
 
+### Tur panduan membuka panel relevan secara otomatis
+
+<!-- id: tur-panduan-membuka-panel-relevan-secara-otomatis-2026-10-19 -->
+
+Halaman: /sign-v2 - Sign V2
+Audiens: Tamu
+
+- **Baru** - tur panduan membuka panel relevan secara otomatis
+
 ### Sederhanakan dialog gambar tanda tangan menjadi kanvas gambar
 
 <!-- id: sederhanakan-dialog-gambar-tanda-tangan-menjadi-ka-2026-10-19 -->

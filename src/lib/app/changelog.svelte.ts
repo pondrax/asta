@@ -119,6 +119,17 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
     page: "Sign V2",
     entries: [
       {
+        id: "tur-panduan-membuka-panel-relevan-secara-otomatis-2026-10-19",
+        date: "2026-10-19",
+        title: "Tur panduan membuka panel relevan secara otomatis",
+        changes: [
+          {
+            kind: "added",
+            text: "tur panduan membuka panel relevan secara otomatis",
+          },
+        ],
+      },
+      {
         id: "sederhanakan-dialog-gambar-tanda-tangan-menjadi-ka-2026-10-19",
         date: "2026-10-19",
         title: "Sederhanakan dialog gambar tanda tangan menjadi kanvas gambar",

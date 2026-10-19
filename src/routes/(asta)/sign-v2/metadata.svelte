@@ -753,7 +753,7 @@
         />
       </div>
     </li>
-    <li class="menu-title">
+    <li class="menu-title" id="tour-visual">
       <div class="relative flex flex-col">
         <span>Visualisasi Tanda Tangan</span>
         {#if profileSet}
