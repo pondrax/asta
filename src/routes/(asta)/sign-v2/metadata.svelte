@@ -418,7 +418,7 @@
       </label>
     </li>
     <li class="px-2">
-      <div class="flex items-center gap-1.5 py-0">
+      <label class="flex cursor-pointer items-center gap-1.5">
         <input
           type="checkbox"
           class="checkbox checkbox-xs"
@@ -489,7 +489,7 @@
           </ul>
           </details>
         {/if}
-      </div>
+      </label>
       {#if form.save_document && ownerOpen}
         <div class="input input-sm mt-1 w-full">
           <input
