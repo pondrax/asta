@@ -32,6 +32,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const CHANGELOG = join(ROOT, "CHANGELOG.md");
+const PACKAGE = join(ROOT, "package.json");
 const GENERATED_REL = "src/lib/app/changelog.svelte.ts";
 const BUILD = join(ROOT, "src/scripts/build-changelog.ts");
 
@@ -213,6 +214,25 @@ function regenerate(): boolean {
   return true;
 }
 
+/** Bump the patch version in `package.json` and stage it to join the commit. */
+function bumpVersion(): void {
+  try {
+    const raw = readFileSync(PACKAGE, "utf8");
+    const replaced = raw.replace(
+      /("version"\s*:\s*")(\d+)\.(\d+)\.(\d+)(")/,
+      (match, head, major, minor, patch, tail) =>
+        `${head}${major}.${minor}.${Number(patch) + 1}${tail}`,
+    );
+    if (replaced === raw) return;
+    writeFileSync(PACKAGE, replaced);
+    git(["add", "package.json"]);
+    const { version } = JSON.parse(replaced) as { version?: string };
+    console.log(`version: bumped to ${version ?? "?"}`);
+  } catch (error) {
+    console.warn(`version: skipped (${(error as Error).message})`);
+  }
+}
+
 /** Don't touch the index while git is replaying commits. */
 function inProgress(): boolean {
   for (const marker of ["MERGE_HEAD", "rebase-merge", "rebase-apply", "CHERRY_PICK_HEAD", "REVERT_HEAD"]) {
@@ -230,14 +250,17 @@ function main() {
     .filter(Boolean);
   const changelogStaged = staged.includes("CHANGELOG.md");
 
+  // Nothing staged (e.g. amending only the message) -> nothing to do.
+  if (!staged.length) return;
+
+  // Bump the patch version with every commit so the build tracks it.
+  if (!DRY_RUN) bumpVersion();
+
   // Hand-edited markdown -> just keep the generated block in sync.
   if (changelogStaged) {
     regenerate();
     return;
   }
-
-  // Nothing staged (e.g. amending only the message) -> nothing to do.
-  if (!staged.length) return;
 
   // Leave a hand-edited, not-yet-staged CHANGELOG.md alone.
   if (gitQuiet(["diff", "--name-only", "--", "CHANGELOG.md"]).trim()) {

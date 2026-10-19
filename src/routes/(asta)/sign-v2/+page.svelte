@@ -1465,6 +1465,8 @@
   }
 
   /** A throwaway document so the tour can demonstrate signing with no upload. */
+  let tourDemoFile: File | null = null;
+
   async function createDemoDocument(): Promise<File> {
     const pdf = await PDFDocument.create();
     const page = pdf.addPage();
@@ -1477,6 +1479,20 @@
     return new File([bytes], "contoh-dokumen.pdf", { type: "application/pdf" });
   }
 
+  /** Drop the throwaway document created for the tour, if any. */
+  function removeTourDemo() {
+    const demo = tourDemoFile;
+    if (!demo) return;
+    tourDemoFile = null;
+    files = files.filter((f) => f !== demo);
+    const key = Object.keys(documents).find((k) => documents[k] === demo);
+    if (key) {
+      const { [key]: _removed, ...rest } = documents;
+      documents = rest;
+      if (activeIndex === key) activeIndex = Object.keys(rest)[0] ?? "";
+    }
+  }
+
   /**
    * Tour helper: guarantee a document, switch to TTE mode, then open the sign
    * dialog so its Passphrase field can be highlighted.
@@ -1485,6 +1501,7 @@
     bsre = true;
     if (Object.keys(documents).length === 0) {
       const demo = await createDemoDocument();
+      tourDemoFile = demo;
       files = [...files, demo];
       await tick();
     }
@@ -2142,11 +2159,13 @@
     steps={tourSteps}
     onComplete={() => {
       forms.sign = undefined;
+      removeTourDemo();
       app.showTour = false;
       localStorage.setItem("tour-sign-last-shown", Date.now().toString());
     }}
     onSkip={() => {
       forms.sign = undefined;
+      removeTourDemo();
       app.showTour = false;
       localStorage.setItem("tour-sign-last-shown", Date.now().toString());
     }}

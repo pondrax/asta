@@ -8,9 +8,9 @@
     content: string;
     placement?: "top" | "bottom" | "left" | "right" | "center";
     onShow?: () => void;
-    /** Step opens a native dialog; re-raise the tour so it stays on top. */
+    /** The step lives in (or opens) a dialog; keep re-placing the overlay. */
     modal?: boolean;
-    /** Let clicks reach the highlighted element instead of skipping the tour. */
+    /** The step's target must be clickable through the overlay. */
     interactive?: boolean;
   }
 
@@ -53,25 +53,24 @@
     return els[0] ?? null;
   }
 
-  /** `:popover-open` throws on browsers without popover support. */
-  function isPopoverOpen(el: HTMLElement) {
-    try {
-      return el.matches(":popover-open");
-    } catch {
-      return false;
-    }
-  }
+  /** The overlay's original parent, so we can move it back after a dialog. */
+  let homeParent: HTMLElement | null = null;
 
-  /** Re-raise the tour into the top layer so it sits above any open dialog. */
-  function raise() {
+  /**
+   * Mount the overlay inside the open `<dialog>` containing the current target
+   * (if any). A popover/overlay above a modal dialog is inert, but a *descendant*
+   * of the dialog is not — this is what keeps the tour visible above, and lets
+   * the passphrase field be clicked, while the sign dialog is open.
+   */
+  function placeOverlay() {
     const el = container;
     if (!el) return;
-    try {
-      if (isPopoverOpen(el)) el.hidePopover();
-      el.showPopover();
-    } catch {
-      /* popover unsupported */
-    }
+    if (!homeParent) homeParent = el.parentElement ?? document.body;
+
+    const target = activeStep ? findTarget(activeStep.target) : null;
+    const dialog = target?.closest("dialog") as HTMLDialogElement | null;
+    const parent = dialog?.open ? dialog : (homeParent ?? document.body);
+    if (el.parentElement !== parent) parent.appendChild(el);
   }
 
   function updateRect() {
@@ -173,12 +172,13 @@
     const target = activeStep?.target;
     if (!target) return;
     if (activeStep?.onShow) activeStep.onShow();
-    // A dialog the step opened lands in the top layer *after* us, so re-raise
-    // once it has mounted to keep the tour visible above it.
+    // The step may open its dialog asynchronously, so re-place the overlay once
+    // the modal has mounted. Moving it inside the dialog keeps it interactive.
+    setTimeout(placeOverlay, 0);
+    setTimeout(placeOverlay, 60);
     if (activeStep?.modal) {
-      setTimeout(raise, 60);
-      setTimeout(raise, 400);
-      setTimeout(raise, 1000);
+      setTimeout(placeOverlay, 400);
+      setTimeout(placeOverlay, 1000);
     }
 
     let scrollListeners: { el: Element | Window; fn: () => void }[] = [];
@@ -238,16 +238,21 @@
     return () => window.removeEventListener("resize", h);
   });
 
-  // Render the overlay in the browser's top layer via the popover API so it can
-  // layer above native `<dialog>` modals (which ignore z-index).
+  // When any dialog opens/closes (e.g. the sign modal), re-place the overlay so
+  // it moves into/out of the dialog. Watching `open` + child list catches
+  // dialogs mounted or removed at any time.
   $effect(() => {
-    const el = container;
-    if (!el) return;
-    if (isVisible) {
-      if (!isPopoverOpen(el)) raise();
-    } else if (isPopoverOpen(el)) {
-      el.hidePopover();
-    }
+    if (!isVisible) return;
+    const observer = new MutationObserver(() => {
+      requestAnimationFrame(placeOverlay);
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      subtree: true,
+      childList: true,
+      attributeFilter: ["open"],
+    });
+    return () => observer.disconnect();
   });
 
   const next = () => {
@@ -272,9 +277,7 @@
 {#if isVisible && activeStep}
   <div
     bind:this={container}
-    popover="manual"
-    class="fixed inset-0 z-[9999] pointer-events-none"
-    style="inset:0; margin:0; width:100vw; height:100vh; max-width:none; max-height:none; border:0; background:transparent; padding:0; overflow:visible;"
+    class="fixed inset-0 z-[9999] pointer-events-none m-0 p-0 border-0 bg-transparent w-screen h-screen max-w-none max-h-none overflow-visible"
   >
     <svg
       class="fixed inset-0 {activeStep.interactive
@@ -302,7 +305,9 @@
     </svg>
 
     <div
-      class="absolute pointer-events-auto transition-all duration-500 ease-in-out"
+      class="absolute transition-all duration-500 ease-in-out {activeStep.interactive
+        ? 'pointer-events-none'
+        : 'pointer-events-auto'}"
       style={cardStyle}
       in:scale={{ duration: 300, start: 0.9 }}
     >
@@ -310,16 +315,32 @@
         <div class="card-body p-5">
           <div class="flex justify-between items-center mb-2">
             <h2 class="card-title text-primary text-lg">{activeStep.title}</h2>
-            <span class="badge badge-sm badge-outline opacity-50">{currentStep + 1} / {steps.length}</span>
+            <span class="badge badge-sm badge-outline opacity-50 whitespace-nowrap shrink-0">{currentStep + 1} / {steps.length}</span>
           </div>
           <p class="text-sm opacity-80 leading-relaxed">{activeStep.content}</p>
           <div class="card-actions justify-between mt-6 items-center">
-            <button class="btn btn-ghost btn-xs text-error" onclick={skip}>Skip</button>
+            <button
+              type="button"
+              class="btn btn-ghost btn-xs text-error pointer-events-auto"
+              onclick={skip}
+            >
+              Skip
+            </button>
             <div class="flex gap-2">
               {#if currentStep > 0}
-                <button class="btn btn-sm btn-outline" onclick={back}>Back</button>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline pointer-events-auto"
+                  onclick={back}
+                >
+                  Back
+                </button>
               {/if}
-              <button class="btn btn-sm btn-primary" onclick={next}>
+              <button
+                type="button"
+                class="btn btn-sm btn-primary pointer-events-auto"
+                onclick={next}
+              >
                 {currentStep === steps.length - 1 ? "Finish" : "Next"}
               </button>
             </div>

@@ -80,6 +80,15 @@
 
 ## 2026-10-19
 
+### Tampilkan tur di atas dialog tanda tangan dan buat bidang passphrase dapat diklik
+
+<!-- id: tampilkan-tur-di-atas-dialog-tanda-tangan-dan-buat-2026-10-19 -->
+
+Halaman: /sign-v2 - Sign V2
+Audiens: Tamu
+
+- **Perbaikan** - tampilkan tur di atas dialog tanda tangan dan buat bidang passphrase dapat diklik
+
 ### Kolom passphrase dapat diklik saat tur berlangsung
 
 <!-- id: kolom-passphrase-dapat-diklik-saat-tur-berlangsung-2026-10-19 -->
