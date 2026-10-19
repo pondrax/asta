@@ -15,6 +15,9 @@
   import { ROUTE_TITLES } from "$lib/app/titles";
   import { sanitizeModelText, stripForeignChars } from "$lib/utils/ai-output";
   import { version } from "$app/environment";
+  import pkg from "../../../package.json";
+
+  const appVersion = pkg.version;
 
   const renderer = new marked.Renderer();
 
@@ -746,7 +749,7 @@ Silakan tanyakan apa saja tentang layanan ini! 😊`,
         <iconify-icon icon={editMode ? "bx:edit-alt" : "bx:bot"}></iconify-icon>
         {editMode ? "Sunting Dokumen" : "Asisten AI"}
         <span class="text-[10px] font-mono font-normal opacity-70"
-          >v2.0.1 #{version.slice(0, 7)}</span
+          >v{appVersion} #{version.slice(0, 7)}</span
         >
       </span>
       <div class="flex items-center gap-1">
