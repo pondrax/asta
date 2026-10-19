@@ -119,6 +119,17 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
     page: "Sign V2",
     entries: [
       {
+        id: "isi-profil-dari-tabel-bsre-meski-mode-manual-2026-10-19",
+        date: "2026-10-19",
+        title: "Isi profil dari tabel BSrE meski mode manual",
+        changes: [
+          {
+            kind: "added",
+            text: "isi profil dari tabel BSrE meski mode manual",
+          },
+        ],
+      },
+      {
         id: "sembunyikan-pratinjau-visual-sampai-profil-lengkap-2026-10-19",
         date: "2026-10-19",
         title: "Sembunyikan pratinjau visual sampai profil lengkap, tampilkan peringatan",

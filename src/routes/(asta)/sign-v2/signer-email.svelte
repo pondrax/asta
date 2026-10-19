@@ -26,7 +26,6 @@
   let emailFocused = $state(false);
 
   const checkEmail = async () => {
-    if (!verify) return;
     if (!form.email && !form.nik) return;
     const cancel = useEmail
       ? form.email.startsWith("@") || form.email.length === 0
@@ -38,19 +37,20 @@
       const result = await checkUser(
         useEmail ? { email: form.email } : { nik: form.nik },
       );
-      status = result.status;
+      if (verify) status = result.status;
+      const u = result.user ?? {};
       form = {
         ...form,
-        nama: result.user?.name,
-        pangkat: result.user?.rank,
-        instansi: result.user?.organizations,
-        jabatan: result.user?.position,
-        nomor_telepon: result.user?.phone || "",
+        ...(u.name ? { nama: u.name } : {}),
+        ...(u.rank ? { pangkat: u.rank } : {}),
+        ...(u.organizations ? { instansi: u.organizations } : {}),
+        ...(u.position ? { jabatan: u.position } : {}),
+        ...(u.phone ? { nomor_telepon: u.phone } : {}),
       };
       onUser?.(result.user);
       localStorage.setItem("email", form.email);
     } catch {
-      status = "[Server Esign Error] Check User Failed";
+      if (verify) status = "[Server Esign Error] Check User Failed";
     }
     loading = false;
   };
