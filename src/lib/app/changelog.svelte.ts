@@ -1958,6 +1958,17 @@ export const GLOBAL_CHANGELOG: PageChangelog =
     page: "Tapak Astà",
     entries: [
       {
+        id: "center-document-canvas-in-container-2026-10-19",
+        date: "2026-10-19",
+        title: "Center document canvas in container",
+        changes: [
+          {
+            kind: "fixed",
+            text: "center document canvas in container",
+          },
+        ],
+      },
+      {
         id: "global-changelog-popup-2026-09-30",
         date: "2026-09-30",
         title: "Popup \"Apa yang Baru\"",

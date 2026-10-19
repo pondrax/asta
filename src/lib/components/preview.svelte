@@ -1015,7 +1015,7 @@
         </button>
       </div>
     {:else}
-      <div class="relative w-full" style="height: {totalHeight}px">
+      <div class="relative w-full mx-auto" style="height: {totalHeight}px; width: {Math.max(cellWidth, pageWidths.reduce((a,b)=>Math.max(a,b),0)) * Math.max(1, spread?2:1) + GAP*(Math.max(1, spread?2:1)-1)}px">
         <div class="pdf-layer absolute top-0 left-0 right-0 bottom-0"></div>
         <!--
           Spans the whole content box, not just a column as wide as one page:

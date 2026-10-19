@@ -80,6 +80,15 @@
 
 ## 2026-10-19
 
+### Center document canvas in container
+
+<!-- id: center-document-canvas-in-container-2026-10-19 -->
+
+Halaman: \* - Tapak Astà
+Audiens: Tamu
+
+- **Perbaikan** - center document canvas in container
+
 ### Tambahkan tombol tampilan berdampingan pada bilah alat pratinjau
 
 <!-- id: tambahkan-tombol-tampilan-berdampingan-pada-bilah--2026-10-19 -->
