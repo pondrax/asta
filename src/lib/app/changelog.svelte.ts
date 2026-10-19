@@ -119,6 +119,17 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
     page: "Sign V2",
     entries: [
       {
+        id: "samakan-tinggi-baris-simpan-dokumen-dengan-dokumen-2026-10-19",
+        date: "2026-10-19",
+        title: "Samakan tinggi baris Simpan Dokumen dengan Dokumen Rahasia",
+        changes: [
+          {
+            kind: "added",
+            text: "samakan tinggi baris Simpan Dokumen dengan Dokumen Rahasia",
+          },
+        ],
+      },
+      {
         id: "isi-profil-dari-tabel-bsre-meski-mode-manual-2026-10-19",
         date: "2026-10-19",
         title: "Isi profil dari tabel BSrE meski mode manual",

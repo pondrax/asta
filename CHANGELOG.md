@@ -80,6 +80,15 @@
 
 ## 2026-10-19
 
+### Samakan tinggi baris Simpan Dokumen dengan Dokumen Rahasia
+
+<!-- id: samakan-tinggi-baris-simpan-dokumen-dengan-dokumen-2026-10-19 -->
+
+Halaman: /sign-v2 - Sign V2
+Audiens: Tamu
+
+- **Baru** - samakan tinggi baris Simpan Dokumen dengan Dokumen Rahasia
+
 ### Isi profil dari tabel BSrE meski mode manual
 
 <!-- id: isi-profil-dari-tabel-bsre-meski-mode-manual-2026-10-19 -->
