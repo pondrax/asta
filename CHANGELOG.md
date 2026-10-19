@@ -80,6 +80,15 @@
 
 ## 2026-10-19
 
+### Kolom passphrase dapat diklik saat tur berlangsung
+
+<!-- id: kolom-passphrase-dapat-diklik-saat-tur-berlangsung-2026-10-19 -->
+
+Halaman: /sign-v2 - Sign V2
+Audiens: Tamu
+
+- **Perbaikan** - kolom passphrase dapat diklik saat tur berlangsung
+
 ### Tur lengkap dengan langkah mode, passphrase, dan simulasi selesai
 
 <!-- id: tur-lengkap-dengan-langkah-mode-passphrase-dan-sim-2026-10-19 -->

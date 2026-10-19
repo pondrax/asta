@@ -119,6 +119,17 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
     page: "Sign V2",
     entries: [
       {
+        id: "kolom-passphrase-dapat-diklik-saat-tur-berlangsung-2026-10-19",
+        date: "2026-10-19",
+        title: "Kolom passphrase dapat diklik saat tur berlangsung",
+        changes: [
+          {
+            kind: "fixed",
+            text: "kolom passphrase dapat diklik saat tur berlangsung",
+          },
+        ],
+      },
+      {
         id: "tur-lengkap-dengan-langkah-mode-passphrase-dan-sim-2026-10-19",
         date: "2026-10-19",
         title: "Tur lengkap dengan langkah mode, passphrase, dan simulasi selesai",

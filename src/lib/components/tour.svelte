@@ -10,6 +10,8 @@
     onShow?: () => void;
     /** Step opens a native dialog; re-raise the tour so it stays on top. */
     modal?: boolean;
+    /** Let clicks reach the highlighted element instead of skipping the tour. */
+    interactive?: boolean;
   }
 
   let {
@@ -275,7 +277,9 @@
     style="inset:0; margin:0; width:100vw; height:100vh; max-width:none; max-height:none; border:0; background:transparent; padding:0; overflow:visible;"
   >
     <svg
-      class="fixed inset-0 pointer-events-auto"
+      class="fixed inset-0 {activeStep.interactive
+        ? 'pointer-events-none'
+        : 'pointer-events-auto'}"
       style="width: 100vw; height: 100vh; cursor: auto;"
       onclick={skip}
       onkeydown={(e) => e.key === 'Escape' && skip()}

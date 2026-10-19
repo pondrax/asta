@@ -280,6 +280,7 @@
         "Masukkan Passphrase sertifikat elektronik Anda di sini untuk membubuhkan tanda tangan pada dokumen.",
       placement: "left",
       modal: true,
+      interactive: true,
       onShow: () => {
         if (forms.sign) forms.sign.completed = [];
         void openSignForTour();
