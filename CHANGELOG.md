@@ -78,6 +78,17 @@
   Admin     admin only; `hooks.server.ts` 403s every other role on `/main*`
 -->
 
+## 2026-10-20
+
+### Kurangi jarak antar halaman pada tampilan berdampingan
+
+<!-- id: kurangi-jarak-antar-halaman-pada-tampilan-berdampi-2026-10-20 -->
+
+Halaman: \* - Tapak Astà
+Audiens: Tamu
+
+- **Perbaikan** - kurangi jarak antar halaman pada tampilan berdampingan
+
 ## 2026-10-19
 
 ### Center document canvas in container

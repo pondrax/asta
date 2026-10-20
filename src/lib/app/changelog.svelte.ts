@@ -1958,6 +1958,17 @@ export const GLOBAL_CHANGELOG: PageChangelog =
     page: "Tapak Astà",
     entries: [
       {
+        id: "kurangi-jarak-antar-halaman-pada-tampilan-berdampi-2026-10-20",
+        date: "2026-10-20",
+        title: "Kurangi jarak antar halaman pada tampilan berdampingan",
+        changes: [
+          {
+            kind: "fixed",
+            text: "kurangi jarak antar halaman pada tampilan berdampingan",
+          },
+        ],
+      },
+      {
         id: "center-document-canvas-in-container-2026-10-19",
         date: "2026-10-19",
         title: "Center document canvas in container",
