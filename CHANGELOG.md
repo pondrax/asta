@@ -80,6 +80,15 @@
 
 ## 2026-10-20
 
+### Perkecil jarak antar halaman pada tampilan berdampingan
+
+<!-- id: perkecil-jarak-antar-halaman-pada-tampilan-berdamp-2026-10-20 -->
+
+Halaman: \* - Tapak Astà
+Audiens: Tamu
+
+- **Perbaikan** - perkecil jarak antar halaman pada tampilan berdampingan
+
 ### Tampilkan jumlah dokumen pada tombol panel kiri
 
 <!-- id: tampilkan-jumlah-dokumen-pada-tombol-panel-kiri-2026-10-20 -->

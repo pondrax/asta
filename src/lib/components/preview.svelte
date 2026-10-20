@@ -139,7 +139,7 @@
   let currentFile: File | null = $state(null);
   let loadError = $state<string | null>(null);
 
-  const GAP = 10;
+  const GAP = 4;
   const BUFFER = 3;
   const PADDING = 1; // 1rem = 16px (p-4)
   const DPI_SCALE = 1.5; // Increase for higher resolution (2x = ~150 DPI, 3x = ~225 DPI)
@@ -1016,7 +1016,6 @@
       </div>
     {:else}
       <div class="relative w-full mx-auto" style="height: {totalHeight}px; width: {cellWidth * Math.max(1, spread?2:1) + GAP * Math.max(0, Math.max(1, spread?2:1) - 1)}px">
-        <div class="pdf-layer absolute top-0 left-0 right-0 bottom-0"></div>
         <div class="pdf-layer absolute top-0 left-0 right-0 bottom-0"></div>
         <!--
           Spans the whole content box, not just a column as wide as one page:

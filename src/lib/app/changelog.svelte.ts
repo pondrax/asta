@@ -1969,6 +1969,17 @@ export const GLOBAL_CHANGELOG: PageChangelog =
     page: "Tapak Astà",
     entries: [
       {
+        id: "perkecil-jarak-antar-halaman-pada-tampilan-berdamp-2026-10-20",
+        date: "2026-10-20",
+        title: "Perkecil jarak antar halaman pada tampilan berdampingan",
+        changes: [
+          {
+            kind: "fixed",
+            text: "perkecil jarak antar halaman pada tampilan berdampingan",
+          },
+        ],
+      },
+      {
         id: "kurangi-jarak-antar-halaman-pada-tampilan-berdampi-2026-10-20",
         date: "2026-10-20",
         title: "Kurangi jarak antar halaman pada tampilan berdampingan",
