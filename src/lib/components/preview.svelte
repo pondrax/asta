@@ -690,8 +690,7 @@
       if (n === 1) return hi;
       const left = rowStart;
       const right = Math.min(offsets.length - 1, rowStart + 1);
-      if (right < offsets.length) return right;
-      return left;
+      return right >= left ? right : left;
     }
     while (lo <= hi) {
       const mid = Math.floor((lo + hi) / 2);
@@ -714,7 +713,7 @@
         const viewCenter = scrollTop + vh / 2;
         const dLeft = Math.abs(leftCenter - viewCenter);
         const dRight = Math.abs(rightCenter - viewCenter);
-        if (dRight < dLeft) return right;
+        if (dRight <= dLeft) return right;
         return left;
       }
       if (off < top) hi = mid - 1;

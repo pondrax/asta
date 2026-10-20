@@ -80,6 +80,15 @@
 
 ## 2026-10-20
 
+### Pilih halaman kanan lebih sering saat jarak setara
+
+<!-- id: pilih-halaman-kanan-lebih-sering-saat-jarak-setara-2026-10-20 -->
+
+Halaman: \* - Tapak Astà
+Audiens: Tamu
+
+- **Perbaikan** - pilih halaman kanan lebih sering saat jarak setara
+
 ### Pilih halaman aktif berdasarkan halaman yang paling terlihat saat berdampingan
 
 <!-- id: pilih-halaman-aktif-berdasarkan-halaman-yang-palin-2026-10-20 -->
