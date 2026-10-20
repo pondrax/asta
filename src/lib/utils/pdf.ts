@@ -543,10 +543,36 @@ export async function hasSignature(bytes: Uint8Array | ArrayBuffer): Promise<boo
 
 /** Names of the digital signature fields already present in the document. */
 export type SignatureInfo = {
+  /** Field name; the signer's display name when the signature carries one. */
   name: string;
-  reason?: string;
-  location?: string;
+  /** Signature handler, e.g. "Adobe.PPKLite". */
+  filter?: string;
+  /** Encoding, e.g. "adbe.pkcs7.detached" (a cryptographic signature) or
+   *  "adbe.x509.rsa_sha1". */
+  subFilter?: string;
+  /** Signing time, already formatted. */
   date?: string;
+  /** Free-text reason the signer gave. */
+  reason?: string;
+  /** Free-text location the signer gave. */
+  location?: string;
+  /** Contact info recorded with the signature, when present. */
+  contactInfo?: string;
+  /** Full subject distinguished name, e.g.
+   *  "CN=IKA PUSPITASARI, O=Pemerintah Kota Mojokerto, C=ID". */
+  subjectName?: string;
+  /** Common name (CN) from the signing certificate's subject. */
+  signerCommonName?: string;
+  /** Organisation (O) from the signing certificate's subject. */
+  signerOrg?: string;
+  /** Country (C) from the signing certificate's subject. */
+  signerCountry?: string;
+  /** Email address from the certificate's subject emailAddress attribute. */
+  signerEmail?: string;
+  /** Issuer distinguished name, e.g. "CN=BSRE CA DS G1, O=Badan Siber ...". */
+  issuerName?: string;
+  /** Issuer common name (who issued the signing certificate). */
+  issuerCommonName?: string;
 };
 
 function toPdfString(obj: unknown): string | undefined {
@@ -557,6 +583,8 @@ function toPdfString(obj: unknown): string | undefined {
       return undefined;
     }
   }
+  // /Filter and /SubFilter are PDFName objects ("/Adobe.PPKLite").
+  if (obj instanceof PDFName) return obj.asString().replace(/^\//, '');
   return undefined;
 }
 
@@ -571,6 +599,185 @@ function formatPdfDate(value?: string): string | undefined {
   ];
   const [, Y, Mo, D, H = '00', Mi = '00'] = m;
   return `${D} ${months[Number(Mo) - 1] ?? Mo} ${Y} ${H}:${Mi}`;
+}
+
+/** DN attribute OID *content* bytes (without the 06/len header), as readDn
+ *  keys them: 2.5.4.3 commonName, 2.5.4.10 organizationName, 2.5.4.6
+ *  countryName, 1.2.840.113549.1.9.1 emailAddress. */
+const OID_CN = '55 04 03';
+const OID_ORG = '55 04 0a';
+const OID_COUNTRY = '55 04 06';
+const OID_EMAIL = '2a 86 48 86 f7 0d 01 09 01';
+
+type Tlv = { tag: number; start: number; end: number };
+
+/** One ASN.1 tag-length-value header at `off`. */
+function readTlv(buf: Uint8Array, off: number): Tlv {
+  const tag = buf[off];
+  let p = off + 1;
+  let len = buf[p++];
+  if (len & 0x80) {
+    const n = len & 0x7f;
+    len = 0;
+    for (let k = 0; k < n; k++) len = (len << 8) | (buf[p++] ?? 0);
+  }
+  return { tag, start: p, end: p + len };
+}
+
+/** The byte string of a DER value TLV, decoded to text. */
+function tlvString(buf: Uint8Array, tlv: Tlv): string {
+  try {
+    return new TextDecoder(tlv.tag === 0x1e ? 'utf-16be' : 'utf-8')
+      .decode(buf.slice(tlv.start, tlv.end))
+      .trim();
+  } catch {
+    return '';
+  }
+}
+
+/** Flatten a DN (SEQUENCE OF SET OF AttributeTypeAndValue) into oid→value. */
+function readDn(
+  buf: Uint8Array,
+  start: number,
+  end: number,
+  out: Record<string, string>,
+): void {
+  let p = start;
+  while (p < end) {
+    const t = readTlv(buf, p);
+    if (p >= t.end) break;
+    if (t.tag === 0x31 || t.tag === 0x30) {
+      readDn(buf, t.start, t.end, out);
+    } else if (t.tag === 0x06) {
+      // The attribute value is the sibling right after the OID.
+      const val = readTlv(buf, t.end);
+      if (val.tag === 0x0c || val.tag === 0x13 || val.tag === 0x14 || val.tag === 0x16 || val.tag === 0x1e) {
+        const oid = Array.from(buf.slice(t.start, t.end))
+          .map((b) => b.toString(16).padStart(2, '0'))
+          .join(' ');
+        out[oid] = tlvString(buf, val);
+      }
+    }
+    p = t.end;
+  }
+}
+
+/** "CN=…, O=…, C=…" from a DN's attribute map. */
+function dnToString(dn: Record<string, string>): string | undefined {
+  const parts: string[] = [];
+  if (dn[OID_CN]) parts.push(`CN=${dn[OID_CN]}`);
+  if (dn[OID_ORG]) parts.push(`O=${dn[OID_ORG]}`);
+  if (dn[OID_COUNTRY]) parts.push(`C=${dn[OID_COUNTRY]}`);
+  return parts.length ? parts.join(', ') : undefined;
+}
+
+/** One certificate's subject + issuer DNs, or null if the shape is off. */
+function certDns(buf: Uint8Array, certStart: number) {
+  try {
+    const cert = readTlv(buf, certStart);
+    const tbs = readTlv(buf, cert.start);
+    let p = tbs.start;
+    const first = readTlv(buf, p);
+    if (first.tag === 0xa0) p = first.end; // optional [0] version
+    p = readTlv(buf, p).end; // serial
+    p = readTlv(buf, p).end; // signature algorithm
+    const issuer = readTlv(buf, p);
+    p = issuer.end;
+    p = readTlv(buf, p).end; // validity
+    const subject = readTlv(buf, p);
+    const iDn: Record<string, string> = {};
+    const sDn: Record<string, string> = {};
+    readDn(buf, issuer.start, issuer.end, iDn);
+    readDn(buf, subject.start, subject.end, sDn);
+    return { subject: sDn, issuer: iDn };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Subject + issuer of the signing certificate from a PKCS#7 `/Contents`.
+ *
+ * The blob is `ContentInfo → [0] SignedData`, whose `certificates` holds the
+ * whole chain. BSrE orders it root-first (not leaf-first as the spec suggests),
+ * so the signer is found structurally: the leaf is the certificate that no
+ * other certificate in the set names as its issuer. When that is ambiguous the
+ * signature's `/Name` is matched against a subject CN, and the last cert is the
+ * final fallback (root-first ordering puts the signer last).
+ */
+function parseCertificate(der: Uint8Array, nameHint?: string) {
+  try {
+    const ci = readTlv(der, 0);
+    let p = readTlv(der, ci.start).end; // contentType OID
+    const wrapper = readTlv(der, p); // [0] EXPLICIT
+    const signed = readTlv(der, wrapper.start);
+    p = signed.start;
+    p = readTlv(der, p).end; // version
+    p = readTlv(der, p).end; // digestAlgorithms
+    p = readTlv(der, p).end; // encapContentInfo
+    const certs = readTlv(der, p); // [0] certificates
+    if (certs.tag !== 0xa0) return {};
+
+    const chain: { subject: Record<string, string>; issuer: Record<string, string> }[] = [];
+    let q = certs.start;
+    while (q < certs.end) {
+      const cert = readTlv(der, q);
+      if (cert.tag !== 0x30) break;
+      const dns = certDns(der, q);
+      if (dns) chain.push(dns);
+      q = cert.end;
+    }
+    if (chain.length === 0) return {};
+
+    const h = nameHint?.trim().toLowerCase();
+    const issuerCns = new Set(
+      chain.map((c) => c.issuer[OID_CN]).filter(Boolean),
+    );
+    // Leaf: its subject CN is not an issuer CN of any cert in the chain.
+    let leaf = chain.find(
+      (c) => c.subject[OID_CN] && !issuerCns.has(c.subject[OID_CN]),
+    );
+    if (!leaf && h) {
+      leaf = chain.find((c) => c.subject[OID_CN]?.toLowerCase() === h);
+    }
+    if (!leaf) leaf = chain[chain.length - 1];
+
+    const { subject, issuer } = leaf;
+    return {
+      cn: subject[OID_CN],
+      org: subject[OID_ORG],
+      country: subject[OID_COUNTRY],
+      email: subject[OID_EMAIL],
+      subjectName: dnToString(subject),
+      issuer: issuer[OID_CN],
+      issuerName: dnToString(issuer),
+    };
+  } catch {
+    return {};
+  }
+}
+
+/** The signature's `/Contents` as raw bytes (hex string or literal). */
+function sigContents(
+  sigDict: PDFDict | undefined,
+  resolve: (o: unknown) => unknown,
+): Uint8Array | undefined {
+  const raw = resolve(sigDict?.get(PDFName.of('Contents')));
+  if (raw instanceof PDFHexString) {
+    try {
+      return raw.asBytes();
+    } catch {
+      return undefined;
+    }
+  }
+  if (raw instanceof PDFString) {
+    try {
+      return raw.asBytes();
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
 }
 
 export async function getSignatures(
@@ -592,10 +799,30 @@ export async function getSignatures(
         const sigDict = v instanceof PDFDict ? v : undefined;
         const read = (key: string) =>
           toPdfString(resolve(sigDict?.get(PDFName.of(key))));
-        info.name = read('Name') || info.name;
+        const nameField = read('Name');
+        info.name = nameField || info.name;
         info.reason = read('Reason');
         info.location = read('Location');
+        info.contactInfo = read('ContactInfo');
         info.date = formatPdfDate(read('M'));
+        info.filter = toPdfString(resolve(sigDict?.get(PDFName.of('Filter'))));
+        info.subFilter = toPdfString(
+          resolve(sigDict?.get(PDFName.of('SubFilter'))),
+        );
+        const contents = sigContents(sigDict, resolve);
+        if (contents && contents.length > 0) {
+          const cert = parseCertificate(contents, nameField || undefined);
+          info.subjectName = cert.subjectName;
+          info.signerCommonName = cert.cn;
+          info.signerOrg = cert.org;
+          info.signerCountry = cert.country;
+          info.signerEmail = cert.email;
+          info.issuerName = cert.issuerName;
+          info.issuerCommonName = cert.issuer;
+          // The field name ("Signature1") is meaningless to a reader; prefer
+          // the certificate's common name as the signer's label.
+          if (!nameField && cert.cn) info.name = cert.cn;
+        }
       } catch {
         /* best-effort: keep the field name */
       }

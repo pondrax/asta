@@ -150,12 +150,15 @@
   let activeTool = $state<SignTool>("select");
   let selectedId = $state<string | null>(null);
   let overlayEl: HTMLDivElement | null = $state(null);
-  // Live ghost showing where a dragged visual would land, in PDF points.
+  // Live ghost showing where a dragged visual would land. `left`/`top` are the
+  // absolute overlay pixel position; `width`/`height` are in PDF points and are
+  // drawn at `scale` (the target page's own pixels-per-point).
   let dragPreview = $state<{
-    x: number;
-    y: number;
+    left: number;
+    top: number;
     width: number;
     height: number;
+    scale: number;
     src: string;
   } | null>(null);
 
@@ -503,10 +506,13 @@
 
   const setSignature = (sign: PlacementType) => {
     const idx = placements.findIndex((p) => p.id === sign.id);
+    const isSignature = (sign.kind ?? "signature") === "signature";
     if (idx > -1) {
       placements[idx] = sign;
-    } else if (bsre && hasSignature && (sign.kind ?? "signature") === "signature") {
-      // BSrE allows a single signature; other field types are kept.
+    } else if ((bsre || hasSignature) && isSignature) {
+      // One signature visualisation per signer: in BSrE mode always, and on an
+      // already-signed document regardless of mode. Other field types (text,
+      // date, checkbox) are kept.
       placements = [
         ...placements.filter((p) => (p.kind ?? "signature") !== "signature"),
         sign,
@@ -610,38 +616,79 @@
     pageNavOpen = true;
   }
 
-  function handleOverlayClick(
-    e: MouseEvent,
-    scale: number,
-    pageSizes: { width: number; height: number }[],
-    gapPts: number,
-  ) {
-    if (!armed || !overlayEl) return;
-    if (e.target !== overlayEl) return;
-
+  /**
+   * Resolve a pointer position inside the overlay to the page under it and a
+   * page-local coordinate in PDF points.
+   *
+   * The overlay spans the whole content box, whose geometry the preview
+   * publishes as `previewState.layout.boxes` (pixel `left`/`top`/`width`/
+   * `height` plus that page's own `scale`, i.e. pixels per point). Using the
+   * boxes — rather than a single column of stacked page heights — is what keeps
+   * this correct in the side-by-side layout, where a page's column offset and
+   * its own fit scale both differ from its neighbour's.
+   */
+  function resolveOverlayPoint(clientX: number, clientY: number) {
+    const boxes = previewState.layout.boxes;
+    if (!boxes.length || !overlayEl) return null;
     const rect = overlayEl.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / scale;
-    const yTop = (e.clientY - rect.top) / scale;
+    const px = clientX - rect.left;
+    const py = clientY - rect.top;
 
-    let acc = 0;
-    for (let i = 0; i < pageSizes.length; i++) {
-      const h = pageSizes[i].height;
-      if (yTop < acc + h) {
-        addPlacementAt(activeTool, i + 1, x, yTop - acc);
+    // Prefer the box the point actually falls in (nearest on ties); if the
+    // point sits in a gap or outside every page, snap to the closest box so a
+    // drop just off a page still lands on a sensible one.
+    let best = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < boxes.length; i++) {
+      const b = boxes[i];
+      const inside =
+        px >= b.left &&
+        px <= b.left + b.width &&
+        py >= b.top &&
+        py <= b.top + b.height;
+      if (inside) {
+        best = i;
+        bestDist = -1;
         break;
       }
-      acc += h + gapPts;
+      const cx = Math.max(b.left, Math.min(px, b.left + b.width));
+      const cy = Math.max(b.top, Math.min(py, b.top + b.height));
+      const d = (px - cx) ** 2 + (py - cy) ** 2;
+      if (d < bestDist) {
+        bestDist = d;
+        best = i;
+      }
     }
+
+    const box = boxes[best];
+    const s = box.scale || 1;
+    const localX = (px - box.left) / s;
+    const localY = (py - box.top) / s;
+    const size = previewState.sizes[best];
+    return {
+      page: best + 1,
+      x: size ? Math.max(0, Math.min(size.width, localX)) : Math.max(0, localX),
+      y: size
+        ? Math.max(0, Math.min(size.height, localY))
+        : Math.max(0, localY),
+      localX,
+      localY,
+      box,
+      scale: s,
+    };
+  }
+
+  function handleOverlayClick(e: MouseEvent) {
+    if (!armed || !overlayEl) return;
+    if (e.target !== overlayEl) return;
+    const hit = resolveOverlayPoint(e.clientX, e.clientY);
+    if (!hit) return;
+    addPlacementAt(activeTool, hit.page, hit.x, hit.y);
   }
 
   /** Drop a visual dragged from the metadata panel onto the document, centred
    *  on the cursor. */
-  function handleOverlayDrop(
-    e: DragEvent,
-    scale: number,
-    pageSizes: { width: number; height: number }[],
-    gapPts: number,
-  ) {
+  function handleOverlayDrop(e: DragEvent) {
     const raw = e.dataTransfer?.getData("application/x-asta-visual");
     if (!raw || !overlayEl) return;
     e.preventDefault();
@@ -657,22 +704,8 @@
       return;
     }
 
-    const rect = overlayEl.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / scale;
-    const yTop = (e.clientY - rect.top) / scale;
-
-    let page = 1;
-    let y = yTop;
-    let acc = 0;
-    for (let i = 0; i < pageSizes.length; i++) {
-      const h = pageSizes[i].height;
-      if (yTop < acc + h) {
-        page = i + 1;
-        y = yTop - acc;
-        break;
-      }
-      acc += h + gapPts;
-    }
+    const hit = resolveOverlayPoint(e.clientX, e.clientY);
+    if (!hit) return;
 
     const width = payload.visual === "qr" ? 100 : 200;
     const height = (width / payload.width) * payload.height;
@@ -681,10 +714,10 @@
       id: createId(6),
       kind: "signature",
       imageBase64: payload.imageBase64,
-      page,
+      page: hit.page,
       tampilan: "VISIBLE",
-      originX: Math.max(0, x - width / 2),
-      originY: Math.max(0, y - height / 2),
+      originX: Math.max(0, hit.x - width / 2),
+      originY: Math.max(0, hit.y - height / 2),
       width,
       height,
       location: "",
@@ -694,19 +727,24 @@
 
   /** Position the live ghost at the cursor while a visual is dragged over the
    *  document. */
-  function updateDragPreview(e: DragEvent, scale: number) {
+  function updateDragPreview(e: DragEvent) {
     const drag = getVisualDrag();
     if (!drag || !overlayEl) return;
-    const rect = overlayEl.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / scale;
-    const y = (e.clientY - rect.top) / scale;
+    const hit = resolveOverlayPoint(e.clientX, e.clientY);
+    if (!hit) return;
     const width = drag.visual === "qr" ? 100 : 200;
     const height = (width / drag.width) * drag.height;
+    // The ghost is drawn on the overlay in design units scaled by the page's
+    // own scale, positioned relative to that page's box origin.
+    const originX = Math.max(0, hit.x - width / 2);
+    const originY = Math.max(0, hit.y - height / 2);
     dragPreview = {
-      x: Math.max(0, x - width / 2),
-      y: Math.max(0, y - height / 2),
+      // Absolute ghost position on the overlay, in pixels.
+      left: hit.box.left + originX * hit.scale,
+      top: hit.box.top + originY * hit.scale,
       width,
       height,
+      scale: hit.scale,
       src: drag.src,
     };
   }
@@ -739,7 +777,13 @@
    * only the drawn signature in Manual mode, nothing otherwise.
    */
   const visualMode = $derived<"all" | "draw" | "none">(
-    !hasDocuments ? "none" : !bsre ? "draw" : status === "ISSUE" ? "all" : "none",
+    !hasDocuments
+      ? "none"
+      : !bsre
+        ? "draw"
+        : status === "ISSUE"
+          ? "all"
+          : "none",
   );
 
   // Mirror the page's menu actions into the shared workspace store so the
@@ -1677,6 +1721,9 @@
       {visualMode}
       {hasDocuments}
       {hasSignature}
+      capSignature={placements.some(
+        (p) => (p.kind ?? "signature") === "signature",
+      )}
       {signatureInfos}
       onVerify={verifyActive}
       pageNavOpen={pageNavOpen}
@@ -1975,67 +2022,90 @@
             controls={false}
             onclose={closeDocument}
           >
-            {#snippet children(scale, pageSizes, gutter)}
-              {@const gapPts = gutter / scale}
+            {#snippet children(_scale, _pageSizes, _gutter)}
               <!-- svelte-ignore a11y_click_events_have_key_events -->
               <!-- svelte-ignore a11y_no_static_element_interactions -->
               <div
                 bind:this={overlayEl}
                 class="absolute inset-0"
-                onclick={(e) =>
-                  handleOverlayClick(e, scale, pageSizes, gapPts)}
+                onclick={(e) => handleOverlayClick(e)}
                 ondragover={(e) => {
                   if (
                     !e.dataTransfer?.types.includes("application/x-asta-visual")
                   )
                     return;
                   e.preventDefault();
-                  updateDragPreview(e, scale);
+                  updateDragPreview(e);
                 }}
-                ondrop={(e) => handleOverlayDrop(e, scale, pageSizes, gapPts)}
+                ondrop={(e) => handleOverlayDrop(e)}
               >
                 {#if dragPreview}
                   <img
                     src={dragPreview.src}
                     alt=""
                     class="pointer-events-none absolute z-1 rounded-sm object-fill opacity-90 outline-2 outline-dashed outline-primary"
-                    style="left: {dragPreview.x * scale}px; top: {dragPreview
-                      .y * scale}px; width: {dragPreview.width *
-                      scale}px; height: {dragPreview.height * scale}px;"
+                    style="left: {dragPreview.left}px; top: {dragPreview
+                      .top}px; width: {dragPreview.width *
+                      dragPreview.scale}px; height: {dragPreview.height *
+                      dragPreview.scale}px;"
                   />
                 {/if}
                 {#each placements as pl (pl.id)}
-                  {@const sumPrevHeight = pageSizes
-                    .slice(0, pl.page - 1)
-                    .reduce((acc, cur) => acc + cur.height + gapPts, 0)}
-                  <Dragresize
-                    x={pl.originX}
-                    y={pl.originY + sumPrevHeight}
-                    width={pl.width}
-                    height={pl.height}
-                    {scale}
-                    selected={selectedId === pl.id}
-                    resizable={(pl.kind ?? "signature") !== "checkbox"}
-                    onselect={() => {
-                      selectedId = pl.id;
-                      snapshot();
-                    }}
-                    onchange={(e) => {
-                      let acc = 0;
-                      for (let i = 0; i < pageSizes.length; i++) {
-                        const h = pageSizes[i].height;
-                        if (e.y < acc + h) {
-                          pl.page = i + 1;
-                          pl.originY = e.y - acc;
-                          break;
+                  {@const box = previewState.layout.boxes[pl.page - 1]}
+                  {#if box}
+                    <Dragresize
+                      x={box.left / box.scale + pl.originX}
+                      y={box.top / box.scale + pl.originY}
+                      width={pl.width}
+                      height={pl.height}
+                      scale={box.scale}
+                      selected={selectedId === pl.id}
+                      resizable={(pl.kind ?? "signature") !== "checkbox"}
+                      onselect={() => {
+                        selectedId = pl.id;
+                        snapshot();
+                      }}
+                      onchange={(e) => {
+                        // Locate the page the box now sits in (nearest page on
+                        // gaps), then rebase its top-left into that page's own
+                        // point space.
+                        const boxes = previewState.layout.boxes;
+                        const cx = (e.x + e.width / 2) * box.scale;
+                        const cy = (e.y + e.height / 2) * box.scale;
+                        let best = pl.page - 1;
+                        let bestDist = Infinity;
+                        for (let i = 0; i < boxes.length; i++) {
+                          const b = boxes[i];
+                          if (
+                            cx >= b.left &&
+                            cx <= b.left + b.width &&
+                            cy >= b.top &&
+                            cy <= b.top + b.height
+                          ) {
+                            best = i;
+                            bestDist = -1;
+                            break;
+                          }
+                          const nx = Math.max(
+                            b.left,
+                            Math.min(cx, b.left + b.width),
+                          );
+                          const ny = Math.max(b.top, Math.min(cy, b.top + b.height));
+                          const d = (cx - nx) ** 2 + (cy - ny) ** 2;
+                          if (d < bestDist) {
+                            bestDist = d;
+                            best = i;
+                          }
                         }
-                        acc += h + gapPts;
-                      }
-                      pl.originX = e.x;
-                      pl.width = e.width;
-                      pl.height = e.height;
-                    }}
-                  >
+                        const nb = boxes[best];
+                        const ns = nb.scale || box.scale;
+                        pl.page = best + 1;
+                        pl.originX = e.x - nb.left / ns;
+                        pl.originY = e.y - nb.top / ns;
+                        pl.width = e.width;
+                        pl.height = e.height;
+                      }}
+                    >
                     <button
                       type="button"
                       class="absolute -top-4.5 left-1/2 -translate-x-1/2 w-4.5 h-4.5 inline-flex items-center justify-center border-0 rounded-full bg-error text-error-content text-[11px] leading-none z-2 cursor-pointer [&_iconify-icon]:text-[12px]"
@@ -2072,13 +2142,14 @@
                         id={`sign-${tp.id}`}
                         class="w-full h-full flex items-center px-0.5 border border-dashed border-transparent rounded-sm bg-primary/5 text-[#111827] font-[Helvetica,Arial,sans-serif] leading-[1.1] overflow-hidden cursor-text outline-none whitespace-nowrap hover:border-primary hover:bg-primary/10 focus:border-primary focus:bg-primary/10"
                         type="text"
-                        style="font-size:{(tp.size ?? 11) * scale}px"
+                        style="font-size:{(tp.size ?? 11) * box.scale}px"
                         bind:value={tp.text}
                         onfocus={() => snapshot()}
                         aria-label={tp.kind === "date" ? "Tanggal" : "Teks"}
                       />
                     {/if}
                   </Dragresize>
+                  {/if}
                 {/each}
               </div>
             {/snippet}

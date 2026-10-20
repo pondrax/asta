@@ -80,6 +80,18 @@
 
 ## 2026-10-20
 
+### Show subject name and full signer identity in status dropdown
+
+<!-- id: show-subject-name-and-full-signer-identity-in-stat-2026-10-20 -->
+
+Halaman: /sign-v2 - Sign V2
+Audiens: Tamu
+
+- **Baru** - show subject name and full signer identity in status dropdown
+- **Baru** - - pdf.ts: parse PKCS#7 leaf cert via ASN.1 (root-first chain), show subject DN, issuer, CN/O/C/email, filter/subFilter; fix /Name fallback to cert CN
+- **Baru** - - toolbar.svelte: display Subject/Penerbit DNs with details; show replace warning only when signature visual placed
+- **Baru** - - sign-v2/+page.svelte: capSignature based on existing signature placement
+
 ### Halaman aktif ikut kemajuan gulir per pasangan + pin navigasi
 
 <!-- id: halaman-aktif-ikut-kemajuan-gulir-per-pasangan-pin-2026-10-20 -->

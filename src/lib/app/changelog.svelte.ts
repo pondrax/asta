@@ -119,6 +119,29 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
     page: "Sign V2",
     entries: [
       {
+        id: "show-subject-name-and-full-signer-identity-in-stat-2026-10-20",
+        date: "2026-10-20",
+        title: "Show subject name and full signer identity in status dropdown",
+        changes: [
+          {
+            kind: "added",
+            text: "show subject name and full signer identity in status dropdown",
+          },
+          {
+            kind: "added",
+            text: "- pdf.ts: parse PKCS#7 leaf cert via ASN.1 (root-first chain), show subject DN, issuer, CN/O/C/email, filter/subFilter; fix /Name fallback to cert CN",
+          },
+          {
+            kind: "added",
+            text: "- toolbar.svelte: display Subject/Penerbit DNs with details; show replace warning only when signature visual placed",
+          },
+          {
+            kind: "added",
+            text: "- sign-v2/+page.svelte: capSignature based on existing signature placement",
+          },
+        ],
+      },
+      {
         id: "revert-perubahan-koordinat-untuk-tampilan-berdampi-2026-10-20",
         date: "2026-10-20",
         title: "Revert perubahan koordinat untuk tampilan berdampingan",
