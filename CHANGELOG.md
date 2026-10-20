@@ -80,6 +80,15 @@
 
 ## 2026-10-20
 
+### Perbaiki y ketika tarik di mode 1 kolom
+
+<!-- id: perbaiki-y-ketika-tarik-di-mode-1-kolom-2026-10-20 -->
+
+Halaman: /sign-v2 - Sign V2
+Audiens: Tamu
+
+- **Perbaikan** - perbaiki y ketika tarik di mode 1 kolom
+
 ### Koreksi posisi y saat drop pada tampilan 1 halaman
 
 <!-- id: koreksi-posisi-y-saat-drop-pada-tampilan-1-halaman-2026-10-20 -->

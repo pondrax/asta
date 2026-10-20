@@ -2071,7 +2071,7 @@
                         pl.originX = e.x - b.left / s2;
                         pl.originY = e.y - b.top / s2;
                       } else {
-                        pl.originX = e.x - 0;
+                        pl.originX = e.x;
                         pl.originY = e.y - acc;
                       }
                       pl.width = e.width;
