@@ -80,6 +80,15 @@
 
 ## 2026-10-20
 
+### Halaman aktif ikut kemajuan gulir per pasangan + pin navigasi
+
+<!-- id: halaman-aktif-ikut-kemajuan-gulir-per-pasangan-pin-2026-10-20 -->
+
+Halaman: \* - Tapak Astà
+Audiens: Tamu
+
+- **Perbaikan** - halaman aktif ikut kemajuan gulir per pasangan + pin navigasi
+
 ### Pilih halaman kanan lebih sering saat jarak setara
 
 <!-- id: pilih-halaman-kanan-lebih-sering-saat-jarak-setara-2026-10-20 -->

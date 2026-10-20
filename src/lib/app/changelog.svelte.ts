@@ -2046,6 +2046,17 @@ export const GLOBAL_CHANGELOG: PageChangelog =
     page: "Tapak Astà",
     entries: [
       {
+        id: "halaman-aktif-ikut-kemajuan-gulir-per-pasangan-pin-2026-10-20",
+        date: "2026-10-20",
+        title: "Halaman aktif ikut kemajuan gulir per pasangan + pin navigasi",
+        changes: [
+          {
+            kind: "fixed",
+            text: "halaman aktif ikut kemajuan gulir per pasangan + pin navigasi",
+          },
+        ],
+      },
+      {
         id: "pilih-halaman-kanan-lebih-sering-saat-jarak-setara-2026-10-20",
         date: "2026-10-20",
         title: "Pilih halaman kanan lebih sering saat jarak setara",

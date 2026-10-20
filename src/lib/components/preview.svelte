@@ -186,6 +186,29 @@
   let rafId: number | null = null;
   let resizeObserver: ResizeObserver | null = null;
 
+  // Explicit navigation (thumb click, page input, prev/next) pins the chosen
+  // page: every page of a pair shares one scroll destination, so the scroll
+  // rule alone would re-claim the page (and trap prev/next) the moment the
+  // view settles. The pin lives while the scroll animation runs and survives
+  // at rest on the same spread, then releases — the scroll rule takes over as
+  // soon as the view reaches another pair.
+  let stickyPage = 0;
+  let stickyRow = -1;
+  let scrollHolding = false;
+  let holdTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastScrollTop = 0;
+
+  function resetPageHold() {
+    stickyPage = 0;
+    stickyRow = -1;
+    scrollHolding = false;
+    lastScrollTop = 0;
+    if (holdTimer) {
+      clearTimeout(holdTimer);
+      holdTimer = null;
+    }
+  }
+
   // Initialize pdf.js
   onMount(async () => {
     if (!window.pdfjsLib) {
@@ -220,6 +243,7 @@
       zoom = 1;
       currentPage = 0;
       pageDraft = "";
+      resetPageHold();
       openFile(file);
     }
   });
@@ -334,6 +358,7 @@
 
   // --- Cleanup ---
   function cleanup() {
+    resetPageHold();
     if (containerEl) containerEl.scrollTop = 0;
     rendered.forEach((el) => el.remove());
     rendered.clear();
@@ -450,6 +475,8 @@
     }
     totalHeight = Math.max(0, top - GAP);
     pageBoxes = boxes;
+    // Rows regroup (1-up ↔ 2-up): the pinned page's row start follows.
+    if (stickyPage) stickyRow = firstPageOfRow(stickyPage - 1);
 
     syncDisplayBox();
 
@@ -542,6 +569,47 @@
     });
     currentPage = clamped;
     pageDraft = clamped;
+    // Pin the requested page through the smooth scroll and the pause after it.
+    stickyPage = clamped;
+    stickyRow = firstPageOfRow(index);
+    armHold();
+  }
+
+  /** (Re)start the idle timer that keeps `scrollHolding` alive while scrolling. */
+  function armHold() {
+    scrollHolding = true;
+    if (holdTimer) clearTimeout(holdTimer);
+    holdTimer = setTimeout(releaseHold, 240);
+  }
+
+  /**
+   * The scroll settled: the pinned page wins as long as the viewport centre
+   * is still on its spread — all pages of a pair share one scroll destination,
+   * so without this the rule would re-claim the page (an odd thumb's window
+   * starts before the row top) and clicks on 1, 3, 5 … would bounce to their
+   * even mate.
+   */
+  function releaseHold() {
+    scrollHolding = false;
+    holdTimer = null;
+    if (!containerEl || offsets.length === 0) {
+      stickyPage = 0;
+      return;
+    }
+    lastScrollTop = containerEl.scrollTop;
+    const idx = activeIndexByViewport();
+    if (stickyPage && firstPageOfRow(idx) === stickyRow) {
+      commitCurrentPage(stickyPage);
+      return;
+    }
+    stickyPage = 0;
+    commitCurrentPage(idx + 1);
+  }
+
+  function commitCurrentPage(next: number) {
+    if (currentPage !== next) currentPage = next;
+    if (!pageInputFocused) pageDraft = currentPage;
+    syncDisplayBox();
   }
 
   function commitPageDraft() {
@@ -658,12 +726,33 @@
   $effect(() => {
     if (!containerEl || pageCount === 0) return;
     const onScroll = () => {
-      const index = findIndexByOffset(containerEl!.scrollTop);
-      currentPage = index + 1;
-      if (!pageInputFocused) pageDraft = currentPage;
+      const y = containerEl?.scrollTop ?? 0;
+      const falling = y < lastScrollTop;
+      const rising = y > lastScrollTop;
+      lastScrollTop = y;
+      // A navigation scroll keeps its pinned page; every event pushes the
+      // idle timer out, so the rule resumes only once the view actually rests.
+      if (scrollHolding) {
+        armHold();
+        return;
+      }
+      const idx = activeIndexByViewport();
+      const rule = idx + 1;
+      if (stickyPage) {
+        const sameRow = firstPageOfRow(idx) === stickyRow;
+        // The pin walks forward once the rule scrolls past it, and hands the
+        // page straight back when scrolling up — otherwise the highlight would
+        // jump over the thumb in between instead of stepping through it.
+        if (
+          !sameRow ||
+          (rising && rule > stickyPage) ||
+          (falling && rule < stickyPage)
+        )
+          stickyPage = 0;
+      }
       // The snippet's `scale` follows the page in view, and in the two-up
       // layout that can differ from its neighbour's.
-      syncDisplayBox();
+      commitCurrentPage(stickyPage || rule);
     };
     containerEl.addEventListener("scroll", onScroll, { passive: true });
     onScroll();
@@ -727,6 +816,58 @@
 
   /** Pages per row for the layout currently on screen. */
   const perRow = () => (spread ? 2 : 1);
+
+  /**
+   * The page the chrome (page-nav thumb, page input, overlay) should treat as
+   * current. The two pages of a pair are side by side, so scrolling makes them
+   * exactly as visible as each other — no visibility metric can tell them
+   * apart. The stable split is scroll progress through the pair instead: the
+   * active pair is the one containing the viewport centre, and inside that
+   * pair the scroll position sits in the first half of the pair's window → its
+   * first page (1, 3, 5 …), in the second half → its second page (2, 4, 6 …).
+   * The window runs from when the centre enters the pair until it steps into
+   * the next one — clipped to the top of the document for the first pair, so
+   * page 1 owns the top of the scroll instead of an empty window. Window
+   * bounds only move with the scroll, so the highlight steps 1 → 2 → 3 → 4 …
+   * in document order and never flickers backwards.
+   */
+  function activeIndexByViewport() {
+    const n = perRow();
+    if (offsets.length === 0) return 0;
+    const el = containerEl;
+    const top = el?.scrollTop ?? 0;
+    const vh = el?.clientHeight ?? 0;
+    if (!el || vh === 0 || n === 1) return findIndexByOffset(top);
+
+    const center = top + vh / 2;
+    // Last row whose top lies at or above the viewport centre. In the gap
+    // between two rows this is the row just exited, so its second page stays
+    // active until the centre reaches the next pair.
+    let lo = 0;
+    let hi = offsets.length - 1;
+    let hit = 0;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (offsets[mid] <= center) {
+        hit = mid;
+        lo = mid + 1;
+      } else hi = mid - 1;
+    }
+    const rowStart = firstPageOfRow(hit);
+    const rowTop = offsets[rowStart];
+    const rowH = rowHeights[rowStart] ?? 0;
+    const hasNext = rowStart + n < offsets.length;
+    // This pair's scroll window in scrollTop units: the centre is inside the
+    // pair for top ∈ [winStart, winEnd). Split it down the middle; clipping
+    // winStart to 0 is what gives pair 1-2 an upper half at the document top
+    // (rowTop − vh/2 would be negative, starving page 1 completely).
+    const winStart = Math.max(0, rowTop - vh / 2);
+    const split = hasNext
+      ? (winStart + (offsets[rowStart + n] - vh / 2)) / 2
+      : winStart + rowH / 2;
+    const right = Math.min(offsets.length - 1, rowStart + 1);
+    return top < split ? rowStart : right;
+  }
 
   /** The last page index of the row containing `i` — the one in view with it. */
   function lastPageOfRow(i: number) {
