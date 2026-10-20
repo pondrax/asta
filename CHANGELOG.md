@@ -80,6 +80,15 @@
 
 ## 2026-10-20
 
+### Posisi visualisasi pada tampilan berdampingan
+
+<!-- id: posisi-visualisasi-pada-tampilan-berdampingan-2026-10-20 -->
+
+Halaman: /sign-v2 - Sign V2
+Audiens: Tamu
+
+- **Perbaikan** - posisi visualisasi pada tampilan berdampingan
+
 ### Koreksi koordinat drag pada tampilan berdampingan
 
 <!-- id: koreksi-koordinat-drag-pada-tampilan-berdampingan-2026-10-20 -->

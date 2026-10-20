@@ -2034,21 +2034,18 @@
                     src={dragPreview.src}
                     alt=""
                     class="pointer-events-none absolute z-1 rounded-sm object-fill opacity-90 outline-2 outline-dashed outline-primary"
-                    style="left: {dragPreview.x * scale}px; top: {dragPreview
-                      .y * scale}px; width: {dragPreview.width *
-                      scale}px; height: {dragPreview.height * scale}px;"
+                    style="left: {(dragPreview.x + (layout?.boxes?.[previewState.page - 1] ? layout.boxes[previewState.page - 1].left / (layout.boxes[previewState.page - 1].scale ?? scale) : 0)) * (layout?.boxes?.[previewState.page - 1]?.scale ?? scale)}px; top: {(dragPreview.y + (layout?.boxes?.[previewState.page - 1] ? layout.boxes[previewState.page - 1].top / (layout.boxes[previewState.page - 1].scale ?? scale) : 0)) * (layout?.boxes?.[previewState.page - 1]?.scale ?? scale)}px; width: {dragPreview.width * (layout?.boxes?.[previewState.page - 1]?.scale ?? scale)}px; height: {dragPreview.height * (layout?.boxes?.[previewState.page - 1]?.scale ?? scale)}px;"
                   />
                 {/if}
                 {#each placements as pl (pl.id)}
-                  {@const sumPrevHeight = pageSizes
-                    .slice(0, pl.page - 1)
-                    .reduce((acc, cur) => acc + cur.height + gapPts, 0)}
+                  {@const box = layout?.boxes?.[pl.page - 1]}
+                  {@const pScale = box?.scale ?? scale}
                   <Dragresize
-                    x={pl.originX}
-                    y={pl.originY + sumPrevHeight}
+                    x={(box ? box.left / pScale : 0) + pl.originX}
+                    y={(box ? box.top / pScale : 0) + pl.originY}
                     width={pl.width}
                     height={pl.height}
-                    {scale}
+                    scale={pScale}
                     selected={selectedId === pl.id}
                     resizable={(pl.kind ?? "signature") !== "checkbox"}
                     onselect={() => {
@@ -2066,7 +2063,15 @@
                         }
                         acc += h + gapPts;
                       }
-                      pl.originX = e.x;
+                      const b = layout?.boxes?.[pl.page - 1];
+                      const s2 = b?.scale ?? scale;
+                      if (b) {
+                        pl.originX = e.x - b.left / s2;
+                        pl.originY = e.y - b.top / s2;
+                      } else {
+                        pl.originX = e.x;
+                        pl.originY = e.y - acc;
+                      }
                       pl.width = e.width;
                       pl.height = e.height;
                     }}
