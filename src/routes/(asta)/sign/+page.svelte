@@ -2658,15 +2658,7 @@
                 <iconify-icon icon="bx:clipboard"></iconify-icon>
                 Survey
               </button>
-              <button
-                type="button"
-                class="btn btn-sm btn-error"
-                onclick={() => {
-                  forms.confirm = true;
-                }}
-              >
-                Tutup
-              </button>
+
             {/if}
           </div>
         {:else if item.completed.length == 0}
