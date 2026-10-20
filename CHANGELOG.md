@@ -80,6 +80,15 @@
 
 ## 2026-10-20
 
+### Samakan jarak antar halaman vertikal/horizontal pada tampilan berdampingan
+
+<!-- id: samakan-jarak-antar-halaman-vertikalhorizontal-pad-2026-10-20 -->
+
+Halaman: \* - Tapak Astà
+Audiens: Tamu
+
+- **Perbaikan** - samakan jarak antar halaman vertikal/horizontal pada tampilan berdampingan
+
 ### Perkecil jarak antar halaman pada tampilan berdampingan
 
 <!-- id: perkecil-jarak-antar-halaman-pada-tampilan-berdamp-2026-10-20 -->
