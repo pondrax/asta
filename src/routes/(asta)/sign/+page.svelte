@@ -2740,90 +2740,7 @@
             </div>
           </label>
 
-          {#if vaultSupported && useEmail && vaultHas}
-            <!-- Same id as the "Simpan Passkey" branch below: the two are
-                 mutually exclusive, so exactly one #tour-save-passkey is ever
-                 in the DOM. Without this the tour step lost its target — and
-                 with it, any highlight to show — once a passkey already
-                 existed. -->
-            <div class="flex items-center gap-2">
-              <button
-                type="button"
-                id="tour-save-passkey"
-                class="btn btn-sm btn-primary join-item flex-1"
-                disabled={vaultBusy || item.completed.length > 0}
-                onclick={async () => {
-                  await usePasskey(item.email);
-                }}
-              >
-                <iconify-icon icon="bx:key" class="text-xl"></iconify-icon>
-                TTD dengan Passkey
-              </button>
-              <button
-                type="button"
-                class="btn btn-sm btn-outline btn-secondary join-item flex-1"
-                disabled={vaultBusy || item.completed.length > 0}
-                onclick={async () => {
-                  if (!item.passphrase) return;
-                  await saveToVault(item.email, item.passphrase);
-                  if (!vaultError) {
-                    app.showToast(
-                      "success",
-                      "Passphrase tersimpan. Gunakan Passkey untuk tanda tangan berikutnya.",
-                    );
-                  }
-                }}
-              >
-                <iconify-icon icon="bx:save" class="text-xl"></iconify-icon>
-                Simpan
-              </button>
-            </div>
-            {#if vaultSavedAt}
-              <div class="text-xs text-base-content/50 -mt-1">
-                <span
-                  >Passphrase tersimpan diperangkat anda pada
-                  {d(vaultSavedAt).format("DD MMM YYYY, HH:mm")}</span
-                >
-              </div>
-            {/if}
-          {:else if vaultSupported && useEmail}
-            <div class="flex items-center gap-2">
-              <button
-                type="button"
-                id="tour-save-passkey"
-                class="btn btn-sm btn-primary join-item flex-1"
-                disabled={vaultBusy || item.completed.length > 0 || !item.passphrase}
-                onclick={async () => {
-                  if (!item.passphrase) return;
-                  await saveToVault(item.email, item.passphrase);
-                  if (!vaultError) {
-                    await usePasskey(item.email);
-                  }
-                }}
-              >
-                <iconify-icon icon="bx:key" class="text-xl"></iconify-icon>
-                TTD dengan Passkey
-              </button>
-              <button
-                type="button"
-                class="btn btn-sm btn-outline btn-secondary join-item flex-1"
-                disabled={vaultBusy || item.completed.length > 0 || !item.passphrase}
-                onclick={async () => {
-                  if (!item.passphrase) return;
-                  await saveToVault(item.email, item.passphrase);
-                  if (!vaultError) {
-                    app.showToast(
-                      "success",
-                      "Passphrase tersimpan. Gunakan Passkey untuk tanda tangan berikutnya.",
-                    );
-                  }
-                }}
-              >
-                <iconify-icon icon="bx:save" class="text-xl"></iconify-icon>
-                Simpan
-              </button>
-            </div>
-          {/if}
+
 
           {#if vaultSupported && useEmail && vaultHas && vaultSavedAt}
             <div
@@ -2959,11 +2876,35 @@
         </div>
 
         {#if vaultSupported && useEmail && bsre && vaultHas && vaultSavedAt}
-          <div class="text-xs text-base-content/50 -mt-1">
+          <div class="text-xs text-base-content/50 -mt-1 flex items-center gap-2 flex-wrap">
             <span
               >Passphrase tersimpan diperangkat anda pada
               {d(vaultSavedAt).format("DD MMM YYYY, HH:mm")}</span
             >
+            <button
+              type="button"
+              class="btn btn-xs btn-ghost btn-secondary px-1.5"
+              disabled={vaultBusy || !item.passphrase}
+              onclick={async () => {
+                if (!item.passphrase) return;
+                await saveToVault(item.email, item.passphrase);
+                if (!vaultError) app.showToast("success", "Passphrase diperbarui.");
+              }}
+            >
+              <iconify-icon icon="bx:refresh" class="text-sm"></iconify-icon>
+              Perbarui
+            </button>
+            <button
+              type="button"
+              class="btn btn-xs btn-ghost btn-error px-1.5"
+              disabled={vaultBusy}
+              onclick={async () => {
+                await removeFromVault(item.email);
+              }}
+            >
+              <iconify-icon icon="bx:trash" class="text-sm"></iconify-icon>
+              Hapus
+            </button>
           </div>
         {/if}
       {/if}
