@@ -2899,28 +2899,72 @@
         {/if}
         <div id="turnstile-container"></div>
 
-        <button
-          id="tour-sign-submit"
-          type="submit"
-          class="btn {bsre ? 'btn-secondary' : 'btn-primary'}"
-          disabled={loading || !turnstileSuccess || (bsre && !item.passphrase)}
-        >
-          <iconify-icon icon="bx:pen" class="text-2xl"></iconify-icon>
-          Tanda Tangan {bsre ? "Elektronik" : "Non-Elektronik (Manual)"}
-        </button>
-
-        {#if data.user}
+        <div class="join w-full">
           <button
+            id="tour-sign-submit"
             type="submit"
-            class="btn"
-            disabled={loading || !turnstileSuccess}
-            onclick={() => {
-              asDraft = true;
-            }}
+            class="btn join-item flex-1 {bsre ? 'btn-secondary' : 'btn-primary'}"
+            disabled={loading || !turnstileSuccess || (bsre && !item.passphrase)}
           >
-            <iconify-icon icon="bx:save" class="text-2xl"></iconify-icon>
-            Simpan Draft
+            <iconify-icon icon="bx:pen" class="text-2xl"></iconify-icon>
+            Tanda Tangan {bsre ? "Elektronik" : "Non-Elektronik (Manual)"}
           </button>
+          {#if vaultSupported && useEmail && bsre}
+            {#if vaultHas}
+              <button
+                type="button"
+                class="btn btn-outline join-item"
+                disabled={vaultBusy || item.completed.length > 0}
+                onclick={async () => {
+                  await usePasskey(item.email);
+                }}
+                title="TTD dengan Passkey"
+              >
+                <iconify-icon icon="bx:key" class="text-xl"></iconify-icon>
+              </button>
+            {:else}
+              <button
+                type="button"
+                class="btn btn-outline join-item"
+                disabled={vaultBusy || !item.passphrase}
+                onclick={async () => {
+                  if (!item.passphrase) return;
+                  await saveToVault(item.email, item.passphrase);
+                  if (!vaultError) {
+                    app.showToast(
+                      "success",
+                      "Passphrase tersimpan. Gunakan Passkey untuk tanda tangan berikutnya.",
+                    );
+                  }
+                }}
+                title="Simpan Passkey"
+              >
+                <iconify-icon icon="bx:save" class="text-xl"></iconify-icon>
+              </button>
+            {/if}
+          {/if}
+          {#if data.user}
+            <button
+              type="submit"
+              class="btn join-item"
+              disabled={loading || !turnstileSuccess}
+              onclick={() => {
+                asDraft = true;
+              }}
+              title="Simpan Draft"
+            >
+              <iconify-icon icon="bx:save" class="text-2xl"></iconify-icon>
+            </button>
+          {/if}
+        </div>
+
+        {#if vaultSupported && useEmail && bsre && vaultHas && vaultSavedAt}
+          <div class="text-xs text-base-content/50 -mt-1">
+            <span
+              >Passphrase tersimpan diperangkat anda pada
+              {d(vaultSavedAt).format("DD MMM YYYY, HH:mm")}</span
+            >
+          </div>
         {/if}
       {/if}
       {#if !saveDocument}
