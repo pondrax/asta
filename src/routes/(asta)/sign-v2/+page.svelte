@@ -2030,11 +2030,13 @@
                 ondrop={(e) => handleOverlayDrop(e, scale, pageSizes, gapPts, layout)}
               >
                 {#if dragPreview}
+                  {@const db = layout?.boxes?.[previewState.page - 1]}
+                  {@const ds = db?.scale ?? scale}
                   <img
                     src={dragPreview.src}
                     alt=""
                     class="pointer-events-none absolute z-1 rounded-sm object-fill opacity-90 outline-2 outline-dashed outline-primary"
-                    style="left: {(dragPreview.x + (layout?.boxes?.[previewState.page - 1] ? layout.boxes[previewState.page - 1].left / (layout.boxes[previewState.page - 1].scale ?? scale) : 0)) * (layout?.boxes?.[previewState.page - 1]?.scale ?? scale)}px; top: {(dragPreview.y + (layout?.boxes?.[previewState.page - 1] ? layout.boxes[previewState.page - 1].top / (layout.boxes[previewState.page - 1].scale ?? scale) : 0)) * (layout?.boxes?.[previewState.page - 1]?.scale ?? scale)}px; width: {dragPreview.width * (layout?.boxes?.[previewState.page - 1]?.scale ?? scale)}px; height: {dragPreview.height * (layout?.boxes?.[previewState.page - 1]?.scale ?? scale)}px;"
+                    style="left: {((db ? db.left / ds : 0) + dragPreview.x) * ds}px; top: {((db ? db.top / ds : 0) + dragPreview.y) * ds}px; width: {dragPreview.width * ds}px; height: {dragPreview.height * ds}px;"
                   />
                 {/if}
                 {#each placements as pl (pl.id)}
@@ -2070,7 +2072,7 @@
                         pl.originY = e.y - b.top / s2;
                       } else {
                         pl.originX = e.x;
-                        pl.originY = e.y - acc;
+                        pl.originY = e.y;
                       }
                       pl.width = e.width;
                       pl.height = e.height;

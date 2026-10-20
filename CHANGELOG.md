@@ -80,6 +80,15 @@
 
 ## 2026-10-20
 
+### Sesuaikan posisi visualisasi pada tampilan berdampingan
+
+<!-- id: sesuaikan-posisi-visualisasi-pada-tampilan-berdamp-2026-10-20 -->
+
+Halaman: /sign-v2 - Sign V2
+Audiens: Tamu
+
+- **Perbaikan** - sesuaikan posisi visualisasi pada tampilan berdampingan
+
 ### Posisi visualisasi pada tampilan berdampingan
 
 <!-- id: posisi-visualisasi-pada-tampilan-berdampingan-2026-10-20 -->

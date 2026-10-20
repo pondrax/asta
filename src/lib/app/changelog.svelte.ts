@@ -119,6 +119,17 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
     page: "Sign V2",
     entries: [
       {
+        id: "sesuaikan-posisi-visualisasi-pada-tampilan-berdamp-2026-10-20",
+        date: "2026-10-20",
+        title: "Sesuaikan posisi visualisasi pada tampilan berdampingan",
+        changes: [
+          {
+            kind: "fixed",
+            text: "sesuaikan posisi visualisasi pada tampilan berdampingan",
+          },
+        ],
+      },
+      {
         id: "posisi-visualisasi-pada-tampilan-berdampingan-2026-10-20",
         date: "2026-10-20",
         title: "Posisi visualisasi pada tampilan berdampingan",
