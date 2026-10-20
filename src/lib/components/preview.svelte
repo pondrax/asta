@@ -407,10 +407,13 @@
     const containerHeight = containerEl.clientHeight - PADDING * 2;
 
     const perRow = spread ? 2 : 1;
-    // Every page fits its own cell, not the whole scroller — halving the cell
-    // width is what makes the two-up view show both pages instead of two
-    // over-wide ones stacked.
-    cellWidth = (containerWidth - GAP * (perRow - 1)) / perRow;
+    // Give extra breathing room on very wide viewports so two-up doesn't
+    // stretch to absurd widths; pages still fit their cell by height/width.
+    const maxCellWidth = 680;
+    cellWidth = Math.min(
+      (containerWidth - GAP * (perRow - 1)) / perRow,
+      perRow === 2 ? maxCellWidth : Number.POSITIVE_INFINITY,
+    );
 
     // Fit each page once; the boxes and the rendered canvas must both use it,
     // otherwise the placeholder geometry and the pixels disagree.

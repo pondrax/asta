@@ -80,6 +80,15 @@
 
 ## 2026-10-20
 
+### Batasi lebar halaman pada tampilan berdampingan untuk layar lebar
+
+<!-- id: batasi-lebar-halaman-pada-tampilan-berdampingan-un-2026-10-20 -->
+
+Halaman: \* - Tapak Astà
+Audiens: Tamu
+
+- **Perbaikan** - batasi lebar halaman pada tampilan berdampingan untuk layar lebar
+
 ### Samakan jarak antar halaman vertikal/horizontal pada tampilan berdampingan
 
 <!-- id: samakan-jarak-antar-halaman-vertikalhorizontal-pad-2026-10-20 -->

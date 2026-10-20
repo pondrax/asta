@@ -1969,6 +1969,17 @@ export const GLOBAL_CHANGELOG: PageChangelog =
     page: "Tapak Astà",
     entries: [
       {
+        id: "batasi-lebar-halaman-pada-tampilan-berdampingan-un-2026-10-20",
+        date: "2026-10-20",
+        title: "Batasi lebar halaman pada tampilan berdampingan untuk layar lebar",
+        changes: [
+          {
+            kind: "fixed",
+            text: "batasi lebar halaman pada tampilan berdampingan untuk layar lebar",
+          },
+        ],
+      },
+      {
         id: "samakan-jarak-antar-halaman-vertikalhorizontal-pad-2026-10-20",
         date: "2026-10-20",
         title: "Samakan jarak antar halaman vertikal/horizontal pada tampilan berdampingan",
