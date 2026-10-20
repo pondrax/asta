@@ -485,7 +485,7 @@
       {/if}
       {#if statusMenuOpen}
         <ul
-          class="absolute top-full right-0 mt-1 min-w-[280px] p-1 bg-base-100 border border-base-300 rounded-lg shadow-xl z-40"
+          class="absolute top-full right-0 mt-1 min-w-[280px] max-h-[320px] overflow-y-auto p-1 bg-base-100 border border-base-300 rounded-lg shadow-xl z-40"
           role="menu"
         >
           {#if !hasDocuments}
@@ -510,6 +510,9 @@
                   <div class="font-medium">Dokumen valid</div>
                   <div class="text-[10px] opacity-70">
                     Dokumen belum diubah, tanda tangan terintegritas
+                  </div>
+                  <div class="mt-0.5 inline-flex items-center gap-1 text-[9px]">
+                    <span class="badge badge-xs badge-accent">LTV</span>
                   </div>
                 </div>
               </div>
