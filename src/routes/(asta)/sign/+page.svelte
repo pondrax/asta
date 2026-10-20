@@ -2778,16 +2778,16 @@
         <div id="turnstile-container"></div>
 
         <div id="tour-save-passkey" class="join w-full">
-          <div
-            class="tooltip flex-1 {loading || !turnstileSuccess || (bsre && !item.passphrase) ? 'tooltip-open' : ''}"
-            data-tip={loading
-              ? "Sedang memproses..."
-              : !turnstileSuccess
-                ? "Selesaikan verifikasi Captcha terlebih dahulu"
-                : bsre && !item.passphrase
-                  ? "Masukkan passphrase terlebih dahulu"
-                  : ""}
-          >
+            <div
+              class="tooltip flex-1 {loading || !turnstileSuccess || (bsre && !item.passphrase) ? 'tooltip-open' : ''}"
+              data-tip={loading
+                ? "Sedang memproses..."
+                : !turnstileSuccess
+                  ? "Selesaikan verifikasi Captcha terlebih dahulu"
+                  : bsre && !item.passphrase
+                    ? "Masukkan passphrase terlebih dahulu"
+                    : "Tanda Tangan Elektronik"}
+            >
             <button
               id="tour-sign-submit"
               type="submit"
