@@ -2800,18 +2800,18 @@
           </div>
           {#if vaultSupported && useEmail && bsre}
             {#if vaultHas}
-            <button
-              type="button"
-              class="btn btn-accent join-item"
-              disabled={vaultBusy || item.completed.length > 0}
-              onclick={async () => {
-                await usePasskey(item.email);
-              }}
-              title="TTD dengan Passkey"
-              data-tip={vaultBusy || item.completed.length > 0 ? "Tidak dapat menggunakan passkey saat ini" : "TTD dengan Passkey"}
-            >
-              <iconify-icon icon="bx:key" class="text-xl"></iconify-icon>
-            </button>
+              <button
+                type="button"
+                class="btn btn-accent join-item"
+                disabled={vaultBusy || item.completed.length > 0}
+                onclick={async () => {
+                  await usePasskey(item.email);
+                }}
+                title="TTD dengan Passkey"
+                data-tip={vaultBusy || item.completed.length > 0 ? "Tidak dapat menggunakan passkey saat ini" : "TTD dengan Passkey"}
+              >
+                <iconify-icon icon="bx:key" class="text-xl"></iconify-icon>
+              </button>
             {:else}
               <button
                 type="button"
@@ -2828,8 +2828,9 @@
                   }
                 }}
                 title="Simpan Passkey"
+                data-tip={vaultBusy || !item.passphrase ? "Masukkan passphrase terlebih dahulu" : "Simpan Passkey"}
               >
-                <iconify-icon icon="bx:save" class="text-xl"></iconify-icon>
+                <iconify-icon icon="bx:key" class="text-xl"></iconify-icon>
               </button>
             {/if}
           {/if}
