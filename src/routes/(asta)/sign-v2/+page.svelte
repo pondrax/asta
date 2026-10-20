@@ -615,6 +615,7 @@
     scale: number,
     pageSizes: { width: number; height: number }[],
     gapPts: number,
+    layout?: PreviewState["layout"],
   ) {
     if (!armed || !overlayEl) return;
     if (e.target !== overlayEl) return;
@@ -626,8 +627,13 @@
     let acc = 0;
     for (let i = 0; i < pageSizes.length; i++) {
       const h = pageSizes[i].height;
+      const rowTop = acc;
       if (yTop < acc + h) {
-        addPlacementAt(activeTool, i + 1, x, yTop - acc);
+        const box = layout?.boxes?.[i];
+        // In two-up, convert overlay (untransformed) coords to page-local coords
+        const px = box ? (x - box.left) / (box.scale ?? scale) : x;
+        const py = box ? (yTop - box.top) / (box.scale ?? scale) : yTop - rowTop;
+        addPlacementAt(activeTool, i + 1, px, py);
         break;
       }
       acc += h + gapPts;
@@ -641,6 +647,7 @@
     scale: number,
     pageSizes: { width: number; height: number }[],
     gapPts: number,
+    layout?: PreviewState["layout"],
   ) {
     const raw = e.dataTransfer?.getData("application/x-asta-visual");
     if (!raw || !overlayEl) return;
@@ -658,17 +665,25 @@
     }
 
     const rect = overlayEl.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / scale;
-    const yTop = (e.clientY - rect.top) / scale;
+    let cx = (e.clientX - rect.left) / scale;
+    let cy = (e.clientY - rect.top) / scale;
 
     let page = 1;
-    let y = yTop;
+    let px = cx;
+    let py = cy;
     let acc = 0;
     for (let i = 0; i < pageSizes.length; i++) {
       const h = pageSizes[i].height;
-      if (yTop < acc + h) {
+      const rowTop = acc;
+      if (cy < acc + h) {
+        const box = layout?.boxes?.[i];
         page = i + 1;
-        y = yTop - acc;
+        if (box) {
+          px = (cx - box.left) / (box.scale ?? scale);
+          py = (cy - box.top) / (box.scale ?? scale);
+        } else {
+          py = cy - rowTop;
+        }
         break;
       }
       acc += h + gapPts;
@@ -683,8 +698,8 @@
       imageBase64: payload.imageBase64,
       page,
       tampilan: "VISIBLE",
-      originX: Math.max(0, x - width / 2),
-      originY: Math.max(0, y - height / 2),
+      originX: Math.max(0, px - width / 2),
+      originY: Math.max(0, py - height / 2),
       width,
       height,
       location: "",
@@ -694,17 +709,36 @@
 
   /** Position the live ghost at the cursor while a visual is dragged over the
    *  document. */
-  function updateDragPreview(e: DragEvent, scale: number) {
+  function updateDragPreview(e: DragEvent, scale: number, layout?: PreviewState["layout"], pageSizesParam?: { width: number; height: number }[]) {
+    const sizes = (pageSizesParam ?? []) as { width: number; height: number }[];
     const drag = getVisualDrag();
     if (!drag || !overlayEl) return;
     const rect = overlayEl.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / scale;
-    const y = (e.clientY - rect.top) / scale;
+    let cx = (e.clientX - rect.left) / scale;
+    let cy = (e.clientY - rect.top) / scale;
     const width = drag.visual === "qr" ? 100 : 200;
     const height = (width / drag.width) * drag.height;
+    // Convert to page-local coordinates for ghost preview
+    let px = cx;
+    let py = cy;
+    let acc = 0;
+    for (let i = 0; i < sizes.length; i++) {
+      const h = sizes[i].height;
+      if (cy < acc + h) {
+        const box = layout?.boxes?.[i];
+        if (box) {
+          px = (cx - box.left) / (box.scale ?? scale);
+          py = (cy - box.top) / (box.scale ?? scale);
+        } else {
+          py = cy - acc;
+        }
+        break;
+      }
+      acc += h;
+    }
     dragPreview = {
-      x: Math.max(0, x - width / 2),
-      y: Math.max(0, y - height / 2),
+      x: Math.max(0, px - width / 2),
+      y: Math.max(0, py - height / 2),
       width,
       height,
       src: drag.src,
@@ -1977,22 +2011,23 @@
           >
             {#snippet children(scale, pageSizes, gutter)}
               {@const gapPts = gutter / scale}
+              {@const layout = previewState.layout}
               <!-- svelte-ignore a11y_click_events_have_key_events -->
               <!-- svelte-ignore a11y_no_static_element_interactions -->
               <div
                 bind:this={overlayEl}
                 class="absolute inset-0"
                 onclick={(e) =>
-                  handleOverlayClick(e, scale, pageSizes, gapPts)}
+                  handleOverlayClick(e, scale, pageSizes, gapPts, layout)}
                 ondragover={(e) => {
                   if (
                     !e.dataTransfer?.types.includes("application/x-asta-visual")
                   )
                     return;
                   e.preventDefault();
-                  updateDragPreview(e, scale);
+                  updateDragPreview(e, scale, layout, pageSizes);
                 }}
-                ondrop={(e) => handleOverlayDrop(e, scale, pageSizes, gapPts)}
+                ondrop={(e) => handleOverlayDrop(e, scale, pageSizes, gapPts, layout)}
               >
                 {#if dragPreview}
                   <img

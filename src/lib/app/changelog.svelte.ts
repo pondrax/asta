@@ -119,6 +119,17 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
     page: "Sign V2",
     entries: [
       {
+        id: "koreksi-koordinat-drag-pada-tampilan-berdampingan-2026-10-20",
+        date: "2026-10-20",
+        title: "Koreksi koordinat drag pada tampilan berdampingan",
+        changes: [
+          {
+            kind: "fixed",
+            text: "koreksi koordinat drag pada tampilan berdampingan",
+          },
+        ],
+      },
+      {
         id: "perbesar-dan-pusatkan-thumbnail-halaman-2026-10-20",
         date: "2026-10-20",
         title: "Perbesar dan pusatkan thumbnail halaman",

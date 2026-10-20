@@ -80,6 +80,15 @@
 
 ## 2026-10-20
 
+### Koreksi koordinat drag pada tampilan berdampingan
+
+<!-- id: koreksi-koordinat-drag-pada-tampilan-berdampingan-2026-10-20 -->
+
+Halaman: /sign-v2 - Sign V2
+Audiens: Tamu
+
+- **Perbaikan** - koreksi koordinat drag pada tampilan berdampingan
+
 ### Tentukan halaman aktif saat tampilan berdampingan
 
 <!-- id: tentukan-halaman-aktif-saat-tampilan-berdampingan-2026-10-20 -->
