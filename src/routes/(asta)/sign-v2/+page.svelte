@@ -615,7 +615,6 @@
     scale: number,
     pageSizes: { width: number; height: number }[],
     gapPts: number,
-    layout?: PreviewState["layout"],
   ) {
     if (!armed || !overlayEl) return;
     if (e.target !== overlayEl) return;
@@ -627,13 +626,8 @@
     let acc = 0;
     for (let i = 0; i < pageSizes.length; i++) {
       const h = pageSizes[i].height;
-      const rowTop = acc;
       if (yTop < acc + h) {
-        const box = layout?.boxes?.[i];
-        // In two-up, convert overlay (untransformed) coords to page-local coords
-        const px = box ? (x - box.left) / (box.scale ?? scale) : x;
-        const py = box ? (yTop - box.top) / (box.scale ?? scale) : yTop - rowTop;
-        addPlacementAt(activeTool, i + 1, px, py);
+        addPlacementAt(activeTool, i + 1, x, yTop - acc);
         break;
       }
       acc += h + gapPts;
@@ -647,7 +641,6 @@
     scale: number,
     pageSizes: { width: number; height: number }[],
     gapPts: number,
-    layout?: PreviewState["layout"],
   ) {
     const raw = e.dataTransfer?.getData("application/x-asta-visual");
     if (!raw || !overlayEl) return;
@@ -665,25 +658,17 @@
     }
 
     const rect = overlayEl.getBoundingClientRect();
-    let cx = (e.clientX - rect.left) / scale;
-    let cy = (e.clientY - rect.top) / scale;
+    const x = (e.clientX - rect.left) / scale;
+    const yTop = (e.clientY - rect.top) / scale;
 
     let page = 1;
-    let px = cx;
-    let py = cy;
+    let y = yTop;
     let acc = 0;
     for (let i = 0; i < pageSizes.length; i++) {
       const h = pageSizes[i].height;
-      const rowTop = acc;
-      if (cy < acc + h) {
-        const box = layout?.boxes?.[i];
+      if (yTop < acc + h) {
         page = i + 1;
-        if (box) {
-          px = (cx - box.left) / (box.scale ?? scale);
-          py = (cy - box.top) / (box.scale ?? scale);
-        } else {
-          py = cy - rowTop;
-        }
+        y = yTop - acc;
         break;
       }
       acc += h + gapPts;
@@ -698,8 +683,8 @@
       imageBase64: payload.imageBase64,
       page,
       tampilan: "VISIBLE",
-      originX: Math.max(0, px - width / 2),
-      originY: Math.max(0, py - height / 2),
+      originX: Math.max(0, x - width / 2),
+      originY: Math.max(0, y - height / 2),
       width,
       height,
       location: "",
@@ -709,36 +694,17 @@
 
   /** Position the live ghost at the cursor while a visual is dragged over the
    *  document. */
-  function updateDragPreview(e: DragEvent, scale: number, layout?: PreviewState["layout"], pageSizesParam?: { width: number; height: number }[]) {
-    const sizes = (pageSizesParam ?? []) as { width: number; height: number }[];
+  function updateDragPreview(e: DragEvent, scale: number) {
     const drag = getVisualDrag();
     if (!drag || !overlayEl) return;
     const rect = overlayEl.getBoundingClientRect();
-    let cx = (e.clientX - rect.left) / scale;
-    let cy = (e.clientY - rect.top) / scale;
+    const x = (e.clientX - rect.left) / scale;
+    const y = (e.clientY - rect.top) / scale;
     const width = drag.visual === "qr" ? 100 : 200;
     const height = (width / drag.width) * drag.height;
-    // Convert to page-local coordinates for ghost preview
-    let px = cx;
-    let py = cy;
-    let acc = 0;
-    for (let i = 0; i < sizes.length; i++) {
-      const h = sizes[i].height;
-      if (cy < acc + h) {
-        const box = layout?.boxes?.[i];
-        if (box) {
-          px = (cx - box.left) / (box.scale ?? scale);
-          py = (cy - box.top) / (box.scale ?? scale);
-        } else {
-          py = cy - acc;
-        }
-        break;
-      }
-      acc += h;
-    }
     dragPreview = {
-      x: Math.max(0, px - width / 2),
-      y: Math.max(0, py - height / 2),
+      x: Math.max(0, x - width / 2),
+      y: Math.max(0, y - height / 2),
       width,
       height,
       src: drag.src,
@@ -2011,43 +1977,43 @@
           >
             {#snippet children(scale, pageSizes, gutter)}
               {@const gapPts = gutter / scale}
-              {@const layout = previewState.layout}
               <!-- svelte-ignore a11y_click_events_have_key_events -->
               <!-- svelte-ignore a11y_no_static_element_interactions -->
               <div
                 bind:this={overlayEl}
                 class="absolute inset-0"
                 onclick={(e) =>
-                  handleOverlayClick(e, scale, pageSizes, gapPts, layout)}
+                  handleOverlayClick(e, scale, pageSizes, gapPts)}
                 ondragover={(e) => {
                   if (
                     !e.dataTransfer?.types.includes("application/x-asta-visual")
                   )
                     return;
                   e.preventDefault();
-                  updateDragPreview(e, scale, layout, pageSizes);
+                  updateDragPreview(e, scale);
                 }}
-                ondrop={(e) => handleOverlayDrop(e, scale, pageSizes, gapPts, layout)}
+                ondrop={(e) => handleOverlayDrop(e, scale, pageSizes, gapPts)}
               >
                 {#if dragPreview}
-                  {@const db = layout?.boxes?.[previewState.page - 1]}
-                  {@const ds = db?.scale ?? scale}
                   <img
                     src={dragPreview.src}
                     alt=""
                     class="pointer-events-none absolute z-1 rounded-sm object-fill opacity-90 outline-2 outline-dashed outline-primary"
-                    style="left: {((db ? db.left / ds : 0) + dragPreview.x) * ds}px; top: {((db ? db.top / ds : 0) + dragPreview.y) * ds}px; width: {dragPreview.width * ds}px; height: {dragPreview.height * ds}px;"
+                    style="left: {dragPreview.x * scale}px; top: {dragPreview
+                      .y * scale}px; width: {dragPreview.width *
+                      scale}px; height: {dragPreview.height * scale}px;"
                   />
                 {/if}
                 {#each placements as pl (pl.id)}
-                  {@const box = layout?.boxes?.[pl.page - 1]}
-                  {@const pScale = box?.scale ?? scale}
+                  {@const sumPrevHeight = pageSizes
+                    .slice(0, pl.page - 1)
+                    .reduce((acc, cur) => acc + cur.height + gapPts, 0)}
                   <Dragresize
-                    x={(box ? box.left / pScale : 0) + pl.originX}
-                    y={(box ? box.top / pScale : 0) + pl.originY}
+                    x={pl.originX}
+                    y={pl.originY + sumPrevHeight}
                     width={pl.width}
                     height={pl.height}
-                    scale={pScale}
+                    {scale}
                     selected={selectedId === pl.id}
                     resizable={(pl.kind ?? "signature") !== "checkbox"}
                     onselect={() => {
@@ -2065,15 +2031,7 @@
                         }
                         acc += h + gapPts;
                       }
-                      const b = layout?.boxes?.[pl.page - 1];
-                      const s2 = b?.scale ?? scale;
-                      if (b) {
-                        pl.originX = e.x - b.left / s2;
-                        pl.originY = e.y - b.top / s2;
-                      } else {
-                        pl.originX = e.x;
-                        pl.originY = e.y - acc;
-                      }
+                      pl.originX = e.x;
                       pl.width = e.width;
                       pl.height = e.height;
                     }}

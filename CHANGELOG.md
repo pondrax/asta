@@ -80,6 +80,15 @@
 
 ## 2026-10-20
 
+### Revert perubahan koordinat untuk tampilan berdampingan
+
+<!-- id: revert-perubahan-koordinat-untuk-tampilan-berdampi-2026-10-20 -->
+
+Halaman: /sign-v2 - Sign V2
+Audiens: Tamu
+
+- **Perbaikan** - revert perubahan koordinat untuk tampilan berdampingan
+
 ### Perbaiki y ketika tarik di mode 1 kolom
 
 <!-- id: perbaiki-y-ketika-tarik-di-mode-1-kolom-2026-10-20 -->
