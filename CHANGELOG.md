@@ -80,6 +80,15 @@
 
 ## 2026-10-20
 
+### Tampilkan jumlah dokumen pada tombol panel kiri
+
+<!-- id: tampilkan-jumlah-dokumen-pada-tombol-panel-kiri-2026-10-20 -->
+
+Halaman: /sign-v2 - Sign V2
+Audiens: Tamu
+
+- **Baru** - tampilkan jumlah dokumen pada tombol panel kiri
+
 ### Kurangi jarak antar halaman pada tampilan berdampingan
 
 <!-- id: kurangi-jarak-antar-halaman-pada-tampilan-berdampi-2026-10-20 -->

@@ -1728,6 +1728,9 @@
         onclick={() => (navOpen = !navOpen)}
       >
         <iconify-icon icon="bx:info-circle"></iconify-icon>
+        {#if Object.keys(documents).length > 0}
+          <span class="badge badge-xs badge-primary absolute -top-1 -right-1 leading-none">{Object.keys(documents).length}</span>
+        {/if}
       </button>
       <button
         type="button"
