@@ -982,13 +982,6 @@ Silakan tanyakan apa saja tentang layanan ini! 😊`,
      would leave no way to reopen after closing. Hidden during the tour too, so
      it can't sit under the tour card on small screens. -->
 {#if !dockedOnScreen && !app.showTour}
-  <div class="fixed -bottom-2 right-16 z-50">
-    <div class="tooltip tooltip-left" data-tip="Tanda Tangan">
-      <a href="/sign" aria-label="Tanda Tangan" class="btn btn-circle btn-primary shadow-lg">
-        <iconify-icon icon="bx:pen" class="text-xl"></iconify-icon>
-      </a>
-    </div>
-  </div>
   <div class="fixed -bottom-2 right-2 z-50">
     <div class="tooltip tooltip-left" data-tip="Ada Pertanyaan?">
       <button onclick={toggle} aria-label="Buka Asisten" class="">

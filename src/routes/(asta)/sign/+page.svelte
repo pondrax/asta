@@ -763,8 +763,9 @@
   // signature visualisation.
   const hasMetadata = $derived(
     String(form.email).length > 0 &&
+      status === "ISSUE" &&
       (bsre
-        ? status === "ISSUE"
+        ? true
         : placements.some((p) => (p.kind ?? "signature") === "signature")),
   );
   const allowSigning = $derived(hasDocuments && hasMetadata && !isEncrypted);
@@ -994,7 +995,11 @@
   async function getDocumentDetails(file: File) {
     const buffer = await file.arrayBuffer();
     isEncrypted = await pdfLib.isEncrypted(buffer);
-    if (isEncrypted) return;
+    if (isEncrypted) {
+      signatureInfos = [];
+      hasSignature = true;
+      return;
+    }
 
     fields = await pdfLib.getAllFormFields(buffer);
     hasSignature = await pdfLib.hasSignature(buffer);
@@ -2255,25 +2260,39 @@
   </div>
 
   <div class="fab right-24">
-    <button
-      type="button"
-      id="tour-sign-button"
-      class="btn btn-secondary tooltip rounded-full font-normal {allowSigning &&
-      forms.sign == undefined
-        ? 'animate-bounce'
-        : 'bg-base-300'}"
-      aria-label="Tanda Tangan Dokumen"
-      data-tip="Tanda Tangan"
-      disabled={!(allowSigning && forms.sign == undefined)}
-      onclick={openSign}
+    <div
+      class="tooltip tooltip-top"
+      data-tip={allowSigning && forms.sign == undefined
+        ? "Tanda Tangan"
+        : !hasDocuments
+          ? "Unggah dokumen terlebih dahulu"
+          : isEncrypted
+            ? "Dokumen terenkripsi tidak dapat ditandatangani"
+            : !hasMetadata
+              ? status !== "ISSUE"
+                ? "Verifikasi email penandatangan terlebih dahulu"
+                : "Lengkapi metadata penandatangan terlebih dahulu"
+              : "Tidak dapat menandatangani saat ini"}
     >
-      {#if loading}
-        <span class="loading loading-spinner"></span>
-      {:else}
-        <iconify-icon icon="bx:pen" class="text-lg"></iconify-icon>
-      {/if}
-      Tanda Tangan
-    </button>
+      <button
+        type="button"
+        id="tour-sign-button"
+        class="btn btn-secondary rounded-full font-normal {allowSigning &&
+        forms.sign == undefined
+          ? 'animate-bounce'
+          : 'bg-base-300'}"
+        aria-label="Tanda Tangan Dokumen"
+        disabled={!(allowSigning && forms.sign == undefined)}
+        onclick={openSign}
+      >
+        {#if loading}
+          <span class="loading loading-spinner"></span>
+        {:else}
+          <iconify-icon icon="bx:pen" class="text-lg"></iconify-icon>
+        {/if}
+        Tanda Tangan
+      </button>
+    </div>
   </div>
 </div>
 
