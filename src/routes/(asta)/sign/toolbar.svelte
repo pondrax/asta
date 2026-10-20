@@ -501,6 +501,19 @@
               </div>
             </li>
           {:else}
+            <li>
+              <div
+                class="flex items-center gap-2 px-2.5 py-1.5 text-[13px] text-success border-b border-base-300"
+              >
+                <iconify-icon icon="bx:check-circle"></iconify-icon>
+                <div>
+                  <div class="font-medium">Dokumen valid</div>
+                  <div class="text-[10px] opacity-70">
+                    Dokumen belum diubah, tanda tangan terintegritas
+                  </div>
+                </div>
+              </div>
+            </li>
             {#if capSignature}
               <li>
                 <div
