@@ -35,12 +35,9 @@
    * Only enabled when the caller opts in via `allowDocx`. Otherwise a DOCX is
    * just another unsupported file and is rejected with the rest.
    *
-   * Files convert **sequentially** and keep their input order. The server's
-   * `exportPdf` keeps a process-wide "active font bytes" accumulator, so
-   * converting in parallel makes two documents' embedded fonts count at once
-   * and can trip its 128 MiB cap — one at a time releases each session's fonts
-   * before the next opens. A file that fails drops out of the batch with a
-   * toast rather than failing the whole upload.
+   * Files convert in parallel and keep their input order. A file that fails
+   * drops out of the batch with a toast rather than failing the whole upload —
+   * one corrupt file should not block the rest of a multi-file drop.
    */
   async function ingest(list: FileList | File[]) {
     const picked = [...list];
@@ -59,23 +56,25 @@
     if (keep.length === 0 && toConvert.length === 0) return;
 
     if (toConvert.length > 0) converting = true;
-    const converted: File[] = [];
-    for (const file of toConvert) {
-      try {
-        converted.push(await convertDocxToPdf(file));
-      } catch (err) {
-        console.error("[docx] conversion failed", err);
-        app.showToast(
-          "error",
-          `${file.name} gagal dikonversi: ${
-            err instanceof Error ? err.message : "kesalahan tidak diketahui"
-          }`,
-        );
-      }
-    }
+    const converted = await Promise.all(
+      toConvert.map(async (file) => {
+        try {
+          return await convertDocxToPdf(file);
+        } catch (err) {
+          console.error("[docx] conversion failed", err);
+          app.showToast(
+            "error",
+            `${file.name} gagal dikonversi: ${
+              err instanceof Error ? err.message : "kesalahan tidak diketahui"
+            }`,
+          );
+          return null;
+        }
+      }),
+    );
     converting = false;
 
-    const next = [...keep, ...converted];
+    const next = [...keep, ...converted.filter((f): f is File => !!f)];
     if (next.length === 0) return;
     // Replace rather than append: a new drop supersedes the previous pick.
     // Callers differ in how they consume this — the sign page drains the list,

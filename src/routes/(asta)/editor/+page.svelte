@@ -30,7 +30,7 @@
     return () => document.body.classList.remove("dark");
   });
 
-  /** Editor menus, rendered inline in the global navbar (like /sign-v2). */
+  /** Editor menus, rendered inline in the global navbar (like /sign). */
   function buildMenus(): WorkspaceMenu[] {
     const run = (item: { slot?: string; action?: string }) =>
       handle?.runMenu(item);

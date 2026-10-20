@@ -50,7 +50,7 @@ export const signers = pgTable('signers', {
 
 /**
  * Reusable signing profiles. One email may own many profiles (specimens),
- * so the rows for an email are the specimen list shown in /sign-v2.
+ * so the rows for an email are the specimen list shown in /sign.
  */
 export const signerProfiles = pgTable('signer_profiles', {
   id,

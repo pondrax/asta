@@ -1,0 +1,538 @@
+<script lang="ts">
+  import { onMount } from "svelte";
+  import { debounce } from "$lib/utils";
+  import { checkUser } from "$lib/remotes/sign.remote";
+  import Signature from "./signature.svelte";
+  import { type } from "arktype";
+  import { getData } from "$lib/remotes/api.remote";
+  import { Select } from "$lib/components";
+
+  let {
+    data,
+    children,
+    loading = $bindable(false),
+    status = $bindable("NOT_REGISTERED"),
+    bsre = $bindable(true),
+    // footer = $bindable(true),
+    form = $bindable({}),
+    fields = $bindable({}),
+    hasSignature,
+    signatures = $bindable([]),
+    setSignature,
+    signButton,
+    useEmail = $bindable(true),
+  } = $props();
+
+  let visual = $state<"image" | "qr" | "box" | "draw">("box");
+
+  const predefinedForms = [
+    "email",
+    "nik",
+    "nama",
+    "jabatan",
+    "instansi",
+    "pangkat",
+    "note",
+    "location",
+    "tanggal",
+    "nomor_telepon",
+  ];
+  // Lock identity fields until the BSrE account is verified (ISSUE).
+  // Manual signing always allows editing.
+  const locked = $derived(bsre && status !== "ISSUE");
+  let signaturePanel = $state(true);
+  let emailFocused = $state(false);
+  const checkEmail = async (el: Event) => {
+    if (!form.email && !form.nik) return;
+    const cancel = useEmail
+      ? form.email.startsWith("@") || form.email.length === 0
+      : form.nik.length == 0;
+    if (cancel) return;
+    // console.log(form, cancel);
+    loading = true;
+
+    try {
+      const result = await checkUser(
+        useEmail ? { email: form.email } : { nik: form.nik },
+      );
+      status = result.status;
+      form = {
+        ...form,
+        nama: result.user?.name,
+        pangkat: result.user?.rank,
+        instansi: result.user?.organizations,
+        jabatan: result.user?.position,
+        nomor_telepon: result.user?.phone || "",
+      };
+      // console.log(result);
+      localStorage.setItem("email", form.email);
+    } catch {
+      status = "[Server Esign Error] Check User Failed";
+    }
+    loading = false;
+  };
+  const debounceCheckEmail = debounce(checkEmail, 500);
+
+  async function getUserCity() {
+    if (!navigator.geolocation) {
+      console.error("Geolocation not supported by this browser.");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
+        );
+        const data = await res.json();
+
+        form.location = data.address.city
+          ? `Kota ${data.address.city}`
+          : data.address.county
+            ? `Kabupaten ${data.address.county}`
+            : "Kota Mojokerto";
+      },
+      (err) => {
+        form.location = "Kota Mojokerto";
+      },
+    );
+  }
+
+  onMount(() => {
+    // getUserCity();
+    //@ts-ignore - debounceCheckEmail is called on mount before its definition in the parent
+    debounceCheckEmail();
+  });
+  $effect(() => {
+    hasSignature;
+    getUserCity();
+  });
+
+  // $inspect(form, form.instansi);
+</script>
+
+<form
+  onsubmit={async (e) => {
+    e.preventDefault();
+    signButton?.click();
+    console.log(e);
+  }}
+  class="h-full relative flex flex-col"
+>
+  <ul
+    id="tour-metadata"
+    class="menu grow overflow-auto flex-nowrap rounded-xl w-full relative"
+  >
+    <li class="menu-title bg-base-100 sticky -top-2 z-5">
+      <div class="flex gap-5 justify-between items-center">
+        <div>Meta Data</div>
+        <div class="join">
+          <input
+            class="join-item btn btn-sm btn-outline"
+            type="radio"
+            name="options"
+            bind:group={bsre}
+            value={true}
+            aria-label="Tanda Tangan Elektronik"
+          />
+          <input
+            class="join-item btn btn-sm btn-outline"
+            type="radio"
+            name="options"
+            bind:group={bsre}
+            value={false}
+            onclick={() => {
+              form.footer = true;
+            }}
+            aria-label="Manual"
+          />
+        </div>
+      </div>
+    </li>
+    {#if bsre}
+      <li
+        class="p-2 tooltip bg-base-100 sticky top-10 z-25"
+        class:tooltip-open={status === "NOT_REGISTERED"}
+      >
+        {#if form.email?.split("@").at(0) !== ""}
+          <div class="tooltip-content pointer-events-auto!">
+            {#if status === "ISSUE"}
+              <div class="">
+                Status Akun : {status}
+              </div>
+            {:else if status === "NOT_REGISTERED"}
+              <div class="">
+                {status}
+              </div>
+              <div>
+                <a
+                  href={`/services/register?identity=${form.email}`}
+                  class="btn btn-xs btn-error"
+                  target="_blank"
+                >
+                  Daftar Sekarang
+                </a>
+              </div>
+            {:else}
+              <div class="">
+                {status}
+              </div>
+            {/if}
+          </div>
+        {/if}
+
+        <label class="floating-label p-0 bg-transparent">
+          <span class="text-nowrap">Email Dinas Penandatangan ({status})</span>
+          <div class="input input-sm">
+            <input
+              bind:value={
+                () => form.email?.split("@")?.at(0),
+                (value) =>
+                  (form.email =
+                    String(value)
+                      .toLowerCase()
+                      .replace(/@mojokertokota\.go\.id/gi, "") +
+                    "@mojokertokota.go.id")
+              }
+              required
+              type="text"
+              placeholder="Email Dinas"
+              oninput={debounceCheckEmail}
+              onfocus={() => (emailFocused = true)}
+              onblur={() => (emailFocused = false)}
+              onpaste={(e) => {
+                const text = e.clipboardData?.getData("text") || "";
+                if (/@mojokertokota\.go\.id/i.test(text)) {
+                  e.preventDefault();
+                  const cleaned = text.replace(/@mojokertokota\.go\.id/gi, "");
+                  const input = e.currentTarget as HTMLInputElement;
+                  const start = input.selectionStart ?? input.value.length;
+                  const end = input.selectionEnd ?? input.value.length;
+                  input.value =
+                    input.value.slice(0, start) +
+                    cleaned +
+                    input.value.slice(end);
+                  input.dispatchEvent(new Event("input", { bubbles: true }));
+                }
+              }}
+            />
+            <span class="label"
+              >{emailFocused ? "***go.id" : "@mojokertokota.go.id"}</span
+            >
+            {#if loading}
+              <span class="loading"></span>
+            {:else if status == "ISSUE"}
+              <iconify-icon icon="bx:check" class="text-success"></iconify-icon>
+            {:else}
+              <iconify-icon icon="bx:x" class="text-error"></iconify-icon>
+            {/if}
+          </div>
+          <div class="text-[10px] text-gray-400">
+            Contoh: mail@mojokertokota.go.id
+          </div>
+        </label>
+      </li>
+    {:else}
+      <li class="p-2 bg-base-100 sticky top-10 z-25">
+        <label class="floating-label p-0 bg-transparent">
+          <span>Email Penandatangan</span>
+          <div class="input input-sm">
+            <input
+              bind:value={form.email}
+              required
+              type="text"
+              placeholder="Email Penandatangan"
+            />
+            {#if !(type("string.email")(form.email) instanceof type.errors)}
+              <iconify-icon icon="bx:check" class="text-success"></iconify-icon>
+            {:else}
+              <iconify-icon icon="bx:x" class="text-error"></iconify-icon>
+            {/if}
+          </div>
+          <div class="text-[10px] text-gray-400">Contoh: mail@example.com</div>
+        </label>
+      </li>
+    {/if}
+    <li class="p-2">
+      <label class="floating-label p-0 bg-transparent">
+        <span>Nama Lengkap Beserta Gelar</span>
+
+        <div class="input input-sm">
+          <input
+            bind:value={form.nama}
+            required
+            type="text"
+            placeholder="Nama Lengkap Beserta Gelar"
+            disabled={locked}
+          />
+          {#if form.nama}
+            <iconify-icon icon="bx:check" class="text-success"></iconify-icon>
+          {:else}
+            <iconify-icon icon="bx:x" class="text-error"></iconify-icon>
+          {/if}
+        </div>
+        <div class="text-[10px] text-gray-400">
+          Contoh: Budi Pekerti Akhlak, S.H
+        </div>
+      </label>
+    </li>
+    {#if data.whatsappNotifyDocument}
+      <li class="p-2">
+        <label class="floating-label p-0 bg-transparent">
+          <span>Nomor Telepon (Whatsapp)</span>
+          <div class="flex gap-2 items-center w-full mt-1">
+            <div class="input input-sm grow flex items-center">
+              <span class="text-gray-500 mr-1">+62</span>
+              <input
+                bind:value={
+                  () => String(form.nomor_telepon ?? "").replace(/^62/, ""),
+                  (value) =>
+                    (form.nomor_telepon =
+                      "62" +
+                      String(value)
+                        .replace(/[^0-9]/g, "")
+                        .replace(/^0+/, "")
+                        .replace(/^62/, ""))
+                }
+                required
+                type="text"
+                placeholder="Nomor Telepon WA"
+                class="w-full bg-transparent outline-none"
+                disabled={locked}
+              />
+            </div>
+            <label
+              class="btn btn-sm tooltip tooltip-left flex gap-2 items-center"
+              data-tip="Kirim File PDF ke Whatsapp"
+            >
+              <input
+                type="checkbox"
+                class="checkbox checkbox-xs"
+                bind:checked={form.send_file}
+              />
+              Kirim File
+            </label>
+          </div>
+        </label>
+      </li>
+    {/if}
+    <li class="p-2">
+      <label class="floating-label p-0 bg-transparent">
+        <span>Jabatan Pegawai</span>
+        <input
+          bind:value={form.jabatan}
+          type="text"
+          placeholder="Jabatan Pegawai"
+          class="input input-sm"
+          disabled={locked}
+        />
+        <div class="text-[10px] text-gray-400">Contoh: Kepala Dinas / Guru</div>
+      </label>
+    </li>
+    <li class="p-2">
+      <div class="p-0 bg-transparent flex flex-col gap-0">
+        <Select
+          bind:value={form.instansi}
+          label="Perangkat Daerah"
+          table="organizations"
+          labelKey="name"
+          valueKey="short_name"
+          inputClass="input-sm"
+          limit={100}
+          orderBy={{ id: "asc" }}
+          disabled={locked}
+        />
+      </div>
+    </li>
+
+    <li class="p-2" class:hidden={form.instansi == "Eksternal"}>
+      <div class="p-0 bg-transparent flex">
+        <Select
+          bind:value={form.pangkat}
+          inputClass="input-sm"
+          label="Pangkat / Golongan"
+          table="ranks"
+          labelKey={(prop) =>
+            `${prop.grade} ${prop.rank != "-" ? "(" + prop.rank + ")" : ""}`}
+          valueKey={(prop) =>
+            `${prop.grade} ${prop.rank != "-" ? "(" + prop.rank + ")" : ""}`}
+          limit={100}
+          orderBy={{ id: "asc" }}
+          disabled={locked}
+        >
+          <!-- {#snippet children(prop)}
+            <div class="flex justify-between w-full">
+              <span>{prop.grade}</span>
+              <span class="opacity-50 text-xs">{prop.rank}</span>
+            </div>
+          {/snippet}
+
+          {#snippet selected(prop)}
+            <div class="font-bold text-primary italic">
+              {prop.grade} <span class="text-xs opacity-50">[{prop.rank}]</span>
+            </div>
+          {/snippet} -->
+        </Select>
+      </div>
+    </li>
+    <li class="p-2">
+      <label class="floating-label p-0 bg-transparent">
+        <span>Keterangan</span>
+        <input
+          bind:value={form.note}
+          type="text"
+          placeholder="Keterangan"
+          class="input input-sm"
+          disabled={locked}
+        />
+      </label>
+    </li>
+    <li class="p-2">
+      <label class="floating-label p-0 bg-transparent">
+        <span>Lokasi Penandatangan</span>
+        <input
+          bind:value={form.location}
+          type="text"
+          placeholder="Lokasi Penandatangan"
+          class="input input-sm"
+          disabled={locked}
+        />
+      </label>
+      <!-- {JSON.stringify(Object.keys(fields))}
+      {JSON.stringify(Object.keys(form))} -->
+    </li>
+    <li class="p-2">
+      <label class="floating-label p-0 bg-transparent">
+        <span>Tanggal Penandatangan</span>
+        <input
+          bind:value={form.tanggal}
+          type="text"
+          placeholder="Tanggal Penandatangan"
+          class="input input-sm"
+          disabled={locked}
+        />
+      </label>
+    </li>
+    <li class="p-2">
+      <label
+        class="btn btn-xs btn-ghost tooltip flex gap-2 items-center justify-start"
+        data-tip="Simpan dokumen yang sudah ditandatangani ke server"
+      >
+        <input
+          type="checkbox"
+          class="checkbox checkbox-xs checkbox-success"
+          bind:checked={form.save_document}
+        />
+        Simpan Dokumen
+      </label>
+    </li>
+
+    {#each Object.keys(fields) as key}
+      {#if !predefinedForms.includes(key)}
+        {@const readableKey = key.replace(/[_\W]/g, " ")}
+        <li class="p-2">
+          <label class="floating-label p-0 bg-transparent">
+            <span class="capitalize">{readableKey}</span>
+            <!-- {JSON.stringify(fields[key])} -->
+            {#if fields[key].multiline}
+              <textarea
+                bind:value={form[key]}
+                placeholder={readableKey}
+                class="textarea textarea-sm w-full"
+                disabled={locked}
+              ></textarea>
+            {:else}
+              <input
+                bind:value={form[key]}
+                type="text"
+                placeholder={readableKey}
+                class="input input-sm"
+                disabled={locked}
+              />
+            {/if}
+          </label>
+        </li>
+      {/if}
+    {/each}
+  </ul>
+
+  <div id="tour-signature" class="bg-base-200 rounded-lg shadow-sm">
+    <div class="flex items-center justify-between px-1 py-1">
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+      <label
+        class="btn btn-xs btn-ghost tooltip"
+        data-tip="Visualisasi (Opsional)"
+        onclick={() => (signaturePanel = true)}
+      >
+        <input
+          type="checkbox"
+          class="checkbox checkbox-xs"
+          class:checkbox-success={signatures.length > 0}
+          checked={signatures.length > 0}
+          readonly
+        />
+        Visualisasi Tanda Tangan
+      </label>
+      {#if bsre}
+        <label
+          class="btn btn-xs tooltip btn-ghost"
+          data-tip="Hanya untuk dokumen draft / belum di ttd"
+        >
+          <input
+            type="checkbox"
+            class="checkbox checkbox-xs"
+            class:checkbox-success={form.footer}
+            bind:checked={
+              () => (hasSignature ? false : form.footer),
+              (val) => (form.footer = val)
+            }
+            disabled={hasSignature}
+          />
+          Footer BSrE
+        </label>
+      {:else}
+        <label
+          class="btn btn-xs btn-ghost tooltip"
+          data-tip="Dokumen manual wajib menggunakan footer"
+        >
+          <input
+            type="checkbox"
+            class="checkbox checkbox-xs checkbox-success"
+            checked={true}
+            disabled
+          />
+          Footer
+        </label>
+      {/if}
+      <button
+        type="button"
+        aria-label="Toggle Signature Panel"
+        class="btn btn-xs btn-square btn-ghost ml-auto"
+        onclick={() => (signaturePanel = !signaturePanel)}
+      >
+        <iconify-icon
+          icon={signaturePanel ? "bx:chevron-down" : "bx:chevron-up"}
+          class="text-lg"
+        ></iconify-icon>
+      </button>
+    </div>
+
+    {#if signaturePanel}
+      <div class="px-2 pb-2">
+        <Signature
+          {form}
+          {setSignature}
+          {hasSignature}
+          bind:visual
+          disabled={locked}
+          availableVisual={bsre ? ["image", "qr", "box", "draw"] : ["draw"]}
+        />
+
+        {@render children?.()}
+      </div>
+    {/if}
+  </div>
+</form>

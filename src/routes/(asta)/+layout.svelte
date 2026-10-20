@@ -55,8 +55,8 @@
   // The signing workspace and the DOCX editor keep their own menubar, so the
   // site navigation is collapsed into a single grouped dropdown in the navbar.
   const isWorkspace = $derived(
-    page.url.pathname === "/sign-v2" ||
-      page.url.pathname.startsWith("/sign-v2/") ||
+    page.url.pathname === "/sign" ||
+      page.url.pathname.startsWith("/sign/") ||
       page.url.pathname === "/editor" ||
       page.url.pathname.startsWith("/editor/"),
   );
@@ -433,7 +433,7 @@
       </div>
 
       <div class="navbar-end gap-1">
-        {#if ["/sign", "/sign-v2", "/verify", "/me", "/main", "/editor"].includes(page.url.pathname)}
+        {#if ["/sign", "/sign", "/verify", "/me", "/main", "/editor"].includes(page.url.pathname)}
           <button
             class="btn btn-ghost btn-sm rounded-full gap-1 relative animate-pulse"
             onclick={() => (app.showTour = true)}

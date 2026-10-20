@@ -115,7 +115,7 @@ export function audienceForRole(
  */
 export const PAGE_CHANGELOGS: PageChangelog[] = [
   {
-    route: "/sign-v2",
+    route: "/sign",
     page: "Sign V2",
     entries: [
       {
@@ -538,7 +538,7 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
         changes: [
           {
             kind: "added",
-            text: "tambah rute /sign-v2 baru yang meniru tampilan editor: bilah menu File/Edit/Template/Metadata (hover + klik), kontrol zoom dan halaman, rel thumbnail halaman, panel dokumen/metadata, serta dropdown cakupan Footer (halaman ini vs semua halaman)",
+            text: "tambah rute /sign baru yang meniru tampilan editor: bilah menu File/Edit/Template/Metadata (hover + klik), kontrol zoom dan halaman, rel thumbnail halaman, panel dokumen/metadata, serta dropdown cakupan Footer (halaman ini vs semua halaman)",
           },
           {
             kind: "added",

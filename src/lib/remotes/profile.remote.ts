@@ -10,7 +10,7 @@ import { eq } from "drizzle-orm";
  *
  * A single email may own many profiles — e.g. one person signing for several
  * positions — so the rows returned for an email are exactly the specimen list
- * offered in /sign-v2. Profiles are keyed by email only.
+ * offered in /sign. Profiles are keyed by email only.
  *
  * The BSrE account (`bsre_users`) is a separate source used as the default:
  * when an email has no saved profile yet, {@link getBsreProfile} supplies the

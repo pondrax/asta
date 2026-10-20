@@ -359,7 +359,7 @@ export async function drawImages(
 // ---------------------------------------------------------
 // Draw mixed placements (signature image, text, date, checkbox)
 //
-// A generalisation of `drawImages` used by `/sign-v2`. All placements share the
+// A generalisation of `drawImages` used by `/sign`. All placements share the
 // same geometry contract: PDF points, top-left origin, page-relative, 1-indexed
 // page. Text/checkbox are baked client-side so the same document can be signed
 // manually or handed to BSrE (which only draws the signature itself).

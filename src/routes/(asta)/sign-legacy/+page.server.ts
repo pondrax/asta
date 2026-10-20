@@ -19,7 +19,7 @@ export const actions = {
       tempStore.delete(token);
     }, 1 * 60 * 1000);
 
-    throw redirect(303, `/sign-v2?token=${token}`);
+    throw redirect(303, `/sign?token=${token}`);
   }
 };
 
