@@ -69,30 +69,24 @@
   class:tooltip-open={verify && status === "NOT_REGISTERED"}
 >
   {#if verify && form.email?.split("@").at(0) !== ""}
+    <div class="tooltip-content pointer-events-auto!">
       {#if status === "ISSUE"}
         <div class="">Status Akun : {status}</div>
-      {:else}
+      {:else if status === "NOT_REGISTERED"}
         <div class="">{status}</div>
         <div>
-          {#if status === "NOT_REGISTERED"}
-            <a
-              href={`/services/register?identity=${form.email}`}
-              class="btn btn-xs btn-error"
-              target="_blank"
-            >
-              Daftar Sekarang
-            </a>
-          {/if}
-          <button
-            type="button"
-            class="btn btn-xs btn-ghost"
-            onclick={checkEmail}
-            disabled={loading}
+          <a
+            href={`/services/register?identity=${form.email}`}
+            class="btn btn-xs btn-error"
+            target="_blank"
           >
-            {loading ? "Mengecek..." : "Coba Lagi"}
-          </button>
+            Daftar Sekarang
+          </a>
         </div>
+      {:else}
+        <div class="">{status}</div>
       {/if}
+    </div>
   {/if}
 
 
@@ -167,8 +161,17 @@
         >{emailFocused ? "***go.id" : "@mojokertokota.go.id"}</span
       >
     {/if}
-    {#if loading}
-      <span class="loading loading-xs self-center"></span>
+    </div>
+    {#if verify && status !== "ISSUE"}
+      <button
+        type="button"
+        class="btn btn-xs btn-ghost btn-square ml-0.5"
+        title="Coba Lagi"
+        onclick={checkEmail}
+        disabled={loading}
+      >
+        <iconify-icon icon={loading ? "bx:loader-circle" : "bx:refresh"} class={loading ? "animate-spin" : ""}></iconify-icon>
+      </button>
     {/if}
   </div>
 </div>

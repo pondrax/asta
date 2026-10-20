@@ -80,6 +80,15 @@
 
 ## 2026-10-20
 
+### Email retry button beside input
+
+<!-- id: email-retry-button-beside-input-2026-10-20 -->
+
+Halaman: /sign-v2 - Sign V2
+Audiens: Tamu
+
+- **Baru** - email retry button beside input
+
 ### Add retry on not registered
 
 <!-- id: add-retry-on-not-registered-2026-10-20 -->
