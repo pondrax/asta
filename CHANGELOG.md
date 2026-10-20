@@ -80,6 +80,15 @@
 
 ## 2026-10-20
 
+### Koreksi posisi y saat drop pada tampilan 1 halaman
+
+<!-- id: koreksi-posisi-y-saat-drop-pada-tampilan-1-halaman-2026-10-20 -->
+
+Halaman: /sign-v2 - Sign V2
+Audiens: Tamu
+
+- **Perbaikan** - koreksi posisi y saat drop pada tampilan 1 halaman
+
 ### Sesuaikan posisi visualisasi pada tampilan berdampingan
 
 <!-- id: sesuaikan-posisi-visualisasi-pada-tampilan-berdamp-2026-10-20 -->
