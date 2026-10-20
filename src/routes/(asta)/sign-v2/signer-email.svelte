@@ -161,7 +161,6 @@
         >{emailFocused ? "***go.id" : "@mojokertokota.go.id"}</span
       >
     {/if}
-    </div>
     {#if verify && status !== "ISSUE"}
       <button
         type="button"
