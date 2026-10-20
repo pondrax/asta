@@ -62,7 +62,6 @@
       subjectName?: string;
       issuerName?: string;
       issuerCommonName?: string;
-      ltv?: boolean;
     }[];
     hasDocuments?: boolean;
     onVerify?: () => void;
@@ -533,11 +532,6 @@
                   <div class="flex items-center gap-1">
                     <iconify-icon icon="bx:check-shield"></iconify-icon>
                     <span class="font-medium">{sig.name}</span>
-                    <span class="ml-auto inline-flex items-center gap-1 text-[9px]">
-                      {#if sig.ltv}
-                        <span class="badge badge-xs badge-accent">LTV</span>
-                      {/if}
-                    </span>
                   </div>
                   <dl class="mt-1 flex flex-col gap-0.5 text-[10px]">
                     {#if sig.subjectName}
