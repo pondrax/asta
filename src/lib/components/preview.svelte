@@ -1141,7 +1141,7 @@
 
   <div
     bind:this={containerEl}
-    class="relative w-full min-h-0 grow overflow-y-auto {bare
+    class="relative w-full min-h-0 grow overflow-y-auto overflow-x-hidden {bare
       ? 'bg-transparent'
       : 'rounded-2xl bg-base-200'} p-4"
     onscroll={scheduleUpdate}
