@@ -15,6 +15,9 @@ export default defineConfig({
 			outdir: './src/lib/paraglide'
 		})
 	],
+	server: {
+		allowedHosts: ['asta-dev.dra.my.id']
+	},
 	optimizeDeps: {
 		exclude: [
 			'@docx-editor.dev/core',

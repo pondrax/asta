@@ -2782,25 +2782,37 @@
         <div id="turnstile-container"></div>
 
         <div class="join w-full">
-          <button
-            id="tour-sign-submit"
-            type="submit"
-            class="btn join-item flex-1 {bsre ? 'btn-secondary' : 'btn-primary'}"
-            disabled={loading || !turnstileSuccess || (bsre && !item.passphrase)}
+          <div
+            class="tooltip flex-1 {loading || !turnstileSuccess || (bsre && !item.passphrase) ? 'tooltip-open' : ''}"
+            data-tip={loading
+              ? "Sedang memproses..."
+              : !turnstileSuccess
+                ? "Selesaikan verifikasi Captcha terlebih dahulu"
+                : bsre && !item.passphrase
+                  ? "Masukkan passphrase terlebih dahulu"
+                  : ""}
           >
-            <iconify-icon icon="bx:pen" class="text-2xl"></iconify-icon>
-            Tanda Tangan {bsre ? "Elektronik" : "Non-Elektronik (Manual)"}
-          </button>
+            <button
+              id="tour-sign-submit"
+              type="submit"
+              class="btn join-item w-full {bsre ? 'btn-secondary' : 'btn-primary'}"
+              disabled={loading || !turnstileSuccess || (bsre && !item.passphrase)}
+            >
+              <iconify-icon icon="bx:pen" class="text-2xl"></iconify-icon>
+              Tanda Tangan {bsre ? "Elektronik" : "Non-Elektronik (Manual)"}
+            </button>
+          </div>
           {#if vaultSupported && useEmail && bsre}
             {#if vaultHas}
               <button
                 type="button"
-                class="btn btn-accent join-item"
+                class="btn btn-outline join-item"
                 disabled={vaultBusy || item.completed.length > 0}
                 onclick={async () => {
                   await usePasskey(item.email);
                 }}
                 title="TTD dengan Passkey"
+                data-tip={vaultBusy || item.completed.length > 0 ? "Tidak dapat menggunakan passkey saat ini" : "TTD dengan Passkey"}
               >
                 <iconify-icon icon="bx:key" class="text-xl"></iconify-icon>
               </button>
