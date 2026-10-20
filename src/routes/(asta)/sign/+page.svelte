@@ -2796,18 +2796,18 @@
           </div>
           {#if vaultSupported && useEmail && bsre}
             {#if vaultHas}
-              <button
-                type="button"
-                class="btn btn-outline join-item"
-                disabled={vaultBusy || item.completed.length > 0}
-                onclick={async () => {
-                  await usePasskey(item.email);
-                }}
-                title="TTD dengan Passkey"
-                data-tip={vaultBusy || item.completed.length > 0 ? "Tidak dapat menggunakan passkey saat ini" : "TTD dengan Passkey"}
-              >
-                <iconify-icon icon="bx:key" class="text-xl"></iconify-icon>
-              </button>
+            <button
+              type="button"
+              class="btn btn-outline btn-accent join-item"
+              disabled={vaultBusy || item.completed.length > 0}
+              onclick={async () => {
+                await usePasskey(item.email);
+              }}
+              title="TTD dengan Passkey"
+              data-tip={vaultBusy || item.completed.length > 0 ? "Tidak dapat menggunakan passkey saat ini" : "TTD dengan Passkey"}
+            >
+              <iconify-icon icon="bx:key" class="text-xl"></iconify-icon>
+            </button>
             {:else}
               <button
                 type="button"
@@ -2832,12 +2832,13 @@
           {#if data.user}
             <button
               type="submit"
-              class="btn join-item"
+              class="btn btn-accent join-item"
               disabled={loading || !turnstileSuccess}
               onclick={() => {
                 asDraft = true;
               }}
               title="Simpan Draft"
+              data-tip="Simpan Draft"
             >
               <iconify-icon icon="bx:save" class="text-2xl"></iconify-icon>
             </button>
