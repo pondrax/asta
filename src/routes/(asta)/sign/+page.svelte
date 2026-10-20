@@ -2742,39 +2742,7 @@
 
 
 
-          {#if vaultSupported && useEmail && vaultHas && vaultSavedAt}
-            <div
-              class="flex items-center gap-1.5 text-xs text-base-content/50 -mt-3 -mb-1"
-            >
-              <span
-                >Passphrase tersimpan diperangkat anda pada
-                {d(vaultSavedAt).format("DD MMM YYYY, HH:mm")}</span
-              >
-              <button
-                type="button"
-                class="btn btn-xs btn-ghost btn-secondary px-2"
-                disabled={vaultBusy || !item.passphrase}
-                onclick={async () => {
-                  await saveToVault(item.email, item.passphrase);
-                  if (!vaultError) app.showToast("success", "Passphrase diperbarui.");
-                }}
-              >
-                <iconify-icon icon="bx:refresh" class="text-sm"></iconify-icon>
-                Perbarui
-              </button>
-              <button
-                type="button"
-                class="btn btn-xs btn-ghost btn-error px-2"
-                disabled={vaultBusy}
-                onclick={async () => {
-                  await removeFromVault(item.email);
-                }}
-              >
-                <iconify-icon icon="bx:trash" class="text-sm"></iconify-icon>
-                Hapus
-              </button>
-            </div>
-          {/if}
+
           {#if vaultError}
             <div class="alert alert-error text-xs py-1.5 px-3">
               <iconify-icon icon="bx:error" class="text-xl"></iconify-icon>
