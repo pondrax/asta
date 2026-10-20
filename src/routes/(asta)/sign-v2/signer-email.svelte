@@ -69,23 +69,20 @@
   class:tooltip-open={verify && status === "NOT_REGISTERED"}
 >
   {#if verify && form.email?.split("@").at(0) !== ""}
-    <div class="tooltip-content pointer-events-auto!">
       {#if status === "ISSUE"}
         <div class="">Status Akun : {status}</div>
-      {:else if status === "NOT_REGISTERED"}
-        <div class="">{status}</div>
-        <div>
-          <a
-            href={`/services/register?identity=${form.email}`}
-            class="btn btn-xs btn-error"
-            target="_blank"
-          >
-            Daftar Sekarang
-          </a>
-        </div>
       {:else}
         <div class="">{status}</div>
         <div>
+          {#if status === "NOT_REGISTERED"}
+            <a
+              href={`/services/register?identity=${form.email}`}
+              class="btn btn-xs btn-error"
+              target="_blank"
+            >
+              Daftar Sekarang
+            </a>
+          {/if}
           <button
             type="button"
             class="btn btn-xs btn-ghost"
@@ -96,7 +93,6 @@
           </button>
         </div>
       {/if}
-    </div>
   {/if}
 
 

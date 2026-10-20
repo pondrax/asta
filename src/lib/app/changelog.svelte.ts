@@ -119,6 +119,17 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
     page: "Sign V2",
     entries: [
       {
+        id: "add-retry-on-not-registered-2026-10-20",
+        date: "2026-10-20",
+        title: "Add retry on not registered",
+        changes: [
+          {
+            kind: "fixed",
+            text: "add retry on not registered",
+          },
+        ],
+      },
+      {
         id: "email-input-indicator-style-retry-option-2026-10-20",
         date: "2026-10-20",
         title: "Email input indicator style + retry option",

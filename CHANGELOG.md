@@ -80,6 +80,15 @@
 
 ## 2026-10-20
 
+### Add retry on not registered
+
+<!-- id: add-retry-on-not-registered-2026-10-20 -->
+
+Halaman: /sign-v2 - Sign V2
+Audiens: Tamu
+
+- **Perbaikan** - add retry on not registered
+
 ### Email input indicator style + retry option
 
 <!-- id: email-input-indicator-style-retry-option-2026-10-20 -->
