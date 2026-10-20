@@ -2373,13 +2373,16 @@
 
                 const fileSign = await fillFormFields(file, true, id, item.footer);
 
-                // Signature visuals: with more than one (or in Manual mode) the
-                // visuals are burned into the PDF and BSrE applies an invisible
-                // signature; a single visual is left for BSrE to place.
+                // Signature visuals: with more than one (or in truly manual mode without
+                // cryptographic identity) the visuals are burned into the PDF; otherwise
+                // a single visual is left for the signing service to place as an
+                // encrypted signature field.
                 const signatureProps = item.signatureProperties.filter(
                   (p: any) => (p.kind ?? "signature") === "signature",
                 );
-                const burnSignatures = !bsre || signatureProps.length > 1;
+                const encryptedSigning = bsre || (useEmail && !!item.passphrase);
+                const burnSignatures =
+                  signatureProps.length > 1 || !encryptedSigning;
                 const toDraw = burnSignatures
                   ? item.signatureProperties
                   : item.signatureProperties.filter(
@@ -2409,15 +2412,16 @@
 
                 // When the signature is burned into the PDF, the remote request
                 // carries no signature properties so BSrE signs invisibly.
-                const sigForServer = bsre
-                  ? burnSignatures
-                    ? []
-                    : signatureProps
-                  : item.signatureProperties;
+                const sigForServer =
+                  encryptedSigning && !burnSignatures
+                    ? signatureProps
+                    : encryptedSigning && burnSignatures
+                      ? []
+                      : item.signatureProperties;
 
                 const props = {
                   id,
-                  __manual: !bsre,
+                  __manual: !encryptedSigning,
                   __asDraft: asDraft,
                   __saveDocument: saveDocument,
                   to: item.to,
