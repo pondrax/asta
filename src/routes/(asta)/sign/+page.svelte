@@ -2703,7 +2703,7 @@
 
         {#if bsre}
           <label class="floating-label" id="tour-passphrase">
-            <span class="bg-base-100 px-1 z-10">Passphrase</span>
+            <span class="bg-base-100 px-1 z-20">Passphrase</span>
             <!-- Only the input and its show/hide toggle share the join row: with
                  the passkey controls in here the input shrank to a sliver on
                  narrow screens, where this modal is already tight. -->
