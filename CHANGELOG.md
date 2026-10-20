@@ -80,6 +80,15 @@
 
 ## 2026-10-20
 
+### Tentukan halaman aktif saat tampilan berdampingan
+
+<!-- id: tentukan-halaman-aktif-saat-tampilan-berdampingan-2026-10-20 -->
+
+Halaman: \* - Tapak Astà
+Audiens: Tamu
+
+- **Perbaikan** - tentukan halaman aktif saat tampilan berdampingan
+
 ### Perbesar dan pusatkan thumbnail halaman
 
 <!-- id: perbesar-dan-pusatkan-thumbnail-halaman-2026-10-20 -->

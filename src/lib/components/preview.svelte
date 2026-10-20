@@ -681,21 +681,32 @@
 
   function findIndexByOffset(off: number) {
     if (offsets.length === 0) return 0;
+    const n = perRow();
     let lo = 0,
       hi = offsets.length - 1;
-    if (off <= 0) return 0;
-    if (off >= offsets[hi]) return lastPageOfRow(hi);
+    if (off <= 0) return Math.min(offsets.length - 1, n - 1 >= 0 ? n - 1 : 0);
+    if (off >= (offsets[hi] ?? 0)) {
+      const rowStart = firstPageOfRow(hi);
+      return Math.min(offsets.length - 1, rowStart + (n - 1));
+    }
     while (lo <= hi) {
       const mid = Math.floor((lo + hi) / 2);
       const top = offsets[mid];
       // A row's pages share one top and one height, so this test covers the
       // whole row either way — which page of it we land on is decided after.
       const bottom = top + rowHeights[mid];
-      if (off >= top && off < bottom) return lastPageOfRow(mid);
+      if (off >= top && off < bottom) {
+        const rowStart = firstPageOfRow(mid);
+        // In side-by-side, the "current" page shown in chrome should be the
+        // right page of the visible row (page 2 of that pair) so the page nav
+        // can highlight the correct thumbnail.
+        return Math.min(offsets.length - 1, rowStart + (n - 1));
+      }
       if (off < top) hi = mid - 1;
       else lo = mid + 1;
     }
-    return lastPageOfRow(Math.min(lo, offsets.length - 1));
+    const rowStart = firstPageOfRow(Math.min(lo, offsets.length - 1));
+    return Math.min(offsets.length - 1, rowStart + (n - 1));
   }
 
   /** Pages per row for the layout currently on screen. */

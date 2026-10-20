@@ -1980,6 +1980,17 @@ export const GLOBAL_CHANGELOG: PageChangelog =
     page: "Tapak Astà",
     entries: [
       {
+        id: "tentukan-halaman-aktif-saat-tampilan-berdampingan-2026-10-20",
+        date: "2026-10-20",
+        title: "Tentukan halaman aktif saat tampilan berdampingan",
+        changes: [
+          {
+            kind: "fixed",
+            text: "tentukan halaman aktif saat tampilan berdampingan",
+          },
+        ],
+      },
+      {
         id: "kurangi-batas-lebar-dua-halaman-berdampingan-2026-10-20",
         date: "2026-10-20",
         title: "Kurangi batas lebar dua halaman berdampingan",
