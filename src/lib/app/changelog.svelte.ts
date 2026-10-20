@@ -119,6 +119,17 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
     page: "Sign V2",
     entries: [
       {
+        id: "perbesar-dan-pusatkan-thumbnail-halaman-2026-10-20",
+        date: "2026-10-20",
+        title: "Perbesar dan pusatkan thumbnail halaman",
+        changes: [
+          {
+            kind: "fixed",
+            text: "perbesar dan pusatkan thumbnail halaman",
+          },
+        ],
+      },
+      {
         id: "tampilkan-jumlah-dokumen-pada-tombol-panel-kiri-2026-10-20",
         date: "2026-10-20",
         title: "Tampilkan jumlah dokumen pada tombol panel kiri",

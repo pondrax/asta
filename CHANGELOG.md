@@ -80,6 +80,15 @@
 
 ## 2026-10-20
 
+### Perbesar dan pusatkan thumbnail halaman
+
+<!-- id: perbesar-dan-pusatkan-thumbnail-halaman-2026-10-20 -->
+
+Halaman: /sign-v2 - Sign V2
+Audiens: Tamu
+
+- **Perbaikan** - perbesar dan pusatkan thumbnail halaman
+
 ### Kurangi batas lebar dua halaman berdampingan
 
 <!-- id: kurangi-batas-lebar-dua-halaman-berdampingan-2026-10-20 -->

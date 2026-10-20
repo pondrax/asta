@@ -26,7 +26,7 @@
     tab?: "halaman" | "properti";
   } = $props();
 
-  const THUMB_WIDTH = 120;
+  const THUMB_WIDTH = 140;
 
   let listEl: HTMLOListElement | null = $state(null);
   let query = $state("");
@@ -248,7 +248,7 @@
             >
               <canvas
                 data-thumb
-                class="block w-full h-auto bg-base-100 border rounded shadow-sm transition-[border-color,box-shadow] duration-150 {preview.page ===
+                class="block w-full h-auto bg-base-100 border rounded shadow-sm transition-[border-color,box-shadow] duration-150 mx-auto {preview.page ===
                 p
                   ? 'border-primary ring-2 ring-primary'
                   : 'border-base-300'}"
