@@ -2798,7 +2798,7 @@
             {#if vaultHas}
             <button
               type="button"
-              class="btn btn-outline btn-accent join-item"
+              class="btn btn-accent join-item"
               disabled={vaultBusy || item.completed.length > 0}
               onclick={async () => {
                 await usePasskey(item.email);
@@ -2832,7 +2832,7 @@
           {#if data.user}
             <button
               type="submit"
-              class="btn btn-accent join-item"
+              class="btn join-item"
               disabled={loading || !turnstileSuccess}
               onclick={() => {
                 asDraft = true;
