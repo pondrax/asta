@@ -715,7 +715,7 @@
                   Tandatanganan dokumen secara elektronik terintegrasi langsung
                   dengan BSrE BSSN.
                 </p>
-                <a href="/sign" class="btn btn-primary btn-sm mt-4 gap-1">
+                <a href="/sign" class="btn btn-primary btn-sm mt-4 gap-1 tooltip tooltip-bottom" data-tip={workspace.canSign ? "Mulai Tanda Tangan" : "Tidak dapat menandatangani saat ini"}>
                   <span>Mulai Tanda Tangan</span>
                   <iconify-icon icon="bx:pencil"></iconify-icon>
                 </a>
