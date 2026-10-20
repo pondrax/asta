@@ -2599,7 +2599,7 @@
                 icon="bx:check-circle"
                 class="text-4xl text-success"
               ></iconify-icon>
-              <div>
+              <div class="flex-1">
                 <div>
                   {completed}
                   {asDraft
