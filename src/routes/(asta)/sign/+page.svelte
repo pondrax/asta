@@ -2593,73 +2593,77 @@
         {:else if item.__error}
           <span class="text-error">{item.__error}</span>
         {:else if completed === total}
-          <iconify-icon icon="bx:check-circle" class="text-5xl text-success"
-          ></iconify-icon>
-          <div>
-            <div>
-              {completed}
-              {asDraft
-                ? "Dokumen disimpan sebagai draft"
-                : "Dokumen berhasil ditandatangani"}
+          <div class="flex flex-col gap-3 w-full">
+            <div class="flex items-center gap-3">
+              <iconify-icon
+                icon="bx:check-circle"
+                class="text-4xl text-success"
+              ></iconify-icon>
+              <div>
+                <div>
+                  {completed}
+                  {asDraft
+                    ? "Dokumen disimpan sebagai draft"
+                    : "Dokumen berhasil ditandatangani"}
+                </div>
+                <div class="text-sm text-base-content/80">
+                  ({elapsedTime > 60000
+                    ? Math.floor(elapsedTime / 1000 / 60) + " menit"
+                    : ""}
+                  {Math.floor((elapsedTime / 1000) % 60)} detik )
+                </div>
+              </div>
             </div>
-            <div class="text-sm text-base-content/80">
-              ({elapsedTime > 60000
-                ? Math.floor(elapsedTime / 1000 / 60) + " menit"
-                : ""}
-              {Math.floor((elapsedTime / 1000) % 60)} detik )
+            <div class="flex flex-wrap gap-2 justify-end">
+              {#if page.url.searchParams.get("redirect")}
+                <a
+                  href={`${page.url.searchParams.get("redirect")}?documentId=${item.completed.join(",")}`}
+                  class="btn btn-sm btn-primary"
+                >
+                  <iconify-icon icon="bx:left-arrow-alt"></iconify-icon>
+                  Kembali ke Helpdesk
+                </a>
+              {/if}
+              {#if asDraft}
+                <a
+                  href={`/sign?draft=true&id=${item.completed.join(",")}`}
+                  target="_blank"
+                  class="btn btn-sm btn-primary"
+                >
+                  Tandatangani
+                </a>
+              {/if}
+              {#if signedCount > 0}
+                <button
+                  type="button"
+                  class="btn btn-sm btn-secondary"
+                  onclick={downloadAllSigned}
+                >
+                  <iconify-icon icon="bx:download"></iconify-icon>
+                  Unduh Semua ({signedCount}) ZIP
+                </button>
+              {/if}
+              {#if saveDocument}
+                <a
+                  href={`/verify?id=${item.completed.join(",")}`}
+                  target="_blank"
+                  class="btn btn-sm btn-success"
+                >
+                  Lihat Dokumen
+                </a>
+              {/if}
+              {#if !asDraft}
+                <button
+                  type="button"
+                  class="tooltip tooltip-open btn btn-sm btn-primary animate-pulse"
+                  data-tip="Beri penilaian Layanan Ini"
+                  onclick={() => (forms.survey = { rating: 0, feedback: "" })}
+                >
+                  <iconify-icon icon="bx:clipboard"></iconify-icon>
+                  Survey
+                </button>
+              {/if}
             </div>
-          </div>
-
-          <div>
-            {#if page.url.searchParams.get("redirect")}
-              <a
-                href={`${page.url.searchParams.get("redirect")}?documentId=${item.completed.join(",")}`}
-                class="btn btn-sm btn-primary"
-              >
-                <iconify-icon icon="bx:left-arrow-alt"></iconify-icon>
-                Kembali ke Helpdesk
-              </a>
-            {/if}
-            {#if asDraft}
-              <a
-                href={`/sign?draft=true&id=${item.completed.join(",")}`}
-                target="_blank"
-                class="btn btn-sm btn-primary"
-              >
-                Tandatangani
-              </a>
-            {/if}
-            {#if signedCount > 0}
-              <button
-                type="button"
-                class="btn btn-sm btn-secondary"
-                onclick={downloadAllSigned}
-              >
-                <iconify-icon icon="bx:download"></iconify-icon>
-                Unduh Semua ({signedCount}) ZIP
-              </button>
-            {/if}
-            {#if saveDocument}
-              <a
-                href={`/verify?id=${item.completed.join(",")}`}
-                target="_blank"
-                class="btn btn-sm btn-success"
-              >
-                Lihat Dokumen
-              </a>
-            {/if}
-            {#if !asDraft}
-              <button
-                type="button"
-                class="tooltip tooltip-open btn btn-sm btn-primary animate-pulse"
-                data-tip="Beri penilaian Layanan Ini"
-                onclick={() => (forms.survey = { rating: 0, feedback: "" })}
-              >
-                <iconify-icon icon="bx:clipboard"></iconify-icon>
-                Survey
-              </button>
-
-            {/if}
           </div>
         {:else if item.completed.length == 0}
           {#if bsre}
