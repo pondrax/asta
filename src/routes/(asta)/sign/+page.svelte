@@ -292,23 +292,20 @@
       },
     },
     {
-      target: "#tour-save-passkey",
-      title: "Passkey (Opsional)",
-      // The target is either the "Simpan Passkey" toggle or the "TTD dengan
-      // Passkey" button depending on whether one is already stored, so the copy
-      // has to cover both — there is no "Simpan Passphrase" control.
+      target: "#tour-sign-submit",
+      title: "Klik Tanda Tangan Elektronik",
       content:
-        "Simpan Passphrase dengan Passkey agar tanda tangan berikutnya lebih cepat, atau langsung tanda tangan dengan Passkey bila sudah tersimpan.",
-      placement: "left",
+        "Tekan tombol ini untuk membubuhkan tanda tangan elektronik pada dokumen.",
+      placement: "top",
       onShow: () => {
         if (forms.sign) forms.sign.completed = [];
       },
     },
     {
-      target: "#tour-sign-submit",
-      title: "Klik Tanda Tangan Elektronik",
+      target: "#tour-save-passkey",
+      title: "Passkey & Simpan Draft",
       content:
-        "Tekan tombol ini untuk membubuhkan tanda tangan elektronik pada dokumen.",
+        "Gunakan Passkey untuk tanda tangan lebih cepat, atau simpan draft dengan tombol Simpan Draft di sebelahnya.",
       placement: "top",
       onShow: () => {
         if (forms.sign) forms.sign.completed = [];
@@ -2798,7 +2795,7 @@
             {#if vaultHas}
               <button
                 type="button"
-                class="btn btn-outline join-item"
+                class="btn btn-accent join-item"
                 disabled={vaultBusy || item.completed.length > 0}
                 onclick={async () => {
                   await usePasskey(item.email);
@@ -2810,7 +2807,7 @@
             {:else}
               <button
                 type="button"
-                class="btn btn-outline join-item"
+                class="btn btn-accent join-item"
                 disabled={vaultBusy || !item.passphrase}
                 onclick={async () => {
                   if (!item.passphrase) return;
