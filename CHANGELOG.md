@@ -80,6 +80,15 @@
 
 ## 2026-10-20
 
+### Email input indicator style + retry option
+
+<!-- id: email-input-indicator-style-retry-option-2026-10-20 -->
+
+Halaman: /sign-v2 - Sign V2
+Audiens: Tamu
+
+- **Baru** - email input indicator style + retry option
+
 ### Show subject name and full signer identity in status dropdown
 
 <!-- id: show-subject-name-and-full-signer-identity-in-stat-2026-10-20 -->

@@ -85,18 +85,41 @@
         </div>
       {:else}
         <div class="">{status}</div>
+        <div>
+          <button
+            type="button"
+            class="btn btn-xs btn-ghost"
+            onclick={checkEmail}
+            disabled={loading}
+          >
+            {loading ? "Mengecek..." : "Coba Lagi"}
+          </button>
+        </div>
       {/if}
     </div>
   {/if}
 
 
   <div
-    class="input input-sm input-ghost w-60! h-8! flex! items-baseline! gap-1 leading-none"
+    class="input input-sm input-ghost w-60! h-8! flex! items-center! gap-1 leading-none relative"
   >
-    <iconify-icon
-      icon="bx:envelope"
-      class="shrink-0 self-center mr-1 text-xs opacity-50 max-lg:hidden"
-    ></iconify-icon>
+    <div class="relative shrink-0 self-center mr-0.5">
+      <iconify-icon
+        icon="bx:envelope"
+        class="text-xs opacity-60"
+      ></iconify-icon>
+      {#if verify && status === "ISSUE"}
+        <iconify-icon
+          icon="bx:check"
+          class="absolute -top-2 -right-2 text-success text-[9px]"
+        ></iconify-icon>
+      {:else if verify && status && status !== "ISSUE"}
+        <iconify-icon
+          icon="bx:x"
+          class="absolute -top-2 -right-2 text-error text-[9px]"
+        ></iconify-icon>
+      {/if}
+    </div>
     <!-- `mt-[-0.5px]` lifts the input half a pixel: the `TTE` label's text sits
          0.5px above the input's, because the label's anonymous flex item snaps
          to a whole pixel while the input's line box does not. A layout margin
@@ -149,15 +172,7 @@
       >
     {/if}
     {#if loading}
-      <span class="loading self-center"></span>
-    {:else if status == "ISSUE"}
-      <iconify-icon
-        icon="bx:check"
-        class="self-center text-success"></iconify-icon>
-    {:else}
-      <iconify-icon
-        icon="bx:x"
-        class="self-center text-error"></iconify-icon>
+      <span class="loading loading-xs self-center"></span>
     {/if}
   </div>
 </div>

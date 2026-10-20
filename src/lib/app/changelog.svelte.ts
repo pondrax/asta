@@ -119,6 +119,17 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
     page: "Sign V2",
     entries: [
       {
+        id: "email-input-indicator-style-retry-option-2026-10-20",
+        date: "2026-10-20",
+        title: "Email input indicator style + retry option",
+        changes: [
+          {
+            kind: "added",
+            text: "email input indicator style + retry option",
+          },
+        ],
+      },
+      {
         id: "show-subject-name-and-full-signer-identity-in-stat-2026-10-20",
         date: "2026-10-20",
         title: "Show subject name and full signer identity in status dropdown",
