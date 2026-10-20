@@ -2299,7 +2299,7 @@
   bind:data={forms.sign}
   title={`Tanda Tangan Dokumen (${Object.keys(forms.sign?.documents || {}).length})`}
   size="lg"
-  closeable={!forms.sign?.completed?.length}
+  closeable={true}
 >
   {#snippet children(item)}
     {@const total = Object.keys(item.documents).length}
