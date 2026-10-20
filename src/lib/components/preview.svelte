@@ -409,7 +409,7 @@
     const perRow = spread ? 2 : 1;
     // Give extra breathing room on very wide viewports so two-up doesn't
     // stretch to absurd widths; pages still fit their cell by height/width.
-    const maxCellWidth = 680;
+    const maxCellWidth = 580;
     cellWidth = Math.min(
       (containerWidth - GAP * (perRow - 1)) / perRow,
       perRow === 2 ? maxCellWidth : Number.POSITIVE_INFINITY,

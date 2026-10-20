@@ -80,6 +80,15 @@
 
 ## 2026-10-20
 
+### Kurangi batas lebar dua halaman berdampingan
+
+<!-- id: kurangi-batas-lebar-dua-halaman-berdampingan-2026-10-20 -->
+
+Halaman: \* - Tapak Astà
+Audiens: Tamu
+
+- **Perbaikan** - kurangi batas lebar dua halaman berdampingan
+
 ### Batasi lebar halaman pada tampilan berdampingan untuk layar lebar
 
 <!-- id: batasi-lebar-halaman-pada-tampilan-berdampingan-un-2026-10-20 -->
