@@ -684,29 +684,46 @@
     const n = perRow();
     let lo = 0,
       hi = offsets.length - 1;
-    if (off <= 0) return Math.min(offsets.length - 1, n - 1 >= 0 ? n - 1 : 0);
+    if (off <= 0) return 0;
     if (off >= (offsets[hi] ?? 0)) {
       const rowStart = firstPageOfRow(hi);
-      return Math.min(offsets.length - 1, rowStart + (n - 1));
+      if (n === 1) return hi;
+      const left = rowStart;
+      const right = Math.min(offsets.length - 1, rowStart + 1);
+      if (right < offsets.length) return right;
+      return left;
     }
     while (lo <= hi) {
       const mid = Math.floor((lo + hi) / 2);
       const top = offsets[mid];
-      // A row's pages share one top and one height, so this test covers the
-      // whole row either way — which page of it we land on is decided after.
       const bottom = top + rowHeights[mid];
       if (off >= top && off < bottom) {
+        if (n === 1) return mid;
         const rowStart = firstPageOfRow(mid);
-        // In side-by-side, the "current" page shown in chrome should be the
-        // right page of the visible row (page 2 of that pair) so the page nav
-        // can highlight the correct thumbnail.
-        return Math.min(offsets.length - 1, rowStart + (n - 1));
+        const left = rowStart;
+        const right = Math.min(offsets.length - 1, rowStart + 1);
+        const rowH = rowHeights[mid];
+        const leftH = pageHeights[left] || 0;
+        const rightH = pageHeights[right] || 0;
+        const leftTop = top + (rowH - leftH) / 2;
+        const rightTop = top + (rowH - rightH) / 2;
+        const scrollTop = containerEl?.scrollTop ?? 0;
+        const vh = containerEl?.clientHeight ?? 0;
+        const leftCenter = leftTop + leftH / 2;
+        const rightCenter = rightTop + rightH / 2;
+        const viewCenter = scrollTop + vh / 2;
+        const dLeft = Math.abs(leftCenter - viewCenter);
+        const dRight = Math.abs(rightCenter - viewCenter);
+        if (dRight < dLeft) return right;
+        return left;
       }
       if (off < top) hi = mid - 1;
       else lo = mid + 1;
     }
     const rowStart = firstPageOfRow(Math.min(lo, offsets.length - 1));
-    return Math.min(offsets.length - 1, rowStart + (n - 1));
+    if (n === 1) return Math.min(lo, offsets.length - 1);
+    const right = Math.min(offsets.length - 1, rowStart + 1);
+    return right >= rowStart ? right : rowStart;
   }
 
   /** Pages per row for the layout currently on screen. */

@@ -80,6 +80,15 @@
 
 ## 2026-10-20
 
+### Pilih halaman aktif berdasarkan halaman yang paling terlihat saat berdampingan
+
+<!-- id: pilih-halaman-aktif-berdasarkan-halaman-yang-palin-2026-10-20 -->
+
+Halaman: \* - Tapak Astà
+Audiens: Tamu
+
+- **Perbaikan** - pilih halaman aktif berdasarkan halaman yang paling terlihat saat berdampingan
+
 ### Revert perubahan koordinat untuk tampilan berdampingan
 
 <!-- id: revert-perubahan-koordinat-untuk-tampilan-berdampi-2026-10-20 -->

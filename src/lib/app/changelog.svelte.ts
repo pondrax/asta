@@ -2046,6 +2046,17 @@ export const GLOBAL_CHANGELOG: PageChangelog =
     page: "Tapak Astà",
     entries: [
       {
+        id: "pilih-halaman-aktif-berdasarkan-halaman-yang-palin-2026-10-20",
+        date: "2026-10-20",
+        title: "Pilih halaman aktif berdasarkan halaman yang paling terlihat saat berdampingan",
+        changes: [
+          {
+            kind: "fixed",
+            text: "pilih halaman aktif berdasarkan halaman yang paling terlihat saat berdampingan",
+          },
+        ],
+      },
+      {
         id: "tentukan-halaman-aktif-saat-tampilan-berdampingan-2026-10-20",
         date: "2026-10-20",
         title: "Tentukan halaman aktif saat tampilan berdampingan",
