@@ -2781,7 +2781,7 @@
         {/if}
         <div id="turnstile-container"></div>
 
-        <div class="join w-full">
+        <div id="tour-save-passkey" class="join w-full">
           <div
             class="tooltip flex-1 {loading || !turnstileSuccess || (bsre && !item.passphrase) ? 'tooltip-open' : ''}"
             data-tip={loading
