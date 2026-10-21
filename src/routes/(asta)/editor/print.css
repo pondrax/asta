@@ -1,0 +1,175 @@
+/* ===================================================================
+   Print styles for the DOCX editor.
+
+   Imported by /editor only, so every rule here may assume that what is
+   being printed is the document.
+
+   Two jobs:
+
+   1. Take the application away. The site navbar, the chatbot, the
+      cookie banner and the editor's own toolbar are not part of the
+      document, so they are hidden.
+
+   2. Un-clip the editor. On screen the editor sits in a full-height
+      flex column with `overflow: hidden` around a scrolling viewport;
+      printed as it stands, the document is cut off at the height of the
+      first screen. In print every box in the chain is opened up, and the
+      pages — which the engine positions absolutely so the canvas can
+      scroll — are put back into flow so they can flow from one sheet to
+      the next.
+
+   The sheet itself is sized from the document: `printDocument()` in
+   editor-logic.ts writes the `@page` size and the canvas scale (see
+   `--doc-print-scale` below) before the print starts.
+   =================================================================== */
+
+@media print {
+  /* ---- 1. Everything that is not the document ---- */
+
+  /* The site chrome: the navbar, the chatbot (panel and launcher), the
+     cookie banner, the changelog popup, the toast stack and the floating
+     action buttons. */
+  .chat-navbar,
+  .chat-panel,
+  .chat-launcher,
+  .cookie-consent,
+  #main-toast,
+  .modal,
+  .fab {
+    display: none !important;
+  }
+
+  /* The editor's own chrome: the hidden menubar, the format toolbar, the
+     small-screen menubar, the navigation pane, the rulers, the "Page X of
+     Y" overlay and the selection highlight — none of it is part of the
+     document. */
+  .topbar,
+  .toolbar,
+  .editor-menubar,
+  .nav,
+  .ruler-corner,
+  .horizontal-ruler,
+  .vertical-ruler,
+  .drag-guide,
+  .page-indicator,
+  .docx-selection-overlay,
+  .docx-table-furniture,
+  .docx-text-highlight-overlay,
+  .docx-remote-selection-overlay,
+  .docx-text-form-status,
+  #loadingOverlay,
+  #error {
+    display: none !important;
+  }
+
+  /* The overlays that carry document content (comments, bookmarks) are
+     sized for the screen layout, where the pages are spaced out. On the
+     sheet the pages are flush, so their boxes would reach past the last
+     page and add a sheet of their own; they follow the document instead. */
+  #editor > .docx-comment-overlay,
+  #editor > .docx-bookmark-overlay {
+    inset: 0 !important;
+    width: auto !important;
+    height: auto !important;
+  }
+
+  /* ---- 2. Open up the layout so the pages can flow ---- */
+
+  html,
+  body {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  /* The app shell is a full-height flex column on screen; in print it is
+     a block that holds the document. */
+  .app-shell {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* The content column scrolls on screen and is inset by the docked
+     chatbot; in print it is a plain block. */
+  .chat-content {
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  .docx-editor-page {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  .editor-layout {
+    display: block !important;
+    background: #fff !important;
+  }
+
+  /* The scroller is the box that decides which pages the engine paints.
+     Un-clipped, the whole document sits inside it, so the pages that are
+     off screen are painted for the print as well. */
+  .document-viewport {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  .document-stage {
+    display: block !important;
+    min-height: 0 !important;
+    width: auto !important;
+    padding: 0 !important;
+  }
+
+  /* ---- 3. The pages ---- */
+
+  /* The engine paints the pages as absolutely positioned boxes inside a
+     relative container — that is what makes the canvas scroll. Printed,
+     they would all land on the first sheet, so they go back into flow.
+     `relative` rather than `static`, because the page stays the
+     containing block for the content inside it, and the offsets the
+     engine wrote inline are dropped so the pages stack in order. */
+  .docx-pages {
+    width: auto !important;
+    height: auto !important;
+  }
+
+  .docx-page {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    box-shadow: none !important;
+    margin: 0 auto !important;
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .docx-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  /* The engine lays the page out at the paint scale, so what is on screen
+     is the document at whatever size it was viewed at. Printing wants the
+     document at its own size: `--doc-print-scale` (written before the
+     print) scales the canvas back onto the sheet.
+
+     The margin the surface carries is dropped as well: it is screen
+     breathing room, and on the sheet it would push every page off the
+     bottom of its own paper. */
+  #editor {
+    width: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+    zoom: var(--doc-print-scale, 1);
+  }
+}

@@ -1304,48 +1304,9 @@
   }
 
   /* ============ PRINT ============ */
-  @media print {
-
-    .topbar,
-    .nav,
-    .ruler-corner,
-    .horizontal-ruler,
-    .vertical-ruler,
-    .drag-guide {
-      display: none !important;
-    }
-
-    .editor-layout {
-      display: block;
-      background: var(--doc-surface);
-    }
-
-    .document-viewport {
-      overflow: visible;
-      background: var(--doc-surface);
-    }
-
-    .document-stage {
-      padding: 0;
-      display: block;
-    }
-
-    #editor {
-      width: auto;
-    }
-
-    .docx-page {
-      box-shadow: none !important;
-      margin: 0 auto;
-      break-after: page;
-      page-break-after: always;
-    }
-
-    .docx-page:last-child {
-      break-after: auto;
-      page-break-after: auto;
-    }
-  }
+  /* The print rules live in `print.css`, next to the editor page: they have
+     to reach outside this scope (the site chrome) and the sheet itself is
+     sized from the document at print time. */
 
   /* ============ PAGE INDICATOR OVERLAY ============ */
   /* Child of .editor-layout (position: relative), so it overlays the top-right

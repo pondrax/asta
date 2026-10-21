@@ -97,7 +97,7 @@
   ></script>
 </svelte:head>
 
-<div class="h-screen flex flex-col overflow-hidden">
+<div class="app-shell h-screen flex flex-col overflow-hidden">
   <!-- The docked chatbot panel is fixed to the right edge from the top of the
        viewport down, so the navbar's right-hand controls would end up beneath
        it. Shrinking the navbar by the panel's width keeps them reachable; the

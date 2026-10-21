@@ -115,6 +115,122 @@ export function audienceForRole(
  */
 export const PAGE_CHANGELOGS: PageChangelog[] = [
   {
+    route: "/editor",
+    page: "Editor Dokumen",
+    entries: [
+      {
+        id: "cetak-dokumen-sesuai-ukuran-halamannya-2026-10-22",
+        date: "2026-10-22",
+        title: "Cetak dokumen sesuai ukuran halamannya",
+        changes: [
+          {
+            kind: "added",
+            text: "Cetak dokumen langsung dari editor dengan hasil satu halaman dokumen per lembar",
+          },
+          {
+            kind: "added",
+            text: "Gaya cetak dipindah ke print.css yang hanya dimuat halaman editor",
+          },
+          {
+            kind: "added",
+            text: "Ukuran kertas mengikuti geometri dokumen dan kanvas diskalakan agar pas di lembar",
+          },
+          {
+            kind: "added",
+            text: "Navbar, chatbot, banner cookie, dan toolbar disembunyikan saat mencetak",
+          },
+        ],
+      },
+      {
+        id: "editor-ai-2026-09-29",
+        date: "2026-09-29",
+        title: "Edit dengan AI",
+        changes: [
+          {
+            kind: "added",
+            text: "Mode Edit with AI menyusun rencana perubahan struktural - tabel, gambar, paragraf, dan format - untuk ditinjau sebelum diterapkan.",
+          },
+          {
+            kind: "improved",
+            text: "Rencana yang sudah ditinjau dapat diterima atau dibuang sebelum dieksekusi.",
+          },
+          {
+            kind: "fixed",
+            text: "Menu AI tidak lagi keluar dari layar di ponsel; popup-nya diratakan ke tepi kanan tombol pemicu pada layar di bawah 640px.",
+          },
+        ],
+      },
+      {
+        id: "editor-fab-2026-09-26",
+        date: "2026-09-26",
+        title: "Bilah Kendali Mengambang",
+        changes: [
+          {
+            kind: "added",
+            text: "Bilah kendali muncul saat kursor berada di area kerja pratinjau.",
+          },
+          {
+            kind: "improved",
+            text: "Tombol Baru dan Tandatangani dipindahkan ke posisi mengambang supaya tidak menutupi dokumen.",
+          },
+        ],
+      },
+      {
+        id: "editor-tables-2026-09-11",
+        date: "2026-09-11",
+        title: "Tabel & Tata Letak",
+        changes: [
+          {
+            kind: "added",
+            text: "Sisip tabel dengan pengatur lebar kolom yang bisa diseret.",
+          },
+          {
+            kind: "added",
+            text: "Gabung dan pecah sel, perataan vertikal, serta isi sel.",
+          },
+          {
+            kind: "added",
+            text: "Penggar dengan pegangan indentasi yang bisa diseret, plus zoom otomatis dan sesuaikan lebar.",
+          },
+        ],
+      },
+      {
+        id: "editor-tables-origin-2026-04-09",
+        date: "2026-04-09",
+        title: "Tabel Pertama",
+        changes: [
+          {
+            kind: "added",
+            text: "Penyuntingan tabel langsung di dalam dokumen, dengan navigasi antar tabel lewat URL.",
+          },
+          {
+            kind: "improved",
+            text: "Tampilan tabel memakai header lengket dan perataan kolom yang konsisten.",
+          },
+        ],
+      },
+      {
+        id: "editor-shortcuts-2026-02-02",
+        date: "2026-02-02",
+        title: "Pintasan Papan Ketik",
+        changes: [
+          {
+            kind: "added",
+            text: "Pintasan papan ketik untuk navigasi tabel dan pencarian.",
+          },
+          {
+            kind: "fixed",
+            text: "Pintasan tidak lagi bentrok saat kursor berada di kolom isian.",
+          },
+          {
+            kind: "fixed",
+            text: "Paginasi tidak melewati jumlah catatan.",
+          },
+        ],
+      },
+    ],
+  },
+  {
     route: "/sign",
     page: "Tanda Tangan Dokumen",
     entries: [
@@ -1276,99 +1392,6 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
           {
             kind: "improved",
             text: "Notifikasi Toast memakai state aplikasi global, konsisten di seluruh halaman.",
-          },
-        ],
-      },
-    ],
-  },
-  {
-    route: "/editor",
-    page: "Editor Dokumen",
-    entries: [
-      {
-        id: "editor-ai-2026-09-29",
-        date: "2026-09-29",
-        title: "Edit dengan AI",
-        changes: [
-          {
-            kind: "added",
-            text: "Mode Edit with AI menyusun rencana perubahan struktural - tabel, gambar, paragraf, dan format - untuk ditinjau sebelum diterapkan.",
-          },
-          {
-            kind: "improved",
-            text: "Rencana yang sudah ditinjau dapat diterima atau dibuang sebelum dieksekusi.",
-          },
-          {
-            kind: "fixed",
-            text: "Menu AI tidak lagi keluar dari layar di ponsel; popup-nya diratakan ke tepi kanan tombol pemicu pada layar di bawah 640px.",
-          },
-        ],
-      },
-      {
-        id: "editor-fab-2026-09-26",
-        date: "2026-09-26",
-        title: "Bilah Kendali Mengambang",
-        changes: [
-          {
-            kind: "added",
-            text: "Bilah kendali muncul saat kursor berada di area kerja pratinjau.",
-          },
-          {
-            kind: "improved",
-            text: "Tombol Baru dan Tandatangani dipindahkan ke posisi mengambang supaya tidak menutupi dokumen.",
-          },
-        ],
-      },
-      {
-        id: "editor-tables-2026-09-11",
-        date: "2026-09-11",
-        title: "Tabel & Tata Letak",
-        changes: [
-          {
-            kind: "added",
-            text: "Sisip tabel dengan pengatur lebar kolom yang bisa diseret.",
-          },
-          {
-            kind: "added",
-            text: "Gabung dan pecah sel, perataan vertikal, serta isi sel.",
-          },
-          {
-            kind: "added",
-            text: "Penggar dengan pegangan indentasi yang bisa diseret, plus zoom otomatis dan sesuaikan lebar.",
-          },
-        ],
-      },
-      {
-        id: "editor-tables-origin-2026-04-09",
-        date: "2026-04-09",
-        title: "Tabel Pertama",
-        changes: [
-          {
-            kind: "added",
-            text: "Penyuntingan tabel langsung di dalam dokumen, dengan navigasi antar tabel lewat URL.",
-          },
-          {
-            kind: "improved",
-            text: "Tampilan tabel memakai header lengket dan perataan kolom yang konsisten.",
-          },
-        ],
-      },
-      {
-        id: "editor-shortcuts-2026-02-02",
-        date: "2026-02-02",
-        title: "Pintasan Papan Ketik",
-        changes: [
-          {
-            kind: "added",
-            text: "Pintasan papan ketik untuk navigasi tabel dan pencarian.",
-          },
-          {
-            kind: "fixed",
-            text: "Pintasan tidak lagi bentrok saat kursor berada di kolom isian.",
-          },
-          {
-            kind: "fixed",
-            text: "Paginasi tidak melewati jumlah catatan.",
           },
         ],
       },

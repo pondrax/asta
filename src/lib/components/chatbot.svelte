@@ -737,7 +737,7 @@ Silakan tanyakan apa saja tentang layanan ini! 😊`,
        by the panel's width. Still below the editor FAB (`z-1000`) and the
        toast stack (`z-9999`). -->
   <div
-    class="fixed z-120 flex flex-col overflow-hidden bg-base-100
+    class="chat-panel fixed z-120 flex flex-col overflow-hidden bg-base-100
       {docked
       ? 'inset-y-0 right-0 w-full max-w-md border-l border-base-300 shadow-2xl'
       : 'bottom-18 right-4 w-80 max-h-[70dvh] rounded-box border border-base-300 shadow-2xl sm:w-96'}"
@@ -982,7 +982,7 @@ Silakan tanyakan apa saja tentang layanan ini! 😊`,
      would leave no way to reopen after closing. Hidden during the tour too, so
      it can't sit under the tour card on small screens. -->
 {#if !dockedOnScreen && !app.showTour}
-  <div class="fixed -bottom-2 right-2 z-50">
+  <div class="chat-launcher fixed -bottom-2 right-2 z-50">
     <div class="tooltip tooltip-left" data-tip="Ada Pertanyaan?">
       <button onclick={toggle} aria-label="Buka Asisten" class="">
         <div

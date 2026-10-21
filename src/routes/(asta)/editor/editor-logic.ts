@@ -79,6 +79,32 @@ function createRulerDragState(): RulerDragState {
   };
 }
 
+/**
+ * The sheet the document prints on, and the factor that puts the painted
+ * canvas back onto it.
+ *
+ * The engine paints every page as a box in CSS pixels at the current zoom,
+ * so the canvas on screen is the document at whatever size it was viewed at.
+ * Printing wants the document at its own size: the sheet comes from the page
+ * geometry (the paper the document asks for) and the canvas is scaled back
+ * onto it, so one document page lands on one sheet.
+ */
+interface PrintGeometry {
+  /** Sheet width in CSS pixels. */
+  width: number;
+  /** Sheet height in CSS pixels. */
+  height: number;
+  /** The factor that maps the painted canvas onto the sheet. */
+  scale: number;
+}
+
+/**
+ * Id of the stylesheet the print geometry is written into. It carries the
+ * `@page` size, which is a document-level rule: it is removed when the
+ * editor goes away so it cannot size the paper of another page.
+ */
+const PRINT_STYLE_ID = "docx-print-geometry";
+
 const ZOOM_LEVELS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2] as const;
 
 const STANDARD_COLOR_SWATCHES = [
@@ -1199,8 +1225,59 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
     }
   }
 
+  /**
+   * Measures the geometry the document prints at, or returns null while
+   * there is no page to print yet (nothing is laid out, or the pages are
+   * not painted).
+   */
+  function readPrintGeometry(): PrintGeometry | null {
+    if (!editor) return null;
+    // The page box is the paper the document asks for, in CSS pixels at
+    // zoom 1; the painted page is that box at the zoom the canvas is
+    // currently drawn at, and the ratio between the two is the scale the
+    // print has to undo.
+    const page = rulerPageBox(editor.getPageGeometry());
+    const painted = editorContainer?.querySelector<HTMLElement>(".docx-page");
+    if (!page || !painted) return null;
+    const paintedWidth = Number.parseFloat(painted.style.width);
+    if (!page.width || !page.height || !paintedWidth) return null;
+    return {
+      width: page.width,
+      height: page.height,
+      scale: paintedWidth / page.width,
+    };
+  }
+
+  /**
+   * Publishes the geometry to the stylesheet: the sheet size for `@page`,
+   * and the scale the canvas is printed at. `print.css` reads both; this
+   * only writes the values.
+   */
+  function applyPrintGeometry(geometry: PrintGeometry | null) {
+    let style = document.getElementById(PRINT_STYLE_ID) as HTMLStyleElement | null;
+    if (!style) {
+      style = document.createElement("style");
+      style.id = PRINT_STYLE_ID;
+      document.head.appendChild(style);
+    }
+    if (!geometry) {
+      style.textContent = "";
+      root.style.removeProperty("--doc-print-scale");
+      return;
+    }
+    // The sheet is as wide as the page and a hair taller: a sheet one pixel
+    // short of its page would push a sliver of every page onto a sheet of
+    // its own, and the slack keeps the rounding of the painted page from
+    // reaching the paper.
+    style.textContent = `@page { size: ${geometry.width}px ${geometry.height + 2}px; margin: 0; }`;
+    root.style.setProperty("--doc-print-scale", String(1 / geometry.scale));
+  }
+
   function printDocument() {
     try {
+      // The sheet is sized from the document and the canvas is scaled onto
+      // it, so the print carries the document — not the window around it.
+      applyPrintGeometry(readPrintGeometry());
       window.print();
     } catch (error) {
       showError(error instanceof Error ? error.message : String(error));
@@ -4029,6 +4106,16 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
           break;
       }
     }, { signal: eventSignal });
+
+    // The browser's own print (File → Print) does not go through the
+    // editor's button, so the geometry is refreshed for that path too.
+    window.addEventListener(
+      "beforeprint",
+      () => {
+        applyPrintGeometry(readPrintGeometry());
+      },
+      { signal: eventSignal },
+    );
   }
 
   function init() {
@@ -4136,6 +4223,9 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
       unsubscribeSelectionChange?.();
       unsubscribeChange = null;
       unsubscribeSelectionChange = null;
+      // The `@page` rule is a document-level one: it must not outlive the
+      // editor, or it would size the paper of every other page.
+      document.getElementById(PRINT_STYLE_ID)?.remove();
       eventController.abort();
       editor?.destroy();
       editor = null;

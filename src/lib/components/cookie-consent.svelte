@@ -43,7 +43,7 @@
     toast stack (z-9999) so a toast is never obscured.
   -->
   <div
-    class="fixed bottom-0 left-0 right-0 z-1001 p-2 sm:p-4 pointer-events-none"
+    class="cookie-consent fixed bottom-0 left-0 right-0 z-1001 p-2 sm:p-4 pointer-events-none"
   >
     <!--
       Not daisyUI's `alert`: that class is a `grid-auto-flow: column`, so the

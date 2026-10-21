@@ -80,6 +80,18 @@
 
 ## 2026-10-22
 
+### Cetak dokumen sesuai ukuran halamannya
+
+<!-- id: cetak-dokumen-sesuai-ukuran-halamannya-2026-10-22 -->
+
+Halaman: /editor - Editor Dokumen
+Audiens: Tamu
+
+- **Baru** - Cetak dokumen langsung dari editor dengan hasil satu halaman dokumen per lembar
+- **Baru** - Gaya cetak dipindah ke print.css yang hanya dimuat halaman editor
+- **Baru** - Ukuran kertas mengikuti geometri dokumen dan kanvas diskalakan agar pas di lembar
+- **Baru** - Navbar, chatbot, banner cookie, dan toolbar disembunyikan saat mencetak
+
 ### Verifikasi dokumen secara lokal dan BSrE di dalam aplikasi
 
 <!-- id: verifikasi-dokumen-secara-lokal-dan-bsre-di-dalam-aplikasi-2026-10-22 -->

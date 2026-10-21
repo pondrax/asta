@@ -10,6 +10,7 @@
   import WorkspaceMenuBar from "$lib/components/workspace-menubar.svelte";
   import { setupDocxEditor } from "./editor-logic";
   import "./editor.css";
+  import "./print.css";
 
   let { data } = $props();
 
@@ -675,8 +676,9 @@
            the primary handoff is always one click away. -->
     </div>
 
-    <!-- Small screens: the shared menubar can't fit in the navbar, show it here. -->
-    <div class="lg:hidden px-2 py-1">
+    <!-- Small screens: the shared menubar can't fit in the navbar, show it here.
+         `editor-menubar` is the hook the print stylesheet hides it by. -->
+    <div class="lg:hidden px-2 py-1 editor-menubar">
       <WorkspaceMenuBar />
     </div>
 
