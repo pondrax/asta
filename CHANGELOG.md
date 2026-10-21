@@ -78,6 +78,22 @@
   Admin     admin only; `hooks.server.ts` 403s every other role on `/main*`
 -->
 
+## 2026-10-22
+
+### Verifikasi dokumen secara lokal dan BSrE di dalam aplikasi
+
+<!-- id: verifikasi-dokumen-secara-lokal-dan-bsre-di-dalam-aplikasi-2026-10-22 -->
+
+Halaman: /sign - Tanda Tangan Dokumen
+Audiens: Tamu
+
+- **Baru** - Panel verifikasi langsung di halaman tanda tangan: membaca tanda tangan lokal (CMS) sekaligus mengecek status ke server BSrE tanpa pindah halaman
+- **Baru** - Pratinjau dokumen, ekspor metadata hasil verifikasi ke Excel, dan unduh dokumen terpilih sebagai ZIP
+- **Baru** - Status tanda tangan menampilkan Valid/Tidak Valid, kepercayaan sertifikat, LTV, dan timestamp
+- **Diubah** - Mode penandatanganan kini bernama TTE BSrE dan Self-Signed Pemkot
+- **Diubah** - Utilitas PDF memakai @libpdf/core dengan patch untuk berkas yang ditandatangani BSrE
+- **Diubah** - Verifikasi dokumen memakai ESIGN_URL dan kunci yang sama dengan penandatanganan
+
 ## 2026-10-20
 
 ### Email retry button beside input

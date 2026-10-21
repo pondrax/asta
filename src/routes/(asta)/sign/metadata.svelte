@@ -348,7 +348,7 @@
     "nomor_telepon",
   ];
   // Lock identity fields until the BSrE account is verified (ISSUE), and while
-  // there is no document loaded. Manual signing always allows editing.
+  // there is no document loaded. Self-signed signing always allows editing.
   const locked = $derived(!hasDocuments || (bsre && status !== "ISSUE"));
   const emailOk = $derived(
     !!form.email && !(type("string.email")(form.email) instanceof type.errors),

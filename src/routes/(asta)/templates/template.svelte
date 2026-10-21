@@ -57,8 +57,8 @@
             <td>{item.description}</td>
             <td
               >{item.sign_type === "bsre"
-                ? "Tanda Tangan Elektronik"
-                : "Tanda Tangan Manual"}</td
+                ? "TTE BSrE"
+                : "Self-Signed Pemkot"}</td
             >
             <!-- <td>{item.file}</td> -->
             <!-- <td>{JSON.stringify(item.properties)}</td> -->

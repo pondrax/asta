@@ -298,7 +298,7 @@
         <div class="flex items-center justify-between">
           <span
             class="text-[8px] font-black uppercase tracking-[0.2em] opacity-40"
-            >Tanda Tangan Manual</span
+            >Tanda Tangan Self-Signed</span
           >
           <iconify-icon icon="bx:pen" class="text-lg text-secondary"
           ></iconify-icon>
@@ -366,7 +366,7 @@
             {
               key: "signed-manual",
               color: "var(--color-secondary)",
-              label: "Signed Manual",
+              label: "Signed Self-Signed",
             },
             {
               key: "verified-esign",
@@ -376,7 +376,7 @@
             {
               key: "verified-manual",
               color: "var(--color-info)",
-              label: "Verified Manual",
+              label: "Verified Self-Signed",
             },
           ]}
         />

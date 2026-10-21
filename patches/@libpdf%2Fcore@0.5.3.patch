@@ -1,0 +1,24 @@
+diff --git a/dist/index.mjs b/dist/index.mjs
+index 3becfdee05549f3e180d1b6787a3c523c1c71828..2ffcc3ea5c393cdd34f7c630d4fd7e35e0d49b7e 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -33903,7 +33903,7 @@ var XRefParser = class {
+ 		const w1 = w0 instanceof PdfNumber ? w0.value : 0;
+ 		const w2 = w1Val instanceof PdfNumber ? w1Val.value : 0;
+ 		const w3 = w2Val instanceof PdfNumber ? w2Val.value : 0;
+-		const MAX_FIELD_WIDTH = 6;
++		const MAX_FIELD_WIDTH = 8;
+ 		if (w1 < 0 || w1 > MAX_FIELD_WIDTH) throw new XRefParseError(`Invalid XRef stream field width w1=${w1} (max ${MAX_FIELD_WIDTH})`);
+ 		if (w2 < 0 || w2 > MAX_FIELD_WIDTH) throw new XRefParseError(`Invalid XRef stream field width w2=${w2} (max ${MAX_FIELD_WIDTH})`);
+ 		if (w3 < 0 || w3 > MAX_FIELD_WIDTH) throw new XRefParseError(`Invalid XRef stream field width w3=${w3} (max ${MAX_FIELD_WIDTH})`);
+@@ -42502,8 +42502,8 @@ var PDFSignature = class {
+ 		fieldDict.set("Type", PdfName.of("Annot"));
+ 		fieldDict.set("Subtype", PdfName.of("Widget"));
+ 		fieldDict.set("F", PdfNumber.of(132));
+-		fieldDict.set("P", pageRef);
+-		fieldDict.set("Rect", new PdfArray([
++		if (!fieldDict.has("P")) fieldDict.set("P", pageRef);
++		if (!fieldDict.has("Rect")) fieldDict.set("Rect", new PdfArray([
+ 			PdfNumber.of(0),
+ 			PdfNumber.of(0),
+ 			PdfNumber.of(0),

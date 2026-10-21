@@ -1,56 +1,138 @@
+// The PDF library is patched (see `patches/@libpdf%2Fcore@0.5.3.patch`):
+// - it capped cross-reference-stream field widths at 6 bytes, while the spec
+//   allows 8 and BSrE writes `/W [1 8 2]`; without the fix every signed
+//   document fails to load.
+// - signing always reset a signature field's `/P` and `/Rect` to an invisible
+//   widget; the fix keeps a widget's geometry that was set up beforehand,
+//   which is what makes `prepareVisibleSignature` survive signing.
 import {
-  PDFDocument,
-  PDFTextField,
-  PDFCheckBox,
-  PDFRadioGroup,
-  PDFDropdown,
-  PDFOptionList,
-  PDFSignature,
-  PDFFont,
-  PDFName,
-  PDFDict,
-  PDFRef,
-  PDFString,
-  PDFHexString,
+  PDF,
   StandardFonts,
-  rgb
-} from 'pdf-lib';
+  PdfArray,
+  PdfDict,
+  PdfName,
+  PdfNumber,
+  PdfRef,
+  PdfStream,
+  PdfString,
+  measureText,
+  ops,
+  rgb,
+  type CheckboxField,
+  type DropdownField,
+  type FontInput,
+  type ListBoxField,
+  type PDFImage,
+  type PdfObject,
+  type RadioField,
+  type TextField
+} from '@libpdf/core';
+
+// ---------------------------------------------------------
+// Internals
+// ---------------------------------------------------------
+
+/** The bytes of a document, copied so the caller's buffer is never touched. */
+function toBytes(bytes: Uint8Array | ArrayBuffer): Uint8Array {
+  const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  // libpdf keeps the original buffer around (incremental saves append to it),
+  // so hand it a copy instead of the caller's array.
+  return view.slice();
+}
+
+/** Loads a document. */
+function open(bytes: Uint8Array | ArrayBuffer): Promise<PDF> {
+  return PDF.load(toBytes(bytes));
+}
+
+/**
+ * Saves without disturbing signatures the document already carries.
+ *
+ * A full save rewrites every object, which changes the bytes those signatures
+ * cover and breaks them. Documents that carry at least one signature are
+ * therefore saved incrementally — that is what lets a signed document be
+ * signed again.
+ */
+function savePdf(pdf: PDF): Promise<Uint8Array> {
+  const signed =
+    pdf.getForm()?.getSignatureFields().some((field) => field.isSigned()) ??
+    false;
+  return pdf.save(signed ? { incremental: true } : undefined);
+}
+
+/** Decodes a base64 payload into raw bytes. */
+function base64ToBytes(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+/**
+ * Embeds an image, trying PNG first and falling back to JPEG.
+ *
+ * Returns null when the payload is neither, so the caller can decide whether
+ * the image is optional (a signature) or required (the footer QR code).
+ */
+function embedImage(pdf: PDF, bytes: Uint8Array): PDFImage | null {
+  try {
+    return pdf.embedPng(bytes);
+  } catch {
+    try {
+      return pdf.embedJpeg(bytes);
+    } catch {
+      return null;
+    }
+  }
+}
 
 // ---------------------------------------------------------
 // Load PDF
 // ---------------------------------------------------------
 export async function loadPdf(bytes: Uint8Array | ArrayBuffer) {
-  return PDFDocument.load(bytes, { ignoreEncryption: true });
+  return open(bytes);
 }
 
 // ---------------------------------------------------------
 // Read all form fields
 // ---------------------------------------------------------
 export async function getAllFormFields(bytes: Uint8Array | ArrayBuffer) {
-  const pdfDoc = await PDFDocument.load(bytes, { ignoreEncryption: true });
-  const form = pdfDoc.getForm();
-  const fields = form.getFields();
+  const pdf = await open(bytes);
+  const form = pdf.getForm();
 
   const output: Record<string, any> = {};
+  if (!form) return output;
 
-  for (const field of fields) {
-    const name = field.getName();
-    const type = field.constructor.name;
+  for (const field of form.getFields()) {
+    // Signature fields are read separately (see `getSignatures`) and are never
+    // filled by the user.
+    if (field.type === 'signature') continue;
 
     let value: any = null;
     let multiline = false;
 
-    if (field instanceof PDFSignature) continue;
-    if (field instanceof PDFTextField) {
-      value = field.getText();
-      multiline = field.isMultiline();
+    switch (field.type) {
+      case 'text': {
+        const text = field as TextField;
+        value = text.getValue();
+        multiline = text.isMultiline;
+        break;
+      }
+      case 'checkbox':
+        value = (field as CheckboxField).isChecked();
+        break;
+      case 'radio':
+        value = (field as RadioField).getValue();
+        break;
+      case 'dropdown':
+        value = (field as DropdownField).getValue();
+        break;
+      case 'listbox':
+        value = (field as ListBoxField).getValue();
+        break;
     }
-    if (field instanceof PDFCheckBox) value = field.isChecked();
-    if (field instanceof PDFRadioGroup) value = field.getSelected();
-    if (field instanceof PDFDropdown) value = field.getSelected();
-    if (field instanceof PDFOptionList) value = field.getSelected();
 
-    output[name] = { type, value, multiline };
+    output[field.name] = { type: field.type, value, multiline };
   }
 
   return output;
@@ -63,42 +145,56 @@ export async function fillFormFields(
   bytes: Uint8Array | ArrayBuffer,
   values: Record<string, string | boolean>
 ) {
-  const pdfDoc = await PDFDocument.load(bytes, { ignoreEncryption: true });
-  const form = pdfDoc.getForm();
+  const pdf = await open(bytes);
+  const form = pdf.getForm();
+  if (!form) return savePdf(pdf);
 
   Object.entries(values).forEach(([name, value]) => {
-    const field = form.getFieldMaybe(name);
+    const field = form.getField(name);
     if (!field) return;
 
-    // text input
-    if (field instanceof PDFTextField && typeof value === 'string') {
-      // console.log(field.constructor.name, name, value);
-      field.setText(value);
-    }
+    try {
+      switch (field.type) {
+        // text input
+        case 'text':
+          if (typeof value === 'string') (field as TextField).setValue(value);
+          break;
 
-    // checkbox
-    if (field instanceof PDFCheckBox) {
-      value ? field.check() : field.uncheck();
-    }
+        // checkbox
+        case 'checkbox':
+          value
+            ? (field as CheckboxField).check()
+            : (field as CheckboxField).uncheck();
+          break;
 
-    // radio
-    if (field instanceof PDFRadioGroup && typeof value === 'string') {
-      field.select(value);
-    }
+        // radio
+        case 'radio':
+          if (typeof value === 'string') (field as RadioField).setValue(value);
+          break;
 
-    // dropdown
-    if (field instanceof PDFDropdown && typeof value === 'string') {
-      field.select(value);
-    }
+        // dropdown
+        case 'dropdown':
+          if (typeof value === 'string')
+            (field as DropdownField).setValue(value);
+          break;
 
-    // option list
-    if (field instanceof PDFOptionList && typeof value === 'string') {
-      field.select(value);
+        // option list
+        case 'listbox':
+          if (typeof value === 'string')
+            (field as ListBoxField).setValue([value]);
+          break;
+      }
+    } catch (err) {
+      // A read-only field or an option that isn't in the list must not sink
+      // the whole document — leave the field as it was.
+      console.warn(`Failed to fill field ${name}.`, err);
     }
   });
 
-  form.flatten();
-  return pdfDoc.save();
+  // Signature fields stay interactive: they are the point of the signing
+  // flow, and flattening them would drop the signature we just read.
+  form.flatten({ skipSignatures: true });
+  return savePdf(pdf);
 }
 
 // ---------------------------------------------------------
@@ -106,7 +202,7 @@ export async function fillFormFields(
 // ---------------------------------------------------------
 function wrapText(
   text: string,
-  font: PDFFont,
+  font: FontInput,
   size: number,
   maxWidth: number
 ): string[] {
@@ -116,7 +212,7 @@ function wrapText(
   const pushWord = (word: string): string => {
     let current = '';
     for (const ch of word) {
-      if (current && font.widthOfTextAtSize(current + ch, size) > maxWidth) {
+      if (current && measureText(current + ch, font, size) > maxWidth) {
         lines.push(current);
         current = ch;
       } else {
@@ -136,7 +232,7 @@ function wrapText(
     let line = pushWord(words[0]);
     for (let i = 1; i < words.length; i++) {
       const candidate = `${line} ${words[i]}`;
-      if (font.widthOfTextAtSize(candidate, size) <= maxWidth) {
+      if (measureText(candidate, font, size) <= maxWidth) {
         line = candidate;
       } else {
         lines.push(line);
@@ -167,24 +263,16 @@ export async function drawFooter(
     page: onlyPage
   } = opts;
 
-  const pdfDoc = await PDFDocument.load(bytes, { ignoreEncryption: true });
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const pdf = await open(bytes);
+  const font = StandardFonts.Helvetica;
 
-  let image;
+  let image = null;
   if (imageBase64) {
-    const imageBytes = Uint8Array.from(
-      atob(imageBase64)
-        .split('')
-        .map((c) => c.charCodeAt(0))
-    );
-    try {
-      image = await pdfDoc.embedPng(imageBytes);
-    } catch {
-      image = await pdfDoc.embedJpg(imageBytes);
-    }
+    image = embedImage(pdf, base64ToBytes(imageBase64));
+    if (!image) throw new Error('Footer image is neither a PNG nor a JPEG.');
   }
 
-  const pages = pdfDoc.getPages();
+  const pages = pdf.getPages();
   const targets =
     onlyPage && pages[onlyPage - 1] ? [pages[onlyPage - 1]] : pages;
 
@@ -195,7 +283,7 @@ export async function drawFooter(
 
   for (const page of targets) {
     const y = paddingY;
-    const pageWidth = page.getWidth();
+    const { width: pageWidth } = page.getMediaBox();
     const maxWidth = pageWidth - marginX * 2;
     const imgAspect = image ? image.height / image.width : 0;
 
@@ -260,7 +348,7 @@ export async function drawFooter(
     }
   }
 
-  return pdfDoc.save();
+  return savePdf(pdf);
 }
 
 type SignatureType = {
@@ -284,8 +372,8 @@ export async function drawImages(
   const pageIndexing = options?.pageIndexing || 'one';
   const coordinateSystem = options?.coordinateSystem || 'top-left';
 
-  const pdfDoc = await PDFDocument.load(bytes, { ignoreEncryption: true });
-  const pages = pdfDoc.getPages();
+  const pdf = await open(bytes);
+  const pages = pdf.getPages();
 
   const signaturesByPage: { [page: number]: SignatureType[] } = {};
 
@@ -313,27 +401,15 @@ export async function drawImages(
     const pageNum = parseInt(pageNumStr);
     const pageSignatures = signaturesByPage[pageNum];
     const page = pages[pageNum];
-    const { height: pageHeight } = page.getSize();
+    const { height: pageHeight } = page.getMediaBox();
 
     for (const signature of pageSignatures) {
       const { imageBase64, originX, originY, width, height } = signature;
 
-      const imageBytes = Uint8Array.from(
-        atob(imageBase64)
-          .split('')
-          .map((c) => c.charCodeAt(0))
-      );
-
-      let image;
-      try {
-        image = await pdfDoc.embedPng(imageBytes);
-      } catch {
-        try {
-          image = await pdfDoc.embedJpg(imageBytes);
-        } catch (error) {
-          console.warn(`Failed to embed image for signature ${signature.id}. Skipping.`);
-          continue;
-        }
+      const image = embedImage(pdf, base64ToBytes(imageBase64));
+      if (!image) {
+        console.warn(`Failed to embed image for signature ${signature.id}. Skipping.`);
+        continue;
       }
 
       // Calculate Y coordinate based on coordinate system
@@ -353,7 +429,7 @@ export async function drawImages(
     }
   }
 
-  return pdfDoc.save();
+  return savePdf(pdf);
 }
 
 // ---------------------------------------------------------
@@ -388,9 +464,9 @@ export async function drawPlacements(
 ): Promise<Uint8Array> {
   const pageIndexing = options?.pageIndexing || 'one';
 
-  const pdfDoc = await PDFDocument.load(bytes, { ignoreEncryption: true });
-  const pages = pdfDoc.getPages();
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const pdf = await open(bytes);
+  const pages = pdf.getPages();
+  const font = StandardFonts.Helvetica;
 
   const byPage: { [page: number]: Placement[] } = {};
 
@@ -412,7 +488,7 @@ export async function drawPlacements(
   for (const pageNumStr in byPage) {
     const pageNum = parseInt(pageNumStr);
     const page = pages[pageNum];
-    const { height: pageHeight } = page.getSize();
+    const { height: pageHeight } = page.getMediaBox();
 
     for (const placement of byPage[pageNumStr]) {
       const kind = placement.kind || 'signature';
@@ -422,23 +498,12 @@ export async function drawPlacements(
 
       if (kind === 'signature') {
         if (!placement.imageBase64) continue;
-        const imageBytes = Uint8Array.from(
-          atob(placement.imageBase64)
-            .split('')
-            .map((c) => c.charCodeAt(0))
-        );
-        let image;
-        try {
-          image = await pdfDoc.embedPng(imageBytes);
-        } catch {
-          try {
-            image = await pdfDoc.embedJpg(imageBytes);
-          } catch {
-            console.warn(
-              `Failed to embed image for placement ${placement.id}. Skipping.`
-            );
-            continue;
-          }
+        const image = embedImage(pdf, base64ToBytes(placement.imageBase64));
+        if (!image) {
+          console.warn(
+            `Failed to embed image for placement ${placement.id}. Skipping.`
+          );
+          continue;
         }
         page.drawImage(image, {
           x: originX,
@@ -494,7 +559,123 @@ export async function drawPlacements(
     }
   }
 
-  return pdfDoc.save();
+  return savePdf(pdf);
+}
+
+// ---------------------------------------------------------
+// Visible signature field
+//
+// Burned-in visuals are just page content: the digital signature stays
+// invisible. For a *visible* signature the signer has to sign a widget that
+// already carries a rectangle and an appearance stream, so the appearance is
+// part of the signed content rather than something drawn next to it.
+// ---------------------------------------------------------
+
+export type VisibleSignature = {
+  /** 1-indexed page number. */
+  page: number;
+  /** PDF points, top-left origin of the box, page-relative. */
+  originX: number;
+  /** PDF points, top edge of the box, from the page top. */
+  originY: number;
+  /** PDF points. */
+  width: number;
+  /** PDF points. */
+  height: number;
+  /** Base64 PNG or JPEG rendered as the signature appearance. */
+  imageBase64: string;
+};
+
+export type PreparedSignature = {
+  bytes: Uint8Array;
+  /** The field the signer must sign; its widget is the visible appearance. */
+  fieldName: string;
+};
+
+/** A field name that isn't taken yet. */
+function uniqueFieldName(form: { getFieldNames(): string[] }): string {
+  const taken = new Set(form.getFieldNames());
+  if (!taken.has('Signature1')) return 'Signature1';
+  for (let i = 2; ; i++) {
+    const name = `Signature${i}`;
+    if (!taken.has(name)) return name;
+  }
+}
+
+/**
+ * Turns a placed signature visual into a visible signature field.
+ *
+ * The field is a widget with a rectangle and a normal appearance stream, so a
+ * viewer draws the signature where the user put it. The returned `fieldName`
+ * is the field the signer must sign — signing it covers the appearance, which
+ * is what keeps the visible signature tied to the signature itself.
+ */
+export async function prepareVisibleSignature(
+  bytes: Uint8Array | ArrayBuffer,
+  signature: VisibleSignature
+): Promise<PreparedSignature> {
+  const pdf = await open(bytes);
+  const page = pdf.getPages()[signature.page - 1];
+  if (!page) throw new Error(`Page ${signature.page} does not exist.`);
+
+  const image = embedImage(pdf, base64ToBytes(signature.imageBase64));
+  if (!image) throw new Error('Signature image is neither a PNG nor a JPEG.');
+
+  const { width, height } = signature;
+
+  // The appearance draws the image across the whole widget box.
+  const appearance = pdf.createFormXObject({
+    bbox: { x: 0, y: 0, width, height },
+    operators: [
+      ops.pushGraphicsState(),
+      ops.concatMatrix(width, 0, 0, height, 0, 0),
+      ops.paintXObject('Im0'),
+      ops.popGraphicsState()
+    ]
+  });
+  const stream = pdf.context.resolve(appearance.ref);
+  if (stream instanceof PdfStream) {
+    stream.set(
+      'Resources',
+      PdfDict.of({ XObject: PdfDict.of({ Im0: image.ref }) })
+    );
+  }
+
+  const form = pdf.getOrCreateForm();
+  const field = form.createSignatureField(uniqueFieldName(form));
+  const fieldDict = field.getDict();
+  const fieldRef = field.getRef();
+
+  const { height: pageHeight } = page.getMediaBox();
+  const bottom = pageHeight - signature.originY - height;
+
+  // A field without /Kids is its own widget: annotate it directly.
+  fieldDict.delete('Kids');
+  fieldDict.set('Type', PdfName.of('Annot'));
+  fieldDict.set('Subtype', PdfName.of('Widget'));
+  fieldDict.set('F', PdfNumber.of(132)); // Print + Locked
+  fieldDict.set('P', page.ref);
+  fieldDict.set('Rect', new PdfArray([
+    PdfNumber.of(signature.originX),
+    PdfNumber.of(bottom),
+    PdfNumber.of(signature.originX + width),
+    PdfNumber.of(bottom + height)
+  ]));
+  fieldDict.set('AP', PdfDict.of({ N: appearance.ref }));
+
+  // A widget that isn't listed on the page is never drawn.
+  if (fieldRef) {
+    const resolver = pdf.context.resolve.bind(pdf.context);
+    const annots = page.dict.getArray('Annots', resolver);
+    if (annots) {
+      annots.push(fieldRef);
+      page.dict.set('Annots', annots);
+    } else {
+      page.dict.set('Annots', new PdfArray([fieldRef]));
+    }
+  }
+
+  return { bytes: await savePdf(pdf), fieldName: field.name };
 }
 
 // ---------------------------------------------------------
@@ -534,17 +715,19 @@ export function toDownload(
 }
 
 export async function hasSignature(bytes: Uint8Array | ArrayBuffer): Promise<boolean> {
-  const pdfDoc = await PDFDocument.load(bytes, { ignoreEncryption: true });
-  const form = pdfDoc.getForm();
-  const fields = form.getFields();
+  const pdf = await open(bytes);
+  const form = pdf.getForm();
+  if (!form) return false;
 
-  return fields.some(field => field instanceof PDFSignature);
+  return form.getSignatureFields().length > 0;
 }
 
 /** Names of the digital signature fields already present in the document. */
 export type SignatureInfo = {
-  /** Field name; the signer's display name when the signature carries one. */
+  /** Display label; the signer's name when the signature carries one. */
   name: string;
+  /** Raw AcroForm field name, e.g. "Signature1". */
+  fieldName?: string;
   /** Signature handler, e.g. "Adobe.PPKLite". */
   filter?: string;
   /** Encoding, e.g. "adbe.pkcs7.detached" (a cryptographic signature) or
@@ -573,32 +756,69 @@ export type SignatureInfo = {
   issuerName?: string;
   /** Issuer common name (who issued the signing certificate). */
   issuerCommonName?: string;
+  /** Start of the signing certificate's validity window. */
+  signerValidFrom?: string;
+  /** End of the signing certificate's validity window. */
+  signerValidTo?: string;
 };
 
-function toPdfString(obj: unknown): string | undefined {
-  if (obj instanceof PDFString || obj instanceof PDFHexString) {
+function toPdfString(obj: PdfObject | undefined): string | undefined {
+  if (obj instanceof PdfString) {
     try {
-      return obj.decodeText();
+      return obj.asString();
     } catch {
       return undefined;
     }
   }
   // /Filter and /SubFilter are PDFName objects ("/Adobe.PPKLite").
-  if (obj instanceof PDFName) return obj.asString().replace(/^\//, '');
+  if (obj instanceof PdfName) return obj.value;
   return undefined;
 }
+
+const MONTHS = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+  'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
+];
 
 /** "D:YYYYMMDDHHmmSS..." → "DD Mmm YYYY HH:mm". */
 function formatPdfDate(value?: string): string | undefined {
   if (!value) return undefined;
   const m = /^D:(\d{4})(\d{2})(\d{2})(\d{2})?(\d{2})?(\d{2})?/.exec(value);
   if (!m) return value;
-  const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
-    'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
-  ];
   const [, Y, Mo, D, H = '00', Mi = '00'] = m;
-  return `${D} ${months[Number(Mo) - 1] ?? Mo} ${Y} ${H}:${Mi}`;
+  return `${D} ${MONTHS[Number(Mo) - 1] ?? Mo} ${Y} ${H}:${Mi}`;
+}
+
+/** ASN.1 UTCTime (0x17) / GeneralizedTime (0x18) → "DD Mmm YYYY HH:mm".
+ *
+ * The wall-clock time is kept as the certificate wrote it: a `Z` means UTC, a
+ * numeric offset is left alone, exactly like the PDF's own signing date. */
+function readAsn1Time(buf: Uint8Array, tlv: Tlv): string | undefined {
+  try {
+    const text = new TextDecoder('latin1')
+      .decode(buf.slice(tlv.start, tlv.end))
+      .trim();
+    const m =
+      tlv.tag === 0x17
+        ? /^(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})?(\d{2})?/.exec(text)
+        : /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})?(\d{2})?/.exec(text);
+    if (!m) return undefined;
+
+    const year =
+      tlv.tag === 0x17
+        ? String(Number(m[1]) >= 50 ? 1900 + Number(m[1]) : 2000 + Number(m[1]))
+        : m[1];
+    const rest = m.slice(2).join('');
+    const month = rest.slice(0, 2);
+    const day = rest.slice(2, 4);
+    const hour = rest.slice(4, 6) || '00';
+    const minute = rest.slice(6, 8) || '00';
+    if (!month || !day) return undefined;
+
+    return `${day} ${MONTHS[Number(month) - 1] ?? month} ${year} ${hour}:${minute}`;
+  } catch {
+    return undefined;
+  }
 }
 
 /** DN attribute OID *content* bytes (without the 06/len header), as readDn
@@ -611,11 +831,31 @@ const OID_EMAIL = '2a 86 48 86 f7 0d 01 09 01';
 
 type Tlv = { tag: number; start: number; end: number };
 
-/** One ASN.1 tag-length-value header at `off`. */
+/** One ASN.1 tag-length-value header at `off`.
+ *
+ * BER allows an indefinite length (0x80), where the value runs until the
+ * matching end-of-contents marker. Some signers — Peruri's meterai among
+ * them — emit their PKCS#7 that way, so the walk has to understand it. */
 function readTlv(buf: Uint8Array, off: number): Tlv {
   const tag = buf[off];
   let p = off + 1;
   let len = buf[p++];
+
+  if (len === 0x80) {
+    const start = p;
+    // Skip over the children until the end-of-contents that closes this value.
+    // `end` points past the marker, so it doubles as the next sibling's start.
+    while (p < buf.length) {
+      if (buf[p] === 0x00 && buf[p + 1] === 0x00) {
+        return { tag, start, end: p + 2 };
+      }
+      const child = readTlv(buf, p);
+      if (child.end <= p) break;
+      p = child.end;
+    }
+    return { tag, start, end: p };
+  }
+
   if (len & 0x80) {
     const n = len & 0x7f;
     len = 0;
@@ -671,7 +911,8 @@ function dnToString(dn: Record<string, string>): string | undefined {
   return parts.length ? parts.join(', ') : undefined;
 }
 
-/** One certificate's subject + issuer DNs, or null if the shape is off. */
+/** One certificate's subject + issuer DNs and validity window, or null if the
+ *  shape is off. */
 function certDns(buf: Uint8Array, certStart: number) {
   try {
     const cert = readTlv(buf, certStart);
@@ -683,13 +924,27 @@ function certDns(buf: Uint8Array, certStart: number) {
     p = readTlv(buf, p).end; // signature algorithm
     const issuer = readTlv(buf, p);
     p = issuer.end;
-    p = readTlv(buf, p).end; // validity
+    const validity = readTlv(buf, p); // SEQUENCE { notBefore, notAfter }
+    p = validity.end;
     const subject = readTlv(buf, p);
     const iDn: Record<string, string> = {};
     const sDn: Record<string, string> = {};
     readDn(buf, issuer.start, issuer.end, iDn);
     readDn(buf, subject.start, subject.end, sDn);
-    return { subject: sDn, issuer: iDn };
+
+    // validity: notBefore then notAfter
+    let validFrom: string | undefined;
+    let validTo: string | undefined;
+    try {
+      const notBefore = readTlv(buf, validity.start);
+      const notAfter = readTlv(buf, notBefore.end);
+      validFrom = readAsn1Time(buf, notBefore);
+      validTo = readAsn1Time(buf, notAfter);
+    } catch {
+      /* the certificate has no readable validity window */
+    }
+
+    return { subject: sDn, issuer: iDn, validFrom, validTo };
   } catch {
     return null;
   }
@@ -718,7 +973,12 @@ function parseCertificate(der: Uint8Array, nameHint?: string) {
     const certs = readTlv(der, p); // [0] certificates
     if (certs.tag !== 0xa0) return {};
 
-    const chain: { subject: Record<string, string>; issuer: Record<string, string> }[] = [];
+    const chain: {
+      subject: Record<string, string>;
+      issuer: Record<string, string>;
+      validFrom?: string;
+      validTo?: string;
+    }[] = [];
     let q = certs.start;
     while (q < certs.end) {
       const cert = readTlv(der, q);
@@ -742,7 +1002,7 @@ function parseCertificate(der: Uint8Array, nameHint?: string) {
     }
     if (!leaf) leaf = chain[chain.length - 1];
 
-    const { subject, issuer } = leaf;
+    const { subject, issuer, validFrom, validTo } = leaf;
     return {
       cn: subject[OID_CN],
       org: subject[OID_ORG],
@@ -751,28 +1011,23 @@ function parseCertificate(der: Uint8Array, nameHint?: string) {
       subjectName: dnToString(subject),
       issuer: issuer[OID_CN],
       issuerName: dnToString(issuer),
+      validFrom,
+      validTo,
     };
   } catch {
     return {};
   }
 }
 
-/** The signature's `/Contents` as raw bytes (hex string or literal). */
+/** The signature's `/Contents` as raw bytes. */
 function sigContents(
-  sigDict: PDFDict | undefined,
-  resolve: (o: unknown) => unknown,
+  sigDict: PdfDict | undefined,
+  resolve: (o: PdfObject | undefined) => PdfObject | undefined,
 ): Uint8Array | undefined {
-  const raw = resolve(sigDict?.get(PDFName.of('Contents')));
-  if (raw instanceof PDFHexString) {
+  const raw = resolve(sigDict?.get('Contents'));
+  if (raw instanceof PdfString) {
     try {
-      return raw.asBytes();
-    } catch {
-      return undefined;
-    }
-  }
-  if (raw instanceof PDFString) {
-    try {
-      return raw.asBytes();
+      return raw.bytes;
     } catch {
       return undefined;
     }
@@ -780,87 +1035,671 @@ function sigContents(
   return undefined;
 }
 
+type SignatureEntry = {
+  fieldName: string;
+  info: SignatureInfo;
+  contents?: Uint8Array;
+  byteRange?: number[];
+  subFilter?: string;
+  /** The document's DSS holds revocation/validation data for this signature. */
+  ltvData?: boolean;
+};
+
+/** Parse `/DSS /VRI` into uppercase SHA-1 keys → validation data counts. */
+function readDss(
+  catalog: PdfDict,
+  resolve: (o: PdfObject | undefined) => PdfObject | undefined,
+): Map<string, boolean> | undefined {
+  try {
+    const dss = resolve(catalog.get('DSS'));
+    if (!(dss instanceof PdfDict)) return undefined;
+    const vri = resolve(dss.get('VRI'));
+    if (!(vri instanceof PdfDict)) {
+      // Older layouts keep the validation data at the DSS level only.
+      return undefined;
+    }
+    const count = (dict: PdfDict, key: string) => {
+      const value = resolve(dict.get(key));
+      return value instanceof PdfArray ? value.length : 0;
+    };
+    const map = new Map<string, boolean>();
+    for (const key of vri.keys()) {
+      const dict = resolve(vri.get(key.value));
+      if (!(dict instanceof PdfDict)) continue;
+      const entries =
+        count(dict, 'Cert') + count(dict, 'OCSP') + count(dict, 'CRL');
+      map.set(key.value.toUpperCase(), entries > 0);
+    }
+    return map;
+  } catch {
+    return undefined;
+  }
+}
+
+function sha1Hex(bytes: Uint8Array): Promise<string> {
+  return crypto.subtle
+    .digest('SHA-1', bytes as BufferSource)
+    .then((digest) =>
+      Array.from(new Uint8Array(digest))
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('')
+        .toUpperCase(),
+    );
+}
+
+async function readSignatureEntries(
+  bytes: Uint8Array | ArrayBuffer,
+): Promise<SignatureEntry[]> {
+  const pdf = await open(bytes);
+  const form = pdf.getForm();
+  if (!form) return [];
+
+  // Signature dictionaries live in the field's /V entry, which may be an
+  // indirect reference.
+  const resolve = (obj: PdfObject | undefined): PdfObject | undefined => {
+    if (obj instanceof PdfRef) return pdf.context.resolve(obj) ?? undefined;
+    return obj;
+  };
+
+  const vri = readDss(pdf.context.catalog.getDict(), resolve);
+
+  const entries = form.getSignatureFields().map((field) => {
+    const entry: SignatureEntry = {
+      fieldName: field.name,
+      info: { name: field.name, fieldName: field.name },
+    };
+    try {
+      const sigDict = field.getSignatureDict();
+      if (!sigDict) return entry;
+
+      const info = entry.info;
+      const read = (key: string) => toPdfString(resolve(sigDict.get(key)));
+      const nameField = read('Name');
+      info.name = nameField || info.name;
+      info.reason = read('Reason');
+      info.location = read('Location');
+      info.contactInfo = read('ContactInfo');
+      info.date = formatPdfDate(read('M'));
+      info.filter = toPdfString(resolve(sigDict.get('Filter')));
+      info.subFilter = toPdfString(resolve(sigDict.get('SubFilter')));
+      entry.subFilter = info.subFilter;
+
+      const range = resolve(sigDict.get('ByteRange'));
+      if (range instanceof PdfArray) {
+        const values: number[] = [];
+        for (const item of range) {
+          const resolved = resolve(item);
+          if (resolved instanceof PdfNumber) values.push(resolved.value);
+        }
+        if (values.length === 4) entry.byteRange = values;
+      }
+
+      const contents = sigContents(sigDict, resolve);
+      if (contents && contents.length > 0) {
+        entry.contents = contents;
+        const cert = parseCertificate(contents, nameField || undefined);
+        info.subjectName = cert.subjectName;
+        info.signerCommonName = cert.cn;
+        info.signerOrg = cert.org;
+        info.signerCountry = cert.country;
+        info.signerEmail = cert.email;
+        info.issuerName = cert.issuerName;
+        info.issuerCommonName = cert.issuer;
+        info.signerValidFrom = cert.validFrom;
+        info.signerValidTo = cert.validTo;
+        // The field name ("Signature1") is meaningless to a reader; prefer
+        // the certificate's common name as the signer's label.
+        if (!nameField && cert.cn) info.name = cert.cn;
+      }
+    } catch {
+      /* best-effort: keep the field name */
+    }
+    return entry;
+  });
+
+  if (vri) {
+    await Promise.all(
+      entries.map(async (entry) => {
+        if (!entry.contents) return;
+        try {
+          // PAdES keys the VRI by the SHA-1 of the DER blob in /Contents,
+          // not the zero-padded field value.
+          const der = entry.contents.subarray(0, readTlv(entry.contents, 0).end);
+          const key = await sha1Hex(der);
+          if (vri.has(key)) entry.ltvData = vri.get(key);
+        } catch {
+          /* ignore a malformed blob */
+        }
+      }),
+    );
+  }
+
+  return entries;
+}
+
 export async function getSignatures(
   bytes: Uint8Array | ArrayBuffer
 ): Promise<SignatureInfo[]> {
-  const pdfDoc = await PDFDocument.load(bytes, { ignoreEncryption: true });
-  const form = pdfDoc.getForm();
-  const resolve = (obj: unknown): unknown =>
-    obj instanceof PDFRef ? pdfDoc.context.lookup(obj) : obj;
-
-  return form
-    .getFields()
-    .filter((field) => field instanceof PDFSignature)
-    .map((field) => {
-      const info: SignatureInfo = { name: field.getName() };
-      try {
-        const dict = (field as any).acroField?.dict as PDFDict | undefined;
-        const v = resolve(dict?.get(PDFName.of('V')));
-        const sigDict = v instanceof PDFDict ? v : undefined;
-        const read = (key: string) =>
-          toPdfString(resolve(sigDict?.get(PDFName.of(key))));
-        const nameField = read('Name');
-        info.name = nameField || info.name;
-        info.reason = read('Reason');
-        info.location = read('Location');
-        info.contactInfo = read('ContactInfo');
-        info.date = formatPdfDate(read('M'));
-        info.filter = toPdfString(resolve(sigDict?.get(PDFName.of('Filter'))));
-        info.subFilter = toPdfString(
-          resolve(sigDict?.get(PDFName.of('SubFilter'))),
-        );
-        const contents = sigContents(sigDict, resolve);
-        if (contents && contents.length > 0) {
-          const cert = parseCertificate(contents, nameField || undefined);
-          info.subjectName = cert.subjectName;
-          info.signerCommonName = cert.cn;
-          info.signerOrg = cert.org;
-          info.signerCountry = cert.country;
-          info.signerEmail = cert.email;
-          info.issuerName = cert.issuerName;
-          info.issuerCommonName = cert.issuer;
-          // The field name ("Signature1") is meaningless to a reader; prefer
-          // the certificate's common name as the signer's label.
-          if (!nameField && cert.cn) info.name = cert.cn;
-        }
-      } catch {
-        /* best-effort: keep the field name */
-      }
-      return info;
-    });
+  return (await readSignatureEntries(bytes)).map((entry) => entry.info);
 }
+
+// ---------------------------------------------------------
+// Local signature verification (WebCrypto)
+// ---------------------------------------------------------
+
+export type SignatureVerification = {
+  fieldName: string;
+  signerName?: string;
+  /** The signed bytes hash to the digest in the CMS and the signature checks
+   *  out against the signer's certificate. */
+  integrityValid: boolean;
+  /** Every certificate in the chain was signed by its issuer and the update
+   *  ends at a self-signed root. */
+  chainValid: boolean;
+  /** The chain reaches a known Indonesian trust anchor (BSrE/Kominfo). */
+  certificateTrusted: boolean;
+  /** Long-term validation data (DSS/VRI) is embedded for this signature. */
+  ltv: boolean;
+  /** The signature carries a signature timestamp token. */
+  timestamped: boolean;
+  digestAlgorithm?: string;
+  signatureAlgorithm?: string;
+  notBefore?: string;
+  notAfter?: string;
+  signingTime?: string;
+  error?: string;
+};
+
+const DIGEST_OIDS: Record<string, string> = {
+  '1.3.14.3.2.26': 'SHA-1',
+  '2.16.840.1.101.3.4.2.1': 'SHA-256',
+  '2.16.840.1.101.3.4.2.2': 'SHA-384',
+  '2.16.840.1.101.3.4.2.3': 'SHA-512',
+};
+
+const SIGNATURE_OIDS: Record<string, { hash: string; kind: 'rsa' | 'ecdsa' | 'pss' }> = {
+  '1.2.840.113549.1.1.5': { hash: 'SHA-1', kind: 'rsa' },
+  '1.2.840.113549.1.1.11': { hash: 'SHA-256', kind: 'rsa' },
+  '1.2.840.113549.1.1.12': { hash: 'SHA-384', kind: 'rsa' },
+  '1.2.840.113549.1.1.13': { hash: 'SHA-512', kind: 'rsa' },
+  '1.2.840.113549.1.1.1': { hash: '', kind: 'rsa' },
+  '1.2.840.113549.1.1.10': { hash: '', kind: 'pss' },
+  '1.2.840.10045.4.3.2': { hash: 'SHA-256', kind: 'ecdsa' },
+  '1.2.840.10045.4.3.3': { hash: 'SHA-384', kind: 'ecdsa' },
+  '1.2.840.10045.4.3.4': { hash: 'SHA-512', kind: 'ecdsa' },
+};
+
+const OID_MESSAGE_DIGEST = '1.2.840.113549.1.9.4';
+const OID_SIGNING_TIME = '1.2.840.113549.1.9.5';
+const OID_TIMESTAMP_TOKEN = '1.2.840.113549.1.9.16.2.14';
+
+function readOid(buf: Uint8Array, tlv: Tlv): string {
+  const bytes = buf.subarray(tlv.start, tlv.end);
+  if (bytes.length === 0) return '';
+  const parts = [Math.floor(bytes[0] / 40), bytes[0] % 40];
+  let value = 0;
+  for (let i = 1; i < bytes.length; i++) {
+    value = (value << 7) | (bytes[i] & 0x7f);
+    if (!(bytes[i] & 0x80)) {
+      parts.push(value);
+      value = 0;
+    }
+  }
+  return parts.join('.');
+}
+
+function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+const HASH_LENGTH: Record<string, number> = {
+  'SHA-1': 20,
+  'SHA-256': 32,
+  'SHA-384': 48,
+  'SHA-512': 64,
+};
+
+/** Verify `signature` over `data` with the certificate's SubjectPublicKeyInfo.
+ *  Tries the three WebCrypto schemes so RSA-PSS/ECDSA chains also work. */
+async function verifyCrypto(
+  spki: Uint8Array,
+  signature: Uint8Array,
+  data: Uint8Array,
+  hash: string,
+): Promise<boolean> {
+  if (!hash) return false;
+  const algorithms: { import: RsaHashedImportParams | EcKeyImportParams; verify: AlgorithmIdentifier | RsaPssParams | EcdsaParams }[] = [
+    {
+      import: { name: 'RSASSA-PKCS1-v1_5', hash },
+      verify: { name: 'RSASSA-PKCS1-v1_5' },
+    },
+    {
+      import: { name: 'ECDSA', namedCurve: 'P-256' },
+      verify: { name: 'ECDSA', hash },
+    },
+    {
+      import: { name: 'RSA-PSS', hash },
+      verify: { name: 'RSA-PSS', saltLength: HASH_LENGTH[hash] ?? 32 },
+    },
+  ];
+  for (const algorithm of algorithms) {
+    try {
+      const key = await crypto.subtle.importKey(
+        'spki',
+        spki as BufferSource,
+        algorithm.import as AlgorithmIdentifier,
+        false,
+        ['verify'],
+      );
+      if (
+        await crypto.subtle.verify(
+          algorithm.verify,
+          key,
+          signature as BufferSource,
+          data as BufferSource,
+        )
+      ) {
+        return true;
+      }
+    } catch {
+      /* key/algorithm mismatch — try the next scheme */
+    }
+  }
+  return false;
+}
+
+type CertInfo = {
+  der: Uint8Array;
+  spki: Uint8Array;
+  tbs: Uint8Array;
+  signature: Uint8Array;
+  signatureOid: string;
+  subject: Record<string, string>;
+  issuer: Record<string, string>;
+  subjectName?: string;
+  issuerName?: string;
+  validFrom?: string;
+  validTo?: string;
+  selfSigned: boolean;
+};
+
+function parseCert(der: Uint8Array): CertInfo | undefined {
+  try {
+    const cert = readTlv(der, 0);
+    let p = cert.start;
+    const tbs = readTlv(der, p);
+    const tbsDer = der.slice(p, tbs.end);
+    p = tbs.end;
+    const sigAlg = readTlv(der, p);
+    const sigAlgOid = readOid(der, readTlv(der, sigAlg.start));
+    p = sigAlg.end;
+    const sigValue = readTlv(der, p);
+
+    let q = tbs.start;
+    let t = readTlv(der, q);
+    if (t.tag === 0xa0) {
+      q = t.end;
+      t = readTlv(der, q);
+    }
+    q = t.end; // serial
+    q = readTlv(der, q).end; // signature algorithm
+    const issuer = readTlv(der, q);
+    q = issuer.end;
+    const validity = readTlv(der, q);
+    q = validity.end;
+    const subject = readTlv(der, q);
+    q = subject.end;
+    const spki = readTlv(der, q);
+    const spkiDer = der.slice(q, spki.end);
+
+    const issuerDn: Record<string, string> = {};
+    const subjectDn: Record<string, string> = {};
+    readDn(der, issuer.start, issuer.end, issuerDn);
+    readDn(der, subject.start, subject.end, subjectDn);
+
+    let validFrom: string | undefined;
+    let validTo: string | undefined;
+    try {
+      const notBefore = readTlv(der, validity.start);
+      const notAfter = readTlv(der, notBefore.end);
+      validFrom = readAsn1Time(der, notBefore);
+      validTo = readAsn1Time(der, notAfter);
+    } catch {
+      /* no readable validity window */
+    }
+
+    return {
+      der,
+      spki: spkiDer,
+      tbs: tbsDer,
+      signature: der.slice(
+        sigValue.tag === 0x03 ? sigValue.start + 1 : sigValue.start,
+        sigValue.end,
+      ),
+      signatureOid: sigAlgOid,
+      subject: subjectDn,
+      issuer: issuerDn,
+      subjectName: dnToString(subjectDn),
+      issuerName: dnToString(issuerDn),
+      validFrom,
+      validTo,
+      selfSigned: dnToString(subjectDn) === dnToString(issuerDn),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+/** All certificates in the CMS `/Contents`, in the order they were stored. */
+function parseCertificates(der: Uint8Array): CertInfo[] {
+  try {
+    const ci = readTlv(der, 0);
+    let p = readTlv(der, ci.start).end; // contentType
+    const wrapper = readTlv(der, p); // [0] EXPLICIT
+    const signed = readTlv(der, wrapper.start);
+    let q = signed.start;
+    q = readTlv(der, q).end; // version
+    q = readTlv(der, q).end; // digestAlgorithms
+    q = readTlv(der, q).end; // encapContentInfo
+    const certs = readTlv(der, q);
+    if (certs.tag !== 0xa0) return [];
+    const out: CertInfo[] = [];
+    let off = certs.start;
+    while (off < certs.end) {
+      const t = readTlv(der, off);
+      if (t.tag !== 0x30) break;
+      const info = parseCert(der.slice(off, t.end));
+      if (info) out.push(info);
+      off = t.end;
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+type SignerInfo = {
+  digestOid: string;
+  signatureOid: string;
+  signature: Uint8Array;
+  signedAttrs?: { bytes: Uint8Array; tlv: Tlv };
+  messageDigest?: Uint8Array;
+  signingTime?: string;
+  timestamped?: boolean;
+};
+
+function parseSignerInfo(der: Uint8Array, signed: Tlv): SignerInfo[] {
+  // Find the signerInfos SET (the last 0x31 at SignedData level).
+  let signerSet: Tlv | undefined;
+  let p = signed.start;
+  p = readTlv(der, p).end; // version
+  p = readTlv(der, p).end; // digestAlgorithms
+  p = readTlv(der, p).end; // encapContentInfo
+  while (p < signed.end) {
+    const t = readTlv(der, p);
+    if (t.tag === 0x31) signerSet = t;
+    p = t.end;
+  }
+  if (!signerSet) return [];
+
+  const out: SignerInfo[] = [];
+  let off = signerSet.start;
+  while (off < signerSet.end) {
+    const si = readTlv(der, off);
+    off = si.end;
+    if (si.tag !== 0x30) continue;
+
+    let q = si.start;
+    q = readTlv(der, q).end; // version
+    q = readTlv(der, q).end; // sid
+    const digestAlg = readTlv(der, q);
+    q = digestAlg.end;
+    let t = readTlv(der, q);
+    let attrs: { bytes: Uint8Array; tlv: Tlv } | undefined;
+    if (t.tag === 0xa0) {
+      const tagOffset = q;
+      const bytes = der.slice(tagOffset, t.end);
+      bytes[0] = 0x31; // re-tag IMPLICIT [0] → SET OF, as signed
+      attrs = { bytes, tlv: t };
+      q = t.end;
+      t = readTlv(der, q);
+    }
+    const sigAlg = t;
+    q = sigAlg.end;
+    const sigValue = readTlv(der, q);
+
+    const signer: SignerInfo = {
+      digestOid: readOid(der, readTlv(der, digestAlg.start)),
+      signatureOid: readOid(der, readTlv(der, sigAlg.start)),
+      signature: der.slice(sigValue.start, sigValue.end),
+      signedAttrs: attrs,
+    };
+
+    if (attrs) {
+      let a = attrs.tlv.start;
+      while (a < attrs.tlv.end) {
+        const attr = readTlv(der, a);
+        if (attr.tag !== 0x30) {
+          a = attr.end;
+          continue;
+        }
+        const attrOid = readOid(der, readTlv(der, attr.start));
+        const set = readTlv(der, readTlv(der, attr.start).end);
+        const value = readTlv(der, set.start);
+        if (attrOid === OID_MESSAGE_DIGEST) {
+          signer.messageDigest = der.slice(value.start, value.end);
+        } else if (attrOid === OID_SIGNING_TIME) {
+          signer.signingTime = readAsn1Time(der, value);
+        }
+        a = attr.end;
+      }
+    }
+
+    // Unsigned attributes follow the signature value; a timestamp token
+    // among them is what makes LTV meaningful.
+    let u = sigValue.end;
+    if (u < si.end) {
+      const unsigned = readTlv(der, u);
+      if (unsigned.tag === 0xa1) {
+        let a = unsigned.start;
+        while (a < unsigned.end) {
+          const attr = readTlv(der, a);
+          if (attr.tag !== 0x30) {
+            a = attr.end;
+            continue;
+          }
+          const attrOid = readOid(der, readTlv(der, attr.start));
+          if (attrOid === OID_TIMESTAMP_TOKEN) signer.timestamped = true;
+          a = attr.end;
+        }
+      }
+    }
+
+    out.push(signer);
+  }
+  return out;
+}
+
+async function verifyChain(leaf: CertInfo, certs: CertInfo[]) {
+  let current = leaf;
+  const used = new Set<CertInfo>([leaf]);
+  let links = true;
+  for (let depth = 0; depth < 10; depth++) {
+    if (current.selfSigned) {
+      const anchor = current.subjectName?.toLowerCase() ?? '';
+      const trusted =
+        anchor.includes('root ca indonesia') || anchor.includes('bsre');
+      const selfOk = await verifyCrypto(
+        current.spki,
+        current.signature,
+        current.tbs,
+        SIGNATURE_OIDS[current.signatureOid]?.hash || 'SHA-256',
+      );
+      return {
+        valid: links && selfOk,
+        trusted: links && selfOk && trusted,
+      };
+    }
+    const issuer = certs.find(
+      (c) => c !== current && !used.has(c) && c.subjectName === current.issuerName,
+    );
+    if (!issuer) return { valid: false, trusted: false };
+    used.add(issuer);
+    const hash =
+      SIGNATURE_OIDS[current.signatureOid]?.hash ||
+      SIGNATURE_OIDS[issuer.signatureOid]?.hash ||
+      'SHA-256';
+    const ok = await verifyCrypto(
+      issuer.spki,
+      current.signature,
+      current.tbs,
+      hash,
+    );
+    if (!ok) links = false;
+    current = issuer;
+  }
+  return { valid: false, trusted: false };
+}
+
+async function verifyEntry(
+  buf: Uint8Array,
+  entry: SignatureEntry,
+): Promise<SignatureVerification> {
+  const result: SignatureVerification = {
+    fieldName: entry.fieldName,
+    signerName: entry.info.name,
+    integrityValid: false,
+    chainValid: false,
+    certificateTrusted: false,
+    ltv: entry.ltvData === true,
+    timestamped: false,
+    digestAlgorithm: undefined,
+    signatureAlgorithm: undefined,
+    notBefore: entry.info.signerValidFrom,
+    notAfter: entry.info.signerValidTo,
+  };
+
+  if (!entry.contents || entry.contents.length === 0) {
+    result.error = "Tanda tangan tidak memiliki data CMS.";
+    return result;
+  }
+  if (!entry.byteRange) {
+    result.error = "ByteRange tanda tangan tidak ditemukan.";
+    return result;
+  }
+  // adbe.pkcs7.detached and ETSI.CAdES.detached both carry a CMS blob;
+  // adbe.x509.rsa_sha1 stores a bare PKCS#1 signature and needs another path.
+  if (entry.subFilter?.toLowerCase().includes('x509.rsa_sha1')) {
+    result.error = `Format ${entry.subFilter} belum didukung untuk verifikasi lokal.`;
+    return result;
+  }
+
+  try {
+    const [a, b, c, d] = entry.byteRange;
+    if (a + b > buf.length || c + d > buf.length) {
+      result.error = "ByteRange melewati akhir berkas.";
+      return result;
+    }
+    const signedBytes = new Uint8Array(b + d);
+    signedBytes.set(buf.subarray(a, a + b), 0);
+    signedBytes.set(buf.subarray(c, c + d), b);
+
+    const der = entry.contents;
+    const ci = readTlv(der, 0);
+    let p = readTlv(der, ci.start).end;
+    const wrapper = readTlv(der, p);
+    const signed = readTlv(der, wrapper.start);
+
+    const signers = parseSignerInfo(der, signed);
+    if (signers.length === 0) {
+      result.error = "SignerInfo tidak ditemukan di dalam CMS.";
+      return result;
+    }
+    const signer = signers[0];
+    const digestName = DIGEST_OIDS[signer.digestOid] ?? 'SHA-256';
+    result.digestAlgorithm = digestName;
+    const sigInfo = SIGNATURE_OIDS[signer.signatureOid];
+    result.signatureAlgorithm =
+      sigInfo?.kind === 'ecdsa' ? 'ECDSA' : sigInfo?.kind === 'pss' ? 'RSA-PSS' : 'RSA';
+
+    const docDigest = new Uint8Array(
+      await crypto.subtle.digest(digestName, signedBytes as BufferSource),
+    );
+
+    let digestOk = true;
+    if (signer.signedAttrs) {
+      digestOk =
+        !!signer.messageDigest && equalBytes(signer.messageDigest, docDigest);
+      if (signer.signingTime) result.signingTime = signer.signingTime;
+    }
+
+    const certs = parseCertificates(der);
+    const data = signer.signedAttrs?.bytes ?? signedBytes;
+
+    let signatureOk = false;
+    let signerCert: CertInfo | undefined;
+    for (const cert of certs) {
+      signatureOk = await verifyCrypto(
+        cert.spki,
+        signer.signature,
+        data,
+        digestName,
+      );
+      if (signatureOk) {
+        signerCert = cert;
+        break;
+      }
+    }
+
+    result.integrityValid = digestOk && signatureOk;
+    result.timestamped = !!signer.timestamped;
+
+    if (signerCert) {
+      const chain = await verifyChain(signerCert, certs);
+      result.chainValid = chain.valid;
+      result.certificateTrusted = chain.trusted;
+    } else if (!signatureOk) {
+      result.error = "Signature tidak cocok dengan sertifikat mana pun.";
+    }
+
+    return result;
+  } catch (err) {
+    result.error =
+      err instanceof Error ? err.message : "Verifikasi lokal gagal.";
+    return result;
+  }
+}
+
+/**
+ * Verify every signature in a PDF locally, without calling the e-sign service.
+ *
+ * Checks the CMS `messageDigest` against the bytes the signature covers, the
+ * signature against the signer's certificate, and walks the embedded chain to
+ * a self-signed root.
+ */
+export async function verifySignatures(
+  bytes: Uint8Array | ArrayBuffer,
+): Promise<SignatureVerification[]> {
+  const buf = toBytes(bytes);
+  const entries = await readSignatureEntries(buf);
+  return Promise.all(entries.map((entry) => verifyEntry(buf, entry)));
+}
+
 
 export async function isEncrypted(bytes: Uint8Array | ArrayBuffer): Promise<boolean> {
   try {
-    await PDFDocument.load(bytes);
+    const pdf = await open(bytes);
+    return pdf.isEncrypted;
+  } catch {
     return false;
-  } catch (err: any) {
-    return err?.name === 'EncryptedPDFError' || String(err?.message).includes('encrypted');
   }
 }
 
 // ---------------------------------------------------------
-// Text extraction (pdf.js)
+// Text extraction
 // ---------------------------------------------------------
-let pdfjsPromise: Promise<typeof import('pdfjs-dist')> | null = null;
-
-/**
- * Loads pdf.js once per session with its worker wired up.
- *
- * Kept separate from the copy `preview.svelte` parks on `window`, because text
- * extraction has to work whether or not a preview has been rendered yet.
- */
-async function loadPdfjs() {
-  if (!pdfjsPromise) {
-    pdfjsPromise = (async () => {
-      const pdfjs = await import('pdfjs-dist');
-      const worker = await import('pdfjs-dist/build/pdf.worker.min.mjs?url');
-      pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
-      return pdfjs;
-    })();
-  }
-  return pdfjsPromise;
-}
 
 /**
  * The document's text layer, page by page.
@@ -876,36 +1715,18 @@ export async function extractText(
   bytes: Uint8Array | ArrayBuffer,
   maxChars = 20000,
 ): Promise<string> {
-  const pdfjs = await loadPdfjs();
-  // pdf.js takes ownership of the buffer it is handed, and the caller's bytes
-  // are still needed for preview and signing, so give it a copy.
-  const data = bytes instanceof Uint8Array ? bytes.slice() : new Uint8Array(bytes.slice(0));
-  const task = pdfjs.getDocument({ data });
-  try {
-    const doc = await task.promise;
-    const pages: string[] = [];
-    let total = 0;
-    for (let i = 1; i <= doc.numPages; i++) {
-      const page = await doc.getPage(i);
-      const content = await page.getTextContent();
-      const text = content.items
-        .map((item) => ('str' in item ? item.str : ''))
-        .join(' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-      if (text) {
-        pages.push(text);
-        total += text.length;
-      }
-      if (total >= maxChars) break;
-    }
-    return pages.join('\n\n').slice(0, maxChars);
-  } finally {
-    // pdfjs-dist v4+ destroys the document through the loading task.
-    try {
-      await task.destroy();
-    } catch {
-      /* teardown is best-effort */
-    }
+  const pdf = await open(bytes);
+  const pages = pdf.extractText();
+
+  const chunks: string[] = [];
+  let total = 0;
+  for (const page of pages) {
+    const text = page.text.replace(/\s+/g, ' ').trim();
+    if (!text) continue;
+    chunks.push(text);
+    total += text.length;
+    if (total >= maxChars) break;
   }
+
+  return chunks.join('\n\n').slice(0, maxChars);
 }

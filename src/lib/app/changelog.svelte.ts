@@ -116,458 +116,39 @@ export function audienceForRole(
 export const PAGE_CHANGELOGS: PageChangelog[] = [
   {
     route: "/sign",
-    page: "Sign V2",
-    entries: [
-      {
-        id: "email-retry-button-beside-input-2026-10-20",
-        date: "2026-10-20",
-        title: "Email retry button beside input",
-        changes: [
-          {
-            kind: "added",
-            text: "email retry button beside input",
-          },
-        ],
-      },
-      {
-        id: "add-retry-on-not-registered-2026-10-20",
-        date: "2026-10-20",
-        title: "Add retry on not registered",
-        changes: [
-          {
-            kind: "fixed",
-            text: "add retry on not registered",
-          },
-        ],
-      },
-      {
-        id: "email-input-indicator-style-retry-option-2026-10-20",
-        date: "2026-10-20",
-        title: "Email input indicator style + retry option",
-        changes: [
-          {
-            kind: "added",
-            text: "email input indicator style + retry option",
-          },
-        ],
-      },
-      {
-        id: "show-subject-name-and-full-signer-identity-in-stat-2026-10-20",
-        date: "2026-10-20",
-        title: "Show subject name and full signer identity in status dropdown",
-        changes: [
-          {
-            kind: "added",
-            text: "show subject name and full signer identity in status dropdown",
-          },
-          {
-            kind: "added",
-            text: "- pdf.ts: parse PKCS#7 leaf cert via ASN.1 (root-first chain), show subject DN, issuer, CN/O/C/email, filter/subFilter; fix /Name fallback to cert CN",
-          },
-          {
-            kind: "added",
-            text: "- toolbar.svelte: display Subject/Penerbit DNs with details; show replace warning only when signature visual placed",
-          },
-          {
-            kind: "added",
-            text: "- sign-v2/+page.svelte: capSignature based on existing signature placement",
-          },
-        ],
-      },
-      {
-        id: "revert-perubahan-koordinat-untuk-tampilan-berdampi-2026-10-20",
-        date: "2026-10-20",
-        title: "Revert perubahan koordinat untuk tampilan berdampingan",
-        changes: [
-          {
-            kind: "fixed",
-            text: "revert perubahan koordinat untuk tampilan berdampingan",
-          },
-        ],
-      },
-      {
-        id: "perbaiki-y-ketika-tarik-di-mode-1-kolom-2026-10-20",
-        date: "2026-10-20",
-        title: "Perbaiki y ketika tarik di mode 1 kolom",
-        changes: [
-          {
-            kind: "fixed",
-            text: "perbaiki y ketika tarik di mode 1 kolom",
-          },
-        ],
-      },
-      {
-        id: "koreksi-posisi-y-saat-drop-pada-tampilan-1-halaman-2026-10-20",
-        date: "2026-10-20",
-        title: "Koreksi posisi y saat drop pada tampilan 1 halaman",
-        changes: [
-          {
-            kind: "fixed",
-            text: "koreksi posisi y saat drop pada tampilan 1 halaman",
-          },
-        ],
-      },
-      {
-        id: "sesuaikan-posisi-visualisasi-pada-tampilan-berdamp-2026-10-20",
-        date: "2026-10-20",
-        title: "Sesuaikan posisi visualisasi pada tampilan berdampingan",
-        changes: [
-          {
-            kind: "fixed",
-            text: "sesuaikan posisi visualisasi pada tampilan berdampingan",
-          },
-        ],
-      },
-      {
-        id: "posisi-visualisasi-pada-tampilan-berdampingan-2026-10-20",
-        date: "2026-10-20",
-        title: "Posisi visualisasi pada tampilan berdampingan",
-        changes: [
-          {
-            kind: "fixed",
-            text: "posisi visualisasi pada tampilan berdampingan",
-          },
-        ],
-      },
-      {
-        id: "koreksi-koordinat-drag-pada-tampilan-berdampingan-2026-10-20",
-        date: "2026-10-20",
-        title: "Koreksi koordinat drag pada tampilan berdampingan",
-        changes: [
-          {
-            kind: "fixed",
-            text: "koreksi koordinat drag pada tampilan berdampingan",
-          },
-        ],
-      },
-      {
-        id: "perbesar-dan-pusatkan-thumbnail-halaman-2026-10-20",
-        date: "2026-10-20",
-        title: "Perbesar dan pusatkan thumbnail halaman",
-        changes: [
-          {
-            kind: "fixed",
-            text: "perbesar dan pusatkan thumbnail halaman",
-          },
-        ],
-      },
-      {
-        id: "tampilkan-jumlah-dokumen-pada-tombol-panel-kiri-2026-10-20",
-        date: "2026-10-20",
-        title: "Tampilkan jumlah dokumen pada tombol panel kiri",
-        changes: [
-          {
-            kind: "added",
-            text: "tampilkan jumlah dokumen pada tombol panel kiri",
-          },
-        ],
-      },
-      {
-        id: "tambahkan-tombol-tampilan-berdampingan-pada-bilah--2026-10-19",
-        date: "2026-10-19",
-        title: "Tambahkan tombol tampilan berdampingan pada bilah alat pratinjau",
-        changes: [
-          {
-            kind: "added",
-            text: "tambahkan tombol tampilan berdampingan pada bilah alat pratinjau",
-          },
-        ],
-      },
-      {
-        id: "tambah-tampilan-berdampingan-side-by-side-dua-hala-2026-10-19",
-        date: "2026-10-19",
-        title: "Tambah tampilan berdampingan (side-by-side) dua halaman pada pratinjau PDF",
-        changes: [
-          {
-            kind: "added",
-            text: "tambah tampilan berdampingan (side-by-side) dua halaman pada pratinjau PDF",
-          },
-        ],
-      },
-      {
-        id: "profil-penandatangan-bawaan-dari-bsre-users-dan-ku-2026-10-19",
-        date: "2026-10-19",
-        title: "Profil penandatangan bawaan dari bsre_users dan kunci last-profile per email",
-        changes: [
-          {
-            kind: "added",
-            text: "profil penandatangan bawaan dari bsre_users dan kunci last-profile per email",
-          },
-        ],
-      },
-      {
-        id: "perbaiki-lapisan-tur-pencarian-teks-dokumen-panel--2026-10-19",
-        date: "2026-10-19",
-        title: "Perbaiki lapisan tur, pencarian teks dokumen, panel halaman/properti, dan bidang passphrase",
-        changes: [
-          {
-            kind: "added",
-            text: "perbaiki lapisan tur, pencarian teks dokumen, panel halaman/properti, dan bidang passphrase",
-          },
-        ],
-      },
-      {
-        id: "tampilkan-tur-di-atas-dialog-tanda-tangan-dan-buat-2026-10-19",
-        date: "2026-10-19",
-        title: "Tampilkan tur di atas dialog tanda tangan dan buat bidang passphrase dapat diklik",
-        changes: [
-          {
-            kind: "fixed",
-            text: "tampilkan tur di atas dialog tanda tangan dan buat bidang passphrase dapat diklik",
-          },
-        ],
-      },
-      {
-        id: "kolom-passphrase-dapat-diklik-saat-tur-berlangsung-2026-10-19",
-        date: "2026-10-19",
-        title: "Kolom passphrase dapat diklik saat tur berlangsung",
-        changes: [
-          {
-            kind: "fixed",
-            text: "kolom passphrase dapat diklik saat tur berlangsung",
-          },
-        ],
-      },
-      {
-        id: "tur-lengkap-dengan-langkah-mode-passphrase-dan-sim-2026-10-19",
-        date: "2026-10-19",
-        title: "Tur lengkap dengan langkah mode, passphrase, dan simulasi selesai",
-        changes: [
-          {
-            kind: "added",
-            text: "tur lengkap dengan langkah mode, passphrase, dan simulasi selesai",
-          },
-        ],
-      },
-      {
-        id: "tur-panduan-membuka-panel-relevan-secara-otomatis-2026-10-19",
-        date: "2026-10-19",
-        title: "Tur panduan membuka panel relevan secara otomatis",
-        changes: [
-          {
-            kind: "added",
-            text: "tur panduan membuka panel relevan secara otomatis",
-          },
-        ],
-      },
-      {
-        id: "sederhanakan-dialog-gambar-tanda-tangan-menjadi-ka-2026-10-19",
-        date: "2026-10-19",
-        title: "Sederhanakan dialog gambar tanda tangan menjadi kanvas gambar",
-        changes: [
-          {
-            kind: "added",
-            text: "sederhanakan dialog gambar tanda tangan menjadi kanvas gambar",
-          },
-        ],
-      },
-      {
-        id: "sembunyikan-spesimen-tersimpan-dan-animasikan-peri-2026-10-19",
-        date: "2026-10-19",
-        title: "Sembunyikan spesimen tersimpan dan animasikan peringatan visual",
-        changes: [
-          {
-            kind: "added",
-            text: "sembunyikan spesimen tersimpan dan animasikan peringatan visual",
-          },
-        ],
-      },
-      {
-        id: "samakan-tinggi-baris-simpan-dokumen-dengan-dokumen-2-2026-10-19",
-        date: "2026-10-19",
-        title: "Samakan tinggi baris Simpan Dokumen dengan Dokumen Rahasia",
-        changes: [
-          {
-            kind: "added",
-            text: "samakan tinggi baris Simpan Dokumen dengan Dokumen Rahasia",
-          },
-        ],
-      },
-      {
-        id: "kembalikan-baris-dokumen-rahasia-ke-tinggi-semula-2026-10-19",
-        date: "2026-10-19",
-        title: "Kembalikan baris Dokumen Rahasia ke tinggi semula",
-        changes: [
-          {
-            kind: "added",
-            text: "kembalikan baris Dokumen Rahasia ke tinggi semula",
-          },
-        ],
-      },
-      {
-        id: "samakan-tinggi-baris-simpan-dokumen-dengan-dokumen-2026-10-19",
-        date: "2026-10-19",
-        title: "Samakan tinggi baris Simpan Dokumen dengan Dokumen Rahasia",
-        changes: [
-          {
-            kind: "added",
-            text: "samakan tinggi baris Simpan Dokumen dengan Dokumen Rahasia",
-          },
-        ],
-      },
-      {
-        id: "isi-profil-dari-tabel-bsre-meski-mode-manual-2026-10-19",
-        date: "2026-10-19",
-        title: "Isi profil dari tabel BSrE meski mode manual",
-        changes: [
-          {
-            kind: "added",
-            text: "isi profil dari tabel BSrE meski mode manual",
-          },
-        ],
-      },
-      {
-        id: "sembunyikan-pratinjau-visual-sampai-profil-lengkap-2026-10-19",
-        date: "2026-10-19",
-        title: "Sembunyikan pratinjau visual sampai profil lengkap, tampilkan peringatan",
-        changes: [
-          {
-            kind: "added",
-            text: "sembunyikan pratinjau visual sampai profil lengkap, tampilkan peringatan",
-          },
-        ],
-      },
-      {
-        id: "tombol-visualisasi-langsung-seret-visual-yang-anda-2026-10-19",
-        date: "2026-10-19",
-        title: "Tombol visualisasi langsung, seret visual yang andal di seluler, dan profil default dari data BSrE",
-        changes: [
-          {
-            kind: "added",
-            text: "tombol visualisasi langsung, seret visual yang andal di seluler, dan profil default dari data BSrE",
-          },
-        ],
-      },
-      {
-        id: "secret-document-passcode-drag-to-place-visual-2026-10-16",
-        date: "2026-10-16",
-        title: "Passcode dokumen rahasia, visualisasi seret-tempat, dan PWA",
-        changes: [
-          {
-            kind: "added",
-            text: "tambah \"Dokumen Rahasia\" berupa passcode yang disimpan ter-hash dan wajib dimasukkan sebelum dokumen tersimpan dibuka lewat tautan `/verify?id`",
-          },
-          {
-            kind: "added",
-            text: "seret visual QR atau kotak tanda tangan dari panel metadata ke dokumen untuk menempatkannya, lengkap dengan bayangan posisi jatuh sesuai ukuran sebenarnya",
-          },
-          {
-            kind: "added",
-            text: "pisahkan panel metadata menjadi bagian Dokumen, Profil Penandatangan, dan Visualisasi; medan identitas kini opsional",
-          },
-          {
-            kind: "added",
-            text: "opsi kirim WhatsApp kini berupa centang yang memakai nomor telepon penandatangan",
-          },
-          {
-            kind: "added",
-            text: "bilah menu halaman dapat digulir mendatar di layar kecil, dan penanda berhasil muncul pada tombol email",
-          },
-          {
-            kind: "added",
-            text: "tambah manifest PWA dan service worker agar aplikasi dapat dipasang",
-          },
-        ],
-      },
-      {
-        id: "rapikan-panel-metadata-dan-tambah-pratinjau-tanda--2026-10-16",
-        date: "2026-10-16",
-        title: "Rapikan panel metadata dan tambah pratinjau tanda tangan",
-        changes: [
-          {
-            kind: "added",
-            text: "susun ulang panel metadata: pilih pemilik, simpan dokumen, dan urutan medan identitas",
-          },
-          {
-            kind: "added",
-            text: "tambah komponen pratinjau QR Code dan kotak tanda tangan dengan unduh per-visual",
-          },
-          {
-            kind: "fixed",
-            text: "pemilih profil penandatangan (simpan, pilih terakhir, hapus)",
-          },
-          {
-            kind: "added",
-            text: "perbarui tata letak halaman tanda tangan, workspace, dan chatbot",
-          },
-        ],
-      },
-      {
-        id: "rombak-halaman-tanda-tangan-2026-10-15",
-        date: "2026-10-15",
-        title: "Rombak tata letak halaman tanda tangan",
-        changes: [
-          {
-            kind: "added",
-            text: "panel Dokumen dipindah ke kiri dan panel Halaman ke kanan",
-          },
-          {
-            kind: "added",
-            text: "mode TTE/Manual dan email penandatangan digabung dalam satu grup",
-          },
-          {
-            kind: "added",
-            text: "menu visualisasi dipisah menjadi tombol Gambar, QR, Kotak, dan Tanda Tangan",
-          },
-          {
-            kind: "added",
-            text: "status tanda tangan dokumen tampil di toolbar beserta rincian dan tombol Verifikasi",
-          },
-          {
-            kind: "added",
-            text: "bilah dokumen (judul, zoom, halaman, unduh, tutup) mengapung di atas kanvas",
-          },
-          {
-            kind: "fixed",
-            text: "penandatanganan kini tetap bisa dilakukan tanpa mengisi nama",
-          },
-          {
-            kind: "fixed",
-            text: "satu visualisasi ditandatangani oleh BSrE, lebih dari satu langsung dibakar ke PDF",
-          },
-          {
-            kind: "fixed",
-            text: "tampilan toolbar dan panel disesuaikan untuk layar kecil",
-          },
-        ],
-      },
-      {
-        id: "rebuild-signing-page-with-editor-style-chrome01201-2026-10-15",
-        date: "2026-10-15",
-        title: "Bangun ulang halaman tanda tangan dengan tampilan ala editor",
-        changes: [
-          {
-            kind: "added",
-            text: "tambah rute /sign baru yang meniru tampilan editor: bilah menu File/Edit/Template/Metadata (hover + klik), kontrol zoom dan halaman, rel thumbnail halaman, panel dokumen/metadata, serta dropdown cakupan Footer (halaman ini vs semua halaman)",
-          },
-          {
-            kind: "added",
-            text: "pdf: drawFooter mendapat opsi halaman; tambah drawPlacements/drawImages",
-          },
-          {
-            kind: "added",
-            text: "sign.remote: teruskan pemilik saat menandatangani atas nama",
-          },
-          {
-            kind: "added",
-            text: "tabel, remote, dan migrasi profil penandatangan (spesimen)",
-          },
-          {
-            kind: "added",
-            text: "preview: controller/state handle yang dapat di-bind + renderThumbnail",
-          },
-          {
-            kind: "added",
-            text: "dragresize: pilihan + sudut resize opsional",
-          },
-        ],
-      },
-    ],
-  },
-  {
-    route: "/sign",
     page: "Tanda Tangan Dokumen",
     entries: [
+      {
+        id: "verifikasi-dokumen-secara-lokal-dan-bsre-di-dalam-aplikasi-2026-10-22",
+        date: "2026-10-22",
+        title: "Verifikasi dokumen secara lokal dan BSrE di dalam aplikasi",
+        changes: [
+          {
+            kind: "added",
+            text: "Panel verifikasi langsung di halaman tanda tangan: membaca tanda tangan lokal (CMS) sekaligus mengecek status ke server BSrE tanpa pindah halaman",
+          },
+          {
+            kind: "added",
+            text: "Pratinjau dokumen, ekspor metadata hasil verifikasi ke Excel, dan unduh dokumen terpilih sebagai ZIP",
+          },
+          {
+            kind: "added",
+            text: "Status tanda tangan menampilkan Valid/Tidak Valid, kepercayaan sertifikat, LTV, dan timestamp",
+          },
+          {
+            kind: "changed",
+            text: "Mode penandatanganan kini bernama TTE BSrE dan Self-Signed Pemkot",
+          },
+          {
+            kind: "changed",
+            text: "Utilitas PDF memakai @libpdf/core dengan patch untuk berkas yang ditandatangani BSrE",
+          },
+          {
+            kind: "changed",
+            text: "Verifikasi dokumen memakai ESIGN_URL dan kunci yang sama dengan penandatanganan",
+          },
+        ],
+      },
       {
         id: "stop-the-signing-timer-on-error-and-resume-it-on-r-2026-10-14",
         date: "2026-10-14",
@@ -1003,6 +584,456 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
           {
             kind: "fixed",
             text: "Pratinjau dokumen draf menampilkan isi yang benar.",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    route: "/sign-v2",
+    page: "Sign V2",
+    entries: [
+      {
+        id: "email-retry-button-beside-input-2026-10-20",
+        date: "2026-10-20",
+        title: "Email retry button beside input",
+        changes: [
+          {
+            kind: "added",
+            text: "email retry button beside input",
+          },
+        ],
+      },
+      {
+        id: "add-retry-on-not-registered-2026-10-20",
+        date: "2026-10-20",
+        title: "Add retry on not registered",
+        changes: [
+          {
+            kind: "fixed",
+            text: "add retry on not registered",
+          },
+        ],
+      },
+      {
+        id: "email-input-indicator-style-retry-option-2026-10-20",
+        date: "2026-10-20",
+        title: "Email input indicator style + retry option",
+        changes: [
+          {
+            kind: "added",
+            text: "email input indicator style + retry option",
+          },
+        ],
+      },
+      {
+        id: "show-subject-name-and-full-signer-identity-in-stat-2026-10-20",
+        date: "2026-10-20",
+        title: "Show subject name and full signer identity in status dropdown",
+        changes: [
+          {
+            kind: "added",
+            text: "show subject name and full signer identity in status dropdown",
+          },
+          {
+            kind: "added",
+            text: "- pdf.ts: parse PKCS#7 leaf cert via ASN.1 (root-first chain), show subject DN, issuer, CN/O/C/email, filter/subFilter; fix /Name fallback to cert CN",
+          },
+          {
+            kind: "added",
+            text: "- toolbar.svelte: display Subject/Penerbit DNs with details; show replace warning only when signature visual placed",
+          },
+          {
+            kind: "added",
+            text: "- sign-v2/+page.svelte: capSignature based on existing signature placement",
+          },
+        ],
+      },
+      {
+        id: "revert-perubahan-koordinat-untuk-tampilan-berdampi-2026-10-20",
+        date: "2026-10-20",
+        title: "Revert perubahan koordinat untuk tampilan berdampingan",
+        changes: [
+          {
+            kind: "fixed",
+            text: "revert perubahan koordinat untuk tampilan berdampingan",
+          },
+        ],
+      },
+      {
+        id: "perbaiki-y-ketika-tarik-di-mode-1-kolom-2026-10-20",
+        date: "2026-10-20",
+        title: "Perbaiki y ketika tarik di mode 1 kolom",
+        changes: [
+          {
+            kind: "fixed",
+            text: "perbaiki y ketika tarik di mode 1 kolom",
+          },
+        ],
+      },
+      {
+        id: "koreksi-posisi-y-saat-drop-pada-tampilan-1-halaman-2026-10-20",
+        date: "2026-10-20",
+        title: "Koreksi posisi y saat drop pada tampilan 1 halaman",
+        changes: [
+          {
+            kind: "fixed",
+            text: "koreksi posisi y saat drop pada tampilan 1 halaman",
+          },
+        ],
+      },
+      {
+        id: "sesuaikan-posisi-visualisasi-pada-tampilan-berdamp-2026-10-20",
+        date: "2026-10-20",
+        title: "Sesuaikan posisi visualisasi pada tampilan berdampingan",
+        changes: [
+          {
+            kind: "fixed",
+            text: "sesuaikan posisi visualisasi pada tampilan berdampingan",
+          },
+        ],
+      },
+      {
+        id: "posisi-visualisasi-pada-tampilan-berdampingan-2026-10-20",
+        date: "2026-10-20",
+        title: "Posisi visualisasi pada tampilan berdampingan",
+        changes: [
+          {
+            kind: "fixed",
+            text: "posisi visualisasi pada tampilan berdampingan",
+          },
+        ],
+      },
+      {
+        id: "koreksi-koordinat-drag-pada-tampilan-berdampingan-2026-10-20",
+        date: "2026-10-20",
+        title: "Koreksi koordinat drag pada tampilan berdampingan",
+        changes: [
+          {
+            kind: "fixed",
+            text: "koreksi koordinat drag pada tampilan berdampingan",
+          },
+        ],
+      },
+      {
+        id: "perbesar-dan-pusatkan-thumbnail-halaman-2026-10-20",
+        date: "2026-10-20",
+        title: "Perbesar dan pusatkan thumbnail halaman",
+        changes: [
+          {
+            kind: "fixed",
+            text: "perbesar dan pusatkan thumbnail halaman",
+          },
+        ],
+      },
+      {
+        id: "tampilkan-jumlah-dokumen-pada-tombol-panel-kiri-2026-10-20",
+        date: "2026-10-20",
+        title: "Tampilkan jumlah dokumen pada tombol panel kiri",
+        changes: [
+          {
+            kind: "added",
+            text: "tampilkan jumlah dokumen pada tombol panel kiri",
+          },
+        ],
+      },
+      {
+        id: "tambahkan-tombol-tampilan-berdampingan-pada-bilah--2026-10-19",
+        date: "2026-10-19",
+        title: "Tambahkan tombol tampilan berdampingan pada bilah alat pratinjau",
+        changes: [
+          {
+            kind: "added",
+            text: "tambahkan tombol tampilan berdampingan pada bilah alat pratinjau",
+          },
+        ],
+      },
+      {
+        id: "tambah-tampilan-berdampingan-side-by-side-dua-hala-2026-10-19",
+        date: "2026-10-19",
+        title: "Tambah tampilan berdampingan (side-by-side) dua halaman pada pratinjau PDF",
+        changes: [
+          {
+            kind: "added",
+            text: "tambah tampilan berdampingan (side-by-side) dua halaman pada pratinjau PDF",
+          },
+        ],
+      },
+      {
+        id: "profil-penandatangan-bawaan-dari-bsre-users-dan-ku-2026-10-19",
+        date: "2026-10-19",
+        title: "Profil penandatangan bawaan dari bsre_users dan kunci last-profile per email",
+        changes: [
+          {
+            kind: "added",
+            text: "profil penandatangan bawaan dari bsre_users dan kunci last-profile per email",
+          },
+        ],
+      },
+      {
+        id: "perbaiki-lapisan-tur-pencarian-teks-dokumen-panel--2026-10-19",
+        date: "2026-10-19",
+        title: "Perbaiki lapisan tur, pencarian teks dokumen, panel halaman/properti, dan bidang passphrase",
+        changes: [
+          {
+            kind: "added",
+            text: "perbaiki lapisan tur, pencarian teks dokumen, panel halaman/properti, dan bidang passphrase",
+          },
+        ],
+      },
+      {
+        id: "tampilkan-tur-di-atas-dialog-tanda-tangan-dan-buat-2026-10-19",
+        date: "2026-10-19",
+        title: "Tampilkan tur di atas dialog tanda tangan dan buat bidang passphrase dapat diklik",
+        changes: [
+          {
+            kind: "fixed",
+            text: "tampilkan tur di atas dialog tanda tangan dan buat bidang passphrase dapat diklik",
+          },
+        ],
+      },
+      {
+        id: "kolom-passphrase-dapat-diklik-saat-tur-berlangsung-2026-10-19",
+        date: "2026-10-19",
+        title: "Kolom passphrase dapat diklik saat tur berlangsung",
+        changes: [
+          {
+            kind: "fixed",
+            text: "kolom passphrase dapat diklik saat tur berlangsung",
+          },
+        ],
+      },
+      {
+        id: "tur-lengkap-dengan-langkah-mode-passphrase-dan-sim-2026-10-19",
+        date: "2026-10-19",
+        title: "Tur lengkap dengan langkah mode, passphrase, dan simulasi selesai",
+        changes: [
+          {
+            kind: "added",
+            text: "tur lengkap dengan langkah mode, passphrase, dan simulasi selesai",
+          },
+        ],
+      },
+      {
+        id: "tur-panduan-membuka-panel-relevan-secara-otomatis-2026-10-19",
+        date: "2026-10-19",
+        title: "Tur panduan membuka panel relevan secara otomatis",
+        changes: [
+          {
+            kind: "added",
+            text: "tur panduan membuka panel relevan secara otomatis",
+          },
+        ],
+      },
+      {
+        id: "sederhanakan-dialog-gambar-tanda-tangan-menjadi-ka-2026-10-19",
+        date: "2026-10-19",
+        title: "Sederhanakan dialog gambar tanda tangan menjadi kanvas gambar",
+        changes: [
+          {
+            kind: "added",
+            text: "sederhanakan dialog gambar tanda tangan menjadi kanvas gambar",
+          },
+        ],
+      },
+      {
+        id: "sembunyikan-spesimen-tersimpan-dan-animasikan-peri-2026-10-19",
+        date: "2026-10-19",
+        title: "Sembunyikan spesimen tersimpan dan animasikan peringatan visual",
+        changes: [
+          {
+            kind: "added",
+            text: "sembunyikan spesimen tersimpan dan animasikan peringatan visual",
+          },
+        ],
+      },
+      {
+        id: "samakan-tinggi-baris-simpan-dokumen-dengan-dokumen-2-2026-10-19",
+        date: "2026-10-19",
+        title: "Samakan tinggi baris Simpan Dokumen dengan Dokumen Rahasia",
+        changes: [
+          {
+            kind: "added",
+            text: "samakan tinggi baris Simpan Dokumen dengan Dokumen Rahasia",
+          },
+        ],
+      },
+      {
+        id: "kembalikan-baris-dokumen-rahasia-ke-tinggi-semula-2026-10-19",
+        date: "2026-10-19",
+        title: "Kembalikan baris Dokumen Rahasia ke tinggi semula",
+        changes: [
+          {
+            kind: "added",
+            text: "kembalikan baris Dokumen Rahasia ke tinggi semula",
+          },
+        ],
+      },
+      {
+        id: "samakan-tinggi-baris-simpan-dokumen-dengan-dokumen-2026-10-19",
+        date: "2026-10-19",
+        title: "Samakan tinggi baris Simpan Dokumen dengan Dokumen Rahasia",
+        changes: [
+          {
+            kind: "added",
+            text: "samakan tinggi baris Simpan Dokumen dengan Dokumen Rahasia",
+          },
+        ],
+      },
+      {
+        id: "isi-profil-dari-tabel-bsre-meski-mode-manual-2026-10-19",
+        date: "2026-10-19",
+        title: "Isi profil dari tabel BSrE meski mode manual",
+        changes: [
+          {
+            kind: "added",
+            text: "isi profil dari tabel BSrE meski mode manual",
+          },
+        ],
+      },
+      {
+        id: "sembunyikan-pratinjau-visual-sampai-profil-lengkap-2026-10-19",
+        date: "2026-10-19",
+        title: "Sembunyikan pratinjau visual sampai profil lengkap, tampilkan peringatan",
+        changes: [
+          {
+            kind: "added",
+            text: "sembunyikan pratinjau visual sampai profil lengkap, tampilkan peringatan",
+          },
+        ],
+      },
+      {
+        id: "tombol-visualisasi-langsung-seret-visual-yang-anda-2026-10-19",
+        date: "2026-10-19",
+        title: "Tombol visualisasi langsung, seret visual yang andal di seluler, dan profil default dari data BSrE",
+        changes: [
+          {
+            kind: "added",
+            text: "tombol visualisasi langsung, seret visual yang andal di seluler, dan profil default dari data BSrE",
+          },
+        ],
+      },
+      {
+        id: "secret-document-passcode-drag-to-place-visual-2026-10-16",
+        date: "2026-10-16",
+        title: "Passcode dokumen rahasia, visualisasi seret-tempat, dan PWA",
+        changes: [
+          {
+            kind: "added",
+            text: "tambah \"Dokumen Rahasia\" berupa passcode yang disimpan ter-hash dan wajib dimasukkan sebelum dokumen tersimpan dibuka lewat tautan `/verify?id`",
+          },
+          {
+            kind: "added",
+            text: "seret visual QR atau kotak tanda tangan dari panel metadata ke dokumen untuk menempatkannya, lengkap dengan bayangan posisi jatuh sesuai ukuran sebenarnya",
+          },
+          {
+            kind: "added",
+            text: "pisahkan panel metadata menjadi bagian Dokumen, Profil Penandatangan, dan Visualisasi; medan identitas kini opsional",
+          },
+          {
+            kind: "added",
+            text: "opsi kirim WhatsApp kini berupa centang yang memakai nomor telepon penandatangan",
+          },
+          {
+            kind: "added",
+            text: "bilah menu halaman dapat digulir mendatar di layar kecil, dan penanda berhasil muncul pada tombol email",
+          },
+          {
+            kind: "added",
+            text: "tambah manifest PWA dan service worker agar aplikasi dapat dipasang",
+          },
+        ],
+      },
+      {
+        id: "rapikan-panel-metadata-dan-tambah-pratinjau-tanda--2026-10-16",
+        date: "2026-10-16",
+        title: "Rapikan panel metadata dan tambah pratinjau tanda tangan",
+        changes: [
+          {
+            kind: "added",
+            text: "susun ulang panel metadata: pilih pemilik, simpan dokumen, dan urutan medan identitas",
+          },
+          {
+            kind: "added",
+            text: "tambah komponen pratinjau QR Code dan kotak tanda tangan dengan unduh per-visual",
+          },
+          {
+            kind: "fixed",
+            text: "pemilih profil penandatangan (simpan, pilih terakhir, hapus)",
+          },
+          {
+            kind: "added",
+            text: "perbarui tata letak halaman tanda tangan, workspace, dan chatbot",
+          },
+        ],
+      },
+      {
+        id: "rombak-halaman-tanda-tangan-2026-10-15",
+        date: "2026-10-15",
+        title: "Rombak tata letak halaman tanda tangan",
+        changes: [
+          {
+            kind: "added",
+            text: "panel Dokumen dipindah ke kiri dan panel Halaman ke kanan",
+          },
+          {
+            kind: "added",
+            text: "mode TTE/Manual dan email penandatangan digabung dalam satu grup",
+          },
+          {
+            kind: "added",
+            text: "menu visualisasi dipisah menjadi tombol Gambar, QR, Kotak, dan Tanda Tangan",
+          },
+          {
+            kind: "added",
+            text: "status tanda tangan dokumen tampil di toolbar beserta rincian dan tombol Verifikasi",
+          },
+          {
+            kind: "added",
+            text: "bilah dokumen (judul, zoom, halaman, unduh, tutup) mengapung di atas kanvas",
+          },
+          {
+            kind: "fixed",
+            text: "penandatanganan kini tetap bisa dilakukan tanpa mengisi nama",
+          },
+          {
+            kind: "fixed",
+            text: "satu visualisasi ditandatangani oleh BSrE, lebih dari satu langsung dibakar ke PDF",
+          },
+          {
+            kind: "fixed",
+            text: "tampilan toolbar dan panel disesuaikan untuk layar kecil",
+          },
+        ],
+      },
+      {
+        id: "rebuild-signing-page-with-editor-style-chrome01201-2026-10-15",
+        date: "2026-10-15",
+        title: "Bangun ulang halaman tanda tangan dengan tampilan ala editor",
+        changes: [
+          {
+            kind: "added",
+            text: "tambah rute /sign-v2 baru yang meniru tampilan editor: bilah menu File/Edit/Template/Metadata (hover + klik), kontrol zoom dan halaman, rel thumbnail halaman, panel dokumen/metadata, serta dropdown cakupan Footer (halaman ini vs semua halaman)",
+          },
+          {
+            kind: "added",
+            text: "pdf: drawFooter mendapat opsi halaman; tambah drawPlacements/drawImages",
+          },
+          {
+            kind: "added",
+            text: "sign.remote: teruskan pemilik saat menandatangani atas nama",
+          },
+          {
+            kind: "added",
+            text: "tabel, remote, dan migrasi profil penandatangan (spesimen)",
+          },
+          {
+            kind: "added",
+            text: "preview: controller/state handle yang dapat di-bind + renderThumbnail",
+          },
+          {
+            kind: "added",
+            text: "dragresize: pilihan + sudut resize opsional",
           },
         ],
       },

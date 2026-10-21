@@ -1,5 +1,8 @@
 <script lang="ts">
-  import type { SignatureVerificationResponse } from "./types";
+  import type {
+    SignatureVerificationResponse,
+    VerifyDate,
+  } from "./types";
 
   let {
     verifyStatus,
@@ -9,10 +12,10 @@
     verifyStatus: SignatureVerificationResponse;
   } = $props();
 
-  // Helper function to format dates
-  function formatDate(dateString: string) {
-    if (!dateString) return "-";
-    return new Date(dateString).toLocaleString();
+  // Helper function to format dates (epoch ms or ISO string)
+  function formatDate(value?: VerifyDate | null) {
+    if (!value) return "-";
+    return new Date(value).toLocaleString();
   }
 </script>
 

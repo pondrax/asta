@@ -164,8 +164,8 @@
             class="select select-sm"
             bind:value={item.sign_type}
           >
-            <option value="bsre">Tanda Tangan Elektronik</option>
-            <option value="manual">Tanda Tangan Manual</option>
+            <option value="bsre">TTE BSrE</option>
+            <option value="manual">Self-Signed Pemkot</option>
           </select>
         </label>
       </div>
@@ -453,7 +453,7 @@
                       ? 'badge-primary'
                       : 'badge-secondary'}"
                   >
-                    {item.sign_type === "bsre" ? "TTE" : "Manual"}
+                    {item.sign_type === "bsre" ? "TTE BSrE" : "Self-Signed"}
                   </span>
                 </td>
                 <td>

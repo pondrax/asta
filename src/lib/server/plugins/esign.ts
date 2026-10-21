@@ -1,10 +1,5 @@
 import { env } from "$env/dynamic/private";
 
-// const ESIGN_URL = env.ESIGN_URL;
-// const ESIGN_API_KEY = env.ESIGN_API_KEY;
-// const ESIGN_VERIFY_URL = env.ESIGN_VERIFY_URL;
-// const ESIGN_VERIFY_KEY = env.ESIGN_VERIFY_KEY;
-
 export class Esign {
   private async makeRequest(url: string, options: RequestInit, apiKey: string) {
     const headers = {
@@ -93,12 +88,12 @@ export class Esign {
 
   async verifyPDF({ file }: { file: string }) {
     return this.makeRequest(
-      `${env.ESIGN_VERIFY_URL}/api/v2/verify/pdf`,
+      `${env.ESIGN_URL}/api/v2/verify/pdf`,
       {
         method: "POST",
         body: JSON.stringify({ file })
       },
-      env.ESIGN_VERIFY_KEY
+      env.ESIGN_API_KEY
     );
   }
 }

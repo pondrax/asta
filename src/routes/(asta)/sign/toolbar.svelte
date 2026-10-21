@@ -1,5 +1,10 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
+  import type {
+    SignatureVerificationResponse,
+    VerifyDate,
+  } from "../verify/types";
+  import type { SignatureVerification } from "$lib/utils/pdf";
 
   export type SignTool =
     | "select"
@@ -19,8 +24,12 @@
     hasSignature = false,
     capSignature = false,
     signatureInfos = [],
+    localVerifications = [],
+    bsreStatus = null,
     hasDocuments = false,
+    verifyLoading = false,
     onVerify,
+    onOpenPanel,
     pageNavOpen = false,
     rightPaneOpen = false,
     onTogglePageNav,
@@ -49,6 +58,7 @@
     capSignature?: boolean;
     signatureInfos?: {
       name: string;
+      fieldName?: string;
       filter?: string;
       subFilter?: string;
       reason?: string;
@@ -62,9 +72,19 @@
       subjectName?: string;
       issuerName?: string;
       issuerCommonName?: string;
+      signerValidFrom?: string;
+      signerValidTo?: string;
     }[];
+    /** Offline CMS checks for the active document. */
+    localVerifications?: SignatureVerification[];
+    /** Result of the last BSrE/BSSN check for the active document. */
+    bsreStatus?: SignatureVerificationResponse | null;
     hasDocuments?: boolean;
+    /** A server check is in flight; the button shows a spinner instead. */
+    verifyLoading?: boolean;
     onVerify?: () => void;
+    /** Opens the full verification panel. */
+    onOpenPanel?: () => void;
     pageNavOpen?: boolean;
     rightPaneOpen?: boolean;
     onTogglePageNav?: () => void;
@@ -108,6 +128,59 @@
    *  appended in parentheses. */
   function visualTip(normal: string) {
     return lockTip ? `${normal} (${lockTip})` : normal;
+  }
+
+  const bsreInvalid = $derived(
+    bsreStatus?.conclusion != null && bsreStatus.conclusion !== "VALID",
+  );
+  const localInvalid = $derived(
+    localVerifications.some((item) => !item.integrityValid),
+  );
+  const hasLocalCheck = $derived(localVerifications.length > 0);
+  /** Local verdict first; the server verdict wins once it exists. */
+  const invalid = $derived(bsreStatus ? bsreInvalid : hasLocalCheck && localInvalid);
+  const checked = $derived(!!bsreStatus || hasLocalCheck);
+
+  /** Same wording the BSrE service uses, derived from the local CMS check. */
+  const localDescription = $derived.by(() => {
+    if (!hasLocalCheck) return undefined;
+    if (localInvalid) {
+      return "Dokumen tidak valid, tanda tangan tidak terintegritas";
+    }
+    if (localVerifications.some((item) => !item.certificateTrusted)) {
+      return "Dokumen valid, Sertifikat yang digunakan tidak terpercaya";
+    }
+    if (localVerifications.some((item) => !item.chainValid)) {
+      return "Dokumen valid, rantai sertifikat tidak lengkap";
+    }
+    return "Dokumen valid, Sertifikat yang digunakan terpercaya";
+  });
+
+  function localVerif(fieldName?: string) {
+    return localVerifications.find(
+      (item) => normField(item.fieldName) === normField(fieldName),
+    );
+  }
+
+  const normField = (value?: string) => (value ?? "").trim().toLowerCase();
+
+  /** Signatures the server found that the local parser did not (e.g. ones
+   *  hidden from the AcroForm), so the dropdown can show them too. */
+  const bsreExtras = $derived(
+    (bsreStatus?.signatureInformations ?? []).filter(
+      (bsre) =>
+        !signatureInfos.some(
+          (local) =>
+            normField(local.fieldName) === normField(bsre.fieldName) ||
+            (!local.fieldName && normField(local.name) === normField(bsre.signerName)),
+        ),
+    ),
+  );
+
+  function formatStamp(value?: VerifyDate | null) {
+    if (!value) return "-";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString("id-ID");
   }
 
   const visualDisabled = $derived(visualsLocked);
@@ -437,6 +510,7 @@
     >
       <button
         type="button"
+        id="tour-status"
         class="btn btn-sm btn-ghost hover:bg-base-300 gap-1"
         aria-label="Status tanda tangan dokumen"
         aria-haspopup="menu"
@@ -461,9 +535,19 @@
               ? "Sudah ditandatangani"
               : "Belum ditandatangani"}</span
         >
-        {#if signatureInfos.length > 0}
+        {#if hasDocuments && hasSignature && checked}
+          <span
+            class="badge badge-xs {invalid ? 'badge-error' : 'badge-success'}"
+            title={bsreStatus?.description ??
+              localDescription ??
+              "Verifikasi lokal (CMS) pada perangkat ini"}
+          >
+            {invalid ? "Tidak Valid" : "Valid"}
+          </span>
+        {/if}
+        {#if signatureInfos.length + bsreExtras.length > 0}
           <span class="badge badge-xs badge-ghost font-mono"
-            >{signatureInfos.length}</span
+            >{signatureInfos.length + bsreExtras.length}</span
           >
         {/if}
         <span class="text-[10px] text-base-content/60" aria-hidden="true"
@@ -476,9 +560,14 @@
             type="button"
             class="btn btn-sm btn-primary gap-1"
             aria-label="Verifikasi tanda tangan"
+            disabled={verifyLoading}
             onclick={() => onVerify?.()}
           >
-            <iconify-icon icon="bx:check-shield"></iconify-icon>
+            {#if verifyLoading}
+              <span class="loading loading-spinner loading-xs"></span>
+            {:else}
+              <iconify-icon icon="bx:check-shield"></iconify-icon>
+            {/if}
             <span class="hidden lg:inline">Verifikasi</span>
           </button>
         </div>
@@ -494,7 +583,7 @@
                 Tidak ada dokumen
               </div>
             </li>
-          {:else if signatureInfos.length === 0}
+          {:else if signatureInfos.length === 0 && bsreExtras.length === 0 && !bsreStatus}
             <li>
               <div class="flex items-center px-2.5 py-1.5 text-[13px] opacity-60">
                 Tidak ada tanda tangan
@@ -503,13 +592,31 @@
           {:else}
             <li>
               <div
-                class="flex items-center gap-2 px-2.5 py-1.5 text-[13px] text-success border-b border-base-300"
+                class="flex items-center gap-2 px-2.5 py-1.5 text-[13px] border-b border-base-300 {invalid
+                  ? 'text-error'
+                  : 'text-success'}"
               >
-                <iconify-icon icon="bx:check-circle"></iconify-icon>
+                <iconify-icon
+                  icon={invalid ? "bx:x-circle" : "bx:check-circle"}
+                ></iconify-icon>
                 <div>
-                  <div class="font-medium">Dokumen valid</div>
+                  <div class="flex items-center gap-1 font-medium">
+                    {invalid ? "Dokumen tidak valid" : "Dokumen valid"}
+                    <span
+                      class="badge badge-xs {bsreStatus
+                        ? 'badge-info'
+                        : 'badge-ghost'}"
+                      title={bsreStatus
+                        ? "Diverifikasi server BSrE/BSSN"
+                        : "Diverifikasi lokal di perangkat ini"}
+                    >
+                      {bsreStatus ? "BSrE" : "Lokal"}
+                    </span>
+                  </div>
                   <div class="text-[10px] opacity-70">
-                    Dokumen belum diubah, tanda tangan terintegritas
+                    {bsreStatus?.description ??
+                      localDescription ??
+                      "Dokumen belum diubah, tanda tangan terintegritas"}
                   </div>
                 </div>
               </div>
@@ -525,13 +632,34 @@
               </li>
             {/if}
             {#each signatureInfos as sig, i (i)}
+              {@const verif = localVerif(sig.fieldName)}
               <li>
                 <div
                   class="block px-2.5 py-1.5 text-left text-[13px] whitespace-normal border-b border-base-200 last:border-b-0"
                 >
-                  <div class="flex items-center gap-1">
+                  <div class="flex items-center gap-1 flex-wrap">
                     <iconify-icon icon="bx:check-shield"></iconify-icon>
                     <span class="font-medium">{sig.name}</span>
+                    {#if verif}
+                      <span
+                        class="badge badge-xs {verif.integrityValid
+                          ? 'badge-success'
+                          : 'badge-error'}"
+                      >
+                        {verif.integrityValid ? "Valid" : "Invalid"}
+                      </span>
+                      {#if !verif.certificateTrusted}
+                        <span class="badge badge-xs badge-warning">
+                          Tidak Terpercaya
+                        </span>
+                      {/if}
+                      {#if verif.ltv}
+                        <span class="badge badge-xs badge-accent">LTV</span>
+                      {/if}
+                      {#if verif.timestamped}
+                        <span class="badge badge-xs badge-info">Timestamp</span>
+                      {/if}
+                    {/if}
                   </div>
                   <dl class="mt-1 flex flex-col gap-0.5 text-[10px]">
                     {#if sig.subjectName}
@@ -589,6 +717,15 @@
                         </dd>
                       </div>
                     {/if}
+                    {#if sig.signerValidFrom || sig.signerValidTo}
+                      <div class="flex gap-1">
+                        <dt class="opacity-50 w-16 shrink-0">Berlaku</dt>
+                        <dd class="opacity-80 break-all">
+                          {sig.signerValidFrom ?? "?"} — {sig.signerValidTo ??
+                            "?"}
+                        </dd>
+                      </div>
+                    {/if}
                     {#if sig.subFilter}
                       <div class="flex gap-1">
                         <dt class="opacity-50 w-16 shrink-0">Metode</dt>
@@ -601,6 +738,68 @@
                 </div>
               </li>
             {/each}
+            {#each bsreExtras as sig, i (`bsre-${i}`)}
+              <li>
+                <div
+                  class="block px-2.5 py-1.5 text-left text-[13px] whitespace-normal border-b border-base-200 last:border-b-0"
+                >
+                  <div class="flex items-center gap-1">
+                    <iconify-icon icon="bx:check-shield"></iconify-icon>
+                    <span class="font-medium">{sig.signerName || sig.fieldName}</span>
+                    <span class="badge badge-xs badge-info">BSrE</span>
+                    <span
+                      class="badge badge-xs {sig.integrityValid
+                        ? 'badge-success'
+                        : 'badge-error'}"
+                    >
+                      {sig.integrityValid ? "Valid" : "Invalid"}
+                    </span>
+                    {#if !sig.certificateTrusted}
+                      <span class="badge badge-xs badge-warning">Tidak Terpercaya</span>
+                    {/if}
+                  </div>
+                  <dl class="mt-1 flex flex-col gap-0.5 text-[10px]">
+                    <div class="flex gap-1">
+                      <dt class="opacity-50 w-16 shrink-0">Field</dt>
+                      <dd class="opacity-80 break-all">{sig.fieldName}</dd>
+                    </div>
+                    {#if sig.certificateDetails?.[0]?.issuerName}
+                      <div class="flex gap-1">
+                        <dt class="opacity-50 w-16 shrink-0">Penerbit</dt>
+                        <dd class="opacity-80 break-all">
+                          {sig.certificateDetails[0].issuerName}
+                        </dd>
+                      </div>
+                    {/if}
+                    <div class="flex gap-1">
+                      <dt class="opacity-50 w-16 shrink-0">Waktu</dt>
+                      <dd class="opacity-80">{formatStamp(sig.signatureDate)}</dd>
+                    </div>
+                    {#if sig.certificateDetails?.[0]?.notAfterDate}
+                      <div class="flex gap-1">
+                        <dt class="opacity-50 w-16 shrink-0">Berlaku</dt>
+                        <dd class="opacity-80">
+                          s/d {formatStamp(sig.certificateDetails[0].notAfterDate)}
+                        </dd>
+                      </div>
+                    {/if}
+                  </dl>
+                </div>
+              </li>
+            {/each}
+            <li>
+              <button
+                type="button"
+                class="btn btn-sm btn-ghost w-full justify-start gap-2 mt-1"
+                onclick={() => {
+                  statusMenuOpen = false;
+                  onOpenPanel?.();
+                }}
+              >
+                <iconify-icon icon="bx:list-ul"></iconify-icon>
+                Lihat lebih lengkap
+              </button>
+            </li>
           {/if}
         </ul>
       {/if}

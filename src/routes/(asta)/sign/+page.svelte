@@ -27,6 +27,9 @@
   import Signature from "./signature.svelte";
   import Template from "../templates/template.svelte";
   import Toolbar, { type SignTool } from "./toolbar.svelte";
+  import VerifyPanel from "./verify-panel.svelte";
+  import type { SignatureVerificationResponse } from "../verify/types";
+  import VerifyScan from "./verify-scan.svelte";
   import PageNav from "./page-nav.svelte";
   import {
     debounce,
@@ -40,17 +43,17 @@
   import {
     getDocument,
     signDocument,
+    verifyDocument,
     verifyTurnstile,
   } from "$lib/remotes/sign.remote";
   import { getData } from "$lib/remotes/api.remote";
 
-  import { PDFDocument } from "pdf-lib";
-  import { goto } from "$app/navigation";
+  import { PDF } from "@libpdf/core";
   import { onMount, tick } from "svelte";
   import { page } from "$app/state";
   import Dragresize from "$lib/components/dragresize.svelte";
   import { sendMessage } from "$lib/remotes/whatsapp.remote";
-  import { stashSignFile, takeSignFile } from "$lib/utils/sign-handoff";
+  import { takeSignFile } from "$lib/utils/sign-handoff";
   import { vault } from "$lib/utils/vault";
   import { createZip } from "$lib/utils/zip";
   import "./sign.css";
@@ -79,6 +82,7 @@
   let fields: Record<string, any> = $state({});
   let hasSignature = $state(true);
   let signatureInfos = $state<pdfLib.SignatureInfo[]>([]);
+  let localVerifications = $state<pdfLib.SignatureVerification[]>([]);
   let isEncrypted = $state(false);
   let previewFile: File | null = $state(null);
   let startTime = $state(0);
@@ -205,10 +209,21 @@
       },
     },
     {
-      target: "#tour-mode",
-      title: "TTE atau Manual",
+      target: "#tour-add-fab",
+      title: "Tambah Dokumen",
       content:
-        "Pilih mode Tanda Tangan Elektronik (TTE) untuk memakai sertifikat BSrE, atau Tanda Tangan Manual untuk menempel tanda tangan tanpa sertifikat.",
+        "Tombol + membuka akses cepat untuk membuat dokumen baru di editor, mengunggah PDF/DOCX, atau memilih template.",
+      placement: "left",
+      onShow: () => {
+        emailOpen = false;
+        navOpen = false;
+      },
+    },
+    {
+      target: "#tour-mode",
+      title: "TTE BSrE atau Self-Signed",
+      content:
+        "Pilih TTE BSrE untuk memakai sertifikat BSrE, atau Self-Signed Pemkot untuk menandatangani dengan sertifikat Pemerintah Kota.",
       placement: "bottom",
       onShow: () => {
         emailOpen = false;
@@ -230,6 +245,16 @@
       title: "Alat Tanda Tangan",
       content:
         "Atur halaman, zoom, tambahkan visualisasi (QR, kotak, gambar, coretan), dan unduh dokumen dari bilah ini.",
+      placement: "bottom",
+      onShow: () => {
+        navOpen = false;
+      },
+    },
+    {
+      target: "#tour-status",
+      title: "Status & Verifikasi",
+      content:
+        "Lihat status tanda tangan dokumen. Tombol Verifikasi mengecek ke server BSrE/BSSN, dan “Lihat lebih lengkap” membuka panel detail dengan pratinjau dokumen.",
       placement: "bottom",
       onShow: () => {
         navOpen = false;
@@ -282,7 +307,7 @@
       target: "#tour-passphrase",
       title: "Isi Passphrase",
       content:
-        "Masukkan Passphrase sertifikat elektronik Anda di sini untuk membubuhkan tanda tangan pada dokumen.",
+        "Masukkan Passphrase sertifikat BSrE Anda di sini untuk membubuhkan tanda tangan pada dokumen (hanya untuk mode TTE BSrE).",
       placement: "left",
       modal: true,
       interactive: true,
@@ -293,7 +318,7 @@
     },
     {
       target: "#tour-sign-submit",
-      title: "Klik Tanda Tangan Elektronik",
+      title: "Klik Tanda Tangan",
       content:
         "Tekan tombol ini untuk membubuhkan tanda tangan elektronik pada dokumen.",
       placement: "top",
@@ -315,7 +340,7 @@
       target: "#tour-sign-status",
       title: "Selesai",
       content:
-        "Setelah berhasil, dokumen ditandatangani dan Anda dapat mengunduh atau menilainya.",
+        "Setelah berhasil, gunakan Lihat Dokumen untuk membuka panel verifikasi (cek lokal + BSrE), lalu unduh dokumen atau ekspor hasilnya.",
       placement: "bottom",
       onShow: () => {
         if (forms.sign) forms.sign.completed = Object.keys(forms.sign.documents);
@@ -464,9 +489,17 @@
     confirm?: boolean;
     template?: string;
     survey?: { rating: number; feedback: string };
+    verify?: { files: File[]; auto?: boolean; hideUpload?: boolean };
+    verifyId?: boolean;
+    verifyScan?: boolean;
   } = $state({});
 
   let fileInput: HTMLInputElement | null = $state(null);
+  let verifyInput: HTMLInputElement | null = $state(null);
+  let verifyIdDraft = $state("");
+  let verifyIdBusy = $state(false);
+  let bsreResult = $state<SignatureVerificationResponse | null>(null);
+  let verifyBusy = $state(false);
   let files: File[] = $state([]);
 
   let placements: PlacementType[] = $state([]);
@@ -759,7 +792,7 @@
 
   const hasDocuments = $derived(Object.keys(documents).length > 0);
   // Signing only requires an identity and a valid TTE signer; note/location are
-  // optional (they default server-side). Manual signing just needs at least one
+  // optional (they default server-side). Self-signed signing just needs at least one
   // signature visualisation.
   const hasMetadata = $derived(
     String(form.email).length > 0 &&
@@ -772,7 +805,7 @@
 
   /**
    * Which visualisation tools are available: everything for a valid TTE signer,
-   * only the drawn signature in Manual mode, nothing otherwise.
+   * only the drawn signature in Self-signed mode, nothing otherwise.
    */
   const visualMode = $derived<"all" | "draw" | "none">(
     !hasDocuments
@@ -794,18 +827,18 @@
     workspace.menus = [
       {
         id: "mode",
-        label: bsre ? "TTE" : "Manual",
+        label: bsre ? "TTE BSrE" : "Self-Signed",
         variant: "primary",
-        width: "w-[5.5rem]",
+        width: "w-[7rem]",
         items: [
           {
             icon: bsre ? "bx:radio-circle-marked" : "bx:radio-circle",
-            label: "Tanda Tangan Elektronik",
+            label: "TTE BSrE",
             action: () => (bsre = true),
           },
           {
             icon: !bsre ? "bx:radio-circle-marked" : "bx:radio-circle",
-            label: "Tanda Tangan Manual",
+            label: "Self-Signed Pemkot",
             action: () => (bsre = false),
           },
         ],
@@ -846,6 +879,37 @@
             label: "Tutup Dokumen",
             disabled: !hasDocs,
             action: () => closeDocument(),
+          },
+        ],
+      },
+      {
+        id: "verify",
+        label: "Verifikasi",
+        items: [
+          {
+            icon: "bx:check-shield",
+            label: "Verifikasi Dokumen",
+            disabled: !hasDocs,
+            action: () => openVerify(Object.values(documents), false),
+          },
+          {
+            icon: "bx:upload",
+            label: "Verifikasi via Unggah",
+            action: () => verifyInput?.click(),
+          },
+          "sep",
+          {
+            icon: "bx:id-card",
+            label: "Verifikasi via ID",
+            action: () => {
+              verifyIdDraft = "";
+              forms.verifyId = true;
+            },
+          },
+          {
+            icon: "bx:qr-scan",
+            label: "Pindai QR",
+            action: () => (forms.verifyScan = true),
           },
         ],
       },
@@ -895,22 +959,8 @@
         ],
       },
       {
-        id: "template",
-        label: "Template",
-        items: [
-          {
-            icon: "bx:book",
-            label: "Template PDF",
-            action: () => {
-              forms.template = "open";
-            },
-          },
-          { icon: "bx:folder", label: "Kelola Template", href: "/templates" },
-        ],
-      },
-      {
-        id: "metadata",
-        label: "Metadata",
+        id: "data",
+        label: "Data",
         items: [
           {
             icon: "bx:list-ul",
@@ -920,6 +970,16 @@
               navOpen = true;
             },
           },
+          "sep",
+          {
+            icon: "bx:book",
+            label: "Template PDF",
+            action: () => {
+              forms.template = "open";
+            },
+          },
+          { icon: "bx:folder", label: "Kelola Template", href: "/templates" },
+          "sep",
           {
             icon: "bx:file",
             label: "Daftar Dokumen",
@@ -1004,8 +1064,20 @@
     fields = await pdfLib.getAllFormFields(buffer);
     hasSignature = await pdfLib.hasSignature(buffer);
     signatureInfos = await pdfLib.getSignatures(buffer);
+    localVerifications = [];
+    if (signatureInfos.length > 0) void verifyLocally(file);
 
     await pdfLib.fillFormFields(buffer, form);
+  }
+
+  /** Verify the signatures offline, without the e-sign service. */
+  async function verifyLocally(file: File) {
+    try {
+      const results = await pdfLib.verifySignatures(await file.arrayBuffer());
+      if (documents[activeIndex] === file) localVerifications = results;
+    } catch (err) {
+      console.error("[verify] local check failed", err);
+    }
   }
 
   async function fillFormFields(
@@ -1053,6 +1125,21 @@
     if (!signing) previewFile = filledFile;
     return filledFile;
   }
+
+  $effect(() => {
+    // The panel unmounts without a close event (e.g. Escape), so stop the
+    // spinner as soon as the dialog is gone.
+    if (!forms.verify) verifyBusy = false;
+  });
+
+  let lastBsreIndex = "";
+  $effect(() => {
+    // A server verdict only describes the document it was run against.
+    if (activeIndex !== lastBsreIndex) {
+      lastBsreIndex = activeIndex;
+      bsreResult = null;
+    }
+  });
 
   $effect(() => {
     init();
@@ -1468,16 +1555,135 @@
     });
   }
 
-  async function verifyActive() {
+  function openVerify(files: File[], auto = true, hideUpload = false) {
+    verifyBusy = false;
+    forms.verify = { files, auto, hideUpload };
+  }
+
+  /** Open the verification panel seeded with the just-signed documents. */
+  function openVerifyResults() {
+    const files = signResults
+      .filter((result) => !!result.blob)
+      .map(
+        (result) =>
+          new File([result.blob!], result.fileName, {
+            type: "application/pdf",
+          }),
+      );
+    if (files.length === 0) return;
+    openVerify(files, false, true);
+  }
+
+  /** Check the active document against BSrE/BSSN without opening the panel. */
+  async function verifyActiveDocument() {
     const file = documents[activeIndex];
-    if (!file) return;
+    if (!file || verifyBusy) return;
+    verifyBusy = true;
     try {
-      const blobId = await stashSignFile(file);
-      goto(`/verify?blob=${blobId}&fileName=${encodeURIComponent(file.name)}`);
+      const base64 = await fileToBase64(file);
+      const raw: unknown = await verifyDocument({
+        file: base64.replace("data:application/pdf;base64,", ""),
+      });
+      const response = raw as
+        | (Partial<SignatureVerificationResponse> & { error?: string })
+        | undefined;
+      if (!response || typeof response.conclusion !== "string") {
+        app.showToast(
+          "error",
+          response?.error || "Verifikasi tidak dapat dijalankan.",
+        );
+        return;
+      }
+      bsreResult = response as SignatureVerificationResponse;
     } catch (err) {
-      console.error("[verify] handoff failed", err);
-      app.showToast("error", "Gagal membuka dokumen untuk verifikasi.");
+      app.showToast(
+        "error",
+        err instanceof Error ? err.message : "Verifikasi tidak dapat dijalankan.",
+      );
+    } finally {
+      verifyBusy = false;
     }
+  }
+
+  /** Surface a server check in the toolbar status when it matches the active
+   *  document; other files only live inside the verification panel. */
+  function handleOnlineResult(
+    file: File,
+    result: SignatureVerificationResponse,
+  ) {
+    const active = documents[activeIndex];
+    if (active && active.name === file.name && active.size === file.size) {
+      bsreResult = result;
+    }
+  }
+
+  /** Verify the files picked through the regular upload affordance. */
+  function handleVerifyUpload(event: Event) {
+    const target = event.target as HTMLInputElement;
+    const picked = [...(target.files ?? [])].filter(
+      (file) =>
+        file.type === "application/pdf" ||
+        file.name.toLowerCase().endsWith(".pdf"),
+    );
+    target.value = "";
+    if (picked.length === 0) {
+      app.showToast("error", "Hanya berkas PDF yang dapat diverifikasi.");
+      return;
+    }
+    openVerify(picked);
+  }
+
+  /** Load a saved document by id, then hand it to the verification panel. */
+  async function verifyById(raw: string) {
+    const id = String(raw || "").trim();
+    if (!id) return;
+    verifyIdBusy = true;
+    try {
+      const found = await getDocument({ id });
+      const doc = found?.[0];
+      if (!doc) {
+        app.showToast("error", "Dokumen dengan ID tersebut tidak ditemukan.");
+        return;
+      }
+      const url = doc.files?.[doc.files.length - 1];
+      if (!url) {
+        app.showToast("error", "Dokumen tidak memiliki berkas.");
+        return;
+      }
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Gagal memuat dokumen (${response.status}).`);
+      }
+      const blob = await response.blob();
+      const file = new File([blob], doc.title || "document.pdf", {
+        type: "application/pdf",
+      });
+      forms.verifyId = false;
+      openVerify([file]);
+    } catch (err) {
+      app.showToast(
+        "error",
+        err instanceof Error ? err.message : "Gagal memuat dokumen.",
+      );
+    } finally {
+      verifyIdBusy = false;
+    }
+  }
+
+  /** QRs point at `<origin>/d?id=<id>`; anything else is treated as an id. */
+  function handleScanResult(value: string) {
+    forms.verifyScan = false;
+    let id = String(value || "").trim();
+    try {
+      id = new URL(id).searchParams.get("id") || "";
+    } catch {
+      /* not a URL — the payload itself is the id */
+    }
+    if (!id) {
+      app.showToast("error", "QR tidak berisi ID dokumen.");
+      return;
+    }
+    void verifyById(id);
   }
 
   // ── AI menu ──────────────────────────────────────────────────────
@@ -1536,15 +1742,15 @@
   let tourDemoFile: File | null = null;
 
   async function createDemoDocument(): Promise<File> {
-    const pdf = await PDFDocument.create();
+    const pdf = PDF.create();
     const page = pdf.addPage();
     page.drawText("Contoh Dokumen", {
       x: 40,
-      y: page.getHeight() - 60,
+      y: page.height - 60,
       size: 18,
     });
     const bytes = await pdf.save();
-    // Copy into a fresh `Uint8Array<ArrayBuffer>`: pdf-lib hands back a
+    // Copy into a fresh `Uint8Array<ArrayBuffer>`: the save() result is a
     // `Uint8Array<ArrayBufferLike>`, which the `File` constructor rejects.
     return new File(
       [new Uint8Array(bytes)],
@@ -1727,7 +1933,12 @@
         (p) => (p.kind ?? "signature") === "signature",
       )}
       {signatureInfos}
-      onVerify={verifyActive}
+      localVerifications={localVerifications}
+      bsreStatus={bsreResult}
+      verifyLoading={verifyBusy}
+      onVerify={verifyActiveDocument}
+      onOpenPanel={() =>
+        openVerify(documents[activeIndex] ? [documents[activeIndex]] : [], false)}
       pageNavOpen={pageNavOpen}
       rightPaneOpen={navOpen}
       onTogglePageNav={() => (pageNavOpen = !pageNavOpen)}
@@ -1752,11 +1963,11 @@
   </div>
 
   <!-- ============ BODY ============ -->
-  <div class="flex-1 min-h-0 flex bg-base-200 max-lg:overflow-hidden">
+  <div class="flex-1 min-h-0 flex bg-base-200 max-lg:overflow-hidden max-lg:relative">
     <PageNav
       controller={previewCtl}
       preview={previewState}
-      open={pageNavOpen}
+      bind:open={pageNavOpen}
       placements={placements}
       selected={placements.find((p) => p.id === selectedId) ?? null}
       onEdit={() => snapshot()}
@@ -2177,6 +2388,15 @@
       onchange={handleImageFile}
     />
 
+    <input
+      type="file"
+      accept="application/pdf"
+      multiple
+      class="hidden"
+      bind:this={verifyInput}
+      onchange={handleVerifyUpload}
+    />
+
     <dialog class="modal" bind:this={visualDialog}>
       <div class="modal-box w-11/12 max-w-3xl">
         <button
@@ -2208,11 +2428,11 @@
     </dialog>
 
     <aside
-      class="w-90 flex-none order-0 flex flex-col min-h-0 bg-base-100 border-r border-base-300 {navOpen
+      class="w-90 flex-none order-0 flex flex-col min-h-0 bg-base-100 border-r border-base-300 max-lg:absolute max-lg:inset-y-0 max-lg:left-0 max-lg:z-30 max-lg:w-[85vw] max-lg:max-w-[22.5rem] max-lg:shadow-xl {navOpen
         ? ''
         : 'hidden'}"
     >
-      <div class="tabs tabs-border tabs-sm m-2">
+      <div class="tabs tabs-border tabs-sm m-2 items-center">
         <button
           type="button"
           class={activeTab === "documents" ? "tab tab-active gap-1" : "tab gap-1"}
@@ -2231,6 +2451,14 @@
         >
           <iconify-icon icon="bx:info-circle"></iconify-icon>
           Metadata
+        </button>
+        <button
+          type="button"
+          class="btn btn-sm btn-circle btn-ghost ml-auto lg:hidden"
+          aria-label="Tutup panel dokumen"
+          onclick={() => (navOpen = false)}
+        >
+          ✕
         </button>
       </div>
 
@@ -2260,6 +2488,45 @@
   </div>
 
   <div class="fab right-24">
+    <div
+      id="tour-add-fab"
+      tabindex="0"
+      role="button"
+      class="btn btn-lg btn-circle btn-primary tooltip tooltip-left"
+      data-tip="Tambah"
+    >
+      <iconify-icon icon="bx:plus" class="text-2xl"></iconify-icon>
+    </div>
+    <div class="fab-close">
+      <span class="btn btn-circle btn-lg btn-error">✕</span>
+    </div>
+
+    <a href="/editor" class="btn btn-lg rounded-xl" aria-label="Buat Dokumen">
+      <iconify-icon icon="bx:file" class="text-2xl"></iconify-icon>
+      Buat Dokumen
+      <span class="badge badge-sm badge-secondary">Baru</span>
+    </a>
+    <button
+      type="button"
+      class="btn btn-lg rounded-xl"
+      aria-label="Upload PDF atau DOCX"
+      onclick={() => fileInput?.click()}
+    >
+      Unggah PDF/DOCX
+      <iconify-icon icon="bx:upload" class="text-2xl"></iconify-icon>
+    </button>
+    <button
+      type="button"
+      class="btn btn-lg rounded-xl"
+      aria-label="Template PDF"
+      onclick={() => (forms.template = "open")}
+    >
+      Template PDF
+      <iconify-icon icon="bx:book" class="text-2xl"></iconify-icon>
+    </button>
+  </div>
+
+  <div class="fab right-38">
     <div
       class="tooltip tooltip-top"
       data-tip={allowSigning && forms.sign == undefined
@@ -2373,21 +2640,27 @@
 
                 const fileSign = await fillFormFields(file, true, id, item.footer);
 
-                // Signature visuals: with more than one (or in truly manual mode without
-                // cryptographic identity) the visuals are burned into the PDF; otherwise
-                // a single visual is left for the signing service to place as an
-                // encrypted signature field.
+                // Signature visuals: BSrE places a single visual itself and
+                // signs invisibly otherwise, so the rest is burned into the
+                // page. In Self-signed mode the placed visual becomes a *visible*
+                // signature field instead — the signature shows up where the
+                // user put it and stays covered by the digital signature.
                 const signatureProps = item.signatureProperties.filter(
                   (p: any) => (p.kind ?? "signature") === "signature",
                 );
                 const encryptedSigning = bsre || (useEmail && !!item.passphrase);
-                const burnSignatures =
-                  signatureProps.length > 1 || !encryptedSigning;
-                const toDraw = burnSignatures
-                  ? item.signatureProperties
-                  : item.signatureProperties.filter(
-                      (p: any) => (p.kind ?? "signature") !== "signature",
-                    );
+                const visibleSignature = !encryptedSigning
+                  ? (signatureProps[0] as SignaturePlacement | undefined)
+                  : undefined;
+                const burnSignatures = encryptedSigning
+                  ? signatureProps.length > 1
+                  : true;
+                const toDraw =
+                  burnSignatures && !visibleSignature
+                    ? item.signatureProperties
+                    : item.signatureProperties.filter(
+                        (p: any) => (p.kind ?? "signature") !== "signature",
+                      );
 
                 let fileBase64 = await fileToBase64(fileSign);
                 if (toDraw.length > 0) {
@@ -2401,6 +2674,27 @@
                   fileBase64 = await fileToBase64(
                     new Blob([drawn], { type: "application/pdf" }),
                   );
+                }
+
+                let signatureField: string | undefined;
+                if (visibleSignature && !asDraft) {
+                  const prepared = await pdfLib.prepareVisibleSignature(
+                    await base64ToBlob(fileBase64).arrayBuffer(),
+                    {
+                      page: visibleSignature.page,
+                      originX: visibleSignature.originX,
+                      originY: visibleSignature.originY,
+                      width: visibleSignature.width,
+                      height: visibleSignature.height,
+                      imageBase64: visibleSignature.imageBase64,
+                    },
+                  );
+                  fileBase64 = await fileToBase64(
+                    new Blob([new Uint8Array(prepared.bytes)], {
+                      type: "application/pdf",
+                    }),
+                  );
+                  signatureField = prepared.fieldName;
                 }
 
                 const fileName = asTemplate
@@ -2424,6 +2718,7 @@
                   __manual: !encryptedSigning,
                   __asDraft: asDraft,
                   __saveDocument: saveDocument,
+                  ...(signatureField ? { signatureField } : {}),
                   to: item.to,
                   ...(useEmail ? { email: item.email } : { nik: item.nik }),
                   ...(item.owner ? { owner: item.owner } : {}),
@@ -2549,34 +2844,6 @@
                 {/if}
               </span>
               {#if result?.blob}
-                <button
-                  type="button"
-                  class="badge badge-sm badge-info tooltip tooltip-left cursor-pointer"
-                  data-tip="Verifikasi"
-                  aria-label="Verifikasi"
-                  onclick={async () => {
-                    if (!result?.blob) return;
-                    const tab = window.open("", "_blank");
-                    try {
-                      const signed = new File([result.blob], file.name, {
-                        type: "application/pdf",
-                      });
-                      const blobId = await stashSignFile(signed);
-                      const url = `/verify?blob=${blobId}&fileName=${encodeURIComponent(file.name)}`;
-                      if (tab && !tab.closed) tab.location.href = url;
-                      else window.open(url, "_blank", "noopener");
-                    } catch (err) {
-                      console.error("[verify] handoff failed", err);
-                      tab?.close();
-                      app.showToast(
-                        "error",
-                        "Gagal membuka dokumen untuk verifikasi.",
-                      );
-                    }
-                  }}
-                >
-                  <iconify-icon icon="bx:search"></iconify-icon>
-                </button>
                 <a
                   href={URL.createObjectURL(result?.blob)}
                   target="_blank"
@@ -2666,14 +2933,15 @@
                   Unduh Semua ({signedCount}) ZIP
                 </button>
               {/if}
-              {#if saveDocument}
-                <a
-                  href={`/verify?id=${item.completed.join(",")}`}
-                  target="_blank"
+              {#if signedCount > 0}
+                <button
+                  type="button"
                   class="btn btn-sm btn-success"
+                  onclick={openVerifyResults}
                 >
+                  <iconify-icon icon="bx:check-shield"></iconify-icon>
                   Lihat Dokumen
-                </a>
+                </button>
               {/if}
               {#if !asDraft}
                 <button
@@ -2810,8 +3078,8 @@
                   : bsre && !item.passphrase
                     ? "Masukkan passphrase terlebih dahulu"
                     : bsre
-                      ? "Tanda Tangan Elektronik"
-                      : "Tanda Tangan Manual"}
+                      ? "Tanda Tangan BSrE"
+                      : "Tanda Tangan Self-Signed Pemkot"}
             >
             <button
               id="tour-sign-submit"
@@ -2820,7 +3088,7 @@
               disabled={loading || !turnstileSuccess || (bsre && !item.passphrase)}
             >
               <iconify-icon icon="bx:pen" class="text-2xl"></iconify-icon>
-              Tanda Tangan {bsre ? "Elektronik" : "Manual"}
+              Tanda Tangan {bsre ? "BSrE" : "Self-Signed"}
             </button>
           </div>
           {#if vaultSupported && useEmail && bsre}
@@ -3025,4 +3293,68 @@
       Kirim
     </button>
   </div>
+</Modal>
+
+<Modal bind:data={forms.verifyId} title="Verifikasi via ID" size="sm">
+  <div class="flex flex-col gap-3 my-2">
+    <p class="text-sm opacity-70">
+      Masukkan ID dokumen yang tertera pada footer atau QR dokumen.
+    </p>
+    <input
+      class="input input-bordered w-full"
+      placeholder="ID Dokumen"
+      bind:value={verifyIdDraft}
+      onkeydown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          void verifyById(verifyIdDraft);
+        }
+      }}
+    />
+  </div>
+  <div class="flex justify-end gap-2">
+    <button
+      type="button"
+      class="btn btn-sm btn-ghost"
+      onclick={() => (forms.verifyId = false)}
+    >
+      Batal
+    </button>
+    <button
+      type="button"
+      class="btn btn-sm btn-primary"
+      disabled={verifyIdBusy || !verifyIdDraft.trim()}
+      onclick={() => verifyById(verifyIdDraft)}
+    >
+      {#if verifyIdBusy}
+        <span class="loading loading-spinner loading-xs"></span>
+      {/if}
+      Verifikasi
+    </button>
+  </div>
+</Modal>
+
+<Modal bind:data={forms.verifyScan} title="Pindai QR Dokumen" size="sm">
+  {#if forms.verifyScan}
+    <VerifyScan onResult={handleScanResult} />
+  {/if}
+</Modal>
+
+<Modal
+  bind:data={forms.verify}
+  title="Verifikasi Dokumen BSrE"
+  size="xl"
+  onClose={() => (verifyBusy = false)}
+>
+  {#snippet children(data)}
+    {#key data}
+      <VerifyPanel
+        seed={data.files}
+        auto={data.auto !== false}
+        hideUpload={data.hideUpload === true}
+        onOnline={handleOnlineResult}
+        onBusy={(busy) => (verifyBusy = busy)}
+      />
+    {/key}
+  {/snippet}
 </Modal>

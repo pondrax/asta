@@ -9,7 +9,7 @@
   let {
     controller = null,
     preview,
-    open = false,
+    open = $bindable(false),
     selected = null,
     placements = [],
     onEdit,
@@ -151,7 +151,7 @@
 </script>
 
 <aside
-  class="w-60 max-lg:w-36 flex-none order-2 flex flex-col min-h-0 bg-base-100 border-l border-base-300 {open
+  class="w-60 flex-none order-2 flex flex-col min-h-0 bg-base-100 border-l border-base-300 max-lg:absolute max-lg:inset-y-0 max-lg:right-0 max-lg:z-30 max-lg:w-[85vw] max-lg:max-w-[16rem] max-lg:shadow-xl {open
     ? ''
     : 'hidden'}"
   aria-label="Panel kanan"
@@ -179,6 +179,14 @@
     >
       <iconify-icon icon="bx:list-ul"></iconify-icon>
       Properti
+    </button>
+    <button
+      type="button"
+      class="btn btn-sm btn-circle btn-ghost ml-auto lg:hidden"
+      aria-label="Tutup panel navigasi halaman"
+      onclick={() => (open = false)}
+    >
+      ✕
     </button>
   </div>
 

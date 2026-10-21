@@ -112,6 +112,8 @@ export const signDocument = command(type({
   instansi: 'string?',
   passphrase: 'string',
   signatureProperties: 'Array',
+  /** Signature field the visible appearance belongs to (manual signing). */
+  signatureField: 'string?',
   location: 'string?',
   note: 'string?',
   nomor_telepon: 'string?',
@@ -150,7 +152,7 @@ export const signDocument = command(type({
           reason: props.note || 'Tanda Tangan Elektronik',
           location: props.location || '-',
           contactInfo: props.email || props.nik || '',
-          fieldName: 'Signature1'
+          fieldName: props.signatureField || 'Signature1'
         });
         response = {
           status: 200,

@@ -724,7 +724,7 @@
             bind:group={activeTab}
           />
           <iconify-icon icon="bx:detail"></iconify-icon>
-          <span class="mx-2"> Meta Data ({bsre ? "TTE" : "Manual"})</span>
+          <span class="mx-2"> Meta Data ({bsre ? "TTE BSrE" : "Self-Signed"})</span>
           {#if hasMetadata}
             <iconify-icon icon="bx:check" class="text-success"></iconify-icon>
           {:else}
@@ -1456,7 +1456,7 @@
           disabled={loading || !turnstileSuccess || (bsre && !item.passphrase)}
         >
           <iconify-icon icon="bx:pen" class="text-2xl"></iconify-icon>
-          Tanda Tangan {bsre ? "Elektronik" : "Non-Elektronik (Manual)"}
+          Tanda Tangan {bsre ? "BSrE" : "Self-Signed"}
         </button>
 
         {#if data.user}

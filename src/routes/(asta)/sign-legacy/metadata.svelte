@@ -38,7 +38,7 @@
     "nomor_telepon",
   ];
   // Lock identity fields until the BSrE account is verified (ISSUE).
-  // Manual signing always allows editing.
+  // Self-signed signing always allows editing.
   const locked = $derived(bsre && status !== "ISSUE");
   let signaturePanel = $state(true);
   let emailFocused = $state(false);
@@ -146,7 +146,7 @@
             onclick={() => {
               form.footer = true;
             }}
-            aria-label="Manual"
+            aria-label="Self-Signed"
           />
         </div>
       </div>
@@ -496,7 +496,7 @@
       {:else}
         <label
           class="btn btn-xs btn-ghost tooltip"
-          data-tip="Dokumen manual wajib menggunakan footer"
+          data-tip="Dokumen self-signed wajib menggunakan footer"
         >
           <input
             type="checkbox"
