@@ -10,6 +10,7 @@ import { Esign } from "../server/plugins/esign";
 import { validateTurnstile } from "$lib/server/plugins/turnstile";
 import { hashPasscode, verifyPasscode } from "$lib/server/passcode";
 import type { StatisticMode } from "$lib/server/db/schema";
+import { signPdfManually } from "$lib/server/manual-sign";
 
 const storage = new FileStorage;
 const logger = new Logger;
@@ -134,13 +135,37 @@ export const signDocument = command(type({
       },
     };
 
-    if (props.__manual || props.__asDraft) {
-      // Manual signing and drafts skip BSrE — reuse the uploaded file as-is
+    if (props.__asDraft) {
+      // Drafts skip signing — reuse the uploaded file as-is
       response = {
         status: 200,
         data: {
           file: [props.fileBase64],
         },
+      }
+    } else if (props.__manual) {
+      // Manual signing with self-signed certificate (Pemerintah Kota Mojokerto)
+      try {
+        const signedBase64 = await signPdfManually(props.fileBase64, {
+          reason: props.note || 'Tanda Tangan Elektronik',
+          location: props.location || '-',
+          contactInfo: props.email || props.nik || '',
+          fieldName: 'Signature1'
+        });
+        response = {
+          status: 200,
+          data: {
+            file: [signedBase64],
+          },
+        }
+      } catch (err: any) {
+        await logger.log('error', err?.message || String(err), {
+          email: props.email,
+          nik: props.nik,
+          note: props.note,
+          fileName: props.fileName,
+        })
+        return { error: err?.message || 'Gagal menandatangani dokumen secara manual' }
       }
     } else {
       response = await esign.signPDF(props);

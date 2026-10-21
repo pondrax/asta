@@ -2809,7 +2809,9 @@
                   ? "Selesaikan verifikasi Captcha terlebih dahulu"
                   : bsre && !item.passphrase
                     ? "Masukkan passphrase terlebih dahulu"
-                    : "Tanda Tangan Elektronik"}
+                    : bsre
+                      ? "Tanda Tangan Elektronik"
+                      : "Tanda Tangan Manual"}
             >
             <button
               id="tour-sign-submit"
@@ -2818,7 +2820,7 @@
               disabled={loading || !turnstileSuccess || (bsre && !item.passphrase)}
             >
               <iconify-icon icon="bx:pen" class="text-2xl"></iconify-icon>
-              Tanda Tangan {bsre ? "Elektronik" : "Non-Elektronik (Manual)"}
+              Tanda Tangan {bsre ? "Elektronik" : "Manual"}
             </button>
           </div>
           {#if vaultSupported && useEmail && bsre}
