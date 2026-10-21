@@ -28,7 +28,7 @@
   import Template from "../templates/template.svelte";
   import Toolbar, { type SignTool } from "./toolbar.svelte";
   import VerifyPanel from "./verify-panel.svelte";
-  import type { SignatureVerificationResponse } from "../verify/types";
+  import type { SignatureVerificationResponse } from "$lib/types/verify";
   import VerifyScan from "./verify-scan.svelte";
   import PageNav from "./page-nav.svelte";
   import {
@@ -41,6 +41,7 @@
     base64ToBlob,
   } from "$lib/utils";
   import {
+    checkPasscode,
     getDocument,
     signDocument,
     verifyDocument,
@@ -492,12 +493,18 @@
     verify?: { files: File[]; auto?: boolean; hideUpload?: boolean };
     verifyId?: boolean;
     verifyScan?: boolean;
+    verifyPass?: boolean;
   } = $state({});
 
   let fileInput: HTMLInputElement | null = $state(null);
   let verifyInput: HTMLInputElement | null = $state(null);
   let verifyIdDraft = $state("");
   let verifyIdBusy = $state(false);
+  let verifyPassDoc = $state<{ id: string; title: string } | null>(null);
+  let verifyPassInput = $state("");
+  let verifyPassError = $state("");
+  let verifyPassBusy = $state(false);
+  let verifyPassResolve: ((ok: boolean) => void) | null = null;
   let bsreResult = $state<SignatureVerificationResponse | null>(null);
   let verifyBusy = $state(false);
   let files: File[] = $state([]);
@@ -1228,6 +1235,21 @@
     const templateId = page.url.searchParams.get("template");
     isDraft = page.url.searchParams.get("draft") === "true";
 
+    // Verification links (`/verify` and `/d` now redirect here) open the
+    // verification panel instead of loading the file for signing.
+    const verifyMode = page.url.searchParams.get("verify");
+    if (verifyMode !== null) {
+      const rawId = page.url.searchParams.get("id") || "";
+      if (rawId) {
+        void verifyById(rawId);
+      } else if (!page.url.searchParams.get("blob")) {
+        if (verifyMode === "id") forms.verifyId = true;
+        else if (verifyMode === "scan") forms.verifyScan = true;
+        else openVerify([], false);
+      }
+      return;
+    }
+
     if (id) {
       const ids = id.split(",");
       const chunkIds = Array.from(
@@ -1302,7 +1324,7 @@
     if (!blobId || blobClaimed) return;
     blobClaimed = true;
     void takeSignFile(blobId).then((file) => {
-      if (file) files = [...files, file];
+      if (file) openVerify([file], false, true);
     });
   });
 
@@ -1633,33 +1655,96 @@
     openVerify(picked);
   }
 
-  /** Load a saved document by id, then hand it to the verification panel. */
+  /** Ask for a "Dokumen Rahasia" passcode before its file is fetched. */
+  function askPasscode(doc: {
+    id: string;
+    title?: string | null;
+  }): Promise<boolean> {
+    return new Promise((resolve) => {
+      verifyPassDoc = { id: doc.id, title: doc.title || "Dokumen" };
+      verifyPassInput = "";
+      verifyPassError = "";
+      verifyPassBusy = false;
+      verifyPassResolve = resolve;
+      forms.verifyPass = true;
+    });
+  }
+
+  function closePasscode(ok: boolean) {
+    forms.verifyPass = false;
+    verifyPassBusy = false;
+    const resolve = verifyPassResolve;
+    verifyPassResolve = null;
+    resolve?.(ok);
+  }
+
+  $effect(() => {
+    // A closed dialog (Escape / backdrop) still has to settle the promise.
+    if (!forms.verifyPass && verifyPassResolve) closePasscode(false);
+  });
+
+  async function submitPasscode() {
+    if (!verifyPassDoc || !verifyPassInput) return;
+    verifyPassBusy = true;
+    verifyPassError = "";
+    try {
+      const result = await checkPasscode({
+        id: verifyPassDoc.id,
+        passcode: verifyPassInput,
+      });
+      if (result.valid) {
+        closePasscode(true);
+      } else {
+        verifyPassError = "Kata sandi salah.";
+      }
+    } catch {
+      verifyPassError = "Gagal memeriksa kata sandi.";
+    } finally {
+      verifyPassBusy = false;
+    }
+  }
+
+  /** Load saved documents by id (comma separated), then open the panel. */
   async function verifyById(raw: string) {
-    const id = String(raw || "").trim();
-    if (!id) return;
+    const ids = String(raw || "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+    if (ids.length === 0) return;
     verifyIdBusy = true;
     try {
-      const found = await getDocument({ id });
-      const doc = found?.[0];
-      if (!doc) {
+      const found = await getDocument({ id: ids });
+      if (!found?.length) {
         app.showToast("error", "Dokumen dengan ID tersebut tidak ditemukan.");
         return;
       }
-      const url = doc.files?.[doc.files.length - 1];
-      if (!url) {
-        app.showToast("error", "Dokumen tidak memiliki berkas.");
+
+      const files: File[] = [];
+      for (const doc of found) {
+        if (doc.passcode) {
+          const unlocked = await askPasscode(doc);
+          if (!unlocked) continue;
+        }
+        const url = doc.files?.[doc.files.length - 1];
+        if (!url) continue;
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`Gagal memuat dokumen (${response.status}).`);
+        }
+        const blob = await response.blob();
+        files.push(
+          new File([blob], doc.title || "document.pdf", {
+            type: "application/pdf",
+          }),
+        );
+      }
+
+      if (files.length === 0) {
+        app.showToast("error", "Dokumen tidak dapat dibuka.");
         return;
       }
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Gagal memuat dokumen (${response.status}).`);
-      }
-      const blob = await response.blob();
-      const file = new File([blob], doc.title || "document.pdf", {
-        type: "application/pdf",
-      });
       forms.verifyId = false;
-      openVerify([file]);
+      openVerify(files);
     } catch (err) {
       app.showToast(
         "error",
@@ -2375,6 +2460,8 @@
           bind:fileInput
           bind:files
           allowDocx
+          maxFiles={Number(env.PUBLIC_MAX_FILES) || 500}
+          maxSizeMb={Number(env.PUBLIC_MAX_FILE_SIZE_MB) || 20}
           title="Pilih File PDF atau DOCX"
         />
       </div>
@@ -2783,17 +2870,22 @@
         }
 
         if (signResults.length > 0) {
-          const notifyText = signResults
-            .map((r, i) => {
-              if (!saveDocument) {
-                return `${i + 1}. *${r?.fileName}*\n`;
-              }
-              if (isDraft) {
-                return `${i + 1}. *${r?.fileName}*\n${location.origin}/sign?draft=true&id=${r?.id}`;
-              }
-              return `${i + 1}. *${r?.fileName}*\n${location.origin}/d?id=${r?.id}&owner=${btoa(item.email)}`;
-            })
-            .join("\n\n");
+          const notifyList = signResults
+            .map((r, i) => `${i + 1}. *${r?.fileName}*`)
+            .join("\n");
+          const notifyIds = signResults
+            .map((r) => r?.id)
+            .filter(Boolean)
+            .join(",");
+          // Keep the grouped link short enough for WhatsApp; a huge batch
+          // still gets the file list above, just without the ID link.
+          const notifyLink =
+            saveDocument && notifyIds && signResults.length <= 50
+              ? `\n\n${location.origin}${
+                  isDraft ? "/sign?draft=true" : "/d"
+                }?id=${notifyIds}`
+              : "";
+          const notifyText = `${notifyList}${notifyLink}`;
 
           try {
             await sendMessage({
@@ -3291,6 +3383,55 @@
       }}
     >
       Kirim
+    </button>
+  </div>
+</Modal>
+
+<Modal
+  bind:data={forms.verifyPass}
+  title="Dokumen Dilindungi"
+  size="sm"
+  onClose={() => closePasscode(false)}
+>
+  <div class="flex flex-col gap-3 my-2">
+    <p class="text-sm opacity-70">
+      Masukkan kata sandi untuk membuka
+      <span class="font-medium">{verifyPassDoc?.title ?? "dokumen"}</span>.
+    </p>
+    <input
+      type="password"
+      class="input input-bordered w-full"
+      placeholder="Kata sandi"
+      bind:value={verifyPassInput}
+      onkeydown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          void submitPasscode();
+        }
+      }}
+    />
+    {#if verifyPassError}
+      <p class="text-xs text-error">{verifyPassError}</p>
+    {/if}
+  </div>
+  <div class="flex justify-end gap-2">
+    <button
+      type="button"
+      class="btn btn-sm btn-ghost"
+      onclick={() => closePasscode(false)}
+    >
+      Batal
+    </button>
+    <button
+      type="button"
+      class="btn btn-sm btn-primary"
+      disabled={verifyPassBusy || !verifyPassInput}
+      onclick={submitPasscode}
+    >
+      {#if verifyPassBusy}
+        <span class="loading loading-spinner loading-xs"></span>
+      {/if}
+      Buka
     </button>
   </div>
 </Modal>

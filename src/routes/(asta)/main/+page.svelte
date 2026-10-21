@@ -461,7 +461,7 @@
         >
       </a>
       <a
-        href="/verify"
+        href="/sign?verify=1"
         class="bg-base-100/50 p-4 rounded-2xl border border-base-300 hover:bg-base-200/50 transition-all flex flex-col gap-1.5"
       >
         <div class="flex items-center gap-3">

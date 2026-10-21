@@ -81,7 +81,7 @@ export const documents = pgTable('documents', {
   esign: boolean('esign').default(true),
   signatureProperties: json('signature_properties'),
   to: text('to').array(),
-  /** Passcode required to open a "Dokumen Rahasia" via its /verify?id link. */
+  /** Passcode required to open a "Dokumen Rahasia" via its /sign?verify=1&id link. */
   passcode: text('passcode'),
   created,
   updated,

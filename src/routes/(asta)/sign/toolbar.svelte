@@ -3,7 +3,7 @@
   import type {
     SignatureVerificationResponse,
     VerifyDate,
-  } from "../verify/types";
+  } from "$lib/types/verify";
   import type { SignatureVerification } from "$lib/utils/pdf";
 
   export type SignTool =

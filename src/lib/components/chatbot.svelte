@@ -283,7 +283,7 @@ Saya juga bisa mengubah bentuk dokumennya, bukan hanya kalimatnya: menambah tabe
       }
     }
 
-    // From known routes mentioned as plain text: /sign, /verify, etc.
+    // From known routes as plain text: /sign, /editor, etc.
     const knownRoutes = new Set(Object.keys(routeLabels));
     for (const route of knownRoutes) {
       const plainRegex = new RegExp(`(?<![\\w/])${route}(?![\\w/])`, "g");

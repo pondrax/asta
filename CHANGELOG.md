@@ -80,6 +80,19 @@
 
 ## 2026-10-22
 
+### Move verification into the sign page and retire legacy routes
+
+<!-- id: move-verification-into-the-sign-page-and-retire-le-2026-10-22 -->
+
+Halaman: /sign - Tanda Tangan Dokumen
+Audiens: Tamu
+
+- **Baru** - move verification into the sign page and retire legacy routes
+- **Baru** - Open the verification panel from /verify, /d and sign-result links with upload, ID and QR methods
+- **Baru** - Support password-protected documents and multi-ID batches in verification
+- **Baru** - Enforce 500 files per upload at 20 MB each, with a hint tooltip
+- **Baru** - Remove the sign-legacy and verify routes and share their response types
+
 ### Cetak dokumen sesuai ukuran halamannya
 
 <!-- id: cetak-dokumen-sesuai-ukuran-halamannya-2026-10-22 -->

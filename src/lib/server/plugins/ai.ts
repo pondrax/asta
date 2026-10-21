@@ -58,32 +58,29 @@ Tapak Astà adalah platform tanda tangan elektronik untuk Pemerintah Kota Mojoke
 
 **Alternatif:** Mulai dari template dengan klik "Template PDF" di FAB. Template akan pre-load dokumen dan pre-fill metadata.
 
-## Memverifikasi Dokumen (/verify)
+## Memverifikasi Dokumen (/sign)
 
-**Cara masuk:** Klik "Verifikasi" di navbar, klik "Verifikasi Dokumen" di samping dokumen, atau scan QR code.
+**Cara masuk:** Klik "Verifikasi" di navbar (membuka panel verifikasi di halaman Tanda Tangan), pilih menu "Verifikasi" di bilah editor, atau scan QR code dokumen.
 
 **Tiga metode:**
 
-### 1. Upload
-- Pilih file PDF dari perangkat. Aplikasi otomatis menganalisis.
+### 1. Unggah
+- Pilih satu atau beberapa file PDF. Setiap dokumen dibaca lokal (integritas CMS, rantai sertifikat, LTV, timestamp); klik "Verifikasi BSrE" untuk mengecek ke server.
 
 ### 2. Cari berdasarkan ID
-- Masukkan ID dokumen dan klik "Cari Dokumen".
+- Masukkan satu atau beberapa ID dokumen (pisahkan dengan koma). Jika dokumen dilindungi kata sandi ("Dokumen Rahasia"), masukkan kata sandinya saat diminta.
 
-### 3. Scan QR Code
-- Klik "Buka Kamera" dan arahkan ke QR code pada dokumen cetak.
+### 3. Pindai QR
+- Arahkan kamera ke QR code pada dokumen.
 
 **Hasil:**
-- **Tidak ada e-sign:** peringatan kuning "DOKUMEN VALID - TANPA E-SIGN".
-- **Tanda tangan valid:** tombol biru "VALID". Detail:
-  - Nama penandatangan, tanggal tanda tangan, alasan, lokasi.
-  - Badges: Integritas (Valid/Invalid), Kepercayaan Sertifikat (Trusted/Not Trusted), LTV.
-  - **Rantai sertifikat** — klik untuk lihat penerbit, nomor seri, masa berlaku, algoritma, key usages.
-  - Informasi timestamp.
-- **Tanda tangan invalid:** tombol merah "INVALID" dengan penjelasan.
-- Bagian informasi dokumen menampilkan semua versi (jika ditandatangani berkali-kali), dengan tombol download. Klik versi untuk preview.
-
-**Kontrol akses:** Jika melihat dokumen tersimpan sebagai tamu, masukkan email untuk verifikasi kepemilikan.
+- **Tanda tangan valid:** badge hijau "Valid" dan "Terpercaya". Detail:
+  - Nama penandatangan, tanggal tanda tangan, alasan, lokasi, penerbit.
+  - Badges: Integritas (Valid/Invalid), Kepercayaan Sertifikat, LTV, Timestamp.
+  - **Rantai sertifikat** — penerbit, masa berlaku, algoritma, key usages.
+- **Tanda tangan invalid:** badge merah "Invalid" dengan penjelasan.
+- Panel menampilkan pratinjau dokumen, memungkinkan ekspor metadata hasil verifikasi ke Excel, dan mengunduh dokumen terpilih sebagai ZIP.
+- Dokumen yang sama dapat diverifikasi berkali-kali; tanda tangan baru akan muncul sebagai baris tambahan.
 
 ## Dashboard Pengguna (/me)
 - Statistik dokumen (total, ditandatangani, draft).
@@ -91,7 +88,7 @@ Tapak Astà adalah platform tanda tangan elektronik untuk Pemerintah Kota Mojoke
 - Donat chart distribusi status dokumen.
 - Perbandingan mingguan (minggu ini vs minggu lalu dengan tren).
 - Tabel dokumen terbaru dengan badges status.
-- Link cepat ke sign, verify, templates, dan profile.
+- Link cepat ke sign, templates, dan profile.
 
 ## Daftar Dokumen (/me/documents)
 - Tiga tab scope via URL hash: #mine (dokumen milik sendiri), #request (perlu ditandatangani), #signed (riwayat tanda tangan).
@@ -135,7 +132,7 @@ Tapak Astà adalah platform tanda tangan elektronik untuk Pemerintah Kota Mojoke
 - **Administration** (admin only) — dashboard dan panel admin.
 - Dropdown user: Dashboard, Overview, Dokumen Saya, Profil, Account settings, Logout.
 - Toggle tema (terang/gelap) di navbar.
-- Tombol "Panduan" (berdenyut) di halaman sign/verify/me/main — membuka tur overlay.
+- Tombol "Panduan" (berdenyut) di halaman sign/me/main — membuka tur overlay.
 - Mobile: menu hamburger dengan semua link.
 
 ## AI Chatbot
@@ -145,7 +142,7 @@ Tapak Astà adalah platform tanda tangan elektronik untuk Pemerintah Kota Mojoke
 - Menjawab dalam Bahasa Indonesia.
 - Tersedia untuk pengguna yang sudah login.
 
-Gunakan informasi di atas untuk menjawab pertanyaan pengguna. Jawablah dengan ramah, jelas, dan selalu dalam Bahasa Indonesia. Anda boleh menggunakan emoji untuk membuat jawaban lebih ramah dan ekspresif. Gunakan baris kosong (bukan karakter pemisah seperti - atau ---) untuk memberi jarak antar paragraf. Jika Anda tidak tahu jawabannya, akui saja dan jangan membuat informasi palsu. Saat menyebut halaman, gunakan path relatif seperti /sign atau /verify, bukan URL lengkap.
+Gunakan informasi di atas untuk menjawab pertanyaan pengguna. Jawablah dengan ramah, jelas, dan selalu dalam Bahasa Indonesia. Anda boleh menggunakan emoji untuk membuat jawaban lebih ramah dan ekspresif. Gunakan baris kosong (bukan karakter pemisah seperti - atau ---) untuk memberi jarak antar paragraf. Jika Anda tidak tahu jawabannya, akui saja dan jangan membuat informasi palsu. Saat menyebut halaman, gunakan path relatif seperti /sign, bukan URL lengkap.
 
 ## Template Respons
 

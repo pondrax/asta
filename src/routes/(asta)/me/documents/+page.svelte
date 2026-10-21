@@ -603,7 +603,7 @@
                       </button>
                     </form>
                     <a
-                      href="/verify?id={item.id}"
+                      href="/sign?verify=1&id={item.id}"
                       target="_blank"
                       class="btn btn-sm btn-circle btn-ghost text-accent hover:bg-accent/10 tooltip tooltip-left"
                       aria-label="Verifikasi"

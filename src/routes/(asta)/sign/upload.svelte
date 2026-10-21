@@ -9,6 +9,8 @@
     fileInput = $bindable(null),
     title = "Pilih File PDF",
     allowDocx = false,
+    maxFiles = 500,
+    maxSizeMb = 20,
   }: {
     children?: Snippet;
     files?: File[];
@@ -17,6 +19,10 @@
     /** Accept DOCX and convert it to PDF. Off by default: this dropper is shared,
      *  and only the sign page should offer the conversion. */
     allowDocx?: boolean;
+    /** Cap for a single drop, so a huge batch cannot overload the run. */
+    maxFiles?: number;
+    /** Per-file size cap in megabytes. */
+    maxSizeMb?: number;
   } = $props();
   // let fileInput: HTMLInputElement | null = null;
   let dragging = $state(false);
@@ -44,9 +50,30 @@
    */
   async function ingest(list: FileList | File[]) {
     const picked = [...list];
-    const keep = picked.filter(isPdf);
-    const toConvert = allowDocx ? picked.filter(isDocx) : [];
-    const skipped = picked.length - keep.length - toConvert.length;
+    const maxBytes = maxSizeMb * 1024 * 1024;
+    const oversized = picked.filter((file) => file.size > maxBytes);
+    if (oversized.length > 0) {
+      app.showToast(
+        "error",
+        `Maksimal ${maxSizeMb} MB per file. ${oversized.length} file diabaikan.`,
+      );
+    }
+    const candidates = picked.filter((file) => file.size <= maxBytes);
+    const acceptedAll = [
+      ...candidates.filter(isPdf),
+      ...(allowDocx ? candidates.filter(isDocx) : []),
+    ];
+    const overflow = acceptedAll.length - maxFiles;
+    if (overflow > 0) {
+      app.showToast(
+        "error",
+        `Maksimal ${maxFiles} file per unggahan. ${overflow} file diabaikan.`,
+      );
+    }
+    const accepted = overflow > 0 ? acceptedAll.slice(0, maxFiles) : acceptedAll;
+    const keep = accepted.filter(isPdf);
+    const toConvert = accepted.filter(isDocx);
+    const skipped = candidates.length - acceptedAll.length;
 
     if (skipped > 0) {
       app.showToast(
@@ -147,21 +174,20 @@
       </div>
 
       <div class="text-sm text-base-content/70 mt-2">
-        {#if allowDocx}
-          Mendukung unggah beberapa file PDF dan DOCX
-        {:else}
-          Mendukung unggah beberapa file PDF
-        {/if}
+        Tanda tangan atau verifikasi dokumen
       </div>
 
       {#if allowDocx}
         <div class="text-sm text-base-content/60 mt-1">
-          File DOCX otomatis dikonversi ke PDF
+          DOCX otomatis dikonversi ke PDF
         </div>
       {/if}
 
-      <div class="text-sm text-error mt-2 font-medium">
-        Maksimal ukuran file: 20 MB
+      <div
+        class="tooltip tooltip-top text-sm text-error mt-2 font-medium cursor-help"
+        data-tip="Butuh lebih? Buka tab baru untuk mengunggah batch lain."
+      >
+        Maksimal {maxFiles} file · {maxSizeMb} MB per file
       </div>
     {/if}
   </div>

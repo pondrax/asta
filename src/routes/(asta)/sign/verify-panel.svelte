@@ -10,12 +10,14 @@
   import { createZip } from "$lib/utils/zip";
   import { createXlsx, type CellValue } from "$lib/utils/xlsx";
   import Preview from "$lib/components/preview.svelte";
+  import { env } from "$env/dynamic/public";
+  import { app } from "$lib/app/index.svelte";
   import { verifyDocument } from "$lib/remotes/sign.remote";
   import type {
     SignatureInformation,
     SignatureVerificationResponse,
     VerifyDate,
-  } from "../verify/types";
+  } from "$lib/types/verify";
 
   let {
     seed = [],
@@ -114,6 +116,9 @@
   const isPdf = (file: File) =>
     file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
 
+  const maxFiles = Number(env.PUBLIC_MAX_FILES) || 20;
+  const maxSizeMb = Number(env.PUBLIC_MAX_FILE_SIZE_MB) || 20;
+
   /** Offline read: pull the signature dictionaries out of the PDF itself. */
   async function readLocal(item: Item) {
     item.localLoading = true;
@@ -172,9 +177,30 @@
   }
 
   async function addFiles(list: FileList | File[]) {
-    const picked = [...list].filter(isPdf);
+    const maxBytes = maxSizeMb * 1024 * 1024;
+    const oversized = [...list].filter((file) => file.size > maxBytes);
+    if (oversized.length > 0) {
+      app.showToast(
+        "error",
+        `Maksimal ${maxSizeMb} MB per file. ${oversized.length} file diabaikan.`,
+      );
+    }
+
+    const picked = [...list]
+      .filter(isPdf)
+      .filter((file) => file.size <= maxBytes);
     if (picked.length === 0) return;
-    const added = picked.map(toItem);
+
+    const remaining = Math.max(0, maxFiles - items.length);
+    if (picked.length > remaining) {
+      app.showToast(
+        "error",
+        `Maksimal ${maxFiles} dokumen. ${picked.length - remaining} file diabaikan.`,
+      );
+    }
+
+    const added = picked.slice(0, remaining).map(toItem);
+    if (added.length === 0) return;
     items = [...items, ...added];
     for (const item of added) selected[item.id] = true;
     if (!items.some((item) => item.id === activeId)) activeId = added[0].id;
@@ -453,6 +479,12 @@
       <iconify-icon icon="bx:upload" class="text-xl text-primary"></iconify-icon>
       <span class="text-sm">Geser atau klik untuk menambah PDF</span>
     </button>
+    <p
+      class="tooltip tooltip-top text-xs opacity-60 text-center -mt-1 cursor-help"
+      data-tip="Butuh lebih? Buka tab baru untuk mengunggah batch lain."
+    >
+      Maksimal {maxFiles} file · {maxSizeMb} MB per file
+    </p>
   {/if}
 
   {#if items.length === 0}

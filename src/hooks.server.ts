@@ -83,8 +83,11 @@ export const handleRedirect: Handle = ({ event, resolve }) => {
   if (event.url.pathname === '/asta') {
     return redirect(302, '/');
   }
-  if (event.url.pathname === '/d') {
-    return redirect(302, `/verify${event.url.search}`);
+  if (event.url.pathname === '/d' || event.url.pathname === '/verify') {
+    // Verification now lives in the /sign modal; keep old links working.
+    const params = new URLSearchParams(event.url.search);
+    if (!params.has('verify')) params.set('verify', '1');
+    return redirect(302, `/sign?${params.toString()}`);
   }
 
   return resolve(event);

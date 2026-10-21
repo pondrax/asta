@@ -20,7 +20,11 @@
   let { children, data } = $props();
 
   const user = $derived(data.user);
-  const pageTitle = $derived(getPageTitle(page.url.pathname));
+  const pageTitle = $derived(
+    page.url.pathname === "/sign" && page.url.searchParams.has("verify")
+      ? "Verifikasi Dokumen – Tapak Astà"
+      : getPageTitle(page.url.pathname),
+  );
 
   let activeMenu = $state<string | null>(null);
   let hideTimer: ReturnType<typeof setTimeout>;
@@ -51,6 +55,13 @@
   );
 
   const isManageActive = $derived(page.url.pathname.startsWith("/main"));
+  const verifyMode = $derived(page.url.searchParams.get("verify"));
+  const verifyActive = $derived(
+    page.url.pathname === "/sign" && verifyMode !== null,
+  );
+  const verifyUploadActive = $derived(
+    verifyActive && verifyMode !== "id" && verifyMode !== "scan",
+  );
 
   // The signing workspace and the DOCX editor keep their own menubar, so the
   // site navigation is collapsed into a single grouped dropdown in the navbar.
@@ -160,9 +171,9 @@
               <details>
                 <summary>Verifikasi</summary>
                 <ul>
-                  <li><a href="/verify">Unggah File PDF</a></li>
-                  <li><a href="/verify#!/id">Cari Berdasarkan ID</a></li>
-                  <li><a href="/verify#!/scan">Pindai QR Code TTE</a></li>
+                  <li><a href="/sign?verify=1">Unggah File PDF</a></li>
+                  <li><a href="/sign?verify=id">Cari Berdasarkan ID</a></li>
+                  <li><a href="/sign?verify=scan">Pindai QR Code TTE</a></li>
                   <li>
                     <a
                       href="https://cekdokumen.id/"
@@ -381,15 +392,13 @@
             onmouseleave={scheduleHide}
           >
             <a
-              href="/verify"
+              href="/sign?verify=1"
               class="rounded-lg text-xs font-medium transition-all"
-              class:bg-primary={page.url.pathname === "/verify"}
-              class:text-primary-content={page.url.pathname === "/verify"}
-              class:shadow-sm={page.url.pathname === "/verify"}
-              class:bg-base-200={activeMenu === "verify" &&
-                page.url.pathname !== "/verify"}
-              class:text-base-content={activeMenu === "verify" &&
-                page.url.pathname !== "/verify"}
+              class:bg-primary={verifyActive}
+              class:text-primary-content={verifyActive}
+              class:shadow-sm={verifyActive}
+              class:bg-base-200={activeMenu === "verify" && !verifyActive}
+              class:text-base-content={activeMenu === "verify" && !verifyActive}
             >
               Verifikasi
             </a>
@@ -433,7 +442,7 @@
       </div>
 
       <div class="navbar-end gap-1">
-        {#if ["/sign", "/sign", "/verify", "/me", "/main", "/editor"].includes(page.url.pathname)}
+        {#if ["/sign", "/me", "/main", "/editor"].includes(page.url.pathname)}
           <button
             class="btn btn-ghost btn-sm rounded-full gap-1 relative animate-pulse"
             onclick={() => (app.showTour = true)}
@@ -867,7 +876,10 @@
                   Periksa keaslian dokumen PDF dan sertifikat digital tanda
                   tangan elektronik Anda.
                 </p>
-                <a href="/verify" class="btn btn-primary btn-sm mt-4 gap-1">
+                <a
+                  href="/sign?verify=1"
+                  class="btn btn-primary btn-sm mt-4 gap-1"
+                >
                   <span>Mulai Verifikasi</span>
                   <iconify-icon icon="bx:search"></iconify-icon>
                 </a>
@@ -881,17 +893,14 @@
                 <ul class="space-y-1">
                   <li>
                     <a
-                      href="/verify"
-                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
-                        .url.pathname === '/verify' &&
-                      !page.url.hash.startsWith('#!')
+                      href="/sign?verify=1"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {verifyUploadActive
                         ? 'text-primary font-bold bg-primary/5'
                         : 'text-base-content/75'}"
                     >
                       <iconify-icon
                         icon="bx:chevron-right"
-                        class="text-xs transition-all {page.url.pathname ===
-                          '/verify' && !page.url.hash.startsWith('#!')
+                        class="text-xs transition-all {verifyUploadActive
                           ? 'text-primary opacity-100'
                           : 'opacity-40 group-hover:opacity-100'}"
                       ></iconify-icon>
@@ -900,16 +909,15 @@
                   </li>
                   <li>
                     <a
-                      href="/verify#!/id"
-                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
-                        .url.pathname === '/verify' && page.url.hash === '#!/id'
+                      href="/sign?verify=id"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {verifyMode ===
+                      'id'
                         ? 'text-primary font-bold bg-primary/5'
                         : 'text-base-content/75'}"
                     >
                       <iconify-icon
                         icon="bx:chevron-right"
-                        class="text-xs transition-all {page.url.pathname ===
-                          '/verify' && page.url.hash === '#!/id'
+                        class="text-xs transition-all {verifyMode === 'id'
                           ? 'text-primary opacity-100'
                           : 'opacity-40 group-hover:opacity-100'}"
                       ></iconify-icon>
@@ -918,17 +926,15 @@
                   </li>
                   <li>
                     <a
-                      href="/verify#!/scan"
-                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
-                        .url.pathname === '/verify' &&
-                      page.url.hash === '#!/scan'
+                      href="/sign?verify=scan"
+                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {verifyMode ===
+                      'scan'
                         ? 'text-primary font-bold bg-primary/5'
                         : 'text-base-content/75'}"
                     >
                       <iconify-icon
                         icon="bx:chevron-right"
-                        class="text-xs transition-all {page.url.pathname ===
-                          '/verify' && page.url.hash === '#!/scan'
+                        class="text-xs transition-all {verifyMode === 'scan'
                           ? 'text-primary opacity-100'
                           : 'opacity-40 group-hover:opacity-100'}"
                       ></iconify-icon>
