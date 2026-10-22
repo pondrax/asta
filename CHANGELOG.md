@@ -87,11 +87,11 @@
 Halaman: /sign - Tanda Tangan Dokumen
 Audiens: Tamu
 
-- **Baru** - move verification into the sign page and retire legacy routes
-- **Baru** - Open the verification panel from /verify, /d and sign-result links with upload, ID and QR methods
-- **Baru** - Support password-protected documents and multi-ID batches in verification
-- **Baru** - Enforce 500 files per upload at 20 MB each, with a hint tooltip
-- **Baru** - Remove the sign-legacy and verify routes and share their response types
+- **Baru** - Pindahkan verifikasi ke halaman tanda tangan dan hapus rute lama
+- **Baru** - Buka panel verifikasi dari tautan /verify, /d dan hasil tanda tangan dengan metode unggah, ID, dan QR
+- **Baru** - Dukungan dokumen berpassword dan verifikasi banyak ID
+- **Baru** - Batasi unggah maksimal 500 berkas (20 MB per berkas) dengan petunjuk tooltip
+- **Baru** - Hapus rute sign-legacy dan verify serta bagi tipe respons bersama
 
 ### Cetak dokumen sesuai ukuran halamannya
 
@@ -115,7 +115,7 @@ Audiens: Tamu
 - **Baru** - Panel verifikasi langsung di halaman tanda tangan: membaca tanda tangan lokal (CMS) sekaligus mengecek status ke server BSrE tanpa pindah halaman
 - **Baru** - Pratinjau dokumen, ekspor metadata hasil verifikasi ke Excel, dan unduh dokumen terpilih sebagai ZIP
 - **Baru** - Status tanda tangan menampilkan Valid/Tidak Valid, kepercayaan sertifikat, LTV, dan timestamp
-- **Diubah** - Mode penandatanganan kini bernama TTE BSrE dan Self-Signed Pemkot
+- **Diubah** - Ubah nama mode penandatanganan menjadi TTE BSrE dan Self-Signed Pemkot
 - **Diubah** - Utilitas PDF memakai @libpdf/core dengan patch untuk berkas yang ditandatangani BSrE
 - **Diubah** - Verifikasi dokumen memakai ESIGN_URL dan kunci yang sama dengan penandatanganan
 
@@ -128,7 +128,7 @@ Audiens: Tamu
 Halaman: /sign-v2 - Sign V2
 Audiens: Tamu
 
-- **Baru** - email retry button beside input
+- **Baru** - Tombol kirim ulang email di samping kolom input
 
 ### Add retry on not registered
 
@@ -137,7 +137,7 @@ Audiens: Tamu
 Halaman: /sign-v2 - Sign V2
 Audiens: Tamu
 
-- **Perbaikan** - add retry on not registered
+- **Perbaikan** - Tambahkan kirim ulang saat email belum terdaftar
 
 ### Email input indicator style + retry option
 
@@ -146,7 +146,7 @@ Audiens: Tamu
 Halaman: /sign-v2 - Sign V2
 Audiens: Tamu
 
-- **Baru** - email input indicator style + retry option
+- **Baru** - Indikator kolom email dan opsi kirim ulang
 
 ### Show subject name and full signer identity in status dropdown
 
@@ -155,7 +155,7 @@ Audiens: Tamu
 Halaman: /sign-v2 - Sign V2
 Audiens: Tamu
 
-- **Baru** - show subject name and full signer identity in status dropdown
+- **Baru** - Tampilkan nama subjek dan identitas lengkap penandatangan di dropdown status
 - **Baru** - - pdf.ts: parse PKCS#7 leaf cert via ASN.1 (root-first chain), show subject DN, issuer, CN/O/C/email, filter/subFilter; fix /Name fallback to cert CN
 - **Baru** - - toolbar.svelte: display Subject/Penerbit DNs with details; show replace warning only when signature visual placed
 - **Baru** - - sign-v2/+page.svelte: capSignature based on existing signature placement

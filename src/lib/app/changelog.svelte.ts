@@ -125,23 +125,23 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
         changes: [
           {
             kind: "added",
-            text: "move verification into the sign page and retire legacy routes",
+            text: "Pindahkan verifikasi ke halaman tanda tangan dan hapus rute lama",
           },
           {
             kind: "added",
-            text: "Open the verification panel from /verify, /d and sign-result links with upload, ID and QR methods",
+            text: "Buka panel verifikasi dari tautan /verify, /d dan hasil tanda tangan dengan metode unggah, ID, dan QR",
           },
           {
             kind: "added",
-            text: "Support password-protected documents and multi-ID batches in verification",
+            text: "Dukungan dokumen berpassword dan verifikasi banyak ID",
           },
           {
             kind: "added",
-            text: "Enforce 500 files per upload at 20 MB each, with a hint tooltip",
+            text: "Batasi unggah maksimal 500 berkas (20 MB per berkas) dengan petunjuk tooltip",
           },
           {
             kind: "added",
-            text: "Remove the sign-legacy and verify routes and share their response types",
+            text: "Hapus rute sign-legacy dan verify serta bagi tipe respons bersama",
           },
         ],
       },
@@ -164,7 +164,7 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
           },
           {
             kind: "changed",
-            text: "Mode penandatanganan kini bernama TTE BSrE dan Self-Signed Pemkot",
+            text: "Ubah nama mode penandatanganan menjadi TTE BSrE dan Self-Signed Pemkot",
           },
           {
             kind: "changed",
@@ -743,7 +743,7 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
         changes: [
           {
             kind: "added",
-            text: "email retry button beside input",
+            text: "Tombol kirim ulang email di samping kolom input",
           },
         ],
       },
@@ -754,7 +754,7 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
         changes: [
           {
             kind: "fixed",
-            text: "add retry on not registered",
+            text: "Tambahkan kirim ulang saat email belum terdaftar",
           },
         ],
       },
@@ -765,7 +765,7 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
         changes: [
           {
             kind: "added",
-            text: "email input indicator style + retry option",
+            text: "Indikator kolom email dan opsi kirim ulang",
           },
         ],
       },
@@ -776,7 +776,7 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
         changes: [
           {
             kind: "added",
-            text: "show subject name and full signer identity in status dropdown",
+            text: "Tampilkan nama subjek dan identitas lengkap penandatangan di dropdown status",
           },
           {
             kind: "added",
