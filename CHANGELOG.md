@@ -80,6 +80,16 @@
 
 ## 2026-10-22
 
+### Lengkapi panduan tanda tangan dengan panel verifikasi
+
+<!-- id: lengkapi-panduan-tanda-tangan-dengan-panel-veri-2026-10-22 -->
+
+Halaman: /sign - Tanda Tangan Dokumen
+Audiens: Tamu
+
+- **Baru** - Panduan tanda tangan kini memuat langkah panel verifikasi: unggah dokumen, verifikasi massal dan ekspor, rincian tanda tangan, serta pratinjau dokumen
+- **Perbaikan** - Perbarui penjelasan langkah panduan yang sudah berubah (unggah DOCX ke PDF, identitas email atau NIK, isi bilah alat, dan cara verifikasi lewat dokumen, unggah, ID, atau QR)
+
 ### Move verification into the sign page and retire legacy routes
 
 <!-- id: move-verification-into-the-sign-page-and-retire-le-2026-10-22 -->

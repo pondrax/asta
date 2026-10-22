@@ -458,7 +458,7 @@
   });
 </script>
 
-<div class="flex flex-col gap-3">
+<div id="tour-verify-panel" class="flex flex-col gap-3">
   <input
     type="file"
     accept="application/pdf"
@@ -471,6 +471,7 @@
   {#if !hideUpload}
     <button
       type="button"
+      id="tour-verify-upload"
       class="flex items-center justify-center gap-2 border-2 border-dashed border-base-300 rounded-xl py-4 cursor-pointer hover:border-primary hover:bg-base-200 transition-colors"
       ondragover={(e) => e.preventDefault()}
       ondrop={onDrop}
@@ -492,7 +493,7 @@
       Belum ada dokumen untuk diverifikasi.
     </p>
   {:else}
-    <div class="flex items-center gap-2 flex-wrap px-1">
+    <div id="tour-verify-batch" class="flex items-center gap-2 flex-wrap px-1">
       <label class="flex items-center gap-1.5 text-xs cursor-pointer">
         <input
           type="checkbox"
@@ -541,7 +542,7 @@
     </div>
 
     <div class="grid gap-3 lg:grid-cols-2 items-start">
-      <div class="flex flex-col gap-2 max-h-[45vh] lg:max-h-[60vh] overflow-y-auto pr-1 order-2 lg:order-1">
+      <div id="tour-verify-list" class="flex flex-col gap-2 max-h-[45vh] lg:max-h-[60vh] overflow-y-auto pr-1 order-2 lg:order-1">
       {#each items as item (item.id)}
         {@const list = views(item)}
         {@const conclusion = item.online?.conclusion}
@@ -860,6 +861,7 @@
       </div>
 
       <div
+        id="tour-verify-preview"
         class="order-1 lg:order-2 lg:sticky lg:top-0 h-[32vh] lg:h-[60vh] rounded-xl border border-base-300 overflow-hidden bg-base-200"
       >
         {#if activeFile}

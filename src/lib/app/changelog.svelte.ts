@@ -119,6 +119,21 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
     page: "Tanda Tangan Dokumen",
     entries: [
       {
+        id: "lengkapi-panduan-tanda-tangan-dengan-panel-veri-2026-10-22",
+        date: "2026-10-22",
+        title: "Lengkapi panduan tanda tangan dengan panel verifikasi",
+        changes: [
+          {
+            kind: "added",
+            text: "Panduan tanda tangan kini memuat langkah panel verifikasi: unggah dokumen, verifikasi massal dan ekspor, rincian tanda tangan, serta pratinjau dokumen",
+          },
+          {
+            kind: "fixed",
+            text: "Perbarui penjelasan langkah panduan yang sudah berubah (unggah DOCX ke PDF, identitas email atau NIK, isi bilah alat, dan cara verifikasi lewat dokumen, unggah, ID, atau QR)",
+          },
+        ],
+      },
+      {
         id: "move-verification-into-the-sign-page-and-retire-le-2026-10-22",
         date: "2026-10-22",
         title: "Move verification into the sign page and retire legacy routes",

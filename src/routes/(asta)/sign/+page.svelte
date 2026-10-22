@@ -201,7 +201,7 @@
       target: "#tour-upload-btn",
       title: "Unggah Dokumen",
       content:
-        "Pilih berkas PDF atau DOCX yang ingin ditandatangani, atau seret berkas ke area ini.",
+        "Pilih berkas PDF atau DOCX yang ingin ditandatangani (DOCX otomatis dikonversi ke PDF), atau seret berkas ke area ini. Batas 500 berkas, 20 MB per berkas.",
       placement: "bottom",
       onShow: () => {
         emailOpen = false;
@@ -213,7 +213,7 @@
       target: "#tour-add-fab",
       title: "Tambah Dokumen",
       content:
-        "Tombol + membuka akses cepat untuk membuat dokumen baru di editor, mengunggah PDF/DOCX, atau memilih template.",
+        "Tombol + membuka akses cepat: buat dokumen baru di editor, unggah PDF/DOCX, atau pilih template PDF siap pakai.",
       placement: "left",
       onShow: () => {
         emailOpen = false;
@@ -232,9 +232,9 @@
     },
     {
       target: "#tour-email",
-      title: "Email Penandatangan",
+      title: "Identitas Penandatangan",
       content:
-        "Masukkan Email Dinas Anda. Akun diverifikasi otomatis dan data identitas diambil dari profil BSrE bila tersedia.",
+        "Masukkan Email Dinas atau NIK penandatangan. Email diverifikasi otomatis dan data identitas diambil dari profil BSrE bila tersedia.",
       placement: "bottom",
       onShow: () => {
         emailOpen = true;
@@ -245,7 +245,7 @@
       target: "#tour-toolbar",
       title: "Alat Tanda Tangan",
       content:
-        "Atur halaman, zoom, tambahkan visualisasi (QR, kotak, gambar, coretan), dan unduh dokumen dari bilah ini.",
+        "Bilah alat berisi urung/ulangi, tambah visualisasi (gambar, QR, kotak, coretan), footer, hapus item, dan status dokumen.",
       placement: "bottom",
       onShow: () => {
         navOpen = false;
@@ -255,7 +255,7 @@
       target: "#tour-status",
       title: "Status & Verifikasi",
       content:
-        "Lihat status tanda tangan dokumen. Tombol Verifikasi mengecek ke server BSrE/BSSN, dan “Lihat lebih lengkap” membuka panel detail dengan pratinjau dokumen.",
+        "Lihat status tanda tangan dokumen. Verifikasi bisa dilakukan pada dokumen aktif, lewat unggah berkas, lewat ID, atau dengan memindai QR. “Lihat lebih lengkap” membuka panel detail.",
       placement: "bottom",
       onShow: () => {
         navOpen = false;
@@ -274,9 +274,9 @@
     },
     {
       target: "#tour-metadata",
-      title: "Informasi Penandatangan",
+      title: "Informasi Dokumen & Penandatangan",
       content:
-        "Lengkapi identitas penandatangan. Data akan terisi otomatis dari profil BSrE Anda.",
+        "Isi keterangan, lokasi, dan tanggal penandatangan, lalu lengkapi profil (nama, jabatan, nomor WhatsApp). Data dapat terisi otomatis dari profil BSrE.",
       placement: "right",
       onShow: () => {
         navOpen = true;
@@ -287,7 +287,7 @@
       target: "#tour-visual",
       title: "Visualisasi Tanda Tangan",
       content:
-        "Seret QR, kotak, atau coretan ke dokumen untuk menampilkan tanda tangan. Lengkapi profil bila pratinjau belum tersedia.",
+        "Seret QR, kotak, gambar, atau coretan dari daftar ini ke dokumen untuk menempatkan visual tanda tangan. Lengkapi profil bila pratinjau belum tersedia.",
       placement: "right",
       onShow: () => {
         navOpen = true;
@@ -341,11 +341,57 @@
       target: "#tour-sign-status",
       title: "Selesai",
       content:
-        "Setelah berhasil, gunakan Lihat Dokumen untuk membuka panel verifikasi (cek lokal + BSrE), lalu unduh dokumen atau ekspor hasilnya.",
+        "Dokumen berhasil ditandatangani. Gunakan Unduh Semua untuk ZIP, Lihat Dokumen untuk membuka panel verifikasi, dan Survey untuk memberi penilaian layanan.",
       placement: "bottom",
       onShow: () => {
         if (forms.sign) forms.sign.completed = Object.keys(forms.sign.documents);
       },
+    },
+    {
+      target: "#tour-verify-panel",
+      title: "Panel Verifikasi",
+      content:
+        "Panel verifikasi membaca tanda tangan di dalam PDF secara lokal (CMS) lalu mencocokkannya dengan server BSrE. Buka lewat tombol Verifikasi di bilah alat, menu Verifikasi, atau navbar.",
+      placement: "center",
+      modal: true,
+      onShow: () => {
+        // The sign dialog sits under the verification panel; close it so the
+        // panel is the only thing on screen.
+        forms.sign = undefined;
+        void openVerifyForTour();
+      },
+    },
+    {
+      target: "#tour-verify-upload",
+      title: "Unggah Dokumen untuk Dicek",
+      content:
+        "Tarik atau pilih PDF yang ingin diverifikasi. Batas 500 berkas, 20 MB per berkas, dan dokumen bisa diverifikasi sekaligus.",
+      placement: "bottom",
+      modal: true,
+    },
+    {
+      target: "#tour-verify-batch",
+      title: "Verifikasi Massal & Ekspor",
+      content:
+        "Pilih dokumen yang dikehendaki, lalu tekan Verifikasi BSrE untuk pengecekan server, Excel untuk mengekspor metadata, atau Unduh untuk mengambil dokumen terpilih (ZIP bila lebih dari satu).",
+      placement: "bottom",
+      modal: true,
+    },
+    {
+      target: "#tour-verify-list",
+      title: "Rincian Tanda Tangan",
+      content:
+        "Setiap tanda tangan diuraikan: status Valid/Invalid, kepercayaan dan rantai sertifikat, LTV, timestamp, penerbit, masa berlaku, serta alasan bila ditolak.",
+      placement: "right",
+      modal: true,
+    },
+    {
+      target: "#tour-verify-preview",
+      title: "Pratinjau Dokumen",
+      content:
+        "Pratinjau dokumen yang sedang dipilih, termasuk posisi visual tanda tangan yang terpasang.",
+      placement: "left",
+      modal: true,
     },
   ];
   let signResults: {
@@ -1873,6 +1919,22 @@
     if (!forms.sign) await openSign();
   }
 
+  /**
+   * Tour helper: open the verification panel on the active document, creating
+   * the throwaway demo document first when the page has none.
+   */
+  async function openVerifyForTour() {
+    let file = documents[activeIndex];
+    if (!file) {
+      const demo = await createDemoDocument();
+      tourDemoFile = demo;
+      files = [...files, demo];
+      await tick();
+      file = demo;
+    }
+    openVerify([file], false);
+  }
+
   async function openSign() {
     signResults = [];
     timer = 0;
@@ -2655,12 +2717,14 @@
     steps={tourSteps}
     onComplete={() => {
       forms.sign = undefined;
+      forms.verify = undefined;
       removeTourDemo();
       app.showTour = false;
       localStorage.setItem("tour-sign-last-shown", Date.now().toString());
     }}
     onSkip={() => {
       forms.sign = undefined;
+      forms.verify = undefined;
       removeTourDemo();
       app.showTour = false;
       localStorage.setItem("tour-sign-last-shown", Date.now().toString());
