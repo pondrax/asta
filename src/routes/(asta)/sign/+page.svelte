@@ -201,7 +201,7 @@
       target: "#tour-upload-btn",
       title: "Unggah Dokumen",
       content:
-        "Pilih berkas PDF atau DOCX yang ingin ditandatangani (DOCX otomatis dikonversi ke PDF), atau seret berkas ke area ini. Batas 500 berkas, 20 MB per berkas.",
+        "Halaman ini dipakai untuk menandatangani maupun memverifikasi dokumen. Pilih berkas PDF atau DOCX (DOCX otomatis dikonversi ke PDF), atau seret berkas ke area ini. Batas 500 berkas, 20 MB per berkas.",
       placement: "bottom",
       onShow: () => {
         emailOpen = false;
@@ -345,6 +345,7 @@
       placement: "bottom",
       onShow: () => {
         if (forms.sign) forms.sign.completed = Object.keys(forms.sign.documents);
+        fakeSignedResultsForTour();
       },
     },
     {
@@ -1935,6 +1936,22 @@
     openVerify([file], false);
   }
 
+  /**
+   * Tour helper: pretend the demo document was signed so "Unduh Semua" and
+   * "Lihat Dokumen" show up in the tour.
+   */
+  function fakeSignedResultsForTour() {
+    const file = documents[activeIndex];
+    if (!file) return;
+    signResults = [
+      {
+        id: "tour",
+        fileName: file.name,
+        blob: new Blob([file], { type: "application/pdf" }),
+      },
+    ];
+  }
+
   async function openSign() {
     signResults = [];
     timer = 0;
@@ -2718,6 +2735,7 @@
     onComplete={() => {
       forms.sign = undefined;
       forms.verify = undefined;
+      signResults = [];
       removeTourDemo();
       app.showTour = false;
       localStorage.setItem("tour-sign-last-shown", Date.now().toString());
@@ -2725,6 +2743,7 @@
     onSkip={() => {
       forms.sign = undefined;
       forms.verify = undefined;
+      signResults = [];
       removeTourDemo();
       app.showTour = false;
       localStorage.setItem("tour-sign-last-shown", Date.now().toString());

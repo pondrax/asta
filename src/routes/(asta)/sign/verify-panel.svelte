@@ -542,7 +542,7 @@
     </div>
 
     <div class="grid gap-3 lg:grid-cols-2 items-start">
-      <div id="tour-verify-list" class="flex flex-col gap-2 max-h-[45vh] lg:max-h-[60vh] overflow-y-auto pr-1 order-2 lg:order-1">
+      <div id="tour-verify-list" class="flex flex-col gap-2 max-h-[45vh] lg:max-h-[60vh] overflow-y-auto p-1.5 order-2 lg:order-1">
       {#each items as item (item.id)}
         {@const list = views(item)}
         {@const conclusion = item.online?.conclusion}
@@ -561,11 +561,11 @@
                 : "Dokumen valid, Sertifikat yang digunakan terpercaya"}
         <div
           class="card card-border bg-base-100 cursor-pointer {activeId === item.id
-            ? 'ring-1 ring-primary'
+            ? 'ring-2 ring-primary'
             : ''}"
           onclick={() => (activeId = item.id)}
         >
-          <div class="card-body p-3 gap-2">
+          <div class="card-body p-2.5 gap-1.5">
             <div class="flex items-start justify-between gap-2">
               <div class="flex items-center gap-2 min-w-0">
                 <input
@@ -657,12 +657,12 @@
                 Tidak ada tanda tangan yang terdeteksi pada dokumen ini.
               </p>
             {:else}
-              <ul class="flex flex-col gap-1">
+              <ul class="flex flex-col gap-0.5">
                 {#each list as view (view.key)}
-                  <li class="collapse collapse-arrow rounded-lg bg-base-200">
+                  <li class="collapse collapse-arrow rounded-md bg-base-200">
                     <input type="checkbox" />
                     <div
-                      class="collapse-title flex items-center gap-1 flex-wrap p-2 pr-9 min-h-0"
+                      class="collapse-title flex items-center gap-1 flex-wrap p-1.5 pr-8 min-h-0"
                     >
                       <iconify-icon
                         icon="bx:check-shield"
@@ -729,7 +729,7 @@
                       {/if}
                     </div>
 
-                    <div class="collapse-content px-2 pb-2 pt-0">
+                    <div class="collapse-content px-2 pb-1.5 pt-0">
                     <dl class="flex flex-col gap-0.5 text-[11px]">
                       {#if view.online?.fieldName || view.local?.fieldName}
                         <div class="flex gap-1">

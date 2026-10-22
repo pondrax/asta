@@ -88,7 +88,9 @@ Halaman: /sign - Tanda Tangan Dokumen
 Audiens: Tamu
 
 - **Baru** - Panduan tanda tangan kini memuat langkah panel verifikasi: unggah dokumen, verifikasi massal dan ekspor, rincian tanda tangan, serta pratinjau dokumen
+- **Baru** - Tombol Lihat Dokumen kini tampil pada panduan agar alur verifikasi mudah ditemukan
 - **Perbaikan** - Perbarui penjelasan langkah panduan yang sudah berubah (unggah DOCX ke PDF, identitas email atau NIK, isi bilah alat, dan cara verifikasi lewat dokumen, unggah, ID, atau QR)
+- **Perbaikan** - Ringkas daftar rincian tanda tangan dan beri jarak pada blok aktif agar penanda dokumen terpilih lebih jelas
 
 ### Move verification into the sign page and retire legacy routes
 

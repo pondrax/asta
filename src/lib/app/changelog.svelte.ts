@@ -128,8 +128,16 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
             text: "Panduan tanda tangan kini memuat langkah panel verifikasi: unggah dokumen, verifikasi massal dan ekspor, rincian tanda tangan, serta pratinjau dokumen",
           },
           {
+            kind: "added",
+            text: "Tombol Lihat Dokumen kini tampil pada panduan agar alur verifikasi mudah ditemukan",
+          },
+          {
             kind: "fixed",
             text: "Perbarui penjelasan langkah panduan yang sudah berubah (unggah DOCX ke PDF, identitas email atau NIK, isi bilah alat, dan cara verifikasi lewat dokumen, unggah, ID, atau QR)",
+          },
+          {
+            kind: "fixed",
+            text: "Ringkas daftar rincian tanda tangan dan beri jarak pada blok aktif agar penanda dokumen terpilih lebih jelas",
           },
         ],
       },
