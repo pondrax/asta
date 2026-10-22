@@ -37,7 +37,7 @@
 />
 
 <div
-  class="flex items-center h-8 shrink-0 ml-0 md:ml-5 max-lg:mb-1 max-lg:overflow-x-auto max-lg:overflow-y-hidden"
+  class="no-scrollbar flex items-center h-8 shrink-0 ml-0 md:ml-5 max-lg:mb-1 max-lg:overflow-x-auto max-lg:overflow-y-hidden"
 >
   {#each workspace.menus as menu (menu.id)}
     <div
@@ -53,7 +53,7 @@
         type="button"
         id={menu.id === "mode" ? "tour-mode" : undefined}
         class={menu.variant === "primary"
-          ? `btn btn-sm btn-soft btn-primary rounded-full justify-between gap-1 ${menu.width ?? ""}`
+          ? `btn btn-sm btn-soft btn-primary rounded-full justify-between gap-0.5 [--btn-p:0.375rem] ${menu.width ?? ""}`
           : `h-full px-3 rounded-full text-xs text-base-content cursor-pointer border-0 ${openId === menu.id ? "bg-base-200" : "bg-transparent hover:bg-base-200"}`}
         aria-haspopup="true"
         aria-expanded={openId === menu.id}
@@ -68,11 +68,11 @@
         }}
       >
         {#if menu.variant === "primary"}
-          <span class="flex-1 text-center">{menu.label}</span>
+          <span class="flex-1 text-center whitespace-nowrap">{menu.label}</span>
           <iconify-icon
             icon="bx:chevron-down"
-            width="14"
-            height="14"
+            width="12"
+            height="12"
             class="opacity-80"
           ></iconify-icon>
         {:else}

@@ -359,7 +359,7 @@
 
 <img
   bind:this={logo}
-  src="/favicon.png"
+  src="/logo-mojokerto.png"
   onload={initCanvas}
   alt="logo"
   class="hidden"

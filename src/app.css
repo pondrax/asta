@@ -319,3 +319,16 @@ iconify-icon {
   transform-origin: 6vw 5vh;
   box-shadow: 2vmin 0 0.5754504647125869vmin currentColor;
 }
+
+/* Scroll containers that scroll without ever drawing a bar.
+   On phones a bar that is already on screen when the page opens eats into the
+   viewport and shifts the layout, and it stays visible after the first swipe.
+   The scrolling itself is untouched. */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

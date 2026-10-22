@@ -1,4 +1,4 @@
-import { error, redirect, type Handle, type HandleValidationError } from '@sveltejs/kit';
+import { redirect, type Handle, type HandleValidationError } from '@sveltejs/kit';
 import { paraglideMiddleware } from '$lib/paraglide/server';
 import { verifyJWT } from '$lib/server/plugins/jwt';
 import { sequence } from '@sveltejs/kit/hooks';
@@ -59,21 +59,13 @@ export const handleAuth: Handle = async ({ event, resolve }) => {
         }
       }
 
-      if (event.url.pathname.startsWith('/main')) {
-        if (event.locals.user?.role.name !== 'admin') {
-          return error(403, 'Forbidden. Anda tidak memiliki akses ke halaman ini');
-        }
-      }
+      // The admin check itself lives in `(asta)/main/+layout.server.ts`. An
+      // error thrown from a hook is answered with SvelteKit's built-in error
+      // page instead of the app's own `+error.svelte`, so it has to be thrown
+      // from a `load` to get the real error page.
     } catch {
       event.cookies.delete('auth-token', { path: '/' });
-      if (impersonateToken) event.cookies.delete('impersonate-token', { path: '/' });
-    }
-  } else {
-    if (event.url.pathname.startsWith('/main')) {
-      if (event.locals.user?.role.name === 'admin') {
-        return resolve(event);
-      }
-      return error(403, 'Forbidden. Anda tidak memiliki akses ke halaman ini');
+      event.cookies.delete('impersonate-token', { path: '/' });
     }
   }
 

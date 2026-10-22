@@ -1,5 +1,10 @@
 <script lang="ts">
   import { page } from "$app/state";
+  import Lottie from "$lib/components/lottie.svelte";
+
+  // The animation is the nicer robot, the image is the fallback for when it
+  // cannot be loaded.
+  let animationFailed = $state(false);
 </script>
 
 <svelte:head>
@@ -27,7 +32,7 @@
       >
         <!-- Floating Oops! Bubble -->
         <div
-          class="absolute -top-16 -right-10 bg-white border-4 border-accent rounded-[2.5rem] p-10 shadow-[15px_15px_0_0_rgba(0,0,0,0.05)] z-[120]"
+          class="absolute -top-16 -right-10 bg-white border-4 border-error rounded-[2.5rem] p-10 shadow-[15px_15px_0_0_rgba(0,0,0,0.05)] z-[120]"
         >
           <div class="text-center">
             <h3
@@ -46,20 +51,20 @@
         <!-- Robot Body -->
         <div class="relative z-[110] flex flex-col items-center">
           <div
-            class="absolute -top-24 left-1/2 -translate-x-1/2 w-20 h-20 border-8 border-accent rounded-3xl -rotate-12 shadow-xl animate-bounce duration-[4s]"
+              class="absolute -top-24 left-1/2 -translate-x-1/2 w-20 h-20 border-8 border-warning rounded-3xl -rotate-12 shadow-xl animate-bounce duration-[4s]"
           >
             <div
-              class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full border-4 border-accent flex items-center justify-center bg-accent/10"
+              class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full border-4 border-warning flex items-center justify-center bg-warning/10"
             >
-              <div class="w-2 h-2 bg-accent rounded-full"></div>
+              <div class="w-2 h-2 bg-warning rounded-full"></div>
             </div>
           </div>
 
           <div
-            class="w-72 h-80 rounded-[4rem] bg-white border-8 border-accent shadow-[24px_24px_0_0_rgba(0,0,0,0.05)] relative flex flex-col items-center justify-center p-0 group overflow-hidden"
+            class="w-[26rem] h-[28rem] rounded-[4rem] bg-white border-8 border-warning shadow-[24px_24px_0_0_rgba(0,0,0,0.05)] relative flex flex-col items-center justify-center p-0 group overflow-hidden"
           >
             <!-- <div
-              class="w-full h-1/2 bg-accent/90 rounded-2xl border-4 border-accent/50 flex items-center justify-center overflow-hidden relative"
+              class="w-full h-1/2 bg-warning/90 rounded-2xl border-4 border-warning/50 flex items-center justify-center overflow-hidden relative"
             >
               <iconify-icon
                 icon="bx:cog"
@@ -73,24 +78,36 @@
                 >
                   Internal_Err
                 </p> -->
-            <img src="/robot.gif" alt="robot" />
+            {#if animationFailed}
+              <img src="/robot.gif" alt="robot" class="max-h-full object-contain" />
+            {:else}
+              <div class="w-full flex-1 min-h-0">
+                <Lottie
+                  url="/error.json"
+                  loop
+                  autoplay
+                  monochrome={false}
+                  onerror={() => (animationFailed = true)}
+                />
+              </div>
+            {/if}
             <!-- </div>
             </div> -->
             <div class="w-full flex justify-between items-center px-10 py-2">
               <div class="flex gap-3">
                 <div
-                  class="w-6 h-6 rounded-full bg-accent flex items-center justify-center border-2 border-accent/50"
+                  class="w-6 h-6 rounded-full bg-warning flex items-center justify-center border-2 border-warning/50"
                 >
                   <div
                     class="w-2 h-2 bg-rose-500 rounded-full animate-ping"
                   ></div>
                 </div>
                 <div
-                  class="w-6 h-6 rounded-full bg-accent border-2 border-accent/50"
+                  class="w-6 h-6 rounded-full bg-warning border-2 border-warning/50"
                 ></div>
               </div>
               <div
-                class="w-20 h-6 bg-accent/90 rounded-full border-4 border-accent/50 relative grow ml-6 overflow-hidden"
+                class="w-20 h-6 bg-warning/90 rounded-full border-4 border-warning/50 relative grow ml-6 overflow-hidden"
               >
                 <div
                   class="absolute inset-y-0 left-0 w-[65%] bg-white/20"
@@ -110,7 +127,7 @@
         >
           <span class="text-error">Oh No!</span>
         </h1>
-        <div class="h-4 w-48 bg-accent/5 rounded-full mt-2"></div>
+        <div class="h-4 w-48 bg-warning/5 rounded-full mt-2"></div>
       </div>
 
       <p
@@ -133,7 +150,7 @@
 
       <div class="flex flex-col sm:flex-row gap-8 mt-6">
         <!-- Custom Button without DaisyUI Class dependency -->
-        <a href="/" class="btn btn-accent">
+        <a href="/" class="btn btn-error">
           <iconify-icon icon="bx:arrow-back"></iconify-icon>
           Back to Homepage
         </a>

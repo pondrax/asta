@@ -9,11 +9,15 @@ export const app = $state<{
   showPassphrase: boolean;
   toasts: { id: number; type: ToastType; message: string }[];
   showToast: (type: ToastType, message: string, duration?: number) => void;
+  // Set when a newer build has been deployed. The user is asked to reload
+  // because the page is still running the code of the previous release.
+  updateAvailable: boolean;
 }>({
   theme: "light",
   showTour: false,
   showPassphrase: false,
   toasts: [],
+  updateAvailable: false,
   showToast(type: ToastType, message: string, duration = 3000) {
     const id = Date.now();
     this.toasts = [...this.toasts, { id, type, message }];

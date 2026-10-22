@@ -174,7 +174,7 @@
     <div>
       <p class="my-2">Didukung oleh:</p>
       <div class="flex gap-5">
-        <img src="/favicon.png" alt="logo bsre" class="h-10" />
+        <img src="/logo-mojokerto.png" alt="logo mojokerto" class="h-10" />
         <img src="/logo-bsre.png" alt="logo bsre" class="h-10" />
       </div>
     </div>

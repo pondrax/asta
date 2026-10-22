@@ -51,10 +51,10 @@ const SKIP_TYPES = new Set([
 
 /** Conventional-commit type -> changelog change label. */
 const KIND_BY_TYPE: Record<string, string> = {
-  feat: "Baru",
+  feat: "Fitur Baru",
   fix: "Perbaikan",
-  perf: "Peningkatan",
-  refactor: "Peningkatan",
+  perf: "Performa",
+  refactor: "Penyempurnaan",
 };
 
 const CONVENTIONAL = /^([A-Za-z]+)(?:\([^)]*\))?!?:\s*/;
@@ -296,7 +296,7 @@ function main() {
     /\s+/g,
     " ",
   );
-  const kind = KIND_BY_TYPE[type] ?? "Diubah";
+  const kind = KIND_BY_TYPE[type] ?? "Perubahan";
   const body = lines
     .slice(subjectIndex + 1)
     .map((l) => l.trim())

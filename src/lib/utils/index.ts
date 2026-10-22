@@ -94,7 +94,7 @@ export async function generateQRCode(options: Options, asBlob = false) {
     // image:
     // 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAIAQMAAAD+wSzIAAAABlBMVEX///+/v7+jQ3Y5AAAADklEQVQI12P4AIX8EAgALgAD/aNpbtEAAAAASUVORK5CYII',
     // image: 'https://upload.wikimedia.org/wikipedia/commons/5/51/Facebook_f_logo_%282019%29.svg',
-    image: options.image || '/favicon.png',
+    image: options.image || '/logo-mojokerto.png',
 
     // imageOptions: {
     // 	crossOrigin: 'anonymous',

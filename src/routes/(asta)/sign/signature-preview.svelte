@@ -133,7 +133,7 @@
 </script>
 
 <img
-  src="/favicon.png"
+  src="/logo-mojokerto.png"
   onload={render}
   bind:this={logo}
   alt="logo"

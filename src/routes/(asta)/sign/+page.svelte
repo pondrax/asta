@@ -836,7 +836,7 @@
         id: "mode",
         label: bsre ? "TTE BSrE" : "Self-Signed",
         variant: "primary",
-        width: "w-[7rem]",
+        width: "w-[6.5rem]",
         items: [
           {
             icon: bsre ? "bx:radio-circle-marked" : "bx:radio-circle",
@@ -1447,7 +1447,7 @@
         resolve(img);
       };
       img.onerror = () => resolve(img);
-      img.src = "/favicon.png";
+      img.src = "/logo-mojokerto.png";
     });
   }
 
@@ -2549,7 +2549,7 @@
         </button>
       </div>
 
-      <div class="flex-1 min-h-0 overflow-y-auto flex flex-col">
+      <div class="max-lg:no-scrollbar flex-1 min-h-0 overflow-y-auto flex flex-col">
         {#if activeTab === "documents"}
           <Documents bind:documents bind:activeIndex {fileInput} />
         {:else}
