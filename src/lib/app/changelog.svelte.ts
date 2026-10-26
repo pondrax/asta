@@ -119,6 +119,17 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
     page: "Tanda Tangan Dokumen",
     entries: [
       {
+        id: "prevent-panel-overflow-when-zoomed-2026-10-26",
+        date: "2026-10-26",
+        title: "Prevent panel overflow when zoomed",
+        changes: [
+          {
+            kind: "fixed",
+            text: "prevent panel overflow when zoomed",
+          },
+        ],
+      },
+      {
         id: "lengkapi-panduan-tanda-tangan-dengan-panel-veri-2026-10-22",
         date: "2026-10-22",
         title: "Lengkapi panduan tanda tangan dengan panel verifikasi",

@@ -542,7 +542,7 @@
     </div>
 
     <div class="grid gap-3 lg:grid-cols-2 items-start">
-      <div id="tour-verify-list" class="flex flex-col gap-2 max-h-[45vh] lg:max-h-[60vh] overflow-y-auto p-1.5 order-2 lg:order-1">
+      <div id="tour-verify-list" class="flex flex-col gap-2 max-h-[45vh] lg:max-h-[60vh] overflow-y-auto p-1.5 order-2 lg:order-1 min-w-0">
       {#each items as item (item.id)}
         {@const list = views(item)}
         {@const conclusion = item.online?.conclusion}
@@ -862,7 +862,7 @@
 
       <div
         id="tour-verify-preview"
-        class="order-1 lg:order-2 lg:sticky lg:top-0 h-[32vh] lg:h-[60vh] rounded-xl border border-base-300 overflow-hidden bg-base-200"
+        class="order-1 lg:order-2 lg:sticky lg:top-0 h-[32vh] lg:h-[60vh] rounded-xl border border-base-300 overflow-hidden bg-base-200 min-w-0"
       >
         {#if activeFile}
           <Preview file={activeFile} controls={false} bare />

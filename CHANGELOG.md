@@ -78,6 +78,17 @@
   Admin     admin only; `hooks.server.ts` 403s every other role on `/main*`
 -->
 
+## 2026-10-26
+
+### Prevent panel overflow when zoomed
+
+<!-- id: prevent-panel-overflow-when-zoomed-2026-10-26 -->
+
+Halaman: /sign - Tanda Tangan Dokumen
+Audiens: Tamu
+
+- **Perbaikan** - prevent panel overflow when zoomed
+
 ## 2026-10-22
 
 ### Lengkapi panduan tanda tangan dengan panel verifikasi
