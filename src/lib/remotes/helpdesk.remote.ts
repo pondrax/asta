@@ -75,7 +75,7 @@ function parseRequesterLine(line: string): HelpdeskRequesterEntry {
   const out: HelpdeskRequesterEntry = {};
   for (const p of parts) {
     const digits = p.replace(/\D/g, "");
-    if (!out.email && /^\S@\S+\.\S+$/.test(p)) {
+    if (!out.email && /^[^@]+@[^@]+\.[^@]+$/.test(p)) {
       out.email = p;
     } else if (/^\d+$/.test(p)) {
       // Numeric-only token → NIP (18) / NIK (16). Anything shorter/longer
