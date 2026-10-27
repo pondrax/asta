@@ -108,8 +108,11 @@ class S3Storage {
       );
     }
     // Remove trailing slashes without regex to prevent backtracking
-    this.endpoint = opts.endpoint.replace(/\/+\//g, '/');
-    this.endpoint = this.endpoint.replace(/\/$/, '');
+    let ep = opts.endpoint;
+    while (ep.endsWith('/')) {
+      ep = ep.slice(0, -1);
+    }
+    this.endpoint = ep;
     this.bucket = opts.bucket;
     this.region = opts.region || 'us-east-1';
     this.accessKey = opts.accessKey;

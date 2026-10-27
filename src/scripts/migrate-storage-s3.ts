@@ -24,8 +24,10 @@ import { documents } from '../lib/server/db/schema';
 
 const BASE_DIR = path.resolve(process.env.STORAGE_BASE_DIR || './uploads');
 // Remove trailing slashes without regex to prevent backtracking
-    const ENDPOINT = (process.env.S3_ENDPOINT || '').replace(/\/+\//g, '/');
-    ENDPOINT.replace(/\/$/, '');
+let ENDPOINT = process.env.S3_ENDPOINT || '';
+while (ENDPOINT.endsWith('/')) {
+  ENDPOINT = ENDPOINT.slice(0, -1);
+}
 const BUCKET = process.env.S3_BUCKET || '';
 const REGION = process.env.S3_REGION || 'us-east-1';
 const ACCESS_KEY = process.env.S3_ACCESS_KEY_ID || '';

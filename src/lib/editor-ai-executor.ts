@@ -719,7 +719,7 @@ function textWidthPoints(host: Host): number {
   if (setup?.kind !== "pageSetup") return 0;
   const { pageWidth, leftMargin, rightMargin } = setup.setup;
   const room = pageWidth - leftMargin - rightMargin;
-  return room > 0 ? room : 0;
+  return Math.max(room, 0);
 }
 
 /** The most recently inserted picture, used when an insert does not answer one. */
@@ -742,8 +742,8 @@ function command(host: Host, operation: AutomationOperation): AutomationBatchRes
   const res = host.execute({ operations: [operation] });
   if (!res.ok) {
     const failed = res.results.find((r) => r.status === "error");
-    const detail = failed && failed.status === "error" ? failed.error.detail : undefined;
-    const message = failed && failed.status === "error" ? failed.error.message : undefined;
+    const detail = failed?.status === "error" ? failed.error.detail : undefined;
+    const message = failed?.status === "error" ? failed.error.message : undefined;
     throw new StepError(message || detail || "The document refused this change.");
   }
   return res;
@@ -777,7 +777,7 @@ function queryHandle(host: Host, operation: AutomationOperation): AutomationHand
 /** The single value a one-operation batch answered. */
 function answerOf(res: AutomationBatchResponse): AutomationValue | null {
   const first = res.results[0];
-  return first && first.status === "ok" ? first.value : null;
+  return first?.status === "ok" ? first.value : null;
 }
 
 /** Unwraps the `handle` arm. Every other arm means "no handle here". */
@@ -798,7 +798,13 @@ function describeEngineError(e: unknown): string {
   if (e instanceof StepError) return e.message;
   if (e instanceof Error) {
     const code = (e as { code?: unknown }).code;
-    return typeof code === "string" && code ? `${code}: ${e.message}` : e.message || String(e);
+    if (typeof code === "string" && code) {
+      return `${code}: ${e.message}`;
+    }
+    return e.message || String(e);
+  }
+  if (typeof e === "object" && e !== null) {
+    return JSON.stringify(e);
   }
   return String(e);
 }
@@ -816,7 +822,7 @@ function describeEngineError(e: unknown): string {
  */
 async function fetchImage(src: string): Promise<{ base64: string }> {
   if (/^data:/i.test(src)) {
-    const match = /^data:image\/([a-z0-9.+-]+);base64,([A-Za-z0-9+/]+={0,2})$/i.exec(src);
+    const match = /^data:image\/([a-z0-9.+-]+);base64,([a-z0-9+/]+={0,2})$/i.exec(src);
     if (!match) throw new StepError("The embedded image is not a supported data: URI.");
     assertMime(match[1] ?? "");
     return { base64: match[2] ?? "" };
@@ -970,7 +976,7 @@ export interface TextTable {
 
 /** A line of `---`, `:-:`, `--` or similar: markdown's header separator. */
 function isSeparatorRow(cells: readonly string[]): boolean {
-  return cells.length > 0 && cells.every((cell) => /^:?-{1,}:?$/.test(cell.trim()));
+  return cells.length > 0 && cells.every((cell) => /^:?-+:?$/.test(cell.trim()));
 }
 
 /**

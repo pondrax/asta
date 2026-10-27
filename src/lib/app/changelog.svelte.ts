@@ -2217,6 +2217,17 @@ export const GLOBAL_CHANGELOG: PageChangelog =
     page: "Tapak Astà",
     entries: [
       {
+        id: "resolve-sonar-issues-and-regex-backtracking-vulner-2026-10-27",
+        date: "2026-10-27",
+        title: "Resolve sonar issues and regex backtracking vulnerabilities",
+        changes: [
+          {
+            kind: "fixed",
+            text: "resolve sonar issues and regex backtracking vulnerabilities",
+          },
+        ],
+      },
+      {
         id: "halaman-aktif-ikut-kemajuan-gulir-per-pasangan-pin-2026-10-20",
         date: "2026-10-20",
         title: "Halaman aktif ikut kemajuan gulir per pasangan + pin navigasi",

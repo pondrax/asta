@@ -19,7 +19,7 @@ const config = {
     },
 
     version: {
-      name: child_process.execFileSync('git', ['rev-parse', 'HEAD']).toString().trim(),
+      name: child_process.execFileSync('git', ['rev-parse', 'HEAD'], { env: { ...process.env, PATH: '/usr/bin:/bin' } }).toString().trim(),
       // Poll the server for a new release so an open tab can tell the user
       // that a reload will pick up the latest deploy.
       pollInterval: 60_000

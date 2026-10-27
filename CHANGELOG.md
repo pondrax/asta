@@ -78,6 +78,17 @@
   Admin     admin only; `hooks.server.ts` 403s every other role on `/main*`
 -->
 
+## 2026-10-27
+
+### Resolve sonar issues and regex backtracking vulnerabilities
+
+<!-- id: resolve-sonar-issues-and-regex-backtracking-vulner-2026-10-27 -->
+
+Halaman: \* - Tapak Astà
+Audiens: Tamu
+
+- **Perbaikan** - resolve sonar issues and regex backtracking vulnerabilities
+
 ## 2026-10-26
 
 ### Prevent panel overflow when zoomed
