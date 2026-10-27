@@ -107,7 +107,9 @@ class S3Storage {
         'S3 storage misconfigured. Set S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY env vars.',
       );
     }
-    this.endpoint = opts.endpoint.replace(/\/+$/, '');
+    // Remove trailing slashes without regex to prevent backtracking
+    this.endpoint = opts.endpoint.replace(/\/+\//g, '/');
+    this.endpoint = this.endpoint.replace(/\/$/, '');
     this.bucket = opts.bucket;
     this.region = opts.region || 'us-east-1';
     this.accessKey = opts.accessKey;

@@ -23,7 +23,9 @@ import { db } from '../lib/server/db';
 import { documents } from '../lib/server/db/schema';
 
 const BASE_DIR = path.resolve(process.env.STORAGE_BASE_DIR || './uploads');
-const ENDPOINT = (process.env.S3_ENDPOINT || '').replace(/\/+$/, '');
+// Remove trailing slashes without regex to prevent backtracking
+    const ENDPOINT = (process.env.S3_ENDPOINT || '').replace(/\/+\//g, '/');
+    ENDPOINT.replace(/\/$/, '');
 const BUCKET = process.env.S3_BUCKET || '';
 const REGION = process.env.S3_REGION || 'us-east-1';
 const ACCESS_KEY = process.env.S3_ACCESS_KEY_ID || '';
