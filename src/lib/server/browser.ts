@@ -48,7 +48,7 @@ function base32Decode(input: string): Uint8Array {
   }
   const bytes = new Uint8Array(Math.floor(bits.length / 8));
   for (let i = 0; i < bytes.length; i++) {
-    bytes[i] = parseInt(bits.slice(i * 8, i * 8 + 8), 2);
+    bytes[i] = Number.parseInt(bits.slice(i * 8, i * 8 + 8), 2);
   }
   return bytes;
 }
@@ -87,8 +87,8 @@ function parseOtpauthUri(uri: string): TotpConfig {
   const url = new URL(uri);
   const params = url.searchParams;
   const secret = base32Decode(params.get("secret") ?? "");
-  const digits = parseInt(params.get("digits") ?? "6", 10);
-  const period = parseInt(params.get("period") ?? "30", 10);
+  const digits = Number.parseInt(params.get("digits") ?? "6", 10);
+  const period = Number.parseInt(params.get("period") ?? "30", 10);
   return { secret, digits, period };
 }
 

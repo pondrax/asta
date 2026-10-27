@@ -193,7 +193,7 @@ export class AI {
       );
 
       if (res.status === 429) {
-        const retryAfter = parseInt(res.headers.get("Retry-After") || "10", 10);
+        const retryAfter = Number.parseInt(res.headers.get("Retry-After") || "10", 10);
         await new Promise(r => setTimeout(r, retryAfter * 1000));
         return this.chat(messages);
       }

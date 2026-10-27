@@ -38,10 +38,10 @@ function decrypt(buffer: Buffer): Buffer | null {
 }
 
 // Type definitions
-export interface StorageConfig {
+export type StorageConfig = {
   provider?: 'local' | 'vercel' | 's3';
   baseDir?: string;
-}
+};
 
 export interface StorageResult {
   success: boolean;
@@ -177,7 +177,7 @@ class S3Storage {
     };
 
     const canonicalHeaders = Object.entries(headers)
-      .sort(([a], [b]) => a.localeCompare(b))
+      .sort(([a], [b]) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
       .map(([k, v]) => `${k.toLowerCase()}:${v.trim()}\n`)
       .join('');
 

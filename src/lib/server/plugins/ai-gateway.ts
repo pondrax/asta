@@ -51,12 +51,16 @@ export function callGateway(
   messages: GatewayMessage[],
   { stream = false, signal, temperature = 0 }: GatewayOptions = {},
 ): Promise<Response> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  const key = env.AI_KEY;
+  if (key && key !== "no-key" && key !== "sk-dummy" && key.trim() !== "") {
+    headers["Authorization"] = `Bearer ${key}`;
+  }
   return fetch(AI_API, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${env.AI_KEY || "no-key"}`,
-    },
+    headers,
     body: JSON.stringify({ model: AI_MODEL, messages, stream, temperature }),
     signal,
   });

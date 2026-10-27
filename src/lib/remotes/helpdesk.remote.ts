@@ -1,7 +1,7 @@
 import { command, getRequestEvent, query } from "$app/server";
 import { error } from "@sveltejs/kit";
 import { type } from "arktype";
-import { and, count, eq, gte, ilike, or, sql } from "drizzle-orm";
+import { and, count, eq, gte, or, sql } from "drizzle-orm";
 import { db } from "$lib/server/db";
 import {
   documents,
@@ -303,7 +303,7 @@ export const lookupTicket = command(
 
     const ticket = await db.query.helpdesk.findFirst({
       where: {
-        id: { ilike: `${raw}%` }
+        id: { contains: raw }
       },
       columns: { id: true, requesterPhone: true },
     });
@@ -648,7 +648,7 @@ export const createTicket = command(createTicketSchema, async (props) => {
           .where(
             or(
               eq(organizations.id, orgInput),
-              ilike(organizations.name, orgInput),
+              sql`lower(${organizations.name}) like lower(${orgInput + '%'})`,
             ),
           )
           .limit(1)

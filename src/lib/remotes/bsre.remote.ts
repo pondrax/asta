@@ -7,7 +7,6 @@ import type { BsreCertStatus, BsreUserStatus } from "$lib/server/db/schema";
 import {
   cacheToken,
   closeSession,
-  getAccessToken,
   handleBeIDLogin,
   openSession,
   sessionInfo,

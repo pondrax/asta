@@ -135,7 +135,7 @@ export async function acquireToken(userId: string): Promise<string | null> {
   // portal the timeout fires and we proceed (the session is still good).
   try {
     await session.page.waitForFunction(
-      (beid) => window.location.hostname.includes(beid as string),
+      (beid) => globalThis.location.hostname.includes(beid as string),
       BEID_HOST,
       { timeout: 8_000 }
     );
@@ -155,7 +155,7 @@ export async function acquireToken(userId: string): Promise<string | null> {
     console.log("[bsre] acquireToken — waiting for SSO redirect back to portal...");
     try {
       await session.page.waitForFunction(
-        (host) => !new URL(window.location.href).hostname.includes(host as string),
+        (host) => !new URL(globalThis.location.href).hostname.includes(host as string),
         BEID_HOST,
         { timeout: 15_000 }
       );

@@ -109,7 +109,7 @@ export const getCollectionData = query('unchecked', async (params: {
     limit,
     offset,
     where: mergedWhere,
-    orderBy,
+    ...(orderBy ? { orderBy } : {}),
   });
 
   return JSON.parse(JSON.stringify({

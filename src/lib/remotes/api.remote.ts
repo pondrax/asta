@@ -118,20 +118,18 @@ const getScopeCondition = (
   }
 };
 
-export const getData = query(
-  'unchecked', async <
-    T extends TableName,
-    Params extends GetParams<T>
-  >({ table, scope, ...params }: { table: T } & Params) => {
-  const time = performance.now()
+const buildConditions = <T extends TableName>(
+  table: T,
+  params: Record<string, unknown>,
+  scope?: string,
+  search?: string
+) => {
   const conditions = [];
-
-  const _params = params as Record<string, unknown>;
-  if (_params.where) {
-    conditions.push(_params.where);
+  if (params.where) {
+    conditions.push(params.where);
   }
 
-  const guard = getAuthGuard(table)?.get?.(params.search);
+  const guard = getAuthGuard(table)?.get?.(search);
   if (guard && Object.keys(guard).length > 0) {
     conditions.push(guard);
   }
@@ -141,10 +139,22 @@ export const getData = query(
     conditions.push({ RAW: scopeCondition });
   }
 
-  const search = searchable(table, params.search);
-  if (search.length > 0) {
-    conditions.push({ OR: search });
+  const searchConditions = searchable(table, search);
+  if (searchConditions.length > 0) {
+    conditions.push({ OR: searchConditions });
   }
+
+  return conditions;
+};
+
+export const getData = query(
+  'unchecked', async <
+    T extends TableName,
+    Params extends GetParams<T>
+  >({ table, scope, ...params }: { table: T } & Params) => {
+  const time = performance.now()
+  const _params = params as Record<string, unknown>;
+  const conditions = buildConditions(table, _params, scope, params.search);
 
   if (conditions.length > 0) {
     _params.where = conditions.length === 1 ? conditions[0] : { AND: conditions };

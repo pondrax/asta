@@ -15,58 +15,61 @@ const handleParaglide: Handle = ({ event, resolve }) => paraglideMiddleware(even
 });
 
 
+const getUserByToken = async (token: string) => {
+  const userjwt = await verifyJWT(token);
+  return db.query.users.findFirst({
+    where: {
+      email: userjwt?.email || '-'
+    },
+    with: {
+      role: true,
+      organization: true,
+    },
+  });
+};
+
+const revertImpersonation = async (event: Parameters<Handle>[0]['event']) => {
+  event.cookies.delete('impersonate-token', { path: '/' });
+  event.locals.impersonated = false;
+  try {
+    const adminToken = event.cookies.get('auth-token');
+    if (!adminToken) {
+      event.locals.user = null;
+      return;
+    }
+    event.locals.user = await getUserByToken(adminToken);
+  } catch {
+    event.locals.user = null;
+  }
+};
+
 export const handleAuth: Handle = async ({ event, resolve }) => {
   // Impersonate-token takes priority — original auth-token stays for reverting
   const impersonateToken = event.cookies.get('impersonate-token');
   const token = impersonateToken || event.cookies.get('auth-token');
 
-  if (token) {
-    try {
-      const userjwt = await verifyJWT(token);
+  if (!token) {
+    return resolve(event);
+  }
 
-      event.locals.user = await db.query.users.findFirst({
-        where: {
-          email: userjwt?.email || '-'
-        },
-        with: {
-          role: true,
-          organization: true,
-        },
-      });
+  try {
+    event.locals.user = await getUserByToken(token);
+    event.locals.impersonated = !!impersonateToken;
 
-      event.locals.impersonated = !!impersonateToken;
-
-      // Safety net: if an impersonated (non-admin) user hits an admin-only
-      // path, drop the impersonation and fall back to the original admin
-      // session instead of forcing a re-login.
-      if (event.url.pathname.startsWith('/main') && impersonateToken) {
-        event.cookies.delete('impersonate-token', { path: '/' });
-        event.locals.impersonated = false;
-
-        try {
-          const adminToken = event.cookies.get('auth-token');
-          if (adminToken) {
-            const adminJwt = await verifyJWT(adminToken);
-            event.locals.user = await db.query.users.findFirst({
-              where: { email: adminJwt?.email || '-' },
-              with: { role: true, organization: true },
-            });
-          } else {
-            event.locals.user = null;
-          }
-        } catch {
-          event.locals.user = null;
-        }
-      }
-
-      // The admin check itself lives in `(asta)/main/+layout.server.ts`. An
-      // error thrown from a hook is answered with SvelteKit's built-in error
-      // page instead of the app's own `+error.svelte`, so it has to be thrown
-      // from a `load` to get the real error page.
-    } catch {
-      event.cookies.delete('auth-token', { path: '/' });
-      event.cookies.delete('impersonate-token', { path: '/' });
+    // Safety net: if an impersonated (non-admin) user hits an admin-only
+    // path, drop the impersonation and fall back to the original admin
+    // session instead of forcing a re-login.
+    if (event.url.pathname.startsWith('/main') && impersonateToken) {
+      await revertImpersonation(event);
     }
+
+    // The admin check itself lives in `(asta)/main/+layout.server.ts`. An
+    // error thrown from a hook is answered with SvelteKit's built-in error
+    // page instead of the app's own `+error.svelte`, so it has to be thrown
+    // from a `load` to get the real error page.
+  } catch {
+    event.cookies.delete('auth-token', { path: '/' });
+    event.cookies.delete('impersonate-token', { path: '/' });
   }
 
   return resolve(event);

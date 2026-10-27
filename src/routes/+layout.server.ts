@@ -1,5 +1,4 @@
 import { env } from '$env/dynamic/private';
-import { redirect } from '@sveltejs/kit';
 import { parseConsent, CONSENT_COOKIE } from '$lib/app/cookie-consent';
 
 export async function load({ locals, url, cookies }) {

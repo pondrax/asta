@@ -74,7 +74,7 @@ async function signedHeaders(
   };
 
   const canonicalHeaders = Object.entries(headers)
-    .sort(([a], [b]) => a.localeCompare(b))
+    .sort(([a], [b]) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
     .map(([k, v]) => `${k.toLowerCase()}:${v.trim()}\n`)
     .join('');
 
@@ -158,7 +158,8 @@ async function bucketUsage(): Promise<number> {
       total += Number(m[1]);
     }
     const truncated = /<IsTruncated>true<\/IsTruncated>/.test(xml);
-    const next = xml.match(/<NextContinuationToken>([^<]+)<\/NextContinuationToken>/);
+    const nextMatch = /<NextContinuationToken>([^<]+)<\/NextContinuationToken>/.exec(xml);
+    const next = nextMatch?.[1] ? [nextMatch[1]] : null;
     token = truncated && next ? next[1] : undefined;
   } while (token);
   return total;

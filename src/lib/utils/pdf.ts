@@ -398,7 +398,7 @@ export async function drawImages(
 
   // Process each page
   for (const pageNumStr in signaturesByPage) {
-    const pageNum = parseInt(pageNumStr);
+    const pageNum = Number.parseInt(pageNumStr);
     const pageSignatures = signaturesByPage[pageNum];
     const page = pages[pageNum];
     const { height: pageHeight } = page.getMediaBox();
@@ -486,7 +486,7 @@ export async function drawPlacements(
   }
 
   for (const pageNumStr in byPage) {
-    const pageNum = parseInt(pageNumStr);
+    const pageNum = Number.parseInt(pageNumStr);
     const page = pages[pageNum];
     const { height: pageHeight } = page.getMediaBox();
 
