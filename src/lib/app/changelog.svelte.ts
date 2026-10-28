@@ -115,6 +115,23 @@ export function audienceForRole(
  */
 export const PAGE_CHANGELOGS: PageChangelog[] = [
   {
+    route: "/api/chat",
+    page: "Chat",
+    entries: [
+      {
+        id: "resolve-more-sonar-issues-2026-10-28",
+        date: "2026-10-28",
+        title: "Resolve more sonar issues",
+        changes: [
+          {
+            kind: "fixed",
+            text: "resolve more sonar issues",
+          },
+        ],
+      },
+    ],
+  },
+  {
     route: "/editor",
     page: "Editor Dokumen",
     entries: [
