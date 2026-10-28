@@ -11,6 +11,25 @@ import type {
 } from "@docx-editor.dev/core/automation";
 import type { PlanBullet, PlanMark, PlanStep } from "./editor-ai-plan";
 
+type InsertTableStep = Extract<PlanStep, { op: "insertTable" }>;
+type AddRowsStep = Extract<PlanStep, { op: "addRows" }>;
+type AddColumnsStep = Extract<PlanStep, { op: "addColumns" }>;
+type SetTableValuesStep = Extract<PlanStep, { op: "setTableValues" }>;
+type SetHeaderRowStep = Extract<PlanStep, { op: "setHeaderRow" }>;
+type SetColumnWidthsStep = Extract<PlanStep, { op: "setColumnWidths" }>;
+type DeleteTableStep = Extract<PlanStep, { op: "deleteTable" }>;
+type SetCellStep = Extract<PlanStep, { op: "setCell" }>;
+type ShadeRowStep = Extract<PlanStep, { op: "shadeRow" }>;
+type InsertImageStep = Extract<PlanStep, { op: "insertImage" }>;
+type DeleteImageStep = Extract<PlanStep, { op: "deleteImage" }>;
+type InsertParagraphStep = Extract<PlanStep, { op: "insertParagraph" }>;
+type ReplaceTextStep = Extract<PlanStep, { op: "replaceText" }>;
+type DeleteParagraphStep = Extract<PlanStep, { op: "deleteParagraph" }>;
+type SetListStep = Extract<PlanStep, { op: "setList" }>;
+type FormatTextStep = Extract<PlanStep, { op: "formatText" }>;
+type AlignStep = Extract<PlanStep, { op: "align" }>;
+type SetStyleStep = Extract<PlanStep, { op: "setStyle" }>;
+
 /**
  * Replays a validated plan against a live editor.
  *
@@ -196,7 +215,7 @@ export function readDocumentStructure(
 
 function collectTables(
   host: Host,
-  body: Handle,
+  body: AutomationHandle,
   maxChars: number,
   paragraphChars: number,
   push: (line: string) => boolean,
@@ -240,38 +259,103 @@ function collectParagraphs(
 }
 
 async function applyStep(host: Host, step: PlanStep): Promise<void> {
-  const handlers: Record<string, (host: Host, step: PlanStep) => Promise<void>> = {
-    // tables
-    insertTable: applyInsertTable,
-    addRows: applyAddRows,
-    addColumns: applyAddColumns,
-    setTableValues: applySetTableValues,
-    setHeaderRow: applySetHeaderRow,
-    setColumnWidths: applySetColumnWidths,
-    deleteTable: applyDeleteTable,
-    setCell: applySetCell,
-    shadeRow: applyShadeRow,
-    // pictures
-    insertImage: applyInsertImage,
-    deleteImage: applyDeleteImage,
-    // text and paragraph
-    insertParagraph: applyInsertParagraph,
-    replaceText: applyReplaceText,
-    deleteParagraph: applyDeleteParagraph,
-    setList: applySetList,
-    formatText: applyFormatText,
-    align: applyAlign,
-    setStyle: applySetStyle,
-  };
-
-  const handler = handlers[step.op];
-  if (!handler) {
-    throw new StepError(`Unknown step operation: ${(step as any).op}`);
+  switch (step.op) {
+    case "insertTable": {
+      const s = step as Extract<PlanStep, { op: "insertTable" }>;
+      await applyInsertTable(host, s);
+      break;
+    }
+    case "addRows": {
+      const s = step as Extract<PlanStep, { op: "addRows" }>;
+      await applyAddRows(host, s);
+      break;
+    }
+    case "addColumns": {
+      const s = step as Extract<PlanStep, { op: "addColumns" }>;
+      await applyAddColumns(host, s);
+      break;
+    }
+    case "setTableValues": {
+      const s = step as Extract<PlanStep, { op: "setTableValues" }>;
+      await applySetTableValues(host, s);
+      break;
+    }
+    case "setHeaderRow": {
+      const s = step as Extract<PlanStep, { op: "setHeaderRow" }>;
+      await applySetHeaderRow(host, s);
+      break;
+    }
+    case "setColumnWidths": {
+      const s = step as Extract<PlanStep, { op: "setColumnWidths" }>;
+      await applySetColumnWidths(host, s);
+      break;
+    }
+    case "deleteTable": {
+      const s = step as Extract<PlanStep, { op: "deleteTable" }>;
+      await applyDeleteTable(host, s);
+      break;
+    }
+    case "setCell": {
+      const s = step as Extract<PlanStep, { op: "setCell" }>;
+      await applySetCell(host, s);
+      break;
+    }
+    case "shadeRow": {
+      const s = step as Extract<PlanStep, { op: "shadeRow" }>;
+      await applyShadeRow(host, s);
+      break;
+    }
+    case "insertImage": {
+      const s = step as Extract<PlanStep, { op: "insertImage" }>;
+      await applyInsertImage(host, s);
+      break;
+    }
+    case "deleteImage": {
+      const s = step as Extract<PlanStep, { op: "deleteImage" }>;
+      await applyDeleteImage(host, s);
+      break;
+    }
+    case "insertParagraph": {
+      const s = step as Extract<PlanStep, { op: "insertParagraph" }>;
+      await applyInsertParagraph(host, s);
+      break;
+    }
+    case "replaceText": {
+      const s = step as Extract<PlanStep, { op: "replaceText" }>;
+      await applyReplaceText(host, s);
+      break;
+    }
+    case "deleteParagraph": {
+      const s = step as Extract<PlanStep, { op: "deleteParagraph" }>;
+      await applyDeleteParagraph(host, s);
+      break;
+    }
+    case "setList": {
+      const s = step as Extract<PlanStep, { op: "setList" }>;
+      await applySetList(host, s);
+      break;
+    }
+    case "formatText": {
+      const s = step as Extract<PlanStep, { op: "formatText" }>;
+      await applyFormatText(host, s);
+      break;
+    }
+    case "align": {
+      const s = step as Extract<PlanStep, { op: "align" }>;
+      await applyAlign(host, s);
+      break;
+    }
+    case "setStyle": {
+      const s = step as Extract<PlanStep, { op: "setStyle" }>;
+      await applySetStyle(host, s);
+      break;
+    }
+    default:
+      throw new StepError(`Unknown step operation: ${(step as any).op}`);
   }
-  await handler(host, step);
 }
 
-async function applyInsertTable(host: Host, step: PlanStep): Promise<void> {
+async function applyInsertTable(host: Host, step: InsertTableStep): Promise<void> {
   const anchor = resolveAnchor(host, step.afterText);
   const res = command(host, {
     op: "insertTable",
@@ -301,7 +385,7 @@ async function applyInsertTable(host: Host, step: PlanStep): Promise<void> {
   }
 }
 
-async function applyAddRows(host: Host, step: PlanStep): Promise<void> {
+async function applyAddRows(host: Host, step: AddRowsStep): Promise<void> {
   const table = requireTable(host, step.table);
   requireChanged(
     command(host, {
@@ -318,7 +402,7 @@ async function applyAddRows(host: Host, step: PlanStep): Promise<void> {
   );
 }
 
-async function applyAddColumns(host: Host, step: PlanStep): Promise<void> {
+async function applyAddColumns(host: Host, step: AddColumnsStep): Promise<void> {
   const table = requireTable(host, step.table);
   requireChanged(
     command(host, {
@@ -330,7 +414,7 @@ async function applyAddColumns(host: Host, step: PlanStep): Promise<void> {
   );
 }
 
-async function applySetTableValues(host: Host, step: PlanStep): Promise<void> {
+async function applySetTableValues(host: Host, step: SetTableValuesStep): Promise<void> {
   const table = requireTable(host, step.table);
   requireChanged(
     command(host, {
@@ -342,7 +426,7 @@ async function applySetTableValues(host: Host, step: PlanStep): Promise<void> {
   );
 }
 
-async function applySetHeaderRow(host: Host, step: PlanStep): Promise<void> {
+async function applySetHeaderRow(host: Host, step: SetHeaderRowStep): Promise<void> {
   const table = requireTable(host, step.table);
   requireChanged(
     command(host, {
@@ -354,7 +438,7 @@ async function applySetHeaderRow(host: Host, step: PlanStep): Promise<void> {
   );
 }
 
-async function applySetColumnWidths(host: Host, step: PlanStep): Promise<void> {
+async function applySetColumnWidths(host: Host, step: SetColumnWidthsStep): Promise<void> {
   const table = requireTable(host, step.table);
   const grid = readTable(host, table);
   if (step.widthsCm.length !== grid.columnCount) {
@@ -384,7 +468,7 @@ async function applySetColumnWidths(host: Host, step: PlanStep): Promise<void> {
   }
 }
 
-async function applyDeleteTable(host: Host, step: PlanStep): Promise<void> {
+async function applyDeleteTable(host: Host, step: DeleteTableStep): Promise<void> {
   const table = requireTable(host, step.table);
   requireChanged(
     command(host, {
@@ -396,7 +480,7 @@ async function applyDeleteTable(host: Host, step: PlanStep): Promise<void> {
   );
 }
 
-async function applySetCell(host: Host, step: PlanStep): Promise<void> {
+async function applySetCell(host: Host, step: SetCellStep): Promise<void> {
   const table = requireTable(host, step.table);
   const cell = requireCell(host, table, step.row, step.column);
   requireChanged(
@@ -409,7 +493,7 @@ async function applySetCell(host: Host, step: PlanStep): Promise<void> {
   );
 }
 
-async function applyShadeRow(host: Host, step: PlanStep): Promise<void> {
+async function applyShadeRow(host: Host, step: ShadeRowStep): Promise<void> {
   const table = requireTable(host, step.table);
   const grid = readTable(host, table);
   if (step.row >= grid.rowCount) {
@@ -425,7 +509,7 @@ async function applyShadeRow(host: Host, step: PlanStep): Promise<void> {
   );
 }
 
-async function applyInsertImage(host: Host, step: PlanStep): Promise<void> {
+async function applyInsertImage(host: Host, step: InsertImageStep): Promise<void> {
   const anchor = resolveAnchor(host, step.afterText);
   const { base64 } = await fetchImage(step.src);
   const inserted = command(host, {
@@ -456,7 +540,7 @@ async function applyInsertImage(host: Host, step: PlanStep): Promise<void> {
   }
 }
 
-async function applyDeleteImage(host: Host, step: PlanStep): Promise<void> {
+async function applyDeleteImage(host: Host, step: DeleteImageStep): Promise<void> {
   const anchor = resolveAnchor(host, undefined);
   const target = lastInlinePicture(host, anchor.body);
   if (!target) throw new StepError("There is no image in this document to remove.");
@@ -466,7 +550,7 @@ async function applyDeleteImage(host: Host, step: PlanStep): Promise<void> {
   );
 }
 
-async function applyInsertParagraph(host: Host, step: PlanStep): Promise<void> {
+async function applyInsertParagraph(host: Host, step: InsertParagraphStep): Promise<void> {
   const anchor = resolveAnchor(host, step.afterText);
   const ref: AutomationParagraphRef = step.afterText
     ? { paragraph: requireMatch(anchor, step.afterText).start.paragraph }
@@ -497,7 +581,7 @@ async function applyInsertParagraph(host: Host, step: PlanStep): Promise<void> {
   }
 }
 
-async function applyReplaceText(host: Host, step: PlanStep): Promise<void> {
+async function applyReplaceText(host: Host, step: ReplaceTextStep): Promise<void> {
   const anchor = resolveAnchor(host, step.find);
   const match = requireMatch(anchor, step.find);
   requireChanged(
@@ -506,7 +590,7 @@ async function applyReplaceText(host: Host, step: PlanStep): Promise<void> {
   );
 }
 
-async function applyDeleteParagraph(host: Host, step: PlanStep): Promise<void> {
+async function applyDeleteParagraph(host: Host, step: DeleteParagraphStep): Promise<void> {
   const anchor = resolveAnchor(host, step.find);
   requireChanged(
     command(host, {
@@ -517,7 +601,7 @@ async function applyDeleteParagraph(host: Host, step: PlanStep): Promise<void> {
   );
 }
 
-async function applySetList(host: Host, step: PlanStep): Promise<void> {
+async function applySetList(host: Host, step: SetListStep): Promise<void> {
   const anchor = resolveAnchor(host, step.find);
   const paragraph = requireMatch(anchor, step.find).start.paragraph;
   requireChanged(
@@ -539,7 +623,7 @@ async function applySetList(host: Host, step: PlanStep): Promise<void> {
   }
 }
 
-async function applyFormatText(host: Host, step: PlanStep): Promise<void> {
+async function applyFormatText(host: Host, step: FormatTextStep): Promise<void> {
   const anchor = resolveAnchor(host, step.find);
   const match = requireMatch(anchor, step.find);
   requireChanged(
@@ -552,7 +636,7 @@ async function applyFormatText(host: Host, step: PlanStep): Promise<void> {
   );
 }
 
-async function applyAlign(host: Host, step: PlanStep): Promise<void> {
+async function applyAlign(host: Host, step: AlignStep): Promise<void> {
   const anchor = resolveAnchor(host, step.find);
   requireChanged(
     command(host, {
@@ -564,7 +648,7 @@ async function applyAlign(host: Host, step: PlanStep): Promise<void> {
   );
 }
 
-async function applySetStyle(host: Host, step: PlanStep): Promise<void> {
+async function applySetStyle(host: Host, step: SetStyleStep): Promise<void> {
   const anchor = resolveAnchor(host, step.find);
   requireChanged(
     command(host, {

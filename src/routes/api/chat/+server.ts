@@ -192,8 +192,8 @@ const FAQ: [string, string][] = [
   [
     "cara daftar|cara mendaftar|registrasi|daftar akun|buat akun",
     `> [!info] Cara Membuat Akun
-`
-Buka [Tanda Tangan](/sign) atau klik **Masuk** di navbar. Anda akan diarahkan ke halaman SSO Pemerintah Kota Mojokerto. Login dengan akun email pemerintah (\@mojokertokota.go.id) yang sudah terdaftar.
+
+Buka [Tanda Tangan](/sign) atau klik **Masuk** di navbar. Anda akan diarahkan ke halaman SSO Pemerintah Kota Mojokerto. Login dengan akun email pemerintah (@mojokertokota.go.id) yang sudah terdaftar.
 
 Jika belum punya akun SSO, hubungi bagian IT/BKPSDM untuk registrasi.
 
@@ -255,11 +255,11 @@ Dokumen diproses satu per satu dengan indikator progres.`,
   [
     "bsre|e-sign|tanda tangan digital|sertifikat digital|elektronik bsre",
     `> [!info] Tanda Tangan Elektronik BSrE
-`
+
 **BSrE** (BSSN Signare) adalah layanan tanda tangan elektronik dari Badan Siber dan Sandi Negara.
 
 Untuk menggunakan mode BSrE:
-- Masukkan email pemerintah (\@mojokertokota.go.id)
+- Masukkan email pemerintah (@mojokertokota.go.id)
 - Aplikasi akan mengisi otomatis nama, pangkat, jabatan dari server e-sign
 - Masukkan passphrase saat tanda tangan
 - Dokumen dikirim ke API e-sign nasional
