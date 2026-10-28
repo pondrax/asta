@@ -267,12 +267,12 @@ function main() {
   const commitInfo = parseCommitMessage();
   if (!commitInfo) return;
 
-  const { subject, type, body, summary, kind, route } = commitInfo;
+  const { subject, body, summary, kind, route } = commitInfo;
 
   if (shouldSkipChangelog(subject)) return;
 
   const markdown = readFileSync(CHANGELOG, "utf8");
-  const { date, id, entry } = createChangelogEntry(
+  const { date, entry } = createChangelogEntry(
     markdown,
     route,
     summary,

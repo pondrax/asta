@@ -80,11 +80,11 @@ export async function bsreApiFetch(
       "x-user-ip": await getPublicIp(),
     });
     if (body !== undefined) headers["content-type"] = "application/json;charset=UTF-8";
-    return fetch(url, {
-      method,
-      headers,
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-    });
+    const options: RequestInit = { method, headers };
+    if (body !== undefined) {
+      options.body = JSON.stringify(body);
+    }
+    return fetch(url, options);
   };
 
   let authorization = tokenStore.get(userId) ?? (await acquireToken(userId));
@@ -544,7 +544,8 @@ export type BsreCertProduct = (typeof BSRE_CERT_PRODUCTS)[number];
 
 /** Pull the conflicting serial number out of the portal's refusal message. */
 function extractBlockingSerial(message: string): string | null {
-  return message.match(/\b[0-9a-f]{20,}\b/i)?.[0] ?? null;
+  const match = /\b[0-9a-f]{20,}\b/i.exec(message);
+  return match?.[0] ?? null;
 }
 
 /**
@@ -568,7 +569,7 @@ export async function requestEsignCertCore({
   userId: string;
   bsreUserId: string;
   cn: string;
-  product?: BsreCertProduct | string;
+  product?: string;
   jenisSertifikat?: string;
   dataDukung?: unknown[];
 }): Promise<{

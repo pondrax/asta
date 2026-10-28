@@ -532,21 +532,28 @@ function readBoundedText(value: unknown): string | null {
 function readMatrix(value: unknown): string[][] | null {
   if (value === undefined || value === null) return null;
   if (!Array.isArray(value)) return null;
+
   const rows: string[][] = [];
   let width = -1;
   for (const row of value) {
-    if (!Array.isArray(row)) return null;
-    const cells: string[] = [];
-    for (const cell of row) {
-      if (typeof cell !== "string") return null;
-      if (cell.length > PLAN_LIMITS.maxTextLength) return null;
-      cells.push(cell);
-    }
+    const cells = validateRow(row, width);
+    if (cells === null) return null;
     if (width === -1) width = cells.length;
-    else if (cells.length !== width) return null;
     rows.push(cells);
   }
   return rows;
+}
+
+function validateRow(row: unknown, expectedWidth: number): string[] | null {
+  if (!Array.isArray(row)) return null;
+  const cells: string[] = [];
+  for (const cell of row) {
+    if (typeof cell !== "string") return null;
+    if (cell.length > PLAN_LIMITS.maxTextLength) return null;
+    cells.push(cell);
+  }
+  if (expectedWidth !== -1 && cells.length !== expectedWidth) return null;
+  return cells;
 }
 
 /** A six-digit hex colour without `#`, or null when absent. */

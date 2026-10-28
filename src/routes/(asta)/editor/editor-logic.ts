@@ -471,6 +471,27 @@ export interface DocxEditorSetupHandle {
   destroy: () => void;
 }
 
+/**
+ * Whether an "insert" reply is really the whole document pasted back.
+ *
+ * Compares whitespace-normalised text so reflow and re-indenting cannot
+ * disguise an echo. Containment alone is the test, with no upper bound on
+ * length: a legitimate insertion is new text, so it should essentially never
+ * contain the entire existing document. This guard only runs for "insert"
+ * anyway — a "replace" reply is *supposed* to restate what it rewrote, which
+ * is exactly why the two modes must not share this check.
+ *
+ * Biased towards catching echoes: a false positive costs one error toast
+ * and a retry, while a false negative silently duplicates the document.
+ */
+function isDocumentEcho(candidate: string, reference: string): boolean {
+  const norm = (s: string) => s.replace(/\s+/g, " ").trim();
+  const hay = norm(candidate);
+  const doc = norm(reference);
+  if (!doc) return false;
+  return hay.includes(doc);
+}
+
 export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions): DocxEditorSetupHandle {
   const editorContainer = root.querySelector("#editor") as HTMLElement | null;
   if (!editorContainer) {
@@ -1514,7 +1535,7 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
   function readTableContext(): string | null {
     if (!editor) return null;
     const ctx = editor.query({ type: "tableContext" });
-    if (!ctx || !ctx.rows || !ctx.columns) return null;
+    if (!ctx?.rows || !ctx?.columns) return null;
     return `${ctx.rows}x${ctx.columns} table, cursor in row ${ctx.rowIndex + 1} column ${ctx.columnIndex + 1}`;
   }
 
@@ -1794,104 +1815,91 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
   }
 
   /**
-   * Whether an "insert" reply is really the whole document pasted back.
-   *
-   * Compares whitespace-normalised text so reflow and re-indenting cannot
-   * disguise an echo. Containment alone is the test, with no upper bound on
-   * length: a legitimate insertion is new text, so it should essentially never
-   * contain the entire existing document. This guard only runs for "insert"
-   * anyway — a "replace" reply is *supposed* to restate what it rewrote, which
-   * is exactly why the two modes must not share this check.
-   *
-   * Biased towards catching echoes: a false positive costs one error toast
-   * and a retry, while a false negative silently duplicates the document.
-   */
-  function isDocumentEcho(candidate: string, reference: string): boolean {
-    const norm = (s: string) => s.replace(/\s+/g, " ").trim();
-    const hay = norm(candidate);
-    const doc = norm(reference);
-    if (!doc) return false;
-    return hay.includes(doc);
+ * Writes chat output back into the document.
+ *
+ * The frozen selection is restored first, otherwise a "replace" reply would
+ * land at whatever caret the engine happened to fall back to. Everything goes
+ * through `paste` so the undo stack and tracked changes stay intact.
+ */
+async function applyBridgeText(text: string, mode: ApplyMode) {
+  const instance = editor;
+  if (!instance) {
+    opts.showToast("error", "The editor is not ready yet.");
+    return;
   }
 
-  /**
-   * Writes chat output back into the document.
-   *
-   * The frozen selection is restored first, otherwise a "replace" reply would
-   * land at whatever caret the engine happened to fall back to. Everything goes
-   * through `paste` so the undo stack and tracked changes stay intact.
-   */
-  async function applyBridgeText(text: string, mode: ApplyMode) {
-    const instance = editor;
-    if (!instance) {
-      opts.showToast("error", "The editor is not ready yet.");
-      return;
-    }
+  const body = text.trim();
+  if (!body) {
+    opts.showToast("error", "There is nothing to apply.");
+    return;
+  }
 
-    const body = text.trim();
-    if (!body) {
-      opts.showToast("error", "There is nothing to apply.");
-      return;
-    }
+  if (shouldRejectEcho(mode, body)) return;
 
-    // Last line of defence against a whole-document echo. Told "here is the
-    // document, add a paragraph", a model can answer with the entire document;
-    // pasting that at the cursor silently duplicates the file. Prompt rules
-    // reduce the odds, but this is the place where the damage would be real,
-    // and it is cheap to check.
-    if (mode === "insert" && isDocumentEcho(body, readDocumentText())) {
-      opts.showToast(
-        "error",
-        "The reply repeats the whole document. Ask for just the part you want added.",
-      );
-      return;
-    }
+  const insertedInstead = await handleReplaceMode(instance);
+  const paste = createPasteCommand(instance);
 
-    let insertedInstead = false;
-    if (mode === "replace") {
-      if (bridgeSelection) {
-        const restore = { type: "setSelection" as const, range: bridgeSelection };
-        if (instance.can(restore).ok) {
-          instance.exec(restore);
-        } else {
-          insertedInstead = true;
-        }
-      } else {
-        insertedInstead = true;
-      }
-    }
+  const tables = await applyTextWithTables(instance, body, paste);
 
-    const paste = (chunk: string) => {
-      const command = { type: "paste" as const, text: chunk };
-      const can = instance.can(command);
-      if (!can.ok) {
-        opts.showToast("error", can.reason || "The document refused this change.");
-        return;
-      }
-      instance.exec(command);
-    };
+  finalizeBridgeApplication(instance, tables, insertedInstead);
+}
 
-    // The chatbot answers in text, so a request for a table comes back as
-    // pipes or tabs. Pasting that verbatim leaves a paragraph of `a | b | c`
-    // in the document — visible, unreadable, and not a table. `applyTextWithTables`
-    // splits the reply and builds each grid as a real table, and falls back to
-    // a plain paste when there is no table in it.
-    const tables = await applyTextWithTables(instance, body, paste);
-
-    instance.focus();
-    updateAll();
-    // The old selection described text that no longer exists in that form.
-    bridgeSelection = null;
-    bridgeSelectionText = "";
+function shouldRejectEcho(mode: ApplyMode, body: string): boolean {
+  if (mode !== "insert") return false;
+  if (isDocumentEcho(body, readDocumentText())) {
     opts.showToast(
-      "success",
-      tables > 0
-        ? `Applied to the document — created ${tables} table${tables > 1 ? "s" : ""}.`
-        : insertedInstead
-          ? "Inserted at the cursor — there was no selection to replace."
-          : "Applied to the document.",
+      "error",
+      "The reply repeats the whole document. Ask for just the part you want added.",
     );
+    return true;
   }
+  return false;
+}
+
+async function handleReplaceMode(instance: DocxEditorInstance): Promise<boolean> {
+  if (!bridgeSelection) return true;
+
+  const restore = { type: "setSelection" as const, range: bridgeSelection };
+  if (instance.can(restore).ok) {
+    instance.exec(restore);
+    return false;
+  }
+  return true;
+}
+
+function createPasteCommand(instance: DocxEditorInstance): (chunk: string) => void {
+  return (chunk: string) => {
+    const command = { type: "paste" as const, text: chunk };
+    const can = instance.can(command);
+    if (!can.ok) {
+      opts.showToast("error", can.reason || "The document refused this change.");
+      return;
+    }
+    instance.exec(command);
+  };
+}
+
+function finalizeBridgeApplication(
+  instance: DocxEditorInstance,
+  tables: number,
+  insertedInstead: boolean,
+): void {
+  instance.focus();
+  updateAll();
+  bridgeSelection = null;
+  bridgeSelectionText = "";
+  opts.showToast("success", getSuccessMessage(tables, insertedInstead));
+}
+
+function getSuccessMessage(tables: number, insertedInstead: boolean): string {
+  if (tables > 0) {
+    return `Applied to the document — created ${tables} table${tables > 1 ? "s" : ""}.`;
+  }
+  if (insertedInstead) {
+    return "Inserted at the cursor — there was no selection to replace.";
+  }
+  return "Applied to the document.";
+}
 
   /**
    * Replays a plan the chatbot proposed.
@@ -3478,7 +3486,7 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
       if (!pageInput) return;
       if (event.key !== "Enter") return;
       event.preventDefault();
-      const n = parseInt(pageInput.value, 10);
+      const n = Number.parseInt(pageInput.value, 10);
       if (Number.isFinite(n) && n >= 1) scrollToPageIndex(n - 1);
       pageInput.blur();
     });
@@ -4128,7 +4136,7 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
 
     // The browser's own print (File → Print) does not go through the
     // editor's button, so the geometry is refreshed for that path too.
-    window.addEventListener(
+    globalThis.addEventListener(
       "beforeprint",
       () => {
         applyPrintGeometry(readPrintGeometry());

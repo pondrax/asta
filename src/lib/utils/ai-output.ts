@@ -35,23 +35,7 @@
  * range here, which is intended: the chatbot is asked to use them, and they
  * render fine.
  */
-const FOREIGN_SCRIPT = new RegExp(
-  "[" +
-    "\\u0400-\\u04FF" + // Cyrillic
-    "\\u0530-\\u058F" + // Armenian
-    "\\u0600-\\u06FF" + // Arabic
-    "\\u0750-\\u077F" + // Arabic supplement
-    "\\u0900-\\u097F" + // Devanagari
-    "\\u0E00-\\u0E7F" + // Thai
-    "\\u3040-\\u30FF" + // Kana
-    "\\u3400-\\u4DBF" + // CJK ext A
-    "\\u4E00-\\u9FFF" + // CJK unified
-    "\\uAC00-\\uD7AF" + // Hangul syllables
-    "\\uF900-\\uFAFF" + // CJK compatibility
-    "\\uFF00-\\uFFEF" + // Fullwidth forms
-    "]+",
-  "g",
-);
+const FOREIGN_SCRIPT = /[\u0400-\u04FF\u0530-\u058F\u0600-\u06FF\u0750-\u077F\u0900-\u097F\u0E00-\u0E7F\u3040-\u30FF\u3400-\u4DBF\u4E00-\u9FFF\uAC00-\uD7AF\uF900-\uFAFF\uFF00-\uFFEF]+/g;
 
 /**
  * Codepoints that carry no visible glyph but survive copy-paste and re-encoding:
@@ -129,15 +113,22 @@ export function sanitizeModelText(raw: string): string {
  * the text here would mean sending a second request, which belongs at the call
  * site where a request can actually be made.
  */
+const INDONESIAN_MARKERS = [
+  "dan", "yang", "dengan", "untuk", "adalah", "ini", "itu", "tidak", "akan",
+  "pada", "dari", "ke", "di", "sebagai", "oleh", "atau", "juga", "sudah",
+  "telah", "bisa", "dapat", "harus", "lebih", "dalam", "agar", "ketika",
+  "kalau", "karena", "sehingga", "anda", "kami", "aplikasi", "inilah", "berikut",
+];
+
+const INDONESIAN_MARKERS_REGEX = new RegExp(
+  `\\b(?:${INDONESIAN_MARKERS.join("|")})\\b`,
+  "i",
+);
+
 export function looksNonIndonesian(text: string): boolean {
   const words = text.match(/[A-Za-z]{2,}/g);
   if (!words || words.length < 8) return false;
 
-  // Indonesian function words. Common enough that a reply made of English will
-  // not clear the bar.
-  const markers =
-    /\b(?:dan|yang|dengan|untuk|adalah|ini|itu|tidak|akan|pada|dari|ke|di|sebagai|oleh|atau|juga|sudah|telah|bisa|dapat|harus|lebih|dalam|agar|ketika|kalau|karena|sehingga|anda|kami|aplikasi|inilah|berikut)\b/i;
-
-  const hits = words.filter((w) => markers.test(w)).length;
+  const hits = words.filter((w) => INDONESIAN_MARKERS_REGEX.test(w)).length;
   return hits / words.length < 0.08;
 }

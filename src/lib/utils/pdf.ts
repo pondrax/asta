@@ -309,7 +309,7 @@ export async function drawFooter(
     }
 
     if (text) {
-      drawFooterText(page, text, font, layout, image, marginX, gap, y);
+      drawFooterText({ page, text, font, layout, image, marginX, gap, y });
     }
   }
 
@@ -392,16 +392,19 @@ function drawFooterImage(
   page.drawImage(image, { x, y, width, height });
 }
 
-function drawFooterText(
-  page: import('@libpdf/core').PDFPage,
-  text: string,
-  font: import('@libpdf/core').StandardFont,
-  layout: LayoutResult,
-  image: FooterImage | null,
-  marginX: number,
-  gap: number,
-  y: number
-): void {
+interface DrawFooterTextParams {
+  page: import('@libpdf/core').PDFPage;
+  text: string;
+  font: import('@libpdf/core').StandardFont;
+  layout: LayoutResult;
+  image: FooterImage | null;
+  marginX: number;
+  gap: number;
+  y: number;
+}
+
+function drawFooterText(params: DrawFooterTextParams): void {
+  const { page, text, font, layout, image, marginX, gap, y } = params;
   const { size, lines, imgWidth, imgHeight, lineHeight } = layout;
   const textX = image ? marginX + imgWidth + gap : marginX;
   const totalTextHeight = (lines.length - 1) * lineHeight;
@@ -928,12 +931,15 @@ function readAsn1Time(buf: Uint8Array, tlv: Tlv): string | undefined {
         : /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})?(\d{2})?/.exec(text);
     if (!m) return undefined;
 
-    const year =
-      tlv.tag === 0x17
-        ? String(Number(m[1]) >= 50 ? 1900 + Number(m[1]) : 2000 + Number(m[1]))
-        : m[1];
+    const year = getYear(tlv.tag, m[1]);
     const rest = m.slice(2).join('');
     const month = rest.slice(0, 2);
+
+function getYear(tag: number, yearStr: string): string {
+  if (tag !== 0x17) return yearStr;
+  const num = Number(yearStr);
+  return num >= 50 ? String(1900 + num) : String(2000 + num);
+}
     const day = rest.slice(2, 4);
     const hour = rest.slice(4, 6) || '00';
     const minute = rest.slice(6, 8) || '00';
@@ -1726,89 +1732,42 @@ async function verifyEntry(
   buf: Uint8Array,
   entry: SignatureEntry,
 ): Promise<SignatureVerification> {
-  const result: SignatureVerification = {
-    fieldName: entry.fieldName,
-    signerName: entry.info.name,
-    integrityValid: false,
-    chainValid: false,
-    certificateTrusted: false,
-    ltv: entry.ltvData === true,
-    timestamped: false,
-    digestAlgorithm: undefined,
-    signatureAlgorithm: undefined,
-    notBefore: entry.info.signerValidFrom,
-    notAfter: entry.info.signerValidTo,
-  };
+  const result = createEmptyResult(entry);
 
-  if (!entry.contents || entry.contents.length === 0) {
-    result.error = "Tanda tangan tidak memiliki data CMS.";
+  const validationError = validateEntry(entry);
+  if (validationError) {
+    result.error = validationError;
     return result;
   }
-  if (!entry.byteRange) {
-    result.error = "ByteRange tanda tangan tidak ditemukan.";
-    return result;
-  }
-  // adbe.pkcs7.detached and ETSI.CAdES.detached both carry a CMS blob;
-  // adbe.x509.rsa_sha1 stores a bare PKCS#1 signature and needs another path.
-  if (entry.subFilter?.toLowerCase().includes('x509.rsa_sha1')) {
+
+  if (isUnsupportedFormat(entry.subFilter)) {
     result.error = `Format ${entry.subFilter} belum didukung untuk verifikasi lokal.`;
     return result;
   }
 
   try {
-    const [a, b, c, d] = entry.byteRange;
-    if (a + b > buf.length || c + d > buf.length) {
+    const byteRange = extractByteRange(entry.byteRange, buf);
+    if (!byteRange) {
       result.error = "ByteRange melewati akhir berkas.";
       return result;
     }
-    const signedBytes = new Uint8Array(b + d);
-    signedBytes.set(buf.subarray(a, a + b), 0);
-    signedBytes.set(buf.subarray(c, c + d), b);
 
-    const der = entry.contents;
-    const ci = readTlv(der, 0);
-    let p = readTlv(der, ci.start).end;
-    const wrapper = readTlv(der, p);
-    const signed = readTlv(der, wrapper.start);
-
-    const signers = parseSignerInfo(der, signed);
-    if (signers.length === 0) {
+    const { signedBytes, signer, digestName } = await parseSignatureData(entry, byteRange);
+    if (!signer) {
       result.error = "SignerInfo tidak ditemukan di dalam CMS.";
       return result;
     }
-    const signer = signers[0];
-    const digestName = DIGEST_OIDS[signer.digestOid] ?? 'SHA-256';
+
     result.digestAlgorithm = digestName;
     result.signatureAlgorithm = getSignatureAlgorithmName(SIGNATURE_OIDS[signer.signatureOid]);
 
-    const docDigest = new Uint8Array(
-      await crypto.subtle.digest(digestName, signedBytes as BufferSource),
-    );
+    const docDigest = await computeDocDigest(digestName, signedBytes);
 
-    let digestOk = true;
-    if (signer.signedAttrs) {
-      digestOk =
-        !!signer.messageDigest && equalBytes(signer.messageDigest, docDigest);
-      if (signer.signingTime) result.signingTime = signer.signingTime;
-    }
-
-    const certs = parseCertificates(der);
+    const digestOk = verifyDigest(signer, docDigest, result);
+    const certs = parseCertificates(entry.contents);
     const data = signer.signedAttrs?.bytes ?? signedBytes;
 
-    let signatureOk = false;
-    let signerCert: CertInfo | undefined;
-    for (const cert of certs) {
-      signatureOk = await verifyCrypto(
-        cert.spki,
-        signer.signature,
-        data,
-        digestName,
-      );
-      if (signatureOk) {
-        signerCert = cert;
-        break;
-      }
-    }
+    const { signatureOk, signerCert } = await verifySignature(signer, certs, data, digestName);
 
     result.integrityValid = digestOk && signatureOk;
     result.timestamped = !!signer.timestamped;
@@ -1823,10 +1782,99 @@ async function verifyEntry(
 
     return result;
   } catch (err) {
-    result.error =
-      err instanceof Error ? err.message : "Verifikasi lokal gagal.";
+    result.error = err instanceof Error ? err.message : "Verifikasi lokal gagal.";
     return result;
   }
+}
+
+function createEmptyResult(entry: SignatureEntry): SignatureVerification {
+  return {
+    fieldName: entry.fieldName,
+    signerName: entry.info.name,
+    integrityValid: false,
+    chainValid: false,
+    certificateTrusted: false,
+    ltv: entry.ltvData === true,
+    timestamped: false,
+    digestAlgorithm: undefined,
+    signatureAlgorithm: undefined,
+    notBefore: entry.info.signerValidFrom,
+    notAfter: entry.info.signerValidTo,
+  };
+}
+
+function validateEntry(entry: SignatureEntry): string | null {
+  if (!entry.contents || entry.contents.length === 0) {
+    return "Tanda tangan tidak memiliki data CMS.";
+  }
+  if (!entry.byteRange) {
+    return "ByteRange tanda tangan tidak ditemukan.";
+  }
+  return null;
+}
+
+function isUnsupportedFormat(subFilter: string | undefined): boolean {
+  return subFilter?.toLowerCase().includes('x509.rsa_sha1') ?? false;
+}
+
+function extractByteRange(byteRange: number[], buf: Uint8Array): { a: number; b: number; c: number; d: number } | null {
+  const [a, b, c, d] = byteRange;
+  if (a + b > buf.length || c + d > buf.length) return null;
+  return { a, b, c, d };
+}
+
+async function parseSignatureData(
+  entry: SignatureEntry,
+  byteRange: { a: number; b: number; c: number; d: number },
+): Promise<{ signedBytes: Uint8Array; signer: SignerInfo | null; digestName: string }> {
+  const signedBytes = new Uint8Array(byteRange.b + byteRange.d);
+  signedBytes.set(entry.contents!.subarray(byteRange.a, byteRange.a + byteRange.b), 0);
+  signedBytes.set(entry.contents!.subarray(byteRange.c, byteRange.c + byteRange.d), byteRange.b);
+
+  const der = entry.contents!;
+  const ci = readTlv(der, 0);
+  let p = readTlv(der, ci.start).end;
+  const wrapper = readTlv(der, p);
+  const signed = readTlv(der, wrapper.start);
+
+  const signers = parseSignerInfo(der, signed);
+  if (signers.length === 0) {
+    return { signedBytes, signer: null, digestName: '' };
+  }
+  const signer = signers[0];
+  const digestName = DIGEST_OIDS[signer.digestOid] ?? 'SHA-256';
+  return { signedBytes, signer, digestName };
+}
+
+function computeDocDigest(digestName: string, signedBytes: Uint8Array): Promise<Uint8Array> {
+  return crypto.subtle.digest(digestName, signedBytes as BufferSource) as Promise<Uint8Array>;
+}
+
+function verifyDigest(signer: SignerInfo, docDigest: Uint8Array, result: SignatureVerification): boolean {
+  let digestOk = true;
+  if (signer.signedAttrs) {
+    digestOk = !!signer.messageDigest && equalBytes(signer.messageDigest, docDigest);
+    if (signer.signingTime) result.signingTime = signer.signingTime;
+  }
+  return digestOk;
+}
+
+async function verifySignature(
+  signer: SignerInfo,
+  certs: CertInfo[],
+  data: Uint8Array,
+  digestName: string,
+): Promise<{ signatureOk: boolean; signerCert: CertInfo | undefined }> {
+  let signatureOk = false;
+  let signerCert: CertInfo | undefined;
+  for (const cert of certs) {
+    signatureOk = await verifyCrypto(cert.spki, signer.signature, data, digestName);
+    if (signatureOk) {
+      signerCert = cert;
+      break;
+    }
+  }
+  return { signatureOk, signerCert };
 }
 
 /**

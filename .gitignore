@@ -22,6 +22,7 @@ Thumbs.db
 certificates/
 *.p12
 *.key
+!certificates/root.crt
 
 *.log
 # Vite
