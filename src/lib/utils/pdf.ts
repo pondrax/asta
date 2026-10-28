@@ -1698,7 +1698,7 @@ async function verifyChain(leaf: CertInfo, certs: CertInfo[]) {
   return { valid: false, trusted: false };
 }
 
-function handleSelfSigned(current: CertInfo, links: boolean) {
+async function handleSelfSigned(current: CertInfo, links: boolean) {
   const anchor = current.subjectName?.toLowerCase() ?? '';
   const trusted =
     anchor.includes('root ca indonesia') || anchor.includes('bsre');
