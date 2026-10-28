@@ -27,6 +27,14 @@ function resolveFieldName(pdf: PDF, preferred: string): string {
   }
 }
 
+function loadSignerP12(): Buffer {
+  const base64 = process.env.SIGNER_P12_BASE64;
+  if (!base64) {
+    throw new Error('SIGNER_P12_BASE64 environment variable not set');
+  }
+  return Buffer.from(base64, 'base64');
+}
+
 export async function signPdfManually(fileBase64: string, options: {
   reason?: string;
   location?: string;
@@ -36,9 +44,8 @@ export async function signPdfManually(fileBase64: string, options: {
   const pdfBytes = Buffer.from(fileBase64, 'base64');
   const pdf = await PDF.load(new Uint8Array(pdfBytes));
 
-  const p12Path = path.resolve(process.cwd(), 'certificates/signer.p12');
-  const p12 = fs.readFileSync(p12Path);
-  const signer = await P12Signer.create(p12, '123456');
+  const p12 = loadSignerP12();
+  const signer = await P12Signer.create(p12, process.env.SIGNER_P12_PASSWORD || '123456');
 
   const result = await pdf.sign({
     signer,

@@ -64,8 +64,17 @@ function savePdf(pdf: PDF): Promise<Uint8Array> {
 function base64ToBytes(base64: string): Uint8Array {
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.codePointAt(i) ?? 0;
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.codePointAt(i) ?? 0;
+  }
   return bytes;
+}
+
+function getSignatureAlgorithmName(sigInfo: { kind?: string } | undefined): string {
+  if (!sigInfo) return 'RSA';
+  if (sigInfo.kind === 'ecdsa') return 'ECDSA';
+  if (sigInfo.kind === 'pss') return 'RSA-PSS';
+  return 'RSA';
 }
 
 /**
@@ -266,11 +275,7 @@ export async function drawFooter(
   const pdf = await open(bytes);
   const font = StandardFonts.Helvetica;
 
-  let image = null;
-  if (imageBase64) {
-    image = embedImage(pdf, base64ToBytes(imageBase64));
-    if (!image) throw new Error('Footer image is neither a PNG nor a JPEG.');
-  }
+  const image = loadFooterImage(pdf, imageBase64);
 
   const pages = pdf.getPages();
   const targets =
@@ -287,68 +292,138 @@ export async function drawFooter(
     const maxWidth = pageWidth - marginX * 2;
     const imgAspect = image ? image.height / image.width : 0;
 
-    // Auto-fit: pick the largest font (and matching QR) whose wrapped text
-    // fits both the page width and the footer's height band.
-    let size = baseSize;
-    let lines: string[] = text ? [text] : [];
-    let imgWidth = 0;
-    let imgHeight = 0;
-    let lineHeight = baseSize * 1.4;
-
-    for (let candidate = baseSize; candidate >= 5; candidate -= 0.5) {
-      const w = image ? Math.max(12, baseImageSize * (candidate / baseSize)) : 0;
-      const h = w * imgAspect;
-      const textWidth = maxWidth - (image ? w + gap : 0);
-      if (textWidth <= 0) continue;
-
-      const lh = candidate * 1.4;
-      const wrapped = wrapText(text, font, candidate, textWidth);
-      const blockHeight = Math.max(h, wrapped.length * lh);
-
-      size = candidate;
-      lines = wrapped;
-      imgWidth = w;
-      imgHeight = h;
-      lineHeight = lh;
-
-      if (blockHeight <= maxHeight) break;
-    }
+    const layout = autoFitFontSize({
+      text,
+      font,
+      baseSize,
+      baseImageSize,
+      image,
+      imgAspect,
+      maxWidth,
+      maxHeight,
+      gap,
+    });
 
     if (image) {
-      page.drawImage(image, {
-        x: marginX,
-        y: y - 5,
-        width: imgWidth,
-        height: imgHeight
-      });
+      drawFooterImage(page, image, marginX, y - 5, layout.imgWidth, layout.imgHeight);
     }
 
     if (text) {
-      const textX = image ? marginX + imgWidth + gap : marginX;
-      const totalTextHeight = (lines.length - 1) * lineHeight;
-      let startY = image
-        ? y + (imgHeight - totalTextHeight) / 2 + (lineHeight - size)
-        : y + totalTextHeight + size * 0.25;
-
-      // Wrapped text can be taller than the QR; lift the block so no line
-      // drops below the footer margin.
-      const minBaseline = image ? y - 5 : y;
-      const lastBaseline = startY - totalTextHeight;
-      if (lastBaseline < minBaseline) startY += minBaseline - lastBaseline;
-
-      lines.forEach((line, index) => {
-        page.drawText(line, {
-          x: textX,
-          y: startY - index * lineHeight,
-          size,
-          font,
-          color: rgb(0, 0, 0)
-        });
-      });
+      drawFooterText(page, text, font, layout, image, marginX, gap, y);
     }
   }
 
   return savePdf(pdf);
+}
+
+interface FooterImage {
+  image: import('@libpdf/core').PdfImage | null;
+  width: number;
+  height: number;
+}
+
+function loadFooterImage(
+  pdf: import('@libpdf/core').PDF,
+  imageBase64: string | undefined
+): FooterImage | null {
+  if (!imageBase64) return null;
+  const image = embedImage(pdf, base64ToBytes(imageBase64));
+  if (!image) throw new Error('Footer image is neither a PNG nor a JPEG.');
+  return { image, width: image.width, height: image.height };
+}
+
+interface LayoutResult {
+  size: number;
+  lines: string[];
+  imgWidth: number;
+  imgHeight: number;
+  lineHeight: number;
+}
+
+function autoFitFontSize(params: {
+  text: string;
+  font: import('@libpdf/core').StandardFont;
+  baseSize: number;
+  baseImageSize: number;
+  image: FooterImage | null;
+  imgAspect: number;
+  maxWidth: number;
+  maxHeight: number;
+  gap: number;
+}): LayoutResult {
+  let size = params.baseSize;
+  let lines: string[] = params.text ? [params.text] : [];
+  let imgWidth = 0;
+  let imgHeight = 0;
+  let lineHeight = params.baseSize * 1.4;
+
+  for (let candidate = params.baseSize; candidate >= 5; candidate -= 0.5) {
+    const w = params.image
+      ? Math.max(12, params.baseImageSize * (candidate / params.baseSize))
+      : 0;
+    const h = w * params.imgAspect;
+    const textWidth = params.maxWidth - (params.image ? w + params.gap : 0);
+    if (textWidth <= 0) continue;
+
+    const lh = candidate * 1.4;
+    const wrapped = wrapText(params.text, params.font, candidate, textWidth);
+    const blockHeight = Math.max(h, wrapped.length * lh);
+
+    size = candidate;
+    lines = wrapped;
+    imgWidth = w;
+    imgHeight = h;
+    lineHeight = lh;
+
+    if (blockHeight <= params.maxHeight) break;
+  }
+
+  return { size, lines, imgWidth, imgHeight, lineHeight };
+}
+
+function drawFooterImage(
+  page: import('@libpdf/core').PDFPage,
+  image: import('@libpdf/core').PdfImage,
+  x: number,
+  y: number,
+  width: number,
+  height: number
+): void {
+  page.drawImage(image, { x, y, width, height });
+}
+
+function drawFooterText(
+  page: import('@libpdf/core').PDFPage,
+  text: string,
+  font: import('@libpdf/core').StandardFont,
+  layout: LayoutResult,
+  image: FooterImage | null,
+  marginX: number,
+  gap: number,
+  y: number
+): void {
+  const { size, lines, imgWidth, imgHeight, lineHeight } = layout;
+  const textX = image ? marginX + imgWidth + gap : marginX;
+  const totalTextHeight = (lines.length - 1) * lineHeight;
+  let startY = image
+    ? y + (imgHeight - totalTextHeight) / 2 + (lineHeight - size)
+    : y + totalTextHeight + size * 0.25;
+
+  // Wrapped text can be taller than the QR; lift the block so no line
+  // drops below the footer margin.
+  const minBaseline = image ? y - 5 : y;
+  const lastBaseline = startY - totalTextHeight;
+  if (lastBaseline < minBaseline) startY += minBaseline - lastBaseline;
+
+  lines.forEach((line, index) => {
+    page.drawText(line, {
+      x: textX,
+      y: startY - index * lineHeight,
+      size,
+      font,
+      color: rgb(0, 0, 0)
+    });
+  });
 }
 
 type SignatureType = {
@@ -468,6 +543,26 @@ export async function drawPlacements(
   const pages = pdf.getPages();
   const font = StandardFonts.Helvetica;
 
+  const byPage = groupPlacementsByPage(placements, pages, pageIndexing);
+
+  for (const pageNumStr in byPage) {
+    const pageNum = Number.parseInt(pageNumStr);
+    const page = pages[pageNum];
+    const { height: pageHeight } = page.getMediaBox();
+
+    for (const placement of byPage[pageNumStr]) {
+      drawPlacement(page, placement, pageHeight, pdf, font);
+    }
+  }
+
+  return savePdf(pdf);
+}
+
+function groupPlacementsByPage(
+  placements: Placement[],
+  pages: import('@libpdf/core').PDFPage[],
+  pageIndexing: 'zero' | 'one'
+): { [page: number]: Placement[] } {
   const byPage: { [page: number]: Placement[] } = {};
 
   for (const placement of placements) {
@@ -485,81 +580,110 @@ export async function drawPlacements(
     byPage[pageIndex].push(placement);
   }
 
-  for (const pageNumStr in byPage) {
-    const pageNum = Number.parseInt(pageNumStr);
-    const page = pages[pageNum];
-    const { height: pageHeight } = page.getMediaBox();
+  return byPage;
+}
 
-    for (const placement of byPage[pageNumStr]) {
-      const kind = placement.kind || 'signature';
-      const { originX, originY, width, height } = placement;
-      // top-left (0,0) → bottom-left coordinate system
-      const finalY = pageHeight - originY - height;
+function drawPlacement(
+  page: import('@libpdf/core').PDFPage,
+  placement: Placement,
+  pageHeight: number,
+  pdf: import('@libpdf/core').PDF,
+  font: import('@libpdf/core').StandardFont
+): void {
+  const kind = placement.kind || 'signature';
+  const { originX, originY, width, height } = placement;
+  // top-left (0,0) → bottom-left coordinate system
+  const finalY = pageHeight - originY - height;
 
-      if (kind === 'signature') {
-        if (!placement.imageBase64) continue;
-        const image = embedImage(pdf, base64ToBytes(placement.imageBase64));
-        if (!image) {
-          console.warn(
-            `Failed to embed image for placement ${placement.id}. Skipping.`
-          );
-          continue;
-        }
-        page.drawImage(image, {
-          x: originX,
-          y: finalY,
-          width,
-          height
-        });
-      } else if (kind === 'text' || kind === 'date') {
-        const text = placement.text ?? '';
-        if (!text) continue;
-        const size = placement.size ?? 11;
-        try {
-          page.drawText(text, {
-            x: originX,
-            // The box top is the text top; step down by the font size to reach
-            // the baseline so the rendered text stays inside the box.
-            y: pageHeight - originY - size,
-            size,
-            font,
-            color: rgb(0, 0, 0)
-          });
-        } catch (err) {
-          console.warn(
-            `Failed to draw text for placement ${placement.id}. Skipping.`,
-            err
-          );
-        }
-      } else if (kind === 'checkbox') {
-        page.drawRectangle({
-          x: originX,
-          y: finalY,
-          width,
-          height,
-          borderColor: rgb(0, 0, 0),
-          borderWidth: 1
-        });
-        if (placement.checked) {
-          // A tick made of two strokes, drawn inside the box corners.
-          page.drawLine({
-            start: { x: originX + width * 0.2, y: finalY + height * 0.5 },
-            end: { x: originX + width * 0.42, y: finalY + height * 0.22 },
-            thickness: 1.4,
-            color: rgb(0, 0, 0)
-          });
-          page.drawLine({
-            start: { x: originX + width * 0.42, y: finalY + height * 0.22 },
-            end: { x: originX + width * 0.8, y: finalY + height * 0.8 },
-            thickness: 1.4,
-            color: rgb(0, 0, 0)
-          });
-        }
-      }
-    }
+  if (kind === 'signature') {
+    drawSignaturePlacement(page, pdf, placement, originX, finalY, width, height);
+  } else if (kind === 'text' || kind === 'date') {
+    drawTextPlacement(page, placement, font, pageHeight, originX, originY);
+  } else if (kind === 'checkbox') {
+    drawCheckboxPlacement(page, placement, originX, finalY, width, height);
   }
+}
 
-  return savePdf(pdf);
+function drawSignaturePlacement(
+  page: import('@libpdf/core').PDFPage,
+  pdf: import('@libpdf/core').PDF,
+  placement: Placement,
+  x: number,
+  y: number,
+  width: number,
+  height: number
+): void {
+  if (!placement.imageBase64) return;
+  const image = embedImage(pdf, base64ToBytes(placement.imageBase64));
+  if (!image) {
+    console.warn(
+      `Failed to embed image for placement ${placement.id}. Skipping.`
+    );
+    return;
+  }
+  page.drawImage(image, { x, y, width, height });
+}
+
+function drawTextPlacement(
+  page: import('@libpdf/core').PDFPage,
+  placement: Placement,
+  font: import('@libpdf/core').StandardFont,
+  pageHeight: number,
+  originX: number,
+  originY: number
+): void {
+  const text = placement.text ?? '';
+  if (!text) return;
+  const size = placement.size ?? 11;
+  try {
+    page.drawText(text, {
+      x: originX,
+      // The box top is the text top; step down by the font size to reach
+      // the baseline so the rendered text stays inside the box.
+      y: pageHeight - originY - size,
+      size,
+      font,
+      color: rgb(0, 0, 0)
+    });
+  } catch (err) {
+    console.warn(
+      `Failed to draw text for placement ${placement.id}. Skipping.`,
+      err
+    );
+  }
+}
+
+function drawCheckboxPlacement(
+  page: import('@libpdf/core').PDFPage,
+  placement: Placement,
+  x: number,
+  y: number,
+  width: number,
+  height: number
+): void {
+  page.drawRectangle({
+    x,
+    y,
+    width,
+    height,
+    borderColor: rgb(0, 0, 0),
+    borderWidth: 1
+  });
+  if (placement.checked) {
+    // A tick made of two strokes, drawn inside the box corners.
+    page.drawLine({
+      start: { x: x + width * 0.2, y: y + height * 0.5 },
+      end: { x: x + width * 0.42, y: y + height * 0.22 },
+      thickness: 1.4,
+      color: rgb(0, 0, 0)
+    });
+    page.drawLine({
+      start: { x: x + width * 0.42, y: y + height * 0.22 },
+      end: { x: x + width * 0.8, y: y + height * 0.8 },
+      thickness: 1.4,
+      color: rgb(0, 0, 0)
+    });
+  }
 }
 
 // ---------------------------------------------------------
@@ -1000,7 +1124,7 @@ function parseCertificate(der: Uint8Array, nameHint?: string) {
     if (!leaf && h) {
       leaf = chain.find((c) => c.subject[OID_CN]?.toLowerCase() === h);
     }
-    if (!leaf) leaf = chain[chain.length - 1];
+    if (!leaf) leaf = chain.at(-1);
 
     const { subject, issuer, validFrom, validTo } = leaf;
     return {
@@ -1431,7 +1555,23 @@ type SignerInfo = {
 };
 
 function parseSignerInfo(der: Uint8Array, signed: Tlv): SignerInfo[] {
-  // Find the signerInfos SET (the last 0x31 at SignedData level).
+  const signerSet = findSignerSet(der, signed);
+  if (!signerSet) return [];
+
+  const out: SignerInfo[] = [];
+  let off = signerSet.start;
+  while (off < signerSet.end) {
+    const si = readTlv(der, off);
+    off = si.end;
+    if (si.tag !== 0x30) continue;
+
+    const signer = parseSingleSignerInfo(der, si);
+    if (signer) out.push(signer);
+  }
+  return out;
+}
+
+function findSignerSet(der: Uint8Array, signed: Tlv): Tlv | undefined {
   let signerSet: Tlv | undefined;
   let p = signed.start;
   p = readTlv(der, p).end; // version
@@ -1442,125 +1582,144 @@ function parseSignerInfo(der: Uint8Array, signed: Tlv): SignerInfo[] {
     if (t.tag === 0x31) signerSet = t;
     p = t.end;
   }
-  if (!signerSet) return [];
+  return signerSet;
+}
 
-  const out: SignerInfo[] = [];
-  let off = signerSet.start;
-  while (off < signerSet.end) {
-    const si = readTlv(der, off);
-    off = si.end;
-    if (si.tag !== 0x30) continue;
-
-    let q = si.start;
-    q = readTlv(der, q).end; // version
-    q = readTlv(der, q).end; // sid
-    const digestAlg = readTlv(der, q);
-    q = digestAlg.end;
-    let t = readTlv(der, q);
-    let attrs: { bytes: Uint8Array; tlv: Tlv } | undefined;
-    if (t.tag === 0xa0) {
-      const tagOffset = q;
-      const bytes = der.slice(tagOffset, t.end);
-      bytes[0] = 0x31; // re-tag IMPLICIT [0] → SET OF, as signed
-      attrs = { bytes, tlv: t };
-      q = t.end;
-      t = readTlv(der, q);
-    }
-    const sigAlg = t;
-    q = sigAlg.end;
-    const sigValue = readTlv(der, q);
-
-    const signer: SignerInfo = {
-      digestOid: readOid(der, readTlv(der, digestAlg.start)),
-      signatureOid: readOid(der, readTlv(der, sigAlg.start)),
-      signature: der.slice(sigValue.start, sigValue.end),
-      signedAttrs: attrs,
-    };
-
-    if (attrs) {
-      let a = attrs.tlv.start;
-      while (a < attrs.tlv.end) {
-        const attr = readTlv(der, a);
-        if (attr.tag !== 0x30) {
-          a = attr.end;
-          continue;
-        }
-        const attrOid = readOid(der, readTlv(der, attr.start));
-        const set = readTlv(der, readTlv(der, attr.start).end);
-        const value = readTlv(der, set.start);
-        if (attrOid === OID_MESSAGE_DIGEST) {
-          signer.messageDigest = der.slice(value.start, value.end);
-        } else if (attrOid === OID_SIGNING_TIME) {
-          signer.signingTime = readAsn1Time(der, value);
-        }
-        a = attr.end;
-      }
-    }
-
-    // Unsigned attributes follow the signature value; a timestamp token
-    // among them is what makes LTV meaningful.
-    let u = sigValue.end;
-    if (u < si.end) {
-      const unsigned = readTlv(der, u);
-      if (unsigned.tag === 0xa1) {
-        let a = unsigned.start;
-        while (a < unsigned.end) {
-          const attr = readTlv(der, a);
-          if (attr.tag !== 0x30) {
-            a = attr.end;
-            continue;
-          }
-          const attrOid = readOid(der, readTlv(der, attr.start));
-          if (attrOid === OID_TIMESTAMP_TOKEN) signer.timestamped = true;
-          a = attr.end;
-        }
-      }
-    }
-
-    out.push(signer);
+function parseSingleSignerInfo(der: Uint8Array, si: Tlv): SignerInfo | null {
+  let q = si.start;
+  q = readTlv(der, q).end; // version
+  q = readTlv(der, q).end; // sid
+  const digestAlg = readTlv(der, q);
+  q = digestAlg.end;
+  let t = readTlv(der, q);
+  let attrs: { bytes: Uint8Array; tlv: Tlv } | undefined;
+  if (t.tag === 0xa0) {
+    const tagOffset = q;
+    const bytes = der.slice(tagOffset, t.end);
+    bytes[0] = 0x31; // re-tag IMPLICIT [0] → SET OF, as signed
+    attrs = { bytes, tlv: t };
+    q = t.end;
+    t = readTlv(der, q);
   }
-  return out;
+  const sigAlg = t;
+  q = sigAlg.end;
+  const sigValue = readTlv(der, q);
+
+  const signer: SignerInfo = {
+    digestOid: readOid(der, readTlv(der, digestAlg.start)),
+    signatureOid: readOid(der, readTlv(der, sigAlg.start)),
+    signature: der.slice(sigValue.start, sigValue.end),
+    signedAttrs: attrs,
+  };
+
+  if (attrs) {
+    parseSignedAttributes(der, attrs, signer);
+  }
+
+  // Unsigned attributes follow the signature value; a timestamp token
+  // among them is what makes LTV meaningful.
+  let u = sigValue.end;
+  if (u < si.end) {
+    const unsigned = readTlv(der, u);
+    if (unsigned.tag === 0xa1) {
+      parseUnsignedAttributes(der, unsigned, signer);
+    }
+  }
+
+  return signer;
+}
+
+function parseSignedAttributes(
+  der: Uint8Array,
+  attrs: { bytes: Uint8Array; tlv: Tlv },
+  signer: SignerInfo
+): void {
+  let a = attrs.tlv.start;
+  while (a < attrs.tlv.end) {
+    const attr = readTlv(der, a);
+    if (attr.tag !== 0x30) {
+      a = attr.end;
+      continue;
+    }
+    const attrOid = readOid(der, readTlv(der, attr.start));
+    const set = readTlv(der, readTlv(der, attr.start).end);
+    const value = readTlv(der, set.start);
+    if (attrOid === OID_MESSAGE_DIGEST) {
+      signer.messageDigest = der.slice(value.start, value.end);
+    } else if (attrOid === OID_SIGNING_TIME) {
+      signer.signingTime = readAsn1Time(der, value);
+    }
+    a = attr.end;
+  }
+}
+
+function parseUnsignedAttributes(
+  der: Uint8Array,
+  unsigned: Tlv,
+  signer: SignerInfo
+): void {
+  let a = unsigned.start;
+  while (a < unsigned.end) {
+    const attr = readTlv(der, a);
+    if (attr.tag !== 0x30) {
+      a = attr.end;
+      continue;
+    }
+    const attrOid = readOid(der, readTlv(der, attr.start));
+    if (attrOid === OID_TIMESTAMP_TOKEN) signer.timestamped = true;
+    a = attr.end;
+  }
 }
 
 async function verifyChain(leaf: CertInfo, certs: CertInfo[]) {
   let current = leaf;
   const used = new Set<CertInfo>([leaf]);
   let links = true;
+
   for (let depth = 0; depth < 10; depth++) {
     if (current.selfSigned) {
-      const anchor = current.subjectName?.toLowerCase() ?? '';
-      const trusted =
-        anchor.includes('root ca indonesia') || anchor.includes('bsre');
-      const selfOk = await verifyCrypto(
-        current.spki,
-        current.signature,
-        current.tbs,
-        SIGNATURE_OIDS[current.signatureOid]?.hash || 'SHA-256',
-      );
-      return {
-        valid: links && selfOk,
-        trusted: links && selfOk && trusted,
-      };
+      return handleSelfSigned(current, links);
     }
-    const issuer = certs.find(
-      (c) => c !== current && !used.has(c) && c.subjectName === current.issuerName,
-    );
+    const issuer = findIssuer(current, certs, used);
     if (!issuer) return { valid: false, trusted: false };
     used.add(issuer);
-    const hash =
-      SIGNATURE_OIDS[current.signatureOid]?.hash ||
-      SIGNATURE_OIDS[issuer.signatureOid]?.hash ||
-      'SHA-256';
-    const ok = await verifyCrypto(
-      issuer.spki,
-      current.signature,
-      current.tbs,
-      hash,
-    );
+
+    const hash = getVerificationHash(current, issuer);
+    const ok = await verifyCrypto(issuer.spki, current.signature, current.tbs, hash);
     if (!ok) links = false;
     current = issuer;
   }
   return { valid: false, trusted: false };
+}
+
+function handleSelfSigned(current: CertInfo, links: boolean) {
+  const anchor = current.subjectName?.toLowerCase() ?? '';
+  const trusted =
+    anchor.includes('root ca indonesia') || anchor.includes('bsre');
+  const selfOk = await verifyCrypto(
+    current.spki,
+    current.signature,
+    current.tbs,
+    SIGNATURE_OIDS[current.signatureOid]?.hash || 'SHA-256',
+  );
+  return {
+    valid: links && selfOk,
+    trusted: links && selfOk && trusted,
+  };
+}
+
+function findIssuer(current: CertInfo, certs: CertInfo[], used: Set<CertInfo>): CertInfo | undefined {
+  return certs.find(
+    (c) => c !== current && !used.has(c) && c.subjectName === current.issuerName,
+  );
+}
+
+function getVerificationHash(current: CertInfo, issuer: CertInfo): string {
+  return (
+    SIGNATURE_OIDS[current.signatureOid]?.hash ||
+    SIGNATURE_OIDS[issuer.signatureOid]?.hash ||
+    'SHA-256'
+  );
 }
 
 async function verifyEntry(
@@ -1620,9 +1779,7 @@ async function verifyEntry(
     const signer = signers[0];
     const digestName = DIGEST_OIDS[signer.digestOid] ?? 'SHA-256';
     result.digestAlgorithm = digestName;
-    const sigInfo = SIGNATURE_OIDS[signer.signatureOid];
-    result.signatureAlgorithm =
-      sigInfo?.kind === 'ecdsa' ? 'ECDSA' : sigInfo?.kind === 'pss' ? 'RSA-PSS' : 'RSA';
+    result.signatureAlgorithm = getSignatureAlgorithmName(SIGNATURE_OIDS[signer.signatureOid]);
 
     const docDigest = new Uint8Array(
       await crypto.subtle.digest(digestName, signedBytes as BufferSource),

@@ -50,7 +50,7 @@ export const getCollections = query('unchecked', async () => {
         isNullable: !col.notNull,
         // pg array columns are plain `PgText`/etc. with `dimensions > 0`;
         // `columnType.includes('Array')` never matches.
-        isArray: (col as Record<string, unknown>).dimensions > 0,
+        isArray: (col as { dimensions?: number }).dimensions != null && (col as { dimensions?: number }).dimensions > 0,
         defaultValue: col.default,
       }))
 
@@ -157,50 +157,73 @@ function buildFieldFilter(
     const column = columns[key];
     if (!column || entry == null) continue;
 
-    let op: string = 'ilike';
-    let raw: unknown = entry;
-    // The operator form arrives with `%` padding already applied by the client,
-    // because the wire format is a real RQB filter and `getData` (Export) and
-    // `getTableStats` both consume it as-is. The legacy bare-string form is
-    // still padded here.
-    let normalize = normalizeIncomingValue;
-
-    if (typeof entry === 'object' && !Array.isArray(entry)) {
-      // Operator form — take the single operator the catalog defines.
-      const [opKey, opValue] = Object.entries(entry as Record<string, unknown>)[0] ?? [];
-      if (!opKey || !ALLOWED_OPERATORS.has(opKey)) continue;
-      op = opKey;
-      raw = opValue;
-    } else if (entry === '') {
-      // Legacy: an empty string was treated as "no filter".
-      continue;
-    } else if (typeof entry !== 'string') {
-      op = 'eq';
-    } else {
-      normalize = normalizeValue;
+    const filterEntry = buildFilterEntry(key, entry, column);
+    if (filterEntry) {
+      result[key] = filterEntry;
     }
-
-    const def = defForOp(op);
-    if (!def) continue;
-
-    const kind = filterKind({
-      key,
-      name: column.name,
-      type: column.columnType,
-      dataType: column.dataType,
-      isNullable: !column.notNull,
-      isArray: (column as any).dimensions > 0,
-    });
-
-    const value = normalize(def, raw, kind);
-    // `undefined` means the row is still incomplete (e.g. `contains` with an
-    // empty input) — an unfinished filter must not narrow the result set.
-    if (value === undefined) continue;
-
-    result[key] = { [op]: value };
   }
 
   return Object.keys(result).length ? result : undefined;
+}
+
+function buildFilterEntry(
+  key: string,
+  entry: unknown,
+  column: { name: string; columnType: string; dataType: string; notNull: boolean; dimensions?: number },
+): Record<string, any> | undefined {
+  const { op, raw, normalize } = resolveOperatorAndNormalizer(entry);
+  if (!op) return undefined;
+
+  const def = defForOp(op);
+  if (!def) return undefined;
+
+  const kind = filterKind({
+    key,
+    name: column.name,
+    type: column.columnType,
+    dataType: column.dataType,
+    isNullable: !column.notNull,
+    isArray: (column as any).dimensions > 0,
+  });
+
+  const value = normalize(def, raw, kind);
+  if (value === undefined) return undefined;
+
+  return { [op]: value };
+}
+
+function resolveOperatorAndNormalizer(entry: unknown): {
+  op: string | null;
+  raw: unknown;
+  normalize: typeof normalizeIncomingValue | typeof normalizeValue;
+} {
+  // The operator form arrives with `%` padding already applied by the client,
+  // because the wire format is a real RQB filter and `getData` (Export) and
+  // `getTableStats` both consume it as-is. The legacy bare-string form is
+  // still padded here.
+  if (typeof entry === 'object' && !Array.isArray(entry)) {
+    // Operator form — take the single operator the catalog defines.
+    const [opKey, opValue] = Object.entries(entry as Record<string, unknown>)[0] ?? [];
+    if (!opKey || !ALLOWED_OPERATORS.has(opKey)) {
+      return { op: null, raw: null, normalize: normalizeIncomingValue };
+    }
+    return {
+      op: opKey,
+      raw: opValue,
+      normalize: normalizeIncomingValue,
+    };
+  }
+
+  if (entry === '') {
+    // Legacy: an empty string was treated as "no filter".
+    return { op: null, raw: null, normalize: normalizeIncomingValue };
+  }
+
+  if (typeof entry !== 'string') {
+    return { op: 'eq', raw: entry, normalize: normalizeIncomingValue };
+  }
+
+  return { op: 'ilike', raw: entry, normalize: normalizeValue };
 }
 
 /**

@@ -177,7 +177,7 @@ export function readDocumentStructure(
 
     const lines: string[] = [];
     let used = 0;
-    /** Appends a line, or reports that the cap is reached so the walk stops. */
+
     const push = (line: string): boolean => {
       if (used + line.length + 1 > maxChars) return false;
       lines.push(line);
@@ -185,34 +185,8 @@ export function readDocumentStructure(
       return true;
     };
 
-    const listed = query(host, { op: "getTables", scope: { body } });
-    const handles = listed?.kind === "handles" ? listed.handles : [];
-
-    for (const [index, handle] of handles.entries()) {
-      const answer = query(host, { op: "getTable", table: handle });
-      if (answer?.kind !== "table") continue;
-      const { values, rowCount, columnCount, headerRowCount } = answer.table;
-      // The grid is rendered compactly rather than as one line per row: a wide
-      // table at full fidelity would eat the whole cap and starve the prose.
-      const preview = values
-        .slice(0, 3)
-        .map((row) => row.join(" | ").slice(0, paragraphChars))
-        .join(" / ");
-      const more = rowCount > 3 ? ` / …${rowCount - 3} more row(s)` : "";
-      const head = headerRowCount > 0 ? ", header row repeats" : "";
-      const line = `table ${index} (${rowCount}x${columnCount}${head}): ${preview}${more}`;
-      if (!push(line)) return lines.join("\n");
-    }
-
-    const paragraphs = editor.query({ type: "paragraphs" });
-    for (const [i, p] of paragraphs.entries()) {
-      const text = p.text.trim().replace(/\s+/g, " ");
-      if (!text) continue;
-      const style = p.styleId ? ` [style: ${p.styleId}]` : "";
-      const body = text.length > paragraphChars ? `${text.slice(0, paragraphChars)}…` : text;
-      const line = `p${i}${style}: ${body}`;
-      if (!push(line)) return lines.join("\n");
-    }
+    collectTables(host, body, maxChars, paragraphChars, push, lines);
+    collectParagraphs(editor, maxChars, paragraphChars, push, lines);
 
     return lines.join("\n");
   } finally {
@@ -220,388 +194,386 @@ export function readDocumentStructure(
   }
 }
 
+function collectTables(
+  host: Host,
+  body: Handle,
+  maxChars: number,
+  paragraphChars: number,
+  push: (line: string) => boolean,
+  lines: string[],
+): void {
+  const listed = query(host, { op: "getTables", scope: { body } });
+  const handles = listed?.kind === "handles" ? listed.handles : [];
+
+  for (const [index, handle] of handles.entries()) {
+    const answer = query(host, { op: "getTable", table: handle });
+    if (answer?.kind !== "table") continue;
+    const { values, rowCount, columnCount, headerRowCount } = answer.table;
+
+    const preview = values
+      .slice(0, 3)
+      .map((row) => row.join(" | ").slice(0, paragraphChars))
+      .join(" / ");
+    const more = rowCount > 3 ? ` / …${rowCount - 3} more row(s)` : "";
+    const head = headerRowCount > 0 ? ", header row repeats" : "";
+    const line = `table ${index} (${rowCount}x${columnCount}${head}): ${preview}${more}`;
+    if (!push(line)) return;
+  }
+}
+
+function collectParagraphs(
+  editor: DocxEditorInstance,
+  maxChars: number,
+  paragraphChars: number,
+  push: (line: string) => boolean,
+  lines: string[],
+): void {
+  const paragraphs = editor.query({ type: "paragraphs" });
+  for (const [i, p] of paragraphs.entries()) {
+    const text = p.text.trim().replace(/\s+/g, " ");
+    if (!text) continue;
+    const style = p.styleId ? ` [style: ${p.styleId}]` : "";
+    const body = text.length > paragraphChars ? `${text.slice(0, paragraphChars)}…` : text;
+    const line = `p${i}${style}: ${body}`;
+    if (!push(line)) return;
+  }
+}
+
 async function applyStep(host: Host, step: PlanStep): Promise<void> {
-  switch (step.op) {
-    // ---- tables ----------------------------------------------------------
-    case "insertTable": {
-      const anchor = resolveAnchor(host, step.afterText);
-      const res = command(host, {
-        op: "insertTable",
-        // With no anchor the table lands at the very end of the body, which is
-        // where "add a summary table" almost always means. `insertTable` only
-        // spells `Before` and `After`, and "after the body" is its end.
-        span: step.afterText
-          ? { paragraph: requireMatch(anchor, step.afterText).start.paragraph }
-          : { body: anchor.body },
-        location: "After",
-        rowCount: step.rowCount,
-        columnCount: step.columnCount,
-        ...(step.values ? { values: step.values } : {}),
-      });
-      requireChanged(res, "The table could not be inserted there.");
+  const handlers: Record<string, (host: Host, step: PlanStep) => Promise<void>> = {
+    // tables
+    insertTable: applyInsertTable,
+    addRows: applyAddRows,
+    addColumns: applyAddColumns,
+    setTableValues: applySetTableValues,
+    setHeaderRow: applySetHeaderRow,
+    setColumnWidths: applySetColumnWidths,
+    deleteTable: applyDeleteTable,
+    setCell: applySetCell,
+    shadeRow: applyShadeRow,
+    // pictures
+    insertImage: applyInsertImage,
+    deleteImage: applyDeleteImage,
+    // text and paragraph
+    insertParagraph: applyInsertParagraph,
+    replaceText: applyReplaceText,
+    deleteParagraph: applyDeleteParagraph,
+    setList: applySetList,
+    formatText: applyFormatText,
+    align: applyAlign,
+    setStyle: applySetStyle,
+  };
 
-      if (step.headerRow) {
-        // A second transaction, because the new table's handle only exists once
-        // the insert commits. `headerRowCount` is what makes Word repeat the row
-        // across a page break, which is why a newly authored table wants it.
-        const created = handleOf(answerOf(res));
-        if (!created) {
-          throw new StepError("The table was created, but its header row could not be marked.");
-        }
-        const marked = command(host, {
-          op: "updateTable",
-          table: created,
-          mutation: { kind: "properties", headerRowCount: 1 },
-        });
-        if (!marked.changed) {
-          throw new StepError("The table was created, but its header row could not be marked.");
-        }
-      }
-      break;
+  const handler = handlers[step.op];
+  if (!handler) {
+    throw new StepError(`Unknown step operation: ${(step as any).op}`);
+  }
+  await handler(host, step);
+}
+
+async function applyInsertTable(host: Host, step: PlanStep): Promise<void> {
+  const anchor = resolveAnchor(host, step.afterText);
+  const res = command(host, {
+    op: "insertTable",
+    span: step.afterText
+      ? { paragraph: requireMatch(anchor, step.afterText).start.paragraph }
+      : { body: anchor.body },
+    location: "After",
+    rowCount: step.rowCount,
+    columnCount: step.columnCount,
+    ...(step.values ? { values: step.values } : {}),
+  });
+  requireChanged(res, "The table could not be inserted there.");
+
+  if (step.headerRow) {
+    const created = handleOf(answerOf(res));
+    if (!created) {
+      throw new StepError("The table was created, but its header row could not be marked.");
     }
-
-    case "addRows": {
-      const table = requireTable(host, step.table);
-      requireChanged(
-        command(host, {
-          op: "updateTable",
-          table: table.handle,
-          mutation: {
-            kind: "addRows",
-            location: "end",
-            count: step.count,
-            ...(step.values ? { values: step.values } : {}),
-          },
-        }),
-        "The rows could not be added.",
-      );
-      break;
-    }
-
-    case "addColumns": {
-      const table = requireTable(host, step.table);
-      requireChanged(
-        command(host, {
-          op: "updateTable",
-          table: table.handle,
-          mutation: { kind: "addColumns", location: "end", count: step.count },
-        }),
-        "The columns could not be added.",
-      );
-      break;
-    }
-
-    case "setTableValues": {
-      const table = requireTable(host, step.table);
-      requireChanged(
-        command(host, {
-          op: "updateTable",
-          table: table.handle,
-          mutation: { kind: "values", values: step.values },
-        }),
-        "The table contents could not be replaced.",
-      );
-      break;
-    }
-
-    case "setHeaderRow": {
-      const table = requireTable(host, step.table);
-      // A count, not a flag: 1 makes the first row a repeating header, 0 clears
-      // the designation.
-      requireChanged(
-        command(host, {
-          op: "updateTable",
-          table: table.handle,
-          mutation: { kind: "properties", headerRowCount: step.on ? 1 : 0 },
-        }),
-        "The header row could not be changed.",
-      );
-      break;
-    }
-
-    case "setColumnWidths": {
-      const table = requireTable(host, step.table);
-      const grid = readTable(host, table);
-      if (step.widthsCm.length !== grid.columnCount) {
-        // The whole grid has to be rewritten, so a short list is not a partial
-        // edit — it is a mismatch. Saying so beats padding, which would apply
-        // widths the model never chose.
-        throw new StepError(
-          `Table ${step.table} has ${grid.columnCount} column${grid.columnCount === 1 ? "" : "s"}, ` +
-            `so it needs ${grid.columnCount} width${grid.columnCount === 1 ? "" : "s"}, not ${step.widthsCm.length}.`,
-        );
-      }
-
-      // Fitted to the page before anything is written. A table wider than the
-      // text column does not lay out at all, and the engine's own limit is 22
-      // inches, so it would accept widths that render off the edge. Scaled
-      // rather than refused: the user asked for column 1 to be wide and column 5
-      // to be narrow, and that intent survives a proportional squeeze where a
-      // flat "too wide" error does not.
-      const room = textWidthPoints(host);
-      let widths = step.widthsCm.map((cm) => cm * CM_TO_POINTS);
-      const total = widths.reduce((a, b) => a + b, 0);
-      if (room > 0 && total > room) {
-        const scale = room / total;
-        widths = widths.map((w) => w * scale);
-      }
-
-      // One transaction per column. The protocol authors width per CELL
-      // (`updateTableCell`) and the engine expands that into a full-grid
-      // rewrite, so each call reads the current grid, replaces one column, and
-      // leaves the rest — which is why they must be sequential and why the
-      // last one is the only place a refusal can surface.
-      for (const [column, points] of widths.entries()) {
-        requireChanged(
-          command(host, {
-            op: "updateTableCell",
-            cell: requireCell(host, table, 0, column),
-            // The engine takes POINTS and stores twips. It also refuses
-            // anything under 15pt, so a width that rounds below that is lifted
-            // to the floor rather than sent and rejected.
-            properties: { columnWidth: Math.max(MIN_COLUMN_POINTS, Math.round(points)) },
-          }),
-          `The width of column ${column + 1} could not be changed.`,
-        );
-      }
-      break;
-    }
-
-    case "deleteTable": {
-      const table = requireTable(host, step.table);
-      requireChanged(
-        command(host, {
-          op: "updateTable",
-          table: table.handle,
-          mutation: { kind: "delete" },
-        }),
-        "The table could not be removed.",
-      );
-      break;
-    }
-
-    case "setCell": {
-      const table = requireTable(host, step.table);
-      const cell = requireCell(host, table, step.row, step.column);
-      requireChanged(
-        command(host, {
-          op: "updateTableCell",
-          cell: cell,
-          properties: { value: step.text },
-        }),
-        `The cell at row ${step.row + 1}, column ${step.column + 1} could not be written.`,
-      );
-      break;
-    }
-
-    case "shadeRow": {
-      const table = requireTable(host, step.table);
-      const grid = readTable(host, table);
-      if (step.row >= grid.rowCount) {
-        throw new StepError(rowCountMessage(grid.rowCount, step.row));
-      }
-      // Fill is a cell property, so the engine's granularity is one cell. The
-      // first cell of the row carries the band; a full-width merge is not
-      // something this protocol can author, and guessing at one would be worse
-      // than a visible partial band. A null colour clears the direct fill,
-      // which the engine spells as an empty string.
-      requireChanged(
-        command(host, {
-          op: "updateTableCell",
-          cell: requireCell(host, table, step.row, 0),
-          properties: { shadingColor: step.color ?? "" },
-        }),
-        "The row shading could not be applied.",
-      );
-      break;
-    }
-
-    // ---- pictures --------------------------------------------------------
-    case "insertImage": {
-      const anchor = resolveAnchor(host, step.afterText);
-      // Downloaded before anything is written. A failed fetch must not leave
-      // behind the empty paragraph the engine inserts ahead of an anchored
-      // picture.
-      const { base64 } = await fetchImage(step.src);
-      const inserted = command(host, {
-        op: "insertInlinePicture",
-        span: step.afterText
-          ? { paragraph: requireMatch(anchor, step.afterText).start.paragraph }
-          : { body: anchor.body },
-        base64,
-        location: step.afterText ? "After" : "End",
-      });
-      requireChanged(inserted, "The image could not be inserted there.");
-
-      // Sizing is a separate transaction: the picture's handle only exists once
-      // the insert commits.
-      const picture = handleOf(answerOf(inserted)) ?? lastInlinePicture(host, anchor.body);
-      if (!picture) {
-        // The image is in the document; only the sizing was lost. Worth saying,
-        // not worth undoing over.
-        throw new StepError("The image was inserted, but this document would not let it be resized.");
-      }
-      const sized = command(host, {
-        op: "setInlinePicture",
-        picture,
-        properties: {
-          width: clamp(step.widthPoints, IMAGE_MIN, IMAGE_MAX_WIDTH, DEFAULT_IMAGE_WIDTH),
-          height: clamp(step.heightPoints, IMAGE_MIN, IMAGE_MAX_HEIGHT, DEFAULT_IMAGE_HEIGHT),
-          ...(step.title ? { altTextDescription: step.title } : {}),
-        },
-      });
-      if (!sized.changed) {
-        throw new StepError("The image was inserted, but this document refused its size.");
-      }
-      break;
-    }
-
-    case "deleteImage": {
-      const anchor = resolveAnchor(host, undefined);
-      const target = lastInlinePicture(host, anchor.body);
-      if (!target) throw new StepError("There is no image in this document to remove.");
-      requireChanged(
-        command(host, { op: "deleteInlinePicture", picture: target }),
-        "The image could not be removed.",
-      );
-      break;
-    }
-
-    // ---- text and paragraph structure -----------------------------------
-    case "insertParagraph": {
-      const anchor = resolveAnchor(host, step.afterText);
-      const ref: AutomationParagraphRef = step.afterText
-        ? { paragraph: requireMatch(anchor, step.afterText).start.paragraph }
-        : { body: anchor.body, at: "first" };
-      // The engine documents the answer as the new paragraph's handle, which is
-      // what lets the style land on the right paragraph below.
-      const inserted = command(host, {
-        op: "insertParagraph",
-        anchor: ref,
-        where: step.afterText ? "after" : "before",
-        text: step.text,
-      });
-      requireChanged(inserted, "The paragraph could not be inserted.");
-
-      if (step.style) {
-        const created = handleOf(answerOf(inserted));
-        if (!created) {
-          throw new StepError("The paragraph was added, but its style could not be set.");
-        }
-        const styled = command(host, {
-          op: "setStyle",
-          span: { paragraph: created },
-          name: step.style,
-        });
-        // The engine refuses a style name the document does not define rather
-        // than minting one — correct, and common enough on imported documents to
-        // name in the message.
-        if (!styled.changed) {
-          throw new StepError(
-            `The paragraph was added, but this document does not define a style called "${step.style}".`,
-          );
-        }
-      }
-      break;
-    }
-
-    case "replaceText": {
-      const anchor = resolveAnchor(host, step.find);
-      // Replaces exactly the matched run of characters, not the whole
-      // paragraph — quoting a phrase should not delete the sentence around it.
-      const match = requireMatch(anchor, step.find);
-      requireChanged(
-        command(host, { op: "replaceSpan", span: { start: match.start, end: match.end }, text: step.text }),
-        "The text could not be replaced.",
-      );
-      break;
-    }
-
-    case "deleteParagraph": {
-      const anchor = resolveAnchor(host, step.find);
-      // The dedicated op, not an empty `replaceSpan`. An empty replacement that
-      // crosses a paragraph mark joins the surrounding paragraphs, which is not
-      // the same thing as removing the paragraph the user named.
-      requireChanged(
-        command(host, {
-          op: "deleteParagraph",
-          paragraph: requireMatch(anchor, step.find).start.paragraph,
-        }),
-        "The paragraph could not be removed.",
-      );
-      break;
-    }
-
-    case "setList": {
-      const anchor = resolveAnchor(host, step.find);
-      const paragraph = requireMatch(anchor, step.find).start.paragraph;
-      // Solitary: it mints a new numbering definition at the package level.
-      requireChanged(
-        command(host, { op: "startNewList", paragraph }),
-        "The list could not be started.",
-      );
-      const list = queryHandle(host, { op: "getParagraphList", paragraph });
-      if (!list) {
-        // A paragraph in no list is REFUSED rather than answered an empty one,
-        // so a null here means the start did not take.
-        throw new StepError("The list was started, but this paragraph did not join it.");
-      }
-      const formatted = command(host, {
-        op: "setListLevelFormat",
-        list,
-        level: 0,
-        format: listFormat(step),
-      });
-      if (!formatted.changed) {
-        throw new StepError("The list was started, but its marker style was refused.");
-      }
-      break;
-    }
-
-    case "formatText": {
-      const anchor = resolveAnchor(host, step.find);
-      const match = requireMatch(anchor, step.find);
-      // The matched text, not the paragraph. Formatting a whole paragraph
-      // because a phrase inside it was named would restyle the rest of it too.
-      requireChanged(
-        command(host, {
-          op: "setFont",
-          span: { start: match.start, end: match.end },
-          font: FONT_MARKS[step.mark],
-        }),
-        `The ${step.mark} could not be applied.`,
-      );
-      break;
-    }
-
-    case "align": {
-      const anchor = resolveAnchor(host, step.find);
-      requireChanged(
-        command(host, {
-          op: "setParagraphFormat",
-          // Whole paragraph: alignment is a paragraph property, so there is
-          // nothing finer-grained to address.
-          paragraph: { paragraph: requireMatch(anchor, step.find).start.paragraph },
-          format: { alignment: ENGINE_ALIGNMENT[step.align] },
-        }),
-        "The alignment could not be changed.",
-      );
-      break;
-    }
-
-    case "setStyle": {
-      const anchor = resolveAnchor(host, step.find);
-      requireChanged(
-        command(host, {
-          op: "setStyle",
-          span: { paragraph: requireMatch(anchor, step.find).start.paragraph },
-          name: step.style,
-        }),
-        `This document does not define a style called "${step.style}".`,
-      );
-      break;
+    const marked = command(host, {
+      op: "updateTable",
+      table: created,
+      mutation: { kind: "properties", headerRowCount: 1 },
+    });
+    if (!marked.changed) {
+      throw new StepError("The table was created, but its header row could not be marked.");
     }
   }
+}
+
+async function applyAddRows(host: Host, step: PlanStep): Promise<void> {
+  const table = requireTable(host, step.table);
+  requireChanged(
+    command(host, {
+      op: "updateTable",
+      table: table.handle,
+      mutation: {
+        kind: "addRows",
+        location: "end",
+        count: step.count,
+        ...(step.values ? { values: step.values } : {}),
+      },
+    }),
+    "The rows could not be added.",
+  );
+}
+
+async function applyAddColumns(host: Host, step: PlanStep): Promise<void> {
+  const table = requireTable(host, step.table);
+  requireChanged(
+    command(host, {
+      op: "updateTable",
+      table: table.handle,
+      mutation: { kind: "addColumns", location: "end", count: step.count },
+    }),
+    "The columns could not be added.",
+  );
+}
+
+async function applySetTableValues(host: Host, step: PlanStep): Promise<void> {
+  const table = requireTable(host, step.table);
+  requireChanged(
+    command(host, {
+      op: "updateTable",
+      table: table.handle,
+      mutation: { kind: "values", values: step.values },
+    }),
+    "The table contents could not be replaced.",
+  );
+}
+
+async function applySetHeaderRow(host: Host, step: PlanStep): Promise<void> {
+  const table = requireTable(host, step.table);
+  requireChanged(
+    command(host, {
+      op: "updateTable",
+      table: table.handle,
+      mutation: { kind: "properties", headerRowCount: step.on ? 1 : 0 },
+    }),
+    "The header row could not be changed.",
+  );
+}
+
+async function applySetColumnWidths(host: Host, step: PlanStep): Promise<void> {
+  const table = requireTable(host, step.table);
+  const grid = readTable(host, table);
+  if (step.widthsCm.length !== grid.columnCount) {
+    throw new StepError(
+      `Table ${step.table} has ${grid.columnCount} column${grid.columnCount === 1 ? "" : "s"}, ` +
+        `so it needs ${grid.columnCount} width${grid.columnCount === 1 ? "" : "s"}, not ${step.widthsCm.length}.`,
+    );
+  }
+
+  const room = textWidthPoints(host);
+  let widths = step.widthsCm.map((cm) => cm * CM_TO_POINTS);
+  const total = widths.reduce((a, b) => a + b, 0);
+  if (room > 0 && total > room) {
+    const scale = room / total;
+    widths = widths.map((w) => w * scale);
+  }
+
+  for (const [column, points] of widths.entries()) {
+    requireChanged(
+      command(host, {
+        op: "updateTableCell",
+        cell: requireCell(host, table, 0, column),
+        properties: { columnWidth: Math.max(MIN_COLUMN_POINTS, Math.round(points)) },
+      }),
+      `The width of column ${column + 1} could not be changed.`,
+    );
+  }
+}
+
+async function applyDeleteTable(host: Host, step: PlanStep): Promise<void> {
+  const table = requireTable(host, step.table);
+  requireChanged(
+    command(host, {
+      op: "updateTable",
+      table: table.handle,
+      mutation: { kind: "delete" },
+    }),
+    "The table could not be removed.",
+  );
+}
+
+async function applySetCell(host: Host, step: PlanStep): Promise<void> {
+  const table = requireTable(host, step.table);
+  const cell = requireCell(host, table, step.row, step.column);
+  requireChanged(
+    command(host, {
+      op: "updateTableCell",
+      cell: cell,
+      properties: { value: step.text },
+    }),
+    `The cell at row ${step.row + 1}, column ${step.column + 1} could not be written.`,
+  );
+}
+
+async function applyShadeRow(host: Host, step: PlanStep): Promise<void> {
+  const table = requireTable(host, step.table);
+  const grid = readTable(host, table);
+  if (step.row >= grid.rowCount) {
+    throw new StepError(rowCountMessage(grid.rowCount, step.row));
+  }
+  requireChanged(
+    command(host, {
+      op: "updateTableCell",
+      cell: requireCell(host, table, step.row, 0),
+      properties: { shadingColor: step.color ?? "" },
+    }),
+    "The row shading could not be applied.",
+  );
+}
+
+async function applyInsertImage(host: Host, step: PlanStep): Promise<void> {
+  const anchor = resolveAnchor(host, step.afterText);
+  const { base64 } = await fetchImage(step.src);
+  const inserted = command(host, {
+    op: "insertInlinePicture",
+    span: step.afterText
+      ? { paragraph: requireMatch(anchor, step.afterText).start.paragraph }
+      : { body: anchor.body },
+    base64,
+    location: step.afterText ? "After" : "End",
+  });
+  requireChanged(inserted, "The image could not be inserted there.");
+
+  const picture = handleOf(answerOf(inserted)) ?? lastInlinePicture(host, anchor.body);
+  if (!picture) {
+    throw new StepError("The image was inserted, but this document would not let it be resized.");
+  }
+  const sized = command(host, {
+    op: "setInlinePicture",
+    picture,
+    properties: {
+      width: clamp(step.widthPoints, IMAGE_MIN, IMAGE_MAX_WIDTH, DEFAULT_IMAGE_WIDTH),
+      height: clamp(step.heightPoints, IMAGE_MIN, IMAGE_MAX_HEIGHT, DEFAULT_IMAGE_HEIGHT),
+      ...(step.title ? { altTextDescription: step.title } : {}),
+    },
+  });
+  if (!sized.changed) {
+    throw new StepError("The image was inserted, but this document refused its size.");
+  }
+}
+
+async function applyDeleteImage(host: Host, step: PlanStep): Promise<void> {
+  const anchor = resolveAnchor(host, undefined);
+  const target = lastInlinePicture(host, anchor.body);
+  if (!target) throw new StepError("There is no image in this document to remove.");
+  requireChanged(
+    command(host, { op: "deleteInlinePicture", picture: target }),
+    "The image could not be removed.",
+  );
+}
+
+async function applyInsertParagraph(host: Host, step: PlanStep): Promise<void> {
+  const anchor = resolveAnchor(host, step.afterText);
+  const ref: AutomationParagraphRef = step.afterText
+    ? { paragraph: requireMatch(anchor, step.afterText).start.paragraph }
+    : { body: anchor.body, at: "first" };
+  const inserted = command(host, {
+    op: "insertParagraph",
+    anchor: ref,
+    where: step.afterText ? "after" : "before",
+    text: step.text,
+  });
+  requireChanged(inserted, "The paragraph could not be inserted.");
+
+  if (step.style) {
+    const created = handleOf(answerOf(inserted));
+    if (!created) {
+      throw new StepError("The paragraph was added, but its style could not be set.");
+    }
+    const styled = command(host, {
+      op: "setStyle",
+      span: { paragraph: created },
+      name: step.style,
+    });
+    if (!styled.changed) {
+      throw new StepError(
+        `The paragraph was added, but this document does not define a style called "${step.style}".`,
+      );
+    }
+  }
+}
+
+async function applyReplaceText(host: Host, step: PlanStep): Promise<void> {
+  const anchor = resolveAnchor(host, step.find);
+  const match = requireMatch(anchor, step.find);
+  requireChanged(
+    command(host, { op: "replaceSpan", span: { start: match.start, end: match.end }, text: step.text }),
+    "The text could not be replaced.",
+  );
+}
+
+async function applyDeleteParagraph(host: Host, step: PlanStep): Promise<void> {
+  const anchor = resolveAnchor(host, step.find);
+  requireChanged(
+    command(host, {
+      op: "deleteParagraph",
+      paragraph: requireMatch(anchor, step.find).start.paragraph,
+    }),
+    "The paragraph could not be removed.",
+  );
+}
+
+async function applySetList(host: Host, step: PlanStep): Promise<void> {
+  const anchor = resolveAnchor(host, step.find);
+  const paragraph = requireMatch(anchor, step.find).start.paragraph;
+  requireChanged(
+    command(host, { op: "startNewList", paragraph }),
+    "The list could not be started.",
+  );
+  const list = queryHandle(host, { op: "getParagraphList", paragraph });
+  if (!list) {
+    throw new StepError("The list was started, but this paragraph did not join it.");
+  }
+  const formatted = command(host, {
+    op: "setListLevelFormat",
+    list,
+    level: 0,
+    format: listFormat(step),
+  });
+  if (!formatted.changed) {
+    throw new StepError("The list was started, but its marker style was refused.");
+  }
+}
+
+async function applyFormatText(host: Host, step: PlanStep): Promise<void> {
+  const anchor = resolveAnchor(host, step.find);
+  const match = requireMatch(anchor, step.find);
+  requireChanged(
+    command(host, {
+      op: "setFont",
+      span: { start: match.start, end: match.end },
+      font: FONT_MARKS[step.mark],
+    }),
+    `The ${step.mark} could not be applied.`,
+  );
+}
+
+async function applyAlign(host: Host, step: PlanStep): Promise<void> {
+  const anchor = resolveAnchor(host, step.find);
+  requireChanged(
+    command(host, {
+      op: "setParagraphFormat",
+      paragraph: { paragraph: requireMatch(anchor, step.find).start.paragraph },
+      format: { alignment: ENGINE_ALIGNMENT[step.align] },
+    }),
+    "The alignment could not be changed.",
+  );
+}
+
+async function applySetStyle(host: Host, step: PlanStep): Promise<void> {
+  const anchor = resolveAnchor(host, step.find);
+  requireChanged(
+    command(host, {
+      op: "setStyle",
+      span: { paragraph: requireMatch(anchor, step.find).start.paragraph },
+      name: step.style,
+    }),
+    `This document does not define a style called "${step.style}".`,
+  );
 }
 
 // ============ ADDRESSING ============

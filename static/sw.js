@@ -75,6 +75,7 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("message", (event) => {
+  if (event.origin !== globalThis.location.origin) return;
   if (event.data?.type === "SKIP_WAITING") globalThis.skipWaiting();
 });
 

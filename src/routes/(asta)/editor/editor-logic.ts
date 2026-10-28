@@ -70,6 +70,14 @@ interface RulerDragState {
   startPage: RulerPageMetrics | null;
 }
 
+function setDocumentTitle(name: string) {
+  const clean = name.trim();
+  document.title =
+    clean && clean !== "Untitled"
+      ? `${clean} – Tapak Astà`
+      : "Buat Dokumen – Tapak Astà";
+}
+
 function createRulerDragState(): RulerDragState {
   return {
     marker: null,
@@ -1063,14 +1071,6 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
     }
     pageSetupDialog?.close();
     updateAll();
-  }
-
-  function setDocumentTitle(name: string) {
-    const clean = name.trim();
-    document.title =
-      clean && clean !== "Untitled"
-        ? `${clean} – Tapak Astà`
-        : "Buat Dokumen – Tapak Astà";
   }
 
   async function newDocument() {
@@ -2929,33 +2929,52 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
     if (!editor || !pageStatus) return;
     const total = editor.getTotalPages();
     if (!Number.isFinite(total)) return;
+
+    const current = findCurrentPage(total);
+    if (current === null) return;
+
+    updatePageStatusUI(current, total);
+  }
+
+  function findCurrentPage(total: number): number | null {
     const pages = editorContainer?.querySelectorAll<HTMLElement>(".docx-page");
-    let current: number | null = null;
     if (pages?.length && documentViewport) {
       const viewportRect = documentViewport.getBoundingClientRect();
       const probeY = viewportRect.top + 1;
-      let best: { rect: DOMRect; element: HTMLElement } | null = null;
-      for (const pageElement of pages) {
-        const rect = pageElement.getBoundingClientRect();
-        if (rect.bottom <= probeY) continue;
-        if (!best || rect.top < best.rect.top) best = { rect, element: pageElement };
-      }
+      const best = findBestPage(pages, probeY);
       if (best) {
         const index = Array.from(pages).indexOf(best.element);
-        if (index >= 0) current = index + 1;
+        if (index >= 0) return index + 1;
       }
     }
-    if (current === null) {
-      const editorPage = editor.getCurrentPage("viewport");
-      if (Number.isFinite(editorPage)) current = editorPage;
+
+    const editorPage = editor.getCurrentPage("viewport");
+    if (Number.isFinite(editorPage)) return editorPage;
+
+    return null;
+  }
+
+  function findBestPage(
+    pages: NodeListOf<HTMLElement>,
+    probeY: number
+  ): { rect: DOMRect; element: HTMLElement } | null {
+    let best: { rect: DOMRect; element: HTMLElement } | null = null;
+    for (const pageElement of pages) {
+      const rect = pageElement.getBoundingClientRect();
+      if (rect.bottom <= probeY) continue;
+      if (!best || rect.top < best.rect.top) best = { rect, element: pageElement };
     }
-    if (current !== null) pageStatus.textContent = `Page ${current} of ${total}`;
+    return best;
+  }
+
+  function updatePageStatusUI(current: number, total: number): void {
+    pageStatus.textContent = `Page ${current} of ${total}`;
     if (pageTotal) pageTotal.textContent = String(total);
-    if (pageInput && document.activeElement !== pageInput && current !== null) {
+    if (pageInput && document.activeElement !== pageInput) {
       pageInput.value = String(current);
     }
-    if (pagePrevBtn) pagePrevBtn.disabled = current !== null && current <= 1;
-    if (pageNextBtn) pageNextBtn.disabled = current !== null && current >= total;
+    if (pagePrevBtn) pagePrevBtn.disabled = current <= 1;
+    if (pageNextBtn) pageNextBtn.disabled = current >= total;
   }
 
   function flashPageStatus() {
@@ -4160,7 +4179,7 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
     }
   }
 
-  void init();
+  init();
 
   return {
     editor,

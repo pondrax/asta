@@ -239,214 +239,237 @@ function readStep(candidate: unknown): StepResult {
   const op = candidate.op;
   if (typeof op !== "string") return bad("A plan step had no operation.");
 
-  switch (op) {
-    case "insertTable": {
-      const rowCount = readInt(candidate.rowCount, 1, PLAN_LIMITS.maxTableSize);
-      const columnCount = readInt(candidate.columnCount, 1, PLAN_LIMITS.maxTableSize);
-      if (rowCount === null || columnCount === null) {
-        return bad("A table needs a row and column count between 1 and 20.");
-      }
-      const values = readMatrix(candidate.values);
-      if (values === null) return bad("A table's values were not a rectangular list of text.");
-      if (values && values.length * columnCount > PLAN_LIMITS.maxTableCells) {
-        return bad("That table has too many cells.");
-      }
-      return {
-        ok: true,
-        step: {
-          op,
-          ...(readAnchor(candidate.afterText) ? { afterText: readAnchor(candidate.afterText)! } : {}),
-          rowCount,
-          columnCount,
-          ...(values ? { values } : {}),
-          ...(typeof candidate.headerRow === "boolean" ? { headerRow: candidate.headerRow } : {}),
-        },
-      };
-    }
+  const handlers: Record<string, (candidate: Record<string, unknown>) => StepResult> = {
+    insertTable: readInsertTable,
+    addRows: readAddRows,
+    addColumns: readAddColumns,
+    setCell: readSetCell,
+    setTableValues: readSetTableValues,
+    setHeaderRow: readSetHeaderRow,
+    shadeRow: readShadeRow,
+    setColumnWidths: readSetColumnWidths,
+    deleteTable: readDeleteTable,
+    insertImage: readInsertImage,
+    deleteImage: readDeleteImage,
+    insertParagraph: readInsertParagraph,
+    replaceText: readReplaceText,
+    deleteParagraph: readDeleteParagraph,
+    setList: readSetList,
+    formatText: readFormatText,
+    align: readAlign,
+    setStyle: readSetStyle,
+  };
 
-    case "addRows":
-    case "addColumns": {
-      const table = readIndex(candidate.table);
-      if (table === null) return bad("A table step did not say which table.");
-      if (op === "addColumns") {
-        const count = readInt(candidate.count, 1, PLAN_LIMITS.maxTableSize);
-        if (count === null) return bad("addColumns needs a count between 1 and 20.");
-        return { ok: true, step: { op, table, count } };
-      }
-      const count = readInt(candidate.count, 1, PLAN_LIMITS.maxTableSize);
-      if (count === null) return bad("addRows needs a count between 1 and 20.");
-      const values = readMatrix(candidate.values);
-      if (values === null) return bad("addRows values were not a rectangular list of text.");
-      return {
-        ok: true,
-        step: { op, table, count, ...(values ? { values } : {}) },
-      };
-    }
-
-    case "setCell": {
-      const table = readIndex(candidate.table);
-      const row = readIndex(candidate.row);
-      const column = readIndex(candidate.column);
-      const text = readBoundedText(candidate.text);
-      if (table === null || row === null || column === null || text === null) {
-        return bad("setCell needs a table, row, column and text.");
-      }
-      return { ok: true, step: { op, table, row, column, text } };
-    }
-
-    case "setTableValues": {
-      const table = readIndex(candidate.table);
-      if (table === null) return bad("setTableValues did not say which table.");
-      const values = readMatrix(candidate.values);
-      if (!values) return bad("setTableValues needs a rectangular list of rows.");
-      if (values.length * Math.max(1, values[0].length) > PLAN_LIMITS.maxTableCells) {
-        return bad("That table has too many cells.");
-      }
-      return { ok: true, step: { op, table, values } };
-    }
-
-    case "setHeaderRow": {
-      const table = readIndex(candidate.table);
-      if (table === null || typeof candidate.on !== "boolean") {
-        return bad("setHeaderRow needs a table and true or false.");
-      }
-      return { ok: true, step: { op, table, on: candidate.on } };
-    }
-
-    case "shadeRow": {
-      const table = readIndex(candidate.table);
-      const row = readIndex(candidate.row);
-      if (table === null || row === null) return bad("shadeRow needs a table and a row.");
-      if (candidate.color !== null && !readColor(candidate.color)) {
-        return bad("shadeRow needs a six-digit hex colour, or null to clear it.");
-      }
-      return {
-        ok: true,
-        step: { op, table, row, color: readColor(candidate.color) ?? null },
-      };
-    }
-
-    case "setColumnWidths": {
-      const table = readIndex(candidate.table);
-      if (table === null) return bad("setColumnWidths did not say which table.");
-      const raw = candidate.widthsCm;
-      if (!Array.isArray(raw) || raw.length === 0) {
-        return bad("setColumnWidths needs a list of widths in centimetres.");
-      }
-      // One width per column, and the count is checked against the real grid in
-      // the executor — the plan cannot know how many columns table N has.
-      const widths: number[] = [];
-      for (const value of raw) {
-        const cm = readNumber(value, PLAN_LIMITS.minColumnCm, PLAN_LIMITS.maxColumnCm);
-        if (cm === null) {
-          return bad(
-            `Column widths must be numbers between ${PLAN_LIMITS.minColumnCm} and ${PLAN_LIMITS.maxColumnCm} centimetres.`,
-          );
-        }
-        widths.push(cm);
-      }
-      return { ok: true, step: { op, table, widthsCm: widths } };
-    }
-
-    case "deleteTable": {
-      const table = readIndex(candidate.table);
-      if (table === null) return bad("deleteTable did not say which table.");
-      return { ok: true, step: { op, table } };
-    }
-
-    case "insertImage": {
-      const src = readImageSrc(candidate.src);
-      if (!src) {
-        return bad("insertImage needs a data: image or an https:// URL.");
-      }
-      return {
-        ok: true,
-        step: {
-          op,
-          ...(readAnchor(candidate.afterText) ? { afterText: readAnchor(candidate.afterText)! } : {}),
-          src,
-          ...(readNumber(candidate.widthPoints, 12, 1_200) !== null
-            ? { widthPoints: readNumber(candidate.widthPoints, 12, 1_200)! }
-            : {}),
-          ...(readNumber(candidate.heightPoints, 12, 1_200) !== null
-            ? { heightPoints: readNumber(candidate.heightPoints, 12, 1_200)! }
-            : {}),
-          ...(readBoundedText(candidate.title) ? { title: readBoundedText(candidate.title)! } : {}),
-        },
-      };
-    }
-
-    case "deleteImage":
-      return { ok: true, step: { op } };
-
-    case "insertParagraph": {
-      const text = readBoundedText(candidate.text);
-      if (text === null) return bad("insertParagraph needs some text.");
-      const style = readStyle(candidate.style);
-      return {
-        ok: true,
-        step: {
-          op,
-          ...(readAnchor(candidate.afterText) ? { afterText: readAnchor(candidate.afterText)! } : {}),
-          text,
-          ...(style ? { style } : {}),
-        },
-      };
-    }
-
-    case "replaceText": {
-      const find = readAnchor(candidate.find, PLAN_LIMITS.maxFindLength);
-      const text = readBoundedText(candidate.text);
-      if (!find || text === null) return bad("replaceText needs the text to find and its replacement.");
-      return { ok: true, step: { op, find, text } };
-    }
-
-    case "deleteParagraph": {
-      const find = readAnchor(candidate.find, PLAN_LIMITS.maxFindLength);
-      if (!find) return bad("deleteParagraph needs the text identifying the paragraph.");
-      return { ok: true, step: { op, find } };
-    }
-
-    case "setList": {
-      const find = readAnchor(candidate.find, PLAN_LIMITS.maxFindLength);
-      if (!find) return bad("setList needs the text identifying the paragraph.");
-      if (candidate.kind !== "bullet" && candidate.kind !== "ordered") {
-        return bad("setList kind must be bullet or ordered.");
-      }
-      const bullet = readEnum(candidate.bullet, BULLETS);
-      return {
-        ok: true,
-        step: { op, find, kind: candidate.kind, ...(bullet ? { bullet } : {}) },
-      };
-    }
-
-    case "formatText": {
-      const find = readAnchor(candidate.find, PLAN_LIMITS.maxFindLength);
-      if (!find) return bad("formatText needs the text to format.");
-      const mark = readEnum(candidate.mark, MARKS);
-      if (!mark) return bad(`formatText mark must be one of: ${MARKS.join(", ")}.`);
-      return { ok: true, step: { op, find, mark } };
-    }
-
-    case "align": {
-      const find = readAnchor(candidate.find, PLAN_LIMITS.maxFindLength);
-      if (!find) return bad("align needs the text identifying the paragraph.");
-      const align = readEnum(candidate.align, ALIGNMENTS);
-      if (!align) return bad("align must be left, center, right or justify.");
-      return { ok: true, step: { op, find, align } };
-    }
-
-    case "setStyle": {
-      const find = readAnchor(candidate.find, PLAN_LIMITS.maxFindLength);
-      if (!find) return bad("setStyle needs the text identifying the paragraph.");
-      const style = readStyle(candidate.style);
-      if (!style) return bad(`setStyle needs one of: ${STYLES.join(", ")}.`);
-      return { ok: true, step: { op, find, style } };
-    }
-
-    default:
-      return bad(`AI asked for an unsupported operation: ${op.slice(0, 40)}.`);
+  const handler = handlers[op];
+  if (!handler) {
+    return bad(`AI asked for an unsupported operation: ${op.slice(0, 40)}.`);
   }
+  return handler(candidate);
+}
+
+function readInsertTable(candidate: Record<string, unknown>): StepResult {
+  const rowCount = readInt(candidate.rowCount, 1, PLAN_LIMITS.maxTableSize);
+  const columnCount = readInt(candidate.columnCount, 1, PLAN_LIMITS.maxTableSize);
+  if (rowCount === null || columnCount === null) {
+    return bad("A table needs a row and column count between 1 and 20.");
+  }
+  const values = readMatrix(candidate.values);
+  if (values === null) return bad("A table's values were not a rectangular list of text.");
+  if (values && values.length * columnCount > PLAN_LIMITS.maxTableCells) {
+    return bad("That table has too many cells.");
+  }
+  return {
+    ok: true,
+    step: {
+      op: "insertTable",
+      ...(readAnchor(candidate.afterText) ? { afterText: readAnchor(candidate.afterText)! } : {}),
+      rowCount,
+      columnCount,
+      ...(values ? { values } : {}),
+      ...(typeof candidate.headerRow === "boolean" ? { headerRow: candidate.headerRow } : {}),
+    },
+  };
+}
+
+function readAddRows(candidate: Record<string, unknown>): StepResult {
+  const table = readIndex(candidate.table);
+  if (table === null) return bad("addRows did not say which table.");
+  const count = readInt(candidate.count, 1, PLAN_LIMITS.maxTableSize);
+  if (count === null) return bad("addRows needs a count between 1 and 20.");
+  const values = readMatrix(candidate.values);
+  if (values === null) return bad("addRows values were not a rectangular list of text.");
+  return {
+    ok: true,
+    step: { op: "addRows", table, count, ...(values ? { values } : {}) },
+  };
+}
+
+function readAddColumns(candidate: Record<string, unknown>): StepResult {
+  const table = readIndex(candidate.table);
+  if (table === null) return bad("addColumns did not say which table.");
+  const count = readInt(candidate.count, 1, PLAN_LIMITS.maxTableSize);
+  if (count === null) return bad("addColumns needs a count between 1 and 20.");
+  return { ok: true, step: { op: "addColumns", table, count } };
+}
+
+function readSetCell(candidate: Record<string, unknown>): StepResult {
+  const table = readIndex(candidate.table);
+  const row = readIndex(candidate.row);
+  const column = readIndex(candidate.column);
+  const text = readBoundedText(candidate.text);
+  if (table === null || row === null || column === null || text === null) {
+    return bad("setCell needs a table, row, column and text.");
+  }
+  return { ok: true, step: { op: "setCell", table, row, column, text } };
+}
+
+function readSetTableValues(candidate: Record<string, unknown>): StepResult {
+  const table = readIndex(candidate.table);
+  if (table === null) return bad("setTableValues did not say which table.");
+  const values = readMatrix(candidate.values);
+  if (!values) return bad("setTableValues needs a rectangular list of rows.");
+  if (values.length * Math.max(1, values[0].length) > PLAN_LIMITS.maxTableCells) {
+    return bad("That table has too many cells.");
+  }
+  return { ok: true, step: { op: "setTableValues", table, values } };
+}
+
+function readSetHeaderRow(candidate: Record<string, unknown>): StepResult {
+  const table = readIndex(candidate.table);
+  if (table === null || typeof candidate.on !== "boolean") {
+    return bad("setHeaderRow needs a table and true or false.");
+  }
+  return { ok: true, step: { op: "setHeaderRow", table, on: candidate.on } };
+}
+
+function readShadeRow(candidate: Record<string, unknown>): StepResult {
+  const table = readIndex(candidate.table);
+  const row = readIndex(candidate.row);
+  if (table === null || row === null) return bad("shadeRow needs a table and a row.");
+  if (candidate.color !== null && !readColor(candidate.color)) {
+    return bad("shadeRow needs a six-digit hex colour, or null to clear it.");
+  }
+  return {
+    ok: true,
+    step: { op: "shadeRow", table, row, color: readColor(candidate.color) ?? null },
+  };
+}
+
+function readSetColumnWidths(candidate: Record<string, unknown>): StepResult {
+  const table = readIndex(candidate.table);
+  if (table === null) return bad("setColumnWidths did not say which table.");
+  const raw = candidate.widthsCm;
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return bad("setColumnWidths needs a list of widths in centimetres.");
+  }
+  const widths: number[] = [];
+  for (const value of raw) {
+    const cm = readNumber(value, PLAN_LIMITS.minColumnCm, PLAN_LIMITS.maxColumnCm);
+    if (cm === null) {
+      return bad(
+        `Column widths must be numbers between ${PLAN_LIMITS.minColumnCm} and ${PLAN_LIMITS.maxColumnCm} centimetres.`,
+      );
+    }
+    widths.push(cm);
+  }
+  return { ok: true, step: { op: "setColumnWidths", table, widthsCm: widths } };
+}
+
+function readDeleteTable(candidate: Record<string, unknown>): StepResult {
+  const table = readIndex(candidate.table);
+  if (table === null) return bad("deleteTable did not say which table.");
+  return { ok: true, step: { op: "deleteTable", table } };
+}
+
+function readInsertImage(candidate: Record<string, unknown>): StepResult {
+  const src = readImageSrc(candidate.src);
+  if (!src) {
+    return bad("insertImage needs a data: image or an https:// URL.");
+  }
+  return {
+    ok: true,
+    step: {
+      op: "insertImage",
+      ...(readAnchor(candidate.afterText) ? { afterText: readAnchor(candidate.afterText)! } : {}),
+      src,
+      ...(readNumber(candidate.widthPoints, 12, 1_200) !== null
+        ? { widthPoints: readNumber(candidate.widthPoints, 12, 1_200)! }
+        : {}),
+      ...(readNumber(candidate.heightPoints, 12, 1_200) !== null
+        ? { heightPoints: readNumber(candidate.heightPoints, 12, 1_200)! }
+        : {}),
+      ...(readBoundedText(candidate.title) ? { title: readBoundedText(candidate.title)! } : {}),
+    },
+  };
+}
+
+function readDeleteImage(_candidate: Record<string, unknown>): StepResult {
+  return { ok: true, step: { op: "deleteImage" } };
+}
+
+function readInsertParagraph(candidate: Record<string, unknown>): StepResult {
+  const text = readBoundedText(candidate.text);
+  if (text === null) return bad("insertParagraph needs some text.");
+  const style = readStyle(candidate.style);
+  return {
+    ok: true,
+    step: {
+      op: "insertParagraph",
+      ...(readAnchor(candidate.afterText) ? { afterText: readAnchor(candidate.afterText)! } : {}),
+      text,
+      ...(style ? { style } : {}),
+    },
+  };
+}
+
+function readReplaceText(candidate: Record<string, unknown>): StepResult {
+  const find = readAnchor(candidate.find, PLAN_LIMITS.maxFindLength);
+  const text = readBoundedText(candidate.text);
+  if (!find || text === null) return bad("replaceText needs the text to find and its replacement.");
+  return { ok: true, step: { op: "replaceText", find, text } };
+}
+
+function readDeleteParagraph(candidate: Record<string, unknown>): StepResult {
+  const find = readAnchor(candidate.find, PLAN_LIMITS.maxFindLength);
+  if (!find) return bad("deleteParagraph needs the text identifying the paragraph.");
+  return { ok: true, step: { op: "deleteParagraph", find } };
+}
+
+function readSetList(candidate: Record<string, unknown>): StepResult {
+  const find = readAnchor(candidate.find, PLAN_LIMITS.maxFindLength);
+  if (!find) return bad("setList needs the text identifying the paragraph.");
+  if (candidate.kind !== "bullet" && candidate.kind !== "ordered") {
+    return bad("setList kind must be bullet or ordered.");
+  }
+  const bullet = readEnum(candidate.bullet, BULLETS);
+  return {
+    ok: true,
+    step: { op: "setList", find, kind: candidate.kind, ...(bullet ? { bullet } : {}) },
+  };
+}
+
+function readFormatText(candidate: Record<string, unknown>): StepResult {
+  const find = readAnchor(candidate.find, PLAN_LIMITS.maxFindLength);
+  if (!find) return bad("formatText needs the text to format.");
+  const mark = readEnum(candidate.mark, MARKS);
+  if (!mark) return bad(`formatText mark must be one of: ${MARKS.join(", ")}.`);
+  return { ok: true, step: { op: "formatText", find, mark } };
+}
+
+function readAlign(candidate: Record<string, unknown>): StepResult {
+  const find = readAnchor(candidate.find, PLAN_LIMITS.maxFindLength);
+  if (!find) return bad("align needs the text identifying the paragraph.");
+  const align = readEnum(candidate.align, ALIGNMENTS);
+  if (!align) return bad("align must be left, center, right or justify.");
+  return { ok: true, step: { op: "align", find, align } };
+}
+
+function readSetStyle(candidate: Record<string, unknown>): StepResult {
+  const find = readAnchor(candidate.find, PLAN_LIMITS.maxFindLength);
+  if (!find) return bad("setStyle needs the text identifying the paragraph.");
+  const style = readStyle(candidate.style);
+  if (!style) return bad(`setStyle needs one of: ${STYLES.join(", ")}.`);
+  return { ok: true, step: { op: "setStyle", find, style } };
 }
 
 function bad(reason: string): { ok: false; reason: string } {

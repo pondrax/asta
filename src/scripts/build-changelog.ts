@@ -136,69 +136,82 @@ function applyVisibleMeta(
   const k = key.toLowerCase();
 
   if (k === "halaman" || k === "page") {
-    // Same `route - Label` shape the old section headings used: split on the
-    // first " - " so a hyphen inside the route (`/main/portal-bsre`) survives.
-    const body = value.trim();
-    const sep = body.indexOf(" - ");
-    if (sep === -1) {
-      fail(
-        `line ${lineNo}: Halaman must be "/route - Label", got "${body}"`,
-      );
-      return;
-    }
-    entry.route = unescape(body.slice(0, sep).trim());
-    entry.label = unescape(body.slice(sep + 3).trim());
-    if (!entry.route || !entry.label) {
-      fail(`line ${lineNo}: Halaman needs both a route and a label`);
-      return;
-    }
-    // Cross-check: an entry tagged `/main/*` claiming to be for signed-out
-    // visitors is almost certainly a typo, since `hooks.server.ts` 403s that
-    // whole prefix. Warn loudly rather than silently showing it to the public.
-    const implied = audienceForRoute(entry.route);
-    if (entry.audience && implied === "guest" && entry.audience !== "guest") {
-      fail(
-        `line ${lineNo}: Halaman "${entry.route}" is public (${implied}), ` +
-          `but Audiens says "${entry.audience}"`,
-      );
-    }
+    handleHalaman(entry, value, lineNo, groupDate);
     return;
   }
 
   if (k === "tanggal" || k === "date") {
-    // The date lives in the `## YYYY-MM-DD` heading, so a per-entry line is
-    // redundant; it is still accepted as long as it agrees with that heading.
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-      fail(`line ${lineNo}: Tanggal "${value}" is not YYYY-MM-DD`);
-      return;
-    }
-    if (groupDate && value !== groupDate) {
-      fail(
-        `line ${lineNo}: Tanggal "${value}" disagrees with the date heading ` +
-          `"${groupDate}" this entry sits under`,
-      );
-    }
+    handleTanggal(entry, value, lineNo, groupDate);
     return;
   }
 
   if (k === "audiens" || k === "audience") {
-    const label = AUDIENCE_LABEL[value.trim().toLowerCase()];
-    if (label === undefined) {
-      fail(
-        `line ${lineNo}: unknown Audiens "${value}" ` +
-          `(expected Tamu, Pengguna, or Admin)`,
-      );
-      return;
-    }
-    // `Tamu` is expressed by *omitting* the field, so a public entry has no
-    // `audience` in the output even when the markdown says it explicitly.
-    if (label) entry.audience = label;
+    handleAudiens(entry, value, lineNo);
     return;
   }
 
   if (k === "versi" || k === "version") {
     entry.version = value.trim();
   }
+}
+
+function handleHalaman(
+  entry: Entry,
+  value: string,
+  lineNo: number,
+  groupDate: string,
+): void {
+  const body = value.trim();
+  const sep = body.indexOf(" - ");
+  if (sep === -1) {
+    fail(
+      `line ${lineNo}: Halaman must be "/route - Label", got "${body}"`,
+    );
+    return;
+  }
+  entry.route = unescape(body.slice(0, sep).trim());
+  entry.label = unescape(body.slice(sep + 3).trim());
+  if (!entry.route || !entry.label) {
+    fail(`line ${lineNo}: Halaman needs both a route and a label`);
+    return;
+  }
+  const implied = audienceForRoute(entry.route);
+  if (entry.audience && implied === "guest" && entry.audience !== "guest") {
+    fail(
+      `line ${lineNo}: Halaman "${entry.route}" is public (${implied}), ` +
+        `but Audiens says "${entry.audience}"`,
+    );
+  }
+}
+
+function handleTanggal(
+  entry: Entry,
+  value: string,
+  lineNo: number,
+  groupDate: string,
+): void {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    fail(`line ${lineNo}: Tanggal "${value}" is not YYYY-MM-DD`);
+    return;
+  }
+  if (groupDate && value !== groupDate) {
+    fail(
+      `line ${lineNo}: Tanggal "${value}" disagrees with the date heading ` +
+        `"${groupDate}" this entry sits under`,
+    );
+  }
+}
+
+function handleAudiens(entry: Entry, value: string, lineNo: number): void {
+  const label = AUDIENCE_LABEL[value.trim().toLowerCase()];
+  if (label === undefined) {
+    fail(
+      `line ${lineNo}: unknown Audiens "${value}" ` +
+        `(expected Tamu, Pengguna, or Admin)`,
+    );
+    return;
+  }
+  if (label) entry.audience = label;
 }
 
 function parseMetadata(raw: string, lineNo: number): Record<string, string> {
@@ -243,17 +256,12 @@ function parse(): Page[] {
     inComment = false;
     const text = comment.trim();
     comment = "";
-    // The file's header block and any other prose comment are skipped; only a
-    // comment that starts with `id:` is an entry header.
     if (!isEntryMeta(text)) return;
     if (!entry) {
       fail(`line ${commentLine}: entry metadata appears before any "### Title"`);
       return;
     }
     const meta = parseMetadata(text, commentLine);
-    // A second id comment under the same `### Title` means two entries were
-    // written under one heading. Without this the new id and its `Halaman:`
-    // would silently overwrite the first block's, merging two entries into one.
     if (entry.id) {
       fail(
         `line ${commentLine}: entry "${entry.title}" already has id ` +
@@ -270,7 +278,6 @@ function parse(): Page[] {
       );
       return;
     }
-    // The id suffix and the date heading must agree; neither alone is trusted.
     const fromId = entry.id.match(DATE_SUFFIX)![1];
     if (groupDate && fromId !== groupDate) {
       fail(
@@ -287,76 +294,26 @@ function parse(): Page[] {
     const line = rawLine.trimEnd();
 
     if (inComment) {
-      if (line.includes("-->")) {
-        comment += " " + line.slice(0, line.indexOf("-->"));
-        flushComment();
-        return;
-      }
-      comment += " " + line;
+      handleCommentLine(line, lineNo, flushComment);
       return;
     }
 
     const open = line.indexOf("<!--");
     if (open !== -1) {
-      inComment = true;
-      commentLine = lineNo;
-      const close = line.indexOf("-->", open);
-      if (close !== -1) {
-        comment = line.slice(open + 4, close);
-        flushComment();
-      } else {
-        comment = line.slice(open + 4);
-      }
+      handleCommentOpen(line, open, lineNo, flushComment);
       return;
     }
 
-    // `## YYYY-MM-DD` opens a date group; every entry below it inherits the
-    // date, so it is written once per group rather than per entry.
     if (line.startsWith("## ")) {
-      flushComment();
-      const body = line.slice(3).trim();
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(body)) {
-        fail(
-          `line ${lineNo}: heading must be a "## YYYY-MM-DD" date, got "${body}"`,
-        );
-        return;
-      }
-      // Newest first, like every changelog.
-      if (prevGroupDate && body > prevGroupDate) {
-        fail(
-          `line ${lineNo}: date group "${body}" comes after "${prevGroupDate}". ` +
-            `Move it to the top so the newest group is first.`,
-        );
-      }
-      prevGroupDate = body;
-      groupDate = body;
-      entry = null;
+      handleDateHeading(line, lineNo, flushComment);
       return;
     }
 
     if (line.startsWith("### ")) {
-      flushComment();
-      if (!groupDate) {
-        fail(
-          `line ${lineNo}: "### Title" appears before any "## YYYY-MM-DD" heading`,
-        );
-        return;
-      }
-      entry = {
-        id: "",
-        date: "",
-        title: line.slice(4).trim(),
-        route: "",
-        label: "",
-        changes: [],
-      };
-      flat.push(entry);
+      handleEntryTitle(line, lineNo, groupDate, flat);
       return;
     }
 
-    // `Halaman:`, `Audiens:`, `Versi:` — visible metadata for the current
-    // entry. Only recognised inside an entry, and only before the first change
-    // bullet, so a stray `Note: ...` line later in a change is not swallowed.
     if (entry && !entry.changes.length) {
       const visible = line.match(VISIBLE_META);
       if (visible) {
@@ -365,24 +322,9 @@ function parse(): Page[] {
       }
     }
 
-    // `- **Label** - text`
     const change = line.match(/^-\s+\*\*(.+?)\*\*\s*-\s*(.+)$/);
     if (change) {
-      flushComment();
-      if (!entry) {
-        fail(`line ${lineNo}: change bullet appears before any "### Title"`);
-        return;
-      }
-      const [, label, text] = change;
-      const kind = KINDS[label.trim()];
-      if (!kind) {
-        fail(
-          `line ${lineNo}: unknown change kind "${label.trim()}" ` +
-            `(expected one of ${Object.keys(KINDS).join(", ")})`,
-        );
-        return;
-      }
-      entry.changes.push({ kind, text: text.trim() });
+      handleChangeBullet(change, lineNo, entry, flushComment);
       return;
     }
 
@@ -390,7 +332,112 @@ function parse(): Page[] {
   });
 
   flushComment();
+  validateEntries(flat);
+  return groupEntriesIntoPages(flat);
+}
 
+function handleCommentLine(
+  line: string,
+  lineNo: number,
+  flushComment: () => void,
+): void {
+  if (line.includes("-->")) {
+    comment += " " + line.slice(0, line.indexOf("-->"));
+    flushComment();
+  } else {
+    comment += " " + line;
+  }
+}
+
+function handleCommentOpen(
+  line: string,
+  open: number,
+  lineNo: number,
+  flushComment: () => void,
+): void {
+  inComment = true;
+  commentLine = lineNo;
+  const close = line.indexOf("-->", open);
+  if (close !== -1) {
+    comment = line.slice(open + 4, close);
+    flushComment();
+  } else {
+    comment = line.slice(open + 4);
+  }
+}
+
+function handleDateHeading(
+  line: string,
+  lineNo: number,
+  flushComment: () => void,
+): void {
+  flushComment();
+  const body = line.slice(3).trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(body)) {
+    fail(
+      `line ${lineNo}: heading must be a "## YYYY-MM-DD" date, got "${body}"`,
+    );
+    return;
+  }
+  if (prevGroupDate && body > prevGroupDate) {
+    fail(
+      `line ${lineNo}: date group "${body}" comes after "${prevGroupDate}". ` +
+        `Move it to the top so the newest group is first.`,
+    );
+  }
+  prevGroupDate = body;
+  groupDate = body;
+  entry = null;
+}
+
+function handleEntryTitle(
+  line: string,
+  lineNo: number,
+  groupDate: string,
+  flat: Entry[],
+): void {
+  flushComment();
+  if (!groupDate) {
+    fail(
+      `line ${lineNo}: "### Title" appears before any "## YYYY-MM-DD" heading`,
+    );
+    return;
+  }
+  entry = {
+    id: "",
+    date: "",
+    title: line.slice(4).trim(),
+    route: "",
+    label: "",
+    changes: [],
+  };
+  flat.push(entry);
+}
+
+function handleChangeBullet(
+  change: RegExpMatchArray,
+  lineNo: number,
+  entry: Entry | null,
+  flushComment: () => void,
+): void {
+  flushComment();
+  if (!entry) {
+    fail(`line ${lineNo}: change bullet appears before any "### Title"`);
+    return;
+  }
+  const [, label, text] = change;
+  const kind = KINDS[label.trim()];
+  if (!kind) {
+    fail(
+      `line ${lineNo}: unknown change kind "${label.trim()}" ` +
+        `(expected one of ${Object.keys(KINDS).join(", ")})`,
+    );
+    return;
+  }
+  entry.changes.push({ kind, text: text.trim() });
+}
+
+function validateEntries(flat: Entry[]): void {
   for (const e of flat) {
     if (!e.changes.length) {
       fail(`entry "${e.id || e.title}" has no changes`);
@@ -412,11 +459,9 @@ function parse(): Page[] {
     }
     seen.set(e.id, `${e.route} / ${e.title}`);
   }
+}
 
-  // Group by route. `Map` preserves insertion order, so pages come out in the
-  // order their newest entry first appears in the (date-grouped) file, and each
-  // page's own entries stay newest-first for the same reason. Ordering of the
-  // date groups themselves is enforced where they are read.
+function groupEntriesIntoPages(flat: Entry[]): Page[] {
   const pages: Page[] = [];
   const byRoute = new Map<string, Page>();
   for (const e of flat) {
@@ -435,9 +480,6 @@ function parse(): Page[] {
     page.entries.push(e);
   }
 
-  // Checked here rather than in `render()`: `render()` runs *after* the
-  // problems list has already been reported, so a `fail()` there would be
-  // silently dropped and the file would be written with an empty fallback.
   if (!pages.some((p) => p.route === "*")) {
     fail(
       "no fallback page found - add an entry with " +

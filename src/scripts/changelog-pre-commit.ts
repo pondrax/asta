@@ -244,14 +244,10 @@ function inProgress(): boolean {
 function main() {
   if (inProgress()) return;
 
-  const staged = gitQuiet(["diff", "--cached", "--name-only", "--diff-filter=ACMR"])
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean);
-  const changelogStaged = staged.includes("CHANGELOG.md");
-
-  // Nothing staged (e.g. amending only the message) -> nothing to do.
+  const staged = getStagedFiles();
   if (!staged.length) return;
+
+  const changelogStaged = staged.includes("CHANGELOG.md");
 
   // Bump the patch version with every commit so the build tracks it.
   if (!DRY_RUN) bumpVersion();
@@ -263,33 +259,79 @@ function main() {
   }
 
   // Leave a hand-edited, not-yet-staged CHANGELOG.md alone.
-  if (gitQuiet(["diff", "--name-only", "--", "CHANGELOG.md"]).trim()) {
+  if (hasUnstagedChangelogEdits()) {
     console.log("changelog: CHANGELOG.md has unstaged edits - skipping draft.");
     return;
   }
 
+  const commitInfo = parseCommitMessage();
+  if (!commitInfo) return;
+
+  const { subject, type, body, summary, kind, route } = commitInfo;
+
+  if (shouldSkipChangelog(subject)) return;
+
+  const markdown = readFileSync(CHANGELOG, "utf8");
+  const { date, id, entry } = createChangelogEntry(
+    markdown,
+    route,
+    summary,
+    kind,
+    body,
+  );
+
+  if (DRY_RUN) {
+    console.log(`changelog (dry run):\n\n${entry.join("\n")}\n`);
+    return;
+  }
+
+  const updatedMarkdown = insertChangelogEntry(markdown, entry, date);
+  writeFileSync(CHANGELOG, updatedMarkdown);
+
+  if (regenerate()) {
+    console.log(`changelog: drafted "${summary}" under ${route} (${date}).`);
+  } else {
+    gitQuiet(["checkout", "--", "CHANGELOG.md"]);
+    console.warn(
+      "changelog: draft discarded (build failed) - add a note by hand and run `bun run changelog:build`.",
+    );
+  }
+}
+
+function getStagedFiles(): string[] {
+  return gitQuiet(["diff", "--cached", "--name-only", "--diff-filter=ACMR"])
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+}
+
+function hasUnstagedChangelogEdits(): boolean {
+  return gitQuiet(["diff", "--name-only", "--", "CHANGELOG.md"]).trim() !== "";
+}
+
+function parseCommitMessage(): CommitInfo | null {
   const raw = pendingMessage();
   if (!raw) {
     console.log(
       "changelog: no draft added (commit message not readable at pre-commit).",
     );
-    return;
+    return null;
   }
 
   const lines = raw.split(/\r?\n/);
   const subjectIndex = lines.findIndex((l) => l.trim() && !l.startsWith("#"));
-  if (subjectIndex === -1) return;
+  if (subjectIndex === -1) return null;
   const subject = lines[subjectIndex].trim();
 
-  if (/^Merge\b/i.test(subject)) return;
-  if (/\[(?:skip[- ]?changelog|changelog[- ]?skip)\]/i.test(raw)) return;
+  if (/^Merge\b/i.test(subject)) return null;
+  if (/\[(?:skip[- ]?changelog|changelog[- ]?skip)\]/i.test(raw)) return null;
 
   const type = (subject.match(CONVENTIONAL)?.[1] ?? "").toLowerCase();
   if (SKIP_TYPES.has(type)) {
     console.log(
       `changelog: no entry added for "${type}" commit - add one if it is user-facing.`,
     );
-    return;
+    return null;
   }
 
   const summary = (subject.replace(CONVENTIONAL, "").trim() || subject).replace(
@@ -307,9 +349,18 @@ function main() {
         !/^(co-authored-by|signed-off-by|reviewed-by|refs|see also):/i.test(l),
     );
 
-  // Pick the route the bulk of the staged files live under.
+  const route = findDominantRoute(staged);
+
+  return { subject, type, body, summary, kind, route };
+}
+
+function shouldSkipChangelog(subject: string): boolean {
+  return /^Merge\b/i.test(subject);
+}
+
+function findDominantRoute(files: string[]): string {
   const counts = new Map<string, number>();
-  for (const file of staged) {
+  for (const file of files) {
     const route = routeFromPath(file);
     if (route) counts.set(route, (counts.get(route) ?? 0) + 1);
   }
@@ -321,8 +372,25 @@ function main() {
       best = count;
     }
   }
+  return route;
+}
 
-  const markdown = readFileSync(CHANGELOG, "utf8");
+interface CommitInfo {
+  subject: string;
+  type: string;
+  body: string[];
+  summary: string;
+  kind: string;
+  route: string;
+}
+
+function createChangelogEntry(
+  markdown: string,
+  route: string,
+  summary: string,
+  kind: string,
+  body: string[],
+): { date: string; id: string; entry: string[] } {
   const label = routeLabels(markdown).get(route) ?? deriveLabel(route);
   const audience = audienceFor(route);
   const title = summary.charAt(0).toUpperCase() + summary.slice(1);
@@ -333,7 +401,11 @@ function main() {
   );
   const slug = slugify(summary);
   let id = `${slug}-${date}`;
-  for (let n = 2; existingIds.has(id); n++) id = `${slug}-${n}-${date}`;
+  let n = 2;
+  while (existingIds.has(id)) {
+    id = `${slug}-${n}-${date}`;
+    n++;
+  }
 
   const entry = [
     `### ${title}`,
@@ -347,16 +419,15 @@ function main() {
     ...body.map((text) => `- **${kind}** - ${text}`),
   ];
 
-  if (DRY_RUN) {
-    console.log(`changelog (dry run):\n\n${entry.join("\n")}\n`);
-    return;
-  }
+  return { date, id, entry };
+}
 
+function insertChangelogEntry(markdown: string, entry: string[], date: string): string {
   const mdLines = markdown.split(/\r?\n/);
   const headingIndex = firstDateHeading(mdLines);
   if (headingIndex === -1) {
     console.warn("changelog: no '## YYYY-MM-DD' heading found; nothing added.");
-    return;
+    return markdown;
   }
   const topDate = mdLines[headingIndex].slice(3).trim();
 
@@ -367,16 +438,7 @@ function main() {
     mdLines.splice(headingIndex, 0, `## ${date}`, "", ...entry, "");
   }
 
-  writeFileSync(CHANGELOG, mdLines.join("\n"));
-
-  if (regenerate()) {
-    console.log(`changelog: drafted "${title}" under ${route} (${date}).`);
-  } else {
-    gitQuiet(["checkout", "--", "CHANGELOG.md"]);
-    console.warn(
-      "changelog: draft discarded (build failed) - add a note by hand and run `bun run changelog:build`.",
-    );
-  }
+  return mdLines.join("\n");
 }
 
 try {

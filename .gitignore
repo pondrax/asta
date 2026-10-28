@@ -18,6 +18,11 @@ Thumbs.db
 !.env.example
 !.env.test
 
+# Certificates (private keys)
+certificates/
+*.p12
+*.key
+
 *.log
 # Vite
 vite.config.js.timestamp-*

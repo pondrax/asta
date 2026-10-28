@@ -59,7 +59,9 @@ describe("generated data", () => {
   it("orders each page newest first", () => {
     for (const p of [...PAGE_CHANGELOGS, GLOBAL_CHANGELOG]) {
       const dates = p.entries.map((e) => e.date);
-      expect(dates).toEqual([...dates].sort().reverse());
+      expect(dates).toEqual(
+        [...dates].sort((a, b) => b.localeCompare(a)),
+      );
     }
   });
 });

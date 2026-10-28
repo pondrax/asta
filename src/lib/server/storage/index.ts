@@ -495,7 +495,7 @@ class VercelBlobStorage {
 // Main storage factory with global env config
 export class FileStorage {
   private storage: LocalStorage | VercelBlobStorage | S3Storage;
-  private _provider: StorageProvider;
+  private readonly _provider: StorageProvider;
 
   constructor(config?: StorageConfig) {
     this._provider = getProvider(config);
