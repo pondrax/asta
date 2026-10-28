@@ -1,6 +1,4 @@
 import { PDF, P12Signer } from '@libpdf/core';
-import fs from 'node:fs';
-import path from 'node:path';
 
 /**
  * The field to sign.

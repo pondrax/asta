@@ -102,8 +102,8 @@ export function extractText(body: unknown): string {
 export function tidyModelOutput(raw: string): string {
   let out = raw.trim();
 
-  const fence = out.match(/^```[a-zA-Z]*\n?([\s\S]*?)\n?```$/);
-  if (fence) out = fence[1].trim();
+  const fenceMatch = /^```[a-zA-Z]*\n?([\s\S]*?)\n?```$/.exec(out);
+  if (fenceMatch) out = fenceMatch[1].trim();
 
   out = out.replace(
     /^(?:here(?:'s| is)|berikut(?: hasil)?nya|hasilnya|sure|okay|ok)\b[^\n:]*:\s*/i,
