@@ -43,7 +43,13 @@ export type PlacementType =
  * Legacy name kept for compatibility with `/sign`, drafts and bookmarks. A
  * "signature" is now just the `signature` variant of a placement.
  */
-export type SignatureType = SignaturePlacement;
+export type SignatureType = {
+  canvasWidth: number;
+  canvasHeight: number;
+  x: number;
+  y: number;
+  page: number;
+};
 
 export type PagesInfoType = {
   width: number;

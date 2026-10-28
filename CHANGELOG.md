@@ -82,6 +82,15 @@
 
 ### Resolve more sonar issues
 
+<!-- id: resolve-more-sonar-issues-2-2026-10-28 -->
+
+Halaman: /sign - Tanda Tangan Dokumen
+Audiens: Tamu
+
+- **Perbaikan** - resolve more sonar issues
+
+### Resolve more sonar issues
+
 <!-- id: resolve-more-sonar-issues-2026-10-28 -->
 
 Halaman: /api/chat - Chat
