@@ -766,7 +766,7 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
     menus.forEach((menu) => {
       const pending = pendingMenuClose.get(menu);
       if (pending !== undefined) {
-        window.clearTimeout(pending);
+      globalThis.clearTimeout(pending);
         pendingMenuClose.delete(menu);
       }
       closeMenu(menu);

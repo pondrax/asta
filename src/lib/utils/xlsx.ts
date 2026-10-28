@@ -5,11 +5,11 @@ export type CellValue = string | number | boolean | null | undefined;
 /** Escape text for an XML text node / attribute. */
 function xml(value: string): string {
   return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&apos;");
 }
 
 /** 1 → A, 26 → Z, 27 → AA. */
@@ -18,7 +18,7 @@ function column(index: number): string {
   let n = index + 1;
   while (n > 0) {
     const rem = (n - 1) % 26;
-    name = String.fromCharCode(65 + rem) + name;
+    name = String.fromCodePoint(65 + rem) + name;
     n = Math.floor((n - 1) / 26);
   }
   return name;

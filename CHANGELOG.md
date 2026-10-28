@@ -78,6 +78,17 @@
   Admin     admin only; `hooks.server.ts` 403s every other role on `/main*`
 -->
 
+## 2026-10-28
+
+### Resolve sonar issues
+
+<!-- id: resolve-sonar-issues-2026-10-28 -->
+
+Halaman: /editor - Editor Dokumen
+Audiens: Tamu
+
+- **Perbaikan** - resolve sonar issues
+
 ## 2026-10-27
 
 ### Resolve sonar issues and regex backtracking vulnerabilities

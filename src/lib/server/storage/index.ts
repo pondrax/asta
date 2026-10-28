@@ -51,7 +51,9 @@ export interface StorageResult {
 }
 
 // Determine provider from environment or config
-function getProvider(config?: StorageConfig): 'local' | 'vercel' | 's3' {
+type StorageProvider = 'local' | 'vercel' | 's3';
+
+function getProvider(config?: StorageConfig): StorageProvider {
   if (config?.provider) return config.provider;
   const envProvider = env.STORAGE_PROVIDER as 'local' | 'vercel' | 's3' | undefined;
   return envProvider || 'local';
@@ -493,7 +495,7 @@ class VercelBlobStorage {
 // Main storage factory with global env config
 export class FileStorage {
   private storage: LocalStorage | VercelBlobStorage | S3Storage;
-  private _provider: 'local' | 'vercel' | 's3';
+  private _provider: StorageProvider;
 
   constructor(config?: StorageConfig) {
     this._provider = getProvider(config);
@@ -516,7 +518,7 @@ export class FileStorage {
   }
 
   /** Active storage provider */
-  get provider(): 'local' | 'vercel' | 's3' {
+  get provider(): StorageProvider {
     return this._provider;
   }
 

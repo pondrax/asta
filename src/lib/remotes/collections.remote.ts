@@ -50,14 +50,14 @@ export const getCollections = query('unchecked', async () => {
         isNullable: !col.notNull,
         // pg array columns are plain `PgText`/etc. with `dimensions > 0`;
         // `columnType.includes('Array')` never matches.
-        isArray: (col as any).dimensions > 0,
+        isArray: (col as Record<string, unknown>).dimensions > 0,
         defaultValue: col.default,
       }))
 
     };
   });
 
-  return JSON.parse(JSON.stringify(result));
+  return structuredClone(result);
 });
 
 export const getCollectionData = query('unchecked', async (params: {
@@ -83,8 +83,9 @@ export const getCollectionData = query('unchecked', async (params: {
   const filterWhere = buildFieldFilter(table, where);
   if (filterWhere) conditions.push(filterWhere);
 
-  if (search && search.trim()) {
-    const term = `%${search.trim()}%`;
+  const trimmedSearch = search?.trim();
+  if (trimmedSearch) {
+    const term = `%${trimmedSearch}%`;
     const tableObj = (schema as any)[table];
     if (tableObj) {
       const columns = getColumns(tableObj);
@@ -95,9 +96,14 @@ export const getCollectionData = query('unchecked', async (params: {
     }
   }
 
-  const mergedWhere = conditions.length === 0 ? undefined
-    : conditions.length === 1 ? conditions[0]
-      : { AND: conditions };
+  let mergedWhere;
+  if (conditions.length === 0) {
+    mergedWhere = undefined;
+  } else if (conditions.length === 1) {
+    mergedWhere = conditions[0];
+  } else {
+    mergedWhere = { AND: conditions };
+  }
 
   // `orderBy` keys arrive from the client, so only keep entries that resolve to
   // a real column with a known direction. A stable tiebreaker on the primary

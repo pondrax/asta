@@ -57,7 +57,7 @@ self.addEventListener("install", (event) => {
   event.waitUntil(precacheShell());
   // Take over as soon as the new worker is ready; the page keeps running the
   // old code until it is reloaded, which the update prompt takes care of.
-  self.skipWaiting();
+  globalThis.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
@@ -69,13 +69,13 @@ self.addEventListener("activate", (event) => {
           .filter((key) => key !== ASSET_CACHE && key !== SHELL_CACHE)
           .map((key) => caches.delete(key)),
       );
-      await self.clients.claim();
+      await globalThis.clients.claim();
     })(),
   );
 });
 
 self.addEventListener("message", (event) => {
-  if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
+  if (event.data?.type === "SKIP_WAITING") globalThis.skipWaiting();
 });
 
 self.addEventListener("fetch", (event) => {
@@ -83,7 +83,7 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
 
   const url = new URL(request.url);
-  if (url.origin !== self.location.origin) return;
+  if (url.origin !== globalThis.location.origin) return;
 
   // Live data never comes from the cache.
   if (isLiveData(url.pathname)) return;
