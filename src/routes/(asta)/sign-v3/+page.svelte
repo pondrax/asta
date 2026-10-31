@@ -904,6 +904,20 @@
   }
 
   const hasDocuments = $derived(Object.keys(documents).length > 0);
+
+  // Auto-fit zoom on mobile when a document becomes active
+  let mobileFitApplied = $state(false);
+  $effect(() => {
+    if (typeof window === 'undefined') return;
+    if (activeIndex && hasDocuments && !mobileFitApplied && window.innerWidth < 640) {
+      applyFitMode('content');
+      mobileFitApplied = true;
+    }
+    if (!activeIndex) {
+      mobileFitApplied = false;
+    }
+  });
+
   // Signing only requires an identity and a valid TTE signer; note/location are
   // optional (they default server-side). Self-signed signing just needs at least one
   // signature visualisation.
