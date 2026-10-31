@@ -2662,7 +2662,7 @@ function getSuccessMessage(tables: number, insertedInstead: boolean): string {
   function updateRulers(): boolean {
     if (!editor || !horizontalRulerInner || !verticalRulerInner) return false;
     const geometry = editor.getPageGeometry();
-    console.debug('[ruler] geometry:', geometry?.length, geometry?.[0]?.width, geometry?.[0]?.height, geometry?.[0]);
+    console.debug('[ruler] geometry:', geometry?.length, geometry?.[0]?.width, geometry?.[0]?.height, JSON.stringify(geometry?.[0]));
     const page = rulerPageBox(geometry);
     console.debug('[ruler] page from rulerPageBox:', page);
     const zoom = editor.getZoom();
@@ -2686,8 +2686,10 @@ function getSuccessMessage(tables: number, insertedInstead: boolean): string {
     const contentHeightPx = (contentBox?.height ?? heightPx / zoom) * zoom;
 
     // Total document height across all pages
-    const totalHeightPx = geometry.reduce((sum, g) => sum + g.height * zoom, 0);
-    console.debug('[ruler] totalHeightPx:', totalHeightPx, 'zoom:', zoom, 'geom heights:', geometry.map(g => g.height));
+    const heights = geometry.map(g => g.height);
+    console.debug('[ruler] geom height values:', heights);
+    const totalHeightPx = heights.reduce((sum, h) => sum + (typeof h === 'number' ? h : 0) * zoom, 0);
+    console.debug('[ruler] totalHeightPx:', totalHeightPx, 'zoom:', zoom);
 
     horizontalRulerInner.innerHTML = "";
     verticalRulerInner.innerHTML = "";
