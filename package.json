@@ -1,7 +1,7 @@
 {
   "name": "asta",
   "private": true,
-  "version": "2.1.57",
+  "version": "2.1.58",
   "type": "module",
   "scripts": {
     "start": "bun ./build/index.js",

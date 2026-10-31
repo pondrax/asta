@@ -2680,12 +2680,16 @@ function getSuccessMessage(tables: number, insertedInstead: boolean): string {
     const contentWidthPx = (contentBox?.width ?? widthPx / zoom) * zoom;
     const contentHeightPx = (contentBox?.height ?? heightPx / zoom) * zoom;
 
+    // Total document height across all pages
+    const totalHeightPx = geometry.reduce((sum, g) => sum + g.height * zoom, 0);
+
     horizontalRulerInner.innerHTML = "";
     verticalRulerInner.innerHTML = "";
     horizontalRulerInner.style.width = `${widthPx}px`;
-    verticalRulerInner.style.height = `${heightPx}px`;
+    verticalRulerInner.style.height = `${totalHeightPx}px`;
     renderRulerAxis(horizontalRulerInner, widthPx, offsetX, contentWidthPx, true, zoom);
-    renderRulerAxis(verticalRulerInner, heightPx, offsetY, contentHeightPx, false, zoom);
+    // Vertical ruler spans full document; zero at top of first page
+    renderRulerAxis(verticalRulerInner, totalHeightPx, 0, totalHeightPx, false, zoom);
 
     getCurrentRulerPage();
     syncRulers();
