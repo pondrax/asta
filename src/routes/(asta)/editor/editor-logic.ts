@@ -15,6 +15,7 @@ import {
   AUTO_ZOOM_MODE,
   FIT_WIDTH_ZOOM_MODE,
   sameZoomMode,
+  resolveThemeColorHex,
   ZOOM_MIN,
   ZOOM_MAX,
 } from "@docx-editor.dev/core/editor";
@@ -38,6 +39,10 @@ import type { PlanStep } from "$lib/editor-ai-plan";
 
 /** Selection formatting snapshot returned by `query({ type: "selectionFormatting" })`. */
 type RunFormatting = NonNullable<ReturnType<DocxEditorInstance["snapshot"]>["formatting"]>;
+export type DocxSelectionFormatting = RunFormatting & {
+  /** Resolved font colour, so toolbar swatches can render theme colours too. */
+  readonly colorHex?: string | null;
+};
 
 /** Commands accepted by the editor command dispatcher. */
 type EditorCommand = Parameters<DocxEditorInstance["can"]>[0];
@@ -391,6 +396,7 @@ function variantHex(themeHex: string, variant: ThemeVariant): string {
 export interface DocxEditorSetupOptions {
   onDirtyChange: (dirty: boolean) => void;
   onHistoryChange?: (state: { canUndo: boolean; canRedo: boolean }) => void;
+  onFormattingChange?: (formatting: DocxSelectionFormatting | null) => void;
   onError: (msg: string | null) => void;
   showToast: (type: "success" | "error" | "warning", msg: string) => void;
   getTheme: () => string;
@@ -856,6 +862,29 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
       canUndo: surfaceState?.canUndo ?? snapshot?.canUndo ?? false,
       canRedo: surfaceState?.canRedo ?? snapshot?.canRedo ?? false,
     });
+  }
+
+  function notifyFormattingChange() {
+    if (!editor) {
+      opts.onFormattingChange?.(null);
+      return;
+    }
+    const formatting = editor.snapshot().formatting;
+    if (!formatting) {
+      opts.onFormattingChange?.(null);
+      return;
+    }
+    let colorHex: string | null = null;
+    if (formatting.color?.kind === "hex") {
+      colorHex = formatting.color.value.replace(/^#/, "").toUpperCase();
+    } else if (formatting.color?.kind === "theme") {
+      const resolved = resolveThemeColorHex(
+        formatting.color,
+        editor.getDocumentThemeColors(),
+      );
+      if (resolved.ok) colorHex = resolved.hex.replace(/^#/, "").toUpperCase();
+    }
+    opts.onFormattingChange?.({ ...formatting, colorHex });
   }
 
   function showLoading(label: string) {
@@ -3017,6 +3046,7 @@ function getSuccessMessage(tables: number, insertedInstead: boolean): string {
     rafId = requestAnimationFrame(() => {
       updateToolbar();
       updateStatus();
+      notifyFormattingChange();
       updateZoom();
       updateColorSplit();
       updateAlignment();

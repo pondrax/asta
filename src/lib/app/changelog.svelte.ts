@@ -115,6 +115,35 @@ export function audienceForRole(
  */
 export const PAGE_CHANGELOGS: PageChangelog[] = [
   {
+    route: "/sign-v3",
+    page: "Tanda Tangan Dokumen",
+    entries: [
+      {
+        id: "word-editor-navigation-document-list-2026-11-01",
+        date: "2026-11-01",
+        title: "Peningkatan editor Word, navigasi, dan daftar dokumen",
+        changes: [
+          {
+            kind: "improved",
+            text: "Toolbar Word kini mengikuti format teks yang dipilih, termasuk tebal, miring, garis bawah, coret, pangkat, gaya paragraf, jenis dan ukuran huruf, perataan, serta spasi baris.",
+          },
+          {
+            kind: "added",
+            text: "Pemilih warna Word menampilkan warna tema, warna standar, warna kustom, dan sorotan teks; menu juga lebih mudah dibuka lewat sentuhan pertama.",
+          },
+          {
+            kind: "added",
+            text: "Panel navigasi Word menyediakan daftar judul yang dapat difilter serta pencarian dalam dokumen dengan opsi samakan huruf, kata utuh, dan navigasi hasil sebelumnya/berikutnya.",
+          },
+          {
+            kind: "added",
+            text: "Daftar dokumen menampilkan badge Word/PDF, aksi hapus saat hover atau fokus, dan tooltip nama file lengkap; menghapus dokumen aktif otomatis menutup pratinjau.",
+          },
+        ],
+      },
+    ],
+  },
+  {
     route: "/sign",
     page: "Tanda Tangan Dokumen",
     entries: [

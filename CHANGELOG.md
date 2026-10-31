@@ -78,6 +78,20 @@
   Admin     admin only; `hooks.server.ts` 403s every other role on `/main*`
 -->
 
+## 2026-11-01
+
+### Peningkatan editor Word, navigasi, dan daftar dokumen
+
+<!-- id: word-editor-navigation-document-list-2026-11-01 -->
+
+Halaman: /sign-v3 - Tanda Tangan Dokumen
+Audiens: Tamu
+
+- **Peningkatan** - Toolbar Word kini mengikuti format teks yang dipilih, termasuk tebal, miring, garis bawah, coret, pangkat, gaya paragraf, jenis dan ukuran huruf, perataan, serta spasi baris.
+- **Baru** - Pemilih warna Word menampilkan warna tema, warna standar, warna kustom, dan sorotan teks; menu juga lebih mudah dibuka lewat sentuhan pertama.
+- **Baru** - Panel navigasi Word menyediakan daftar judul yang dapat difilter serta pencarian dalam dokumen dengan opsi samakan huruf, kata utuh, dan navigasi hasil sebelumnya/berikutnya.
+- **Baru** - Daftar dokumen menampilkan badge Word/PDF, aksi hapus saat hover atau fokus, dan tooltip nama file lengkap; menghapus dokumen aktif otomatis menutup pratinjau.
+
 ## 2026-10-28
 
 ### Resolve more sonar issues

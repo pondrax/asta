@@ -24,6 +24,7 @@
   } from "$lib/components/preview.svelte";
   import Upload from "./upload.svelte";
   import DocxEditorView, { type DocxEditorViewHandle } from "./docx-editor-view.svelte";
+  import type { DocxSelectionFormatting } from "../editor/editor-logic";
   import { AUTO_ZOOM_MODE, FIT_WIDTH_ZOOM_MODE } from "@docx-editor.dev/core/editor";
   import Visualizer from "./visualizer.svelte";
   import Signature from "./signature.svelte";
@@ -229,6 +230,7 @@
   /** History of the DOCX editor, kept separate from the placement stack. */
   let docxCanUndo = $state(false);
   let docxCanRedo = $state(false);
+  let docxFormatting = $state<DocxSelectionFormatting | null>(null);
 
   const armed = $derived(
     activeTool !== "select" && activeTool !== "signature",
@@ -1460,6 +1462,7 @@
         docxEditFile = null;
         docxCanUndo = false;
         docxCanRedo = false;
+        docxFormatting = null;
       }
       return;
     }
@@ -1495,6 +1498,7 @@
       docxEditFile = null;
       docxCanUndo = false;
       docxCanRedo = false;
+      docxFormatting = null;
       if (handoffZoom) {
         zoomHandoff = editorZoom;
         await tick();
@@ -1534,6 +1538,15 @@
     const next = keys[keys.indexOf(closed) + 1] ?? rest[rest.length - 1];
     documents = Object.fromEntries(rest.map((k) => [k, documents[k]]));
     activeIndex = next;
+  }
+
+  function removeDocument(key: string) {
+    if (key === activeIndex) {
+      closeDocument();
+      return;
+    }
+    const { [key]: _removed, ...rest } = documents;
+    documents = rest;
   }
 
   function downloadActive() {
@@ -2274,6 +2287,7 @@
       }}
       onDownload={downloadActive}
       docxEditing={isEditingDocx}
+      docxFormatting={docxFormatting}
       onDocxCommand={(slot, value) => docxEditorCtl?.runCommand(slot, value)}
       onDocxInsertTable={(rows, cols) =>
         docxEditorCtl?.handle?.insertTable(rows, cols)}
@@ -2290,6 +2304,8 @@
       selected={placements.find((p) => p.id === selectedId) ?? null}
       onEdit={() => snapshot()}
       bind:tab={pageNavTab}
+      wordMode={isEditingDocx}
+      wordHandle={isEditingDocx ? docxEditorCtl?.handle ?? null : null}
     />
 
     <main
@@ -2332,6 +2348,7 @@
                 docxEditFile = activeDocxFile;
                 docxCanUndo = false;
                 docxCanRedo = false;
+                docxFormatting = null;
                 isEditingDocx = true;
                 await tick();
                 zoomHandoff = 1;
@@ -2355,12 +2372,14 @@
           class="w-7.5 h-7.5 inline-flex items-center justify-center border rounded-full shadow cursor-pointer {pageNavOpen
             ? 'bg-primary border-primary text-primary-content'
             : 'bg-base-100 border-base-300 text-base-content hover:bg-base-200'}"
-          title="Panel navigasi halaman"
-          aria-label="Panel navigasi halaman"
+          title={isEditingDocx ? "Panel navigasi Word" : "Panel navigasi halaman"}
+          aria-label={isEditingDocx ? "Panel navigasi Word" : "Panel navigasi halaman"}
           aria-pressed={pageNavOpen}
           onclick={() => (pageNavOpen = !pageNavOpen)}
         >
-          <iconify-icon icon="bx:dock-right"></iconify-icon>
+          <iconify-icon
+            icon={isEditingDocx ? "bx:list-ul" : "bx:dock-right"}
+          ></iconify-icon>
         </button>
       </div>
 
@@ -2617,6 +2636,9 @@
               onHistoryChange={(state) => {
                 docxCanUndo = state.canUndo;
                 docxCanRedo = state.canRedo;
+              }}
+              onFormattingChange={(formatting) => {
+                docxFormatting = formatting;
               }}
             />
           {:else}
@@ -2875,7 +2897,13 @@
 
       <div class="max-lg:no-scrollbar flex-1 min-h-0 overflow-y-auto flex flex-col">
         {#if activeTab === "documents"}
-          <Documents bind:documents bind:activeIndex {fileInput} />
+          <Documents
+            bind:documents
+            bind:activeIndex
+            {fileInput}
+            {docxFiles}
+            onRemove={removeDocument}
+          />
         {:else}
           <Metadata
             {data}

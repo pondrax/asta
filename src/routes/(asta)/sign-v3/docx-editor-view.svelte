@@ -1,7 +1,11 @@
 <script lang="ts">
   import { onMount, onDestroy, untrack } from "svelte";
   import { app } from "$lib/app/index.svelte";
-  import { setupDocxEditor, type DocxEditorSetupHandle } from "../editor/editor-logic";
+  import {
+    setupDocxEditor,
+    type DocxEditorSetupHandle,
+    type DocxSelectionFormatting,
+  } from "../editor/editor-logic";
   import "../editor/editor.css";
 
   export type DocxEditorViewHandle = {
@@ -19,12 +23,14 @@
     initialZoom = 1,
     controller = $bindable(),
     onHistoryChange,
+    onFormattingChange,
   }: {
     file: File;
     /** Zoom to restore after the document finishes loading. */
     initialZoom?: number;
     controller?: DocxEditorViewHandle | null;
     onHistoryChange?: (state: { canUndo: boolean; canRedo: boolean }) => void;
+    onFormattingChange?: (formatting: DocxSelectionFormatting | null) => void;
   } = $props();
 
   // Snapshot on mount: the prop is only a hand-off for this editor instance,
@@ -69,6 +75,7 @@
         app.showToast(type, msg);
       },
       onHistoryChange: (state) => onHistoryChange?.(state),
+      onFormattingChange: (formatting) => onFormattingChange?.(formatting),
       getTheme: () => app.theme,
       setTheme: (t) => {
         app.theme = t;
@@ -80,6 +87,7 @@
       try {
         await handle.loadFile(file);
         handle.editor?.setZoom(startupZoom);
+        onFormattingChange?.(handle.editor?.snapshot().formatting ?? null);
       } catch (err) {
         console.error("Failed to load docx in editor:", err);
       }

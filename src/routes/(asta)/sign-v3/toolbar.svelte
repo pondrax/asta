@@ -5,6 +5,7 @@
     VerifyDate,
   } from "$lib/types/verify";
   import type { SignatureVerification } from "$lib/utils/pdf";
+  import type { DocxSelectionFormatting } from "../editor/editor-logic";
 
   export type SignTool =
     | "select"
@@ -46,6 +47,7 @@
     onDownload,
     signerEmail,
     docxEditing = false,
+    docxFormatting = null,
     onDocxCommand,
     onDocxInsertTable,
   }: {
@@ -105,6 +107,8 @@
     signerEmail?: Snippet;
     /** Swap the signing tools for Word formatting controls. */
     docxEditing?: boolean;
+    /** Formatting at the current DOCX selection, for toolbar state. */
+    docxFormatting?: DocxSelectionFormatting | null;
     onDocxCommand?: (slot: string, value?: string | number) => void;
     onDocxInsertTable?: (rows: number, cols: number) => void;
   } = $props();
@@ -116,12 +120,21 @@
   let wordStyle = $state("Normal");
   let wordFont = $state("Arial");
   let wordFontSize = $state(11);
+  let wordBold = $state(false);
+  let wordItalic = $state(false);
+  let wordUnderline = $state(false);
+  let wordStrike = $state(false);
+  let wordSuper = $state(false);
+  let wordSub = $state(false);
   let wordColor = $state("FF0000");
   let wordHighlight = $state("yellow");
+  let wordColorHex = $state("");
   const wordColorCss = $derived(
     wordColor === "auto" ? "#000000" : `#${wordColor.replace(/^#/, "")}`,
   );
+  const wordColorHexValid = $derived(/^[0-9A-Fa-f]{6}$/.test(wordColorHex));
   let wordAlign = $state("left");
+  let wordLineSpacing = $state(1);
 
   const wordStyles = [
     "Normal",
@@ -153,6 +166,48 @@
     "footnote text": "footnote text",
     "endnote text": "endnote text",
   };
+
+  $effect(() => {
+    const formatting = docxFormatting;
+    if (!formatting) return;
+    if (typeof formatting.bold === "boolean") wordBold = formatting.bold;
+    if (typeof formatting.italic === "boolean") wordItalic = formatting.italic;
+    if (typeof formatting.underline === "boolean")
+      wordUnderline = formatting.underline;
+    if (typeof formatting.strike === "boolean") wordStrike = formatting.strike;
+    if (typeof formatting.superscript === "boolean")
+      wordSuper = formatting.superscript;
+    if (typeof formatting.subscript === "boolean")
+      wordSub = formatting.subscript;
+    if (formatting.fontFamily) wordFont = formatting.fontFamily;
+    if (typeof formatting.fontSizePt === "number")
+      wordFontSize = formatting.fontSizePt;
+    if (formatting.alignment) {
+      wordAlign =
+        formatting.alignment === "both" ? "justify" : formatting.alignment;
+    }
+    if (formatting.styleId) {
+      const style = Object.entries(wordStyleValues).find(
+        ([, value]) => value === formatting.styleId,
+      );
+      wordStyle = style?.[0] ?? formatting.styleId;
+    }
+    if (formatting.colorHex) {
+      wordColor = formatting.colorHex;
+    } else if (formatting.color?.kind === "auto") {
+      wordColor = "auto";
+    }
+    if (formatting.highlight !== undefined) {
+      wordHighlight = formatting.highlight || "none";
+    }
+    if (
+      formatting.lineSpacing?.rule === "multiple" &&
+      typeof formatting.lineSpacing.value === "number"
+    ) {
+      wordLineSpacing = formatting.lineSpacing.value;
+    }
+  });
+
   const wordFonts = [
     "Arial",
     "Calibri",
@@ -163,6 +218,44 @@
     "Verdana",
     "Tahoma",
   ];
+  const wordThemeBases = [
+    "FFFFFF",
+    "000000",
+    "E7E6E6",
+    "44546A",
+    "4472C4",
+    "ED7D31",
+    "A5A5A5",
+    "FFC000",
+    "5B9BD5",
+    "70AD47",
+  ];
+
+  function mixHex(base: string, target: number, amount: number) {
+    const hex = base.replace(/^#/, "");
+    const channels = [0, 2, 4].map((offset) =>
+      Number.parseInt(hex.slice(offset, offset + 2), 16),
+    );
+    const value = channels
+      .map((channel) =>
+        Math.round(channel + (target - channel) * amount)
+          .toString(16)
+          .padStart(2, "0"),
+      )
+      .join("")
+      .toUpperCase();
+    return { value, css: `#${value.toLowerCase()}` };
+  }
+
+  const wordThemeColumns = wordThemeBases.map((base) => [
+    { value: base, css: `#${base.toLowerCase()}` },
+    mixHex(base, 255, 0.8),
+    mixHex(base, 255, 0.6),
+    mixHex(base, 255, 0.4),
+    mixHex(base, 0, 0.25),
+    mixHex(base, 0, 0.5),
+  ]);
+
   const wordColors = [
     { value: "000000", css: "#000000" },
     { value: "434343", css: "#434343" },
@@ -222,12 +315,57 @@
     wordMenu = null;
   }
 
-  function toggleWordMenu(name: string, e: MouseEvent) {
+  function toggleWordMenu(name: string, e: Event) {
     e.stopPropagation();
     footerMenuOpen = false;
     statusMenuOpen = false;
     visualMenuOpen = false;
     wordMenu = wordMenu === name ? null : name;
+  }
+
+  let lastMenuPress = 0;
+
+  function menuPress(
+    node: HTMLElement,
+    toggle: (event: Event) => void,
+  ) {
+    let current = toggle;
+    function pointerdown(event: Event) {
+      if ((event as PointerEvent).button !== 0) return;
+      event.stopPropagation();
+      lastMenuPress = Date.now();
+      current(event);
+    }
+    function click(event: Event) {
+      event.stopPropagation();
+      if (Date.now() - lastMenuPress < 500) {
+        lastMenuPress = 0;
+        return;
+      }
+      current(event);
+    }
+    function keydown(event: Event) {
+      const keyboard = event as KeyboardEvent;
+      if (keyboard.repeat) return;
+      if (keyboard.key !== "Enter" && keyboard.key !== " ") return;
+      event.preventDefault();
+      event.stopPropagation();
+      lastMenuPress = Date.now();
+      current(event);
+    }
+    node.addEventListener("pointerdown", pointerdown);
+    node.addEventListener("click", click);
+    node.addEventListener("keydown", keydown);
+    return {
+      update(next: (event: Event) => void) {
+        current = next;
+      },
+      destroy() {
+        node.removeEventListener("pointerdown", pointerdown);
+        node.removeEventListener("click", click);
+        node.removeEventListener("keydown", keydown);
+      },
+    };
   }
 
   function docxCommand(slot: string, value?: string | number) {
@@ -255,6 +393,12 @@
   function pickColor(value: string) {
     wordColor = value;
     docxCommand("text.color", value);
+  }
+
+  function applyCustomColor() {
+    if (!wordColorHexValid) return;
+    pickColor(wordColorHex.toUpperCase());
+    wordColorHex = "";
   }
 
   function pickHighlight(value: string) {
@@ -405,8 +549,7 @@
         aria-haspopup="menu"
         aria-expanded={visualMenuOpen}
         disabled={visualDisabled}
-        onclick={(e) => {
-          e.stopPropagation();
+        use:menuPress={() => {
           footerMenuOpen = false;
           statusMenuOpen = false;
           wordMenu = null;
@@ -483,13 +626,13 @@
     <div class="relative shrink-0">
       <button
         type="button"
-        class="btn btn-sm btn-ghost gap-1 px-2 normal-case"
+        class="btn btn-sm btn-ghost gap-1 px-2 normal-case w-32 justify-between"
         aria-label="Gaya paragraf"
         aria-haspopup="listbox"
         aria-expanded={wordMenu === "style"}
-        onclick={(e) => toggleWordMenu("style", e)}
+        use:menuPress={(e) => toggleWordMenu("style", e)}
       >
-        <span class="text-xs max-w-24 truncate">{wordStyle}</span>
+        <span class="text-xs truncate">{wordStyle}</span>
         <iconify-icon icon="bx:chevron-down" class="text-xs"></iconify-icon>
       </button>
       {#if wordMenu === "style"}
@@ -521,13 +664,13 @@
     <div class="relative shrink-0">
       <button
         type="button"
-        class="btn btn-sm btn-ghost gap-1 px-2 normal-case"
+        class="btn btn-sm btn-ghost gap-1 px-2 normal-case w-40 justify-between"
         aria-label="Jenis huruf"
         aria-haspopup="listbox"
         aria-expanded={wordMenu === "font"}
-        onclick={(e) => toggleWordMenu("font", e)}
+        use:menuPress={(e) => toggleWordMenu("font", e)}
       >
-        <span class="text-xs max-w-28 truncate">{wordFont}</span>
+        <span class="text-xs truncate">{wordFont}</span>
         <iconify-icon icon="bx:chevron-down" class="text-xs"></iconify-icon>
       </button>
       {#if wordMenu === "font"}
@@ -557,11 +700,11 @@
     </div>
 
     <div
-      class="flex items-center gap-px shrink-0 h-[30px] px-1 border border-base-300 rounded-md"
+      class="flex items-center justify-between gap-px shrink-0 w-[88px] h-[30px] px-1 border border-base-300 rounded-md"
     >
       <button
         type="button"
-        class="btn btn-xs btn-ghost btn-square"
+        class="btn btn-xs btn-ghost btn-square shrink-0"
         aria-label="Perkecil ukuran huruf"
         onclick={() => applyFontSize(wordFontSize - 1)}
       >
@@ -569,7 +712,7 @@
       </button>
       <input
         type="number"
-        class="w-9 bg-transparent text-center text-xs outline-none"
+        class="w-full min-w-0 bg-transparent text-center text-xs outline-none"
         aria-label="Ukuran huruf"
         min="1"
         max="1638"
@@ -578,7 +721,7 @@
       />
       <button
         type="button"
-        class="btn btn-xs btn-ghost btn-square"
+        class="btn btn-xs btn-ghost btn-square shrink-0"
         aria-label="Perbesar ukuran huruf"
         onclick={() => applyFontSize(wordFontSize + 1)}
       >
@@ -592,8 +735,11 @@
       <div class="tooltip tooltip-bottom" data-tip="Tebal">
         <button
           type="button"
-          class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
+          class="btn btn-sm btn-ghost hover:bg-base-300 btn-square {wordBold
+            ? 'bg-primary/15 text-primary'
+            : ''}"
           aria-label="Tebal"
+          aria-pressed={wordBold}
           onclick={() => docxCommand("text.bold")}
         >
           <iconify-icon icon="bx:bold"></iconify-icon>
@@ -602,8 +748,11 @@
       <div class="tooltip tooltip-bottom" data-tip="Miring">
         <button
           type="button"
-          class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
+          class="btn btn-sm btn-ghost hover:bg-base-300 btn-square {wordItalic
+            ? 'bg-primary/15 text-primary'
+            : ''}"
           aria-label="Miring"
+          aria-pressed={wordItalic}
           onclick={() => docxCommand("text.italic")}
         >
           <iconify-icon icon="bx:italic"></iconify-icon>
@@ -612,8 +761,11 @@
       <div class="tooltip tooltip-bottom" data-tip="Garis bawah">
         <button
           type="button"
-          class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
+          class="btn btn-sm btn-ghost hover:bg-base-300 btn-square {wordUnderline
+            ? 'bg-primary/15 text-primary'
+            : ''}"
           aria-label="Garis bawah"
+          aria-pressed={wordUnderline}
           onclick={() => docxCommand("text.underline")}
         >
           <iconify-icon icon="bx:underline"></iconify-icon>
@@ -622,8 +774,11 @@
       <div class="tooltip tooltip-bottom" data-tip="Coret">
         <button
           type="button"
-          class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
+          class="btn btn-sm btn-ghost hover:bg-base-300 btn-square {wordStrike
+            ? 'bg-primary/15 text-primary'
+            : ''}"
           aria-label="Coret"
+          aria-pressed={wordStrike}
           onclick={() => docxCommand("text.strike")}
         >
           <iconify-icon icon="bx:strikethrough"></iconify-icon>
@@ -636,16 +791,22 @@
     <div class="flex items-center gap-px shrink-0">
       <button
         type="button"
-        class="btn btn-sm btn-ghost hover:bg-base-300 btn-square text-xs"
+        class="btn btn-sm btn-ghost hover:bg-base-300 btn-square text-xs {wordSuper
+          ? 'bg-primary/15 text-primary'
+          : ''}"
         aria-label="Pangkat atas"
+        aria-pressed={wordSuper}
         onclick={() => docxCommand("script.super")}
       >
         x²
       </button>
       <button
         type="button"
-        class="btn btn-sm btn-ghost hover:bg-base-300 btn-square text-xs"
+        class="btn btn-sm btn-ghost hover:bg-base-300 btn-square text-xs {wordSub
+          ? 'bg-primary/15 text-primary'
+          : ''}"
         aria-label="Pangkat bawah"
+        aria-pressed={wordSub}
         onclick={() => docxCommand("script.sub")}
       >
         x₂
@@ -658,49 +819,108 @@
       <div class="relative flex items-center">
         <button
           type="button"
-          class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
+          class="btn btn-sm btn-ghost gap-1 px-1.5"
           aria-label="Warna huruf"
-          onclick={() => docxCommand("text.color", wordColor)}
-        >
-          <iconify-icon icon="bx:font-color"></iconify-icon>
-          <span
-            class="absolute bottom-1 left-1.5 right-4 h-0.5 rounded-full"
-            style:background-color={wordColorCss}
-            aria-hidden="true"
-          ></span>
-        </button>
-        <button
-          type="button"
-          class="btn btn-xs btn-ghost btn-square"
-          aria-label="Pilih warna huruf"
           aria-haspopup="menu"
           aria-expanded={wordMenu === "color"}
-          onclick={(e) => toggleWordMenu("color", e)}
+          use:menuPress={(e) => toggleWordMenu("color", e)}
         >
+          <span class="relative inline-flex">
+            <iconify-icon icon="bx:font-color"></iconify-icon>
+            <span
+              class="absolute bottom-0 left-0 right-0 h-0.5 rounded-full"
+              style:background-color={wordColorCss}
+              aria-hidden="true"
+            ></span>
+          </span>
           <iconify-icon icon="bx:chevron-down" class="text-xs"></iconify-icon>
         </button>
         {#if wordMenu === "color"}
           <div
-            class="absolute top-full left-0 mt-1 p-2 bg-base-100 border border-base-300 rounded-lg shadow-xl z-50"
+            class="absolute top-full left-0 mt-1 w-[288px] p-2.5 bg-base-100 border border-base-300 rounded-lg shadow-xl z-50"
           >
-            <div class="grid grid-cols-8 gap-1">
-              {#each wordColors as color (color.value)}
-                <button
-                  type="button"
-                  class="h-5 w-5 rounded border border-base-300"
-                  style:background-color={color.css}
-                  aria-label={`Warna ${color.value}`}
-                  onclick={() => pickColor(color.value)}
-                ></button>
-              {/each}
-            </div>
             <button
               type="button"
-              class="mt-2 w-full rounded px-2 py-1 text-left text-xs hover:bg-base-200"
+              class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-base-200"
               onclick={() => pickColor("auto")}
             >
+              <span
+                class="h-4 w-4 rounded-sm border border-base-300 bg-base-100"
+                aria-hidden="true"
+              ></span>
               Otomatis
             </button>
+            <div class="mt-2">
+              <div
+                class="px-1 text-[11px] font-medium uppercase tracking-wide text-base-content/60"
+              >
+                Warna tema
+              </div>
+              <div class="mt-1 flex gap-1">
+                {#each wordThemeColumns as column, columnIndex (columnIndex)}
+                  <div class="flex flex-col gap-1">
+                    {#each column as color, colorIndex (colorIndex)}
+                      <button
+                        type="button"
+                        class="h-5 w-5 rounded-sm border border-base-300"
+                        style:background-color={color.css}
+                        aria-label={`Warna ${color.value}`}
+                        onclick={() => pickColor(color.value)}
+                      ></button>
+                    {/each}
+                  </div>
+                {/each}
+              </div>
+            </div>
+            <div class="mt-2">
+              <div
+                class="px-1 text-[11px] font-medium uppercase tracking-wide text-base-content/60"
+              >
+                Warna standar
+              </div>
+              <div class="mt-1 grid grid-cols-10 gap-1">
+                {#each wordColors as color (color.value)}
+                  <button
+                    type="button"
+                    class="h-5 w-5 rounded-sm border border-base-300"
+                    style:background-color={color.css}
+                    aria-label={`Warna ${color.value}`}
+                    onclick={() => pickColor(color.value)}
+                  ></button>
+                {/each}
+              </div>
+            </div>
+            <div class="mt-2">
+              <div
+                class="px-1 text-[11px] font-medium uppercase tracking-wide text-base-content/60"
+              >
+                Warna kustom
+              </div>
+              <div class="mt-1 flex items-center gap-1">
+                <span class="text-xs text-base-content/60">#</span>
+                <input
+                  type="text"
+                  class="input input-xs input-bordered w-24 font-mono uppercase"
+                  maxlength="6"
+                  spellcheck="false"
+                  aria-label="Warna kustom"
+                  placeholder="FF0000"
+                  bind:value={wordColorHex}
+                  oninput={() =>
+                    (wordColorHex = wordColorHex
+                      .replace(/[^0-9A-Fa-f]/g, "")
+                      .toUpperCase().slice(0, 6))}
+                />
+                <button
+                  type="button"
+                  class="btn btn-xs"
+                  disabled={!wordColorHexValid}
+                  onclick={applyCustomColor}
+                >
+                  Terapkan
+                </button>
+              </div>
+            </div>
           </div>
         {/if}
       </div>
@@ -708,49 +928,55 @@
       <div class="relative flex items-center">
         <button
           type="button"
-          class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
+          class="btn btn-sm btn-ghost gap-1 px-1.5"
           aria-label="Sorotan teks"
-          onclick={() => docxCommand("text.highlight", wordHighlight)}
-        >
-          <iconify-icon icon="bx:highlight"></iconify-icon>
-          <span
-            class="absolute bottom-1 left-1.5 right-4 h-0.5 rounded-full"
-            style:background-color={wordHighlightCss}
-            aria-hidden="true"
-          ></span>
-        </button>
-        <button
-          type="button"
-          class="btn btn-xs btn-ghost btn-square"
-          aria-label="Pilih sorotan teks"
           aria-haspopup="menu"
           aria-expanded={wordMenu === "highlight"}
-          onclick={(e) => toggleWordMenu("highlight", e)}
+          use:menuPress={(e) => toggleWordMenu("highlight", e)}
         >
+          <span class="relative inline-flex">
+            <iconify-icon icon="bx:highlight"></iconify-icon>
+            <span
+              class="absolute bottom-0 left-0 right-0 h-0.5 rounded-full"
+              style:background-color={wordHighlightCss}
+              aria-hidden="true"
+            ></span>
+          </span>
           <iconify-icon icon="bx:chevron-down" class="text-xs"></iconify-icon>
         </button>
         {#if wordMenu === "highlight"}
           <div
-            class="absolute top-full left-0 mt-1 p-2 bg-base-100 border border-base-300 rounded-lg shadow-xl z-50"
+            class="absolute top-full left-0 mt-1 w-[288px] p-2.5 bg-base-100 border border-base-300 rounded-lg shadow-xl z-50"
           >
-            <div class="grid grid-cols-8 gap-1">
-              {#each wordHighlights as color (color.value)}
-                <button
-                  type="button"
-                  class="h-5 w-5 rounded border border-base-300"
-                  style:background-color={color.css}
-                  aria-label={`Sorotan ${color.value}`}
-                  onclick={() => pickHighlight(color.value)}
-                ></button>
-              {/each}
-            </div>
             <button
               type="button"
-              class="mt-2 w-full rounded px-2 py-1 text-left text-xs hover:bg-base-200"
+              class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-base-200"
               onclick={() => pickHighlight("none")}
             >
+              <span
+                class="h-4 w-4 rounded-sm border border-base-300 bg-base-100"
+                aria-hidden="true"
+              ></span>
               Tanpa warna
             </button>
+            <div class="mt-2">
+              <div
+                class="px-1 text-[11px] font-medium uppercase tracking-wide text-base-content/60"
+              >
+                Warna sorotan
+              </div>
+              <div class="mt-1 grid grid-cols-10 gap-1">
+                {#each wordHighlights as color (color.value)}
+                  <button
+                    type="button"
+                    class="h-5 w-5 rounded-sm border border-base-300"
+                    style:background-color={color.css}
+                    aria-label={`Sorotan ${color.value}`}
+                    onclick={() => pickHighlight(color.value)}
+                  ></button>
+                {/each}
+              </div>
+            </div>
           </div>
         {/if}
       </div>
@@ -765,7 +991,7 @@
         aria-label={wordAlignments.find((item) => item.value === wordAlign)?.label}
         aria-haspopup="menu"
         aria-expanded={wordMenu === "alignment"}
-        onclick={(e) => toggleWordMenu("alignment", e)}
+        use:menuPress={(e) => toggleWordMenu("alignment", e)}
       >
         <iconify-icon
           icon={wordAlignments.find((item) => item.value === wordAlign)?.icon}
@@ -843,7 +1069,7 @@
           aria-label="Spasi baris"
           aria-haspopup="menu"
           aria-expanded={wordMenu === "spacing"}
-          onclick={(e) => toggleWordMenu("spacing", e)}
+          use:menuPress={(e) => toggleWordMenu("spacing", e)}
         >
           <iconify-icon icon="bx:vertical-center"></iconify-icon>
           <iconify-icon icon="bx:chevron-down" class="text-xs"></iconify-icon>
@@ -856,9 +1082,12 @@
             {#each wordLineSpacings as spacing (spacing)}
               <button
                 type="button"
-                class="flex w-full rounded px-2.5 py-1.5 text-left text-xs hover:bg-base-200"
+                class="flex w-full rounded px-2.5 py-1.5 text-left text-xs hover:bg-base-200 {spacing ===
+                wordLineSpacing
+                  ? 'bg-primary/10 text-primary'
+                  : ''}"
                 role="menuitemradio"
-                aria-checked={false}
+                aria-checked={spacing === wordLineSpacing}
                 onclick={() => docxCommand("list.lineSpacing", spacing)}
               >
                 {spacing.toFixed(spacing % 1 === 0 ? 1 : 2)}
@@ -922,7 +1151,7 @@
           aria-label="Sisipkan tabel"
           aria-haspopup="menu"
           aria-expanded={wordMenu === "table"}
-          onclick={(e) => toggleWordMenu("table", e)}
+          use:menuPress={(e) => toggleWordMenu("table", e)}
         >
           <iconify-icon icon="bx:table"></iconify-icon>
         </button>
@@ -1045,8 +1274,7 @@
         aria-haspopup="menu"
         aria-expanded={visualMenuOpen}
         disabled={visualDisabled}
-        onclick={(e) => {
-          e.stopPropagation();
+        use:menuPress={() => {
           visualMenuOpen = !visualMenuOpen;
         }}
       >
@@ -1128,8 +1356,7 @@
         aria-haspopup="menu"
         aria-expanded={footerMenuOpen}
         disabled={!hasDocuments || hasSignature}
-        onclick={(e) => {
-          e.stopPropagation();
+        use:menuPress={() => {
           footerMenuOpen = !footerMenuOpen;
         }}
       >
@@ -1253,8 +1480,7 @@
         aria-label="Status tanda tangan dokumen"
         aria-haspopup="menu"
         aria-expanded={statusMenuOpen}
-        onclick={(e) => {
-          e.stopPropagation();
+        use:menuPress={() => {
           statusMenuOpen = !statusMenuOpen;
         }}
       >

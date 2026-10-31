@@ -1,9 +1,11 @@
 <script lang="ts">
   import { tick } from "svelte";
+  import type { TextMatch } from "@docx-editor.dev/core/editor";
   import type {
     PreviewController,
     SearchHit,
   } from "$lib/components/preview.svelte";
+  import type { DocxEditorSetupHandle } from "../editor/editor-logic";
   import type { PlacementType } from "./types";
 
   let {
@@ -14,6 +16,8 @@
     placements = [],
     onEdit,
     tab = $bindable("halaman"),
+    wordMode = false,
+    wordHandle = null,
   }: {
     controller?: PreviewController | null;
     preview: { page: number; pageCount: number; sizes: unknown[] };
@@ -24,6 +28,10 @@
      *  push an undo snapshot of the pre-edit placement. */
     onEdit?: () => void;
     tab?: "halaman" | "properti";
+    /** While the Word editor is open, replace page thumbnails with its outline
+     *  and in-document search. */
+    wordMode?: boolean;
+    wordHandle?: DocxEditorSetupHandle | null;
   } = $props();
 
   const THUMB_WIDTH = 140;
@@ -39,6 +47,136 @@
   const hitByPage = $derived(
     new Map(hits.map((h) => [h.page, h] as const)),
   );
+
+  type WordOutlineItem = {
+    readonly text: string;
+    readonly level: number;
+    readonly blockId: string;
+  };
+
+  let wordTab = $state<"judul" | "cari">("judul");
+  let wordOutline = $state<WordOutlineItem[]>([]);
+  let wordCurrentBlock = $state<string | null>(null);
+  let wordFilter = $state("");
+  let wordQuery = $state("");
+  let wordMatchCase = $state(false);
+  let wordWholeWord = $state(false);
+  let wordMatchIndex = $state(-1);
+  let wordSearchVersion = $state(0);
+  let previousWordMatches: readonly TextMatch[] | null = null;
+
+  const wordOutlineRows = $derived.by(() => {
+    const needle = wordFilter.trim().toLowerCase();
+    const items = needle
+      ? wordOutline.filter((item) => item.text.toLowerCase().includes(needle))
+      : wordOutline;
+    const baseLevel =
+      items.length > 0 ? Math.min(...items.map((item) => item.level)) : 0;
+    return items.map((item) => ({
+      ...item,
+      indent: 8 + (item.level - baseLevel) * 14,
+    }));
+  });
+
+  const wordMatches = $derived.by(() => {
+    void wordSearchVersion;
+    const editor = wordHandle?.editor;
+    const q = wordQuery.trim();
+    if (!editor || !q) return [] as TextMatch[];
+    return editor.findMatches(q, {
+      matchCase: wordMatchCase,
+      wholeWord: wordWholeWord,
+    }) as TextMatch[];
+  });
+
+  const wordMatchLabel = $derived.by(() => {
+    if (!wordQuery.trim()) return "";
+    if (wordMatches.length === 0) return "Tidak ada hasil";
+    return wordMatchIndex >= 0
+      ? `${wordMatchIndex + 1} / ${wordMatches.length}`
+      : `${wordMatches.length} hasil`;
+  });
+
+  function refreshWordOutline() {
+    const editor = wordHandle?.editor;
+    if (!editor) {
+      wordOutline = [];
+      wordCurrentBlock = null;
+      return;
+    }
+    wordOutline = editor.getOutline().map((item) => ({
+      text: item.text,
+      level: item.level,
+      blockId: item.blockId,
+    }));
+    const from = editor.snapshot().selection?.from;
+    wordCurrentBlock = from && "paraId" in from ? from.paraId : null;
+  }
+
+  $effect(() => {
+    if (!wordMode) {
+      wordOutline = [];
+      wordCurrentBlock = null;
+      return;
+    }
+    const editor = wordHandle?.editor;
+    refreshWordOutline();
+    if (!editor) return;
+    const offChange = editor.on("change", () => {
+      refreshWordOutline();
+      wordSearchVersion += 1;
+    });
+    const offSelection = editor.on("selectionChange", refreshWordOutline);
+    return () => {
+      offChange();
+      offSelection();
+    };
+  });
+
+  // Opening the pane (or returning to the outline) re-reads the document, so
+  // headings that arrived after the editor mounted still show up.
+  $effect(() => {
+    if (!wordMode || !open || wordTab !== "judul") return;
+    refreshWordOutline();
+  });
+
+  $effect(() => {
+    const matches = wordMatches;
+    if (matches === previousWordMatches) return;
+    previousWordMatches = matches;
+    wordMatchIndex = -1;
+  });
+
+  function goToWordHeading(blockId: string) {
+    const editor = wordHandle?.editor;
+    if (!editor) return;
+    editor.focus();
+    editor.exec({
+      type: "setSelection",
+      range: {
+        anchor: { paragraphId: blockId, offset: 0 },
+        head: { paragraphId: blockId, offset: 0 },
+      },
+    });
+    editor.scrollToBlock(blockId);
+    wordCurrentBlock = blockId;
+  }
+
+  function goToWordMatch(index: number) {
+    const editor = wordHandle?.editor;
+    const match = wordMatches[index];
+    if (!editor || !match) return;
+    editor.focus();
+    if (editor.selectMatch(match).ok) wordMatchIndex = index;
+  }
+
+  function stepWordMatch(delta: -1 | 1) {
+    const count = wordMatches.length;
+    if (count === 0) return;
+    const from =
+      wordMatchIndex < 0 ? (delta > 0 ? -1 : 0) : wordMatchIndex;
+    goToWordMatch((from + delta + count) % count);
+  }
 
   const kindLabel = (p: PlacementType | null) => {
     if (!p) return "-";
@@ -99,7 +237,7 @@
     const q = query.trim();
     const ctl = controller;
     const active = tab;
-    if (active !== "halaman" || !ctl || q.length === 0) {
+    if (wordMode || active !== "halaman" || !ctl || q.length === 0) {
       hits = [];
       searching = false;
       return;
@@ -126,7 +264,8 @@
     const ctl = controller;
     const list = listEl;
     const active = tab;
-    if (active !== "halaman" || !ctl || !list || pageList.length === 0) return;
+    if (wordMode || active !== "halaman" || !ctl || !list || pageList.length === 0)
+      return;
 
     let cancelled = false;
     (async () => {
@@ -154,56 +293,263 @@
   class="w-60 flex-none order-2 flex flex-col min-h-0 bg-base-100 border-l border-base-300 max-lg:absolute max-lg:inset-y-0 max-lg:right-0 max-lg:z-30 max-lg:w-[85vw] max-lg:max-w-[16rem] max-lg:shadow-xl {open
     ? ''
     : 'hidden'}"
-  aria-label="Panel kanan"
+  aria-label={wordMode ? "Panel navigasi Word" : "Panel kanan"}
 >
   <div class="tabs tabs-border tabs-sm m-2 flex-none" role="tablist">
-    <button
-      type="button"
-      role="tab"
-      class={tab === "halaman" ? "tab tab-active gap-1" : "tab gap-1"}
-      aria-selected={tab === "halaman"}
-      onclick={() => (tab = "halaman")}
-    >
-      <iconify-icon icon="bx:file"></iconify-icon>
-      Halaman
-      {#if preview.pageCount > 0}
-        <span class="badge badge-sm">{preview.pageCount}</span>
-      {/if}
-    </button>
-    <button
-      type="button"
-      role="tab"
-      class={tab === "properti" ? "tab tab-active gap-1" : "tab gap-1"}
-      aria-selected={tab === "properti"}
-      onclick={() => (tab = "properti")}
-    >
-      <iconify-icon icon="bx:list-ul"></iconify-icon>
-      Properti
-    </button>
+    {#if wordMode}
+      <button
+        type="button"
+        role="tab"
+        class={wordTab === "judul" ? "tab tab-active gap-1" : "tab gap-1"}
+        aria-selected={wordTab === "judul"}
+        onclick={() => (wordTab = "judul")}
+      >
+        <iconify-icon icon="bx:list-ul"></iconify-icon>
+        Judul
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class={wordTab === "cari" ? "tab tab-active gap-1" : "tab gap-1"}
+        aria-selected={wordTab === "cari"}
+        onclick={() => (wordTab = "cari")}
+      >
+        <iconify-icon icon="bx:search"></iconify-icon>
+        Cari
+      </button>
+    {:else}
+      <button
+        type="button"
+        role="tab"
+        class={tab === "halaman" ? "tab tab-active gap-1" : "tab gap-1"}
+        aria-selected={tab === "halaman"}
+        onclick={() => (tab = "halaman")}
+      >
+        <iconify-icon icon="bx:file"></iconify-icon>
+        Halaman
+        {#if preview.pageCount > 0}
+          <span class="badge badge-sm">{preview.pageCount}</span>
+        {/if}
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class={tab === "properti" ? "tab tab-active gap-1" : "tab gap-1"}
+        aria-selected={tab === "properti"}
+        onclick={() => (tab = "properti")}
+      >
+        <iconify-icon icon="bx:list-ul"></iconify-icon>
+        Properti
+      </button>
+    {/if}
     <button
       type="button"
       class="btn btn-sm btn-circle btn-ghost ml-auto lg:hidden"
-      aria-label="Tutup panel navigasi halaman"
+      aria-label={wordMode ? "Tutup panel navigasi Word" : "Tutup panel navigasi halaman"}
       onclick={() => (open = false)}
     >
       ✕
     </button>
   </div>
 
-  {#if tab === "halaman"}
-    <div class="flex-none px-2 pb-1.5">
-      <label class="input input-xs w-full flex items-center gap-1.5">
-        <iconify-icon
-          icon="bx:search"
-          class="text-base text-base-content/50 shrink-0"
-        ></iconify-icon>
-        <input
-          type="text"
-          class="grow min-w-0 text-xs"
-          placeholder="Cari di dokumen"
-          aria-label="Cari di dokumen"
-          bind:value={query}
-        />
+  {#if wordMode}
+    {#if wordTab === "judul"}
+      <div class="flex-none px-2 pb-1.5">
+        <label class="input input-xs w-full flex items-center gap-1.5">
+          <iconify-icon
+            icon="bx:search"
+            class="text-base text-base-content/50 shrink-0"
+          ></iconify-icon>
+          <input
+            type="text"
+            class="grow min-w-0 text-xs"
+            placeholder="Filter judul"
+            aria-label="Filter judul"
+            bind:value={wordFilter}
+          />
+          {#if wordFilter}
+            <button
+              type="button"
+              class="shrink-0 text-base-content/50 hover:text-base-content"
+              aria-label="Bersihkan filter judul"
+              onclick={() => (wordFilter = "")}
+            >
+              <iconify-icon icon="bx:x" class="text-base"></iconify-icon>
+            </button>
+          {/if}
+        </label>
+      </div>
+
+      {#if wordOutline.length === 0}
+        <div
+          class="flex-1 flex flex-col items-center justify-center gap-1.5 p-3 text-center text-base-content/60 text-[11px]"
+        >
+          <iconify-icon icon="bx:list-ul" class="text-[22px]"></iconify-icon>
+          <span>Belum ada judul</span>
+        </div>
+      {:else if wordOutlineRows.length === 0}
+        <div
+          class="flex-1 flex flex-col items-center justify-center gap-1.5 p-3 text-center text-base-content/60 text-[11px]"
+        >
+          <iconify-icon icon="bx:search" class="text-[22px]"></iconify-icon>
+          <span>Tidak ada judul untuk "{wordFilter}"</span>
+        </div>
+      {:else}
+        <ul
+          class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden flex flex-col gap-0.5 m-0 p-2 list-none"
+          aria-label="Daftar judul dokumen"
+        >
+          {#each wordOutlineRows as item (item.blockId)}
+            <li>
+              <button
+                type="button"
+                class="block w-full text-left rounded py-1 pe-2 text-xs truncate transition-colors {wordCurrentBlock ===
+                item.blockId
+                  ? 'bg-primary/10 text-primary font-medium'
+                  : 'hover:bg-base-200'}"
+                style="padding-inline-start: {item.indent}px"
+                title={item.text || "Tanpa judul"}
+                onclick={() => goToWordHeading(item.blockId)}
+              >
+                {item.text || "(Tanpa judul)"}
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    {:else}
+      <div class="flex-none px-2 pb-1.5">
+        <label class="input input-xs w-full flex items-center gap-1.5">
+          <iconify-icon
+            icon="bx:search"
+            class="text-base text-base-content/50 shrink-0"
+          ></iconify-icon>
+          <input
+            type="text"
+            class="grow min-w-0 text-xs"
+            placeholder="Cari di dokumen"
+            aria-label="Cari di dokumen"
+            bind:value={wordQuery}
+          />
+          {#if wordQuery}
+            <button
+              type="button"
+              class="shrink-0 text-base-content/50 hover:text-base-content"
+              aria-label="Bersihkan pencarian"
+              onclick={() => (wordQuery = "")}
+            >
+              <iconify-icon icon="bx:x" class="text-base"></iconify-icon>
+            </button>
+          {/if}
+        </label>
+      </div>
+
+      <div class="flex-none flex items-center gap-3 px-2.5 pb-1.5 text-[11px]">
+        <label class="flex items-center gap-1 cursor-pointer">
+          <input
+            type="checkbox"
+            class="checkbox checkbox-xs"
+            bind:checked={wordMatchCase}
+          />
+          Samakan huruf
+        </label>
+        <label class="flex items-center gap-1 cursor-pointer">
+          <input
+            type="checkbox"
+            class="checkbox checkbox-xs"
+            bind:checked={wordWholeWord}
+          />
+          Kata utuh
+        </label>
+      </div>
+
+      {#if wordQuery.trim()}
+        <div
+          class="flex-none flex items-center justify-between px-2.5 pb-1 text-[10px] text-base-content/60"
+        >
+          <span aria-live="polite">{wordMatchLabel}</span>
+          <span class="join">
+            <button
+              type="button"
+              class="btn btn-xs btn-ghost join-item"
+              aria-label="Hasil sebelumnya"
+              disabled={wordMatches.length === 0}
+              onclick={() => stepWordMatch(-1)}
+            >
+              <iconify-icon icon="bx:chevron-up"></iconify-icon>
+            </button>
+            <button
+              type="button"
+              class="btn btn-xs btn-ghost join-item"
+              aria-label="Hasil berikutnya"
+              disabled={wordMatches.length === 0}
+              onclick={() => stepWordMatch(1)}
+            >
+              <iconify-icon icon="bx:chevron-down"></iconify-icon>
+            </button>
+          </span>
+        </div>
+      {/if}
+
+      {#if !wordQuery.trim()}
+        <div
+          class="flex-1 flex flex-col items-center justify-center gap-1.5 p-3 text-center text-base-content/60 text-[11px]"
+        >
+          <iconify-icon icon="bx:search" class="text-[22px]"></iconify-icon>
+          <span>Ketik untuk mencari di dokumen</span>
+        </div>
+      {:else if wordMatches.length === 0}
+        <div
+          class="flex-1 flex flex-col items-center justify-center gap-1.5 p-3 text-center text-base-content/60 text-[11px]"
+        >
+          <iconify-icon icon="bx:search" class="text-[22px]"></iconify-icon>
+          <span>Tidak ada hasil untuk "{wordQuery}"</span>
+        </div>
+      {:else}
+        <ul
+          class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden flex flex-col gap-0.5 m-0 p-2 list-none"
+          aria-label="Hasil pencarian dokumen"
+        >
+          {#each wordMatches as match, index}
+            <li>
+              <button
+                type="button"
+                class="block w-full text-left rounded px-2 py-1 text-[11px] leading-snug break-words transition-colors {index ===
+                wordMatchIndex
+                  ? 'bg-primary/10 text-primary'
+                  : 'hover:bg-base-200'}"
+                aria-current={index === wordMatchIndex ? "true" : undefined}
+                onclick={() => goToWordMatch(index)}
+              >
+                {#if match.contextBefore}<span class="opacity-60"
+                    >{match.contextBefore}</span
+                  >{/if}<mark
+                  class="bg-warning text-warning-content rounded-[2px] px-0.5"
+                  >{match.text}</mark
+                >{#if match.contextAfter}<span class="opacity-60"
+                    >{match.contextAfter}</span
+                  >{/if}
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    {/if}
+  {:else}
+    {#if tab === "halaman"}
+      <div class="flex-none px-2 pb-1.5">
+        <label class="input input-xs w-full flex items-center gap-1.5">
+          <iconify-icon
+            icon="bx:search"
+            class="text-base text-base-content/50 shrink-0"
+          ></iconify-icon>
+          <input
+            type="text"
+            class="grow min-w-0 text-xs"
+            placeholder="Cari di dokumen"
+            aria-label="Cari di dokumen"
+            bind:value={query}
+          />
         {#if searching}
           <span
             class="loading loading-spinner loading-xs shrink-0"
@@ -373,5 +719,6 @@
       <iconify-icon icon="bx:pointer" class="text-[22px]"></iconify-icon>
       <span>Pilih tanda tangan untuk melihat propertinya</span>
     </div>
+    {/if}
   {/if}
 </aside>
