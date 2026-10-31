@@ -2663,7 +2663,11 @@ function getSuccessMessage(tables: number, insertedInstead: boolean): string {
     if (!editor || !horizontalRulerInner || !verticalRulerInner) return false;
     const geometry = editor.getPageGeometry();
     const page = rulerPageBox(geometry);
-    if (!page) {
+    const zoom = editor.getZoom();
+
+    // Fallback: if rulerPageBox fails but geometry exists, use first page
+    const fallbackPage = page ?? geometry[0];
+    if (!fallbackPage) {
       horizontalRulerInner.innerHTML = "";
       verticalRulerInner.innerHTML = "";
       horizontalRulerInner.style.width = "0px";
@@ -2671,9 +2675,8 @@ function getSuccessMessage(tables: number, insertedInstead: boolean): string {
       return false;
     }
 
-    const zoom = editor.getZoom();
-    const widthPx = page.width * zoom;
-    const heightPx = page.height * zoom;
+    const widthPx = fallbackPage.width * zoom;
+    const heightPx = fallbackPage.height * zoom;
     const contentBox = geometry[0]?.contentBox;
     const offsetX = (contentBox?.x ?? 0) * zoom;
     const offsetY = (contentBox?.y ?? 0) * zoom;
