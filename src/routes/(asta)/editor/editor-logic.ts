@@ -2683,17 +2683,23 @@ function getSuccessMessage(tables: number, insertedInstead: boolean): string {
     const contentWidthPx = (contentBox?.width ?? widthPx / zoom) * zoom;
     const contentHeightPx = (contentBox?.height ?? heightPx / zoom) * zoom;
 
-    // Total document height across all pages - use box.height
-    const heights = geometry.map(g => g.box?.height);
-    const totalHeightPx = heights.reduce((sum, h) => sum + (typeof h === 'number' ? h : 0) * zoom, 0);
-
     horizontalRulerInner.innerHTML = "";
     verticalRulerInner.innerHTML = "";
     horizontalRulerInner.style.width = `${widthPx}px`;
-    verticalRulerInner.style.height = `${totalHeightPx}px`;
+    verticalRulerInner.style.height = `${heightPx}px`;
     renderRulerAxis(horizontalRulerInner, widthPx, offsetX, contentWidthPx, true, zoom);
-    // Vertical ruler spans full document; zero at top of first page
-    renderRulerAxis(verticalRulerInner, totalHeightPx, 0, totalHeightPx, false, zoom);
+    // Vertical ruler shows current page only, zero at top of current page
+    const rulerPage = getCurrentRulerPage();
+    if (rulerPage) {
+      const topMarginPx = twipsToPixels(rulerPage.topMargin, zoom);
+      const bottomMarginPx = twipsToPixels(rulerPage.bottomMargin, zoom);
+      const pageHeightPx = twipsToPixels(rulerPage.pageHeight, zoom);
+      const contentAreaHeightPx = pageHeightPx - topMarginPx - bottomMarginPx;
+      renderRulerAxis(verticalRulerInner, pageHeightPx, topMarginPx, contentAreaHeightPx, false, zoom);
+    } else {
+      // Fallback to full page height if no ruler page info
+      renderRulerAxis(verticalRulerInner, heightPx, offsetY, contentHeightPx, false, zoom);
+    }
 
     getCurrentRulerPage();
     syncRulers();
