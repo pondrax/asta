@@ -468,6 +468,9 @@ export interface DocxEditorSetupHandle {
    * not arbitrary editor commands.
    */
   applyPlan: (steps: readonly PlanStep[]) => Promise<PlanResult>;
+  loadFile: (file: File) => Promise<void>;
+  saveAsDocxFile: () => Promise<File>;
+  saveAsPdfFile: () => Promise<File>;
   destroy: () => void;
 }
 
@@ -4234,6 +4237,37 @@ function getSuccessMessage(tables: number, insertedInstead: boolean): string {
     applyText: applyBridgeText,
     readMap: readDocumentMap,
     applyPlan: applyBridgePlan,
+    loadFile: async (file: File) => {
+      const instance = editor;
+      if (!instance) return;
+      showLoading("Opening document…");
+      try {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        suppressDirty = true;
+        await instance.load(bytes);
+        setDirty(false);
+        if (filenameInput) filenameInput.value = file.name;
+        setDocumentTitle(file.name);
+        if (documentViewport) documentViewport.scrollTo({ top: 0, left: 0 });
+        hideError();
+        updateAll();
+      } catch (error) {
+        showError(error instanceof Error ? error.message : String(error));
+        throw error;
+      } finally {
+        suppressDirty = false;
+        hideLoading();
+      }
+    },
+    saveAsDocxFile: async () => {
+      if (!editor) throw new Error("The document editor is not ready.");
+      const name = filenameInput?.value.trim() || "Untitled";
+      const docxBuffer = await runSave(editor);
+      return new File([docxBuffer], name.endsWith(".docx") ? name : `${name}.docx`, {
+        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      });
+    },
+    saveAsPdfFile: () => createPdfFile(),
     destroy: () => {
       resizeObserver?.disconnect();
       editorResizeObserver?.disconnect();
