@@ -45,6 +45,9 @@
     onClearAll,
     onDownload,
     signerEmail,
+    docxEditing = false,
+    onDocxCommand,
+    onDocxInsertTable,
   }: {
     activeTool?: SignTool;
     onTool?: (tool: SignTool) => void;
@@ -100,16 +103,173 @@
     onClearAll?: () => void;
     onDownload?: () => void;
     signerEmail?: Snippet;
+    /** Swap the signing tools for Word formatting controls. */
+    docxEditing?: boolean;
+    onDocxCommand?: (slot: string, value?: string | number) => void;
+    onDocxInsertTable?: (rows: number, cols: number) => void;
   } = $props();
 
   let footerMenuOpen = $state(false);
   let statusMenuOpen = $state(false);
   let visualMenuOpen = $state(false);
+  let wordMenu = $state<string | null>(null);
+  let wordStyle = $state("Normal");
+  let wordFont = $state("Arial");
+  let wordFontSize = $state(11);
+  let wordColor = $state("FF0000");
+  let wordHighlight = $state("yellow");
+  const wordColorCss = $derived(
+    wordColor === "auto" ? "#000000" : `#${wordColor.replace(/^#/, "")}`,
+  );
+  let wordAlign = $state("left");
+
+  const wordStyles = [
+    "Normal",
+    "Title",
+    "Subtitle",
+    "Heading 1",
+    "Heading 2",
+    "Heading 3",
+    "Heading 4",
+    "Heading 5",
+    "Heading 6",
+    "Strong",
+    "List Paragraph",
+    "footnote text",
+    "endnote text",
+  ];
+  const wordStyleValues: Record<string, string> = {
+    Normal: "Normal",
+    Title: "Title",
+    Subtitle: "Subtitle",
+    "Heading 1": "Heading1",
+    "Heading 2": "Heading2",
+    "Heading 3": "Heading3",
+    "Heading 4": "Heading4",
+    "Heading 5": "Heading5",
+    "Heading 6": "Heading6",
+    Strong: "Strong",
+    "List Paragraph": "ListParagraph",
+    "footnote text": "footnote text",
+    "endnote text": "endnote text",
+  };
+  const wordFonts = [
+    "Arial",
+    "Calibri",
+    "Cambria",
+    "Courier New",
+    "Georgia",
+    "Times New Roman",
+    "Verdana",
+    "Tahoma",
+  ];
+  const wordColors = [
+    { value: "000000", css: "#000000" },
+    { value: "434343", css: "#434343" },
+    { value: "666666", css: "#666666" },
+    { value: "999999", css: "#999999" },
+    { value: "B7B7B7", css: "#b7b7b7" },
+    { value: "D9D9D9", css: "#d9d9d9" },
+    { value: "EFEFEF", css: "#efefef" },
+    { value: "FFFFFF", css: "#ffffff" },
+    { value: "C00000", css: "#c00000" },
+    { value: "FF0000", css: "#ff0000" },
+    { value: "FFC000", css: "#ffc000" },
+    { value: "FFFF00", css: "#ffff00" },
+    { value: "92D050", css: "#92d050" },
+    { value: "00B050", css: "#00b050" },
+    { value: "00B0F0", css: "#00b0f0" },
+    { value: "0070C0", css: "#0070c0" },
+    { value: "002060", css: "#002060" },
+    { value: "7030A0", css: "#7030a0" },
+  ];
+  const wordHighlights = [
+    { value: "yellow", css: "#ffff00" },
+    { value: "green", css: "#00ff00" },
+    { value: "cyan", css: "#00ffff" },
+    { value: "magenta", css: "#ff00ff" },
+    { value: "blue", css: "#0000ff" },
+    { value: "red", css: "#ff0000" },
+    { value: "darkBlue", css: "#000080" },
+    { value: "darkCyan", css: "#008080" },
+    { value: "darkGreen", css: "#008000" },
+    { value: "darkMagenta", css: "#800080" },
+    { value: "darkRed", css: "#800000" },
+    { value: "darkYellow", css: "#808000" },
+    { value: "darkGray", css: "#808080" },
+    { value: "lightGray", css: "#c0c0c0" },
+    { value: "black", css: "#000000" },
+  ];
+  const wordHighlightCss = $derived(
+    wordHighlight === "none"
+      ? "transparent"
+      : wordHighlights.find((item) => item.value === wordHighlight)?.css ??
+          "#ffff00",
+  );
+  const wordAlignments = [
+    { value: "left", icon: "bx:align-left", label: "Rata kiri" },
+    { value: "center", icon: "bx:align-middle", label: "Rata tengah" },
+    { value: "right", icon: "bx:align-right", label: "Rata kanan" },
+    { value: "justify", icon: "bx:align-justify", label: "Rata penuh" },
+  ] as const;
+  const wordLineSpacings = [1, 1.15, 1.5, 2, 2.5, 3];
+  const wordTableSizes = [2, 3, 4, 5, 6];
 
   function closeMenus() {
     footerMenuOpen = false;
     statusMenuOpen = false;
     visualMenuOpen = false;
+    wordMenu = null;
+  }
+
+  function toggleWordMenu(name: string, e: MouseEvent) {
+    e.stopPropagation();
+    footerMenuOpen = false;
+    statusMenuOpen = false;
+    visualMenuOpen = false;
+    wordMenu = wordMenu === name ? null : name;
+  }
+
+  function docxCommand(slot: string, value?: string | number) {
+    onDocxCommand?.(slot, value);
+    wordMenu = null;
+  }
+
+  function pickStyle(style: string) {
+    wordStyle = style;
+    docxCommand("styles.style", wordStyleValues[style] ?? style);
+  }
+
+  function pickFont(font: string) {
+    wordFont = font;
+    docxCommand("font.family", font);
+  }
+
+  function applyFontSize(value: number) {
+    if (!Number.isFinite(value)) return;
+    const next = Math.min(1638, Math.max(1, Math.round(value)));
+    wordFontSize = next;
+    docxCommand("font.size", next);
+  }
+
+  function pickColor(value: string) {
+    wordColor = value;
+    docxCommand("text.color", value);
+  }
+
+  function pickHighlight(value: string) {
+    wordHighlight = value;
+    docxCommand("text.highlight", value);
+  }
+
+  function pickAlignment(value: string) {
+    wordAlign = value;
+    docxCommand(`alignment.${value}`);
+  }
+
+  function insertWordTable(size: number) {
+    onDocxInsertTable?.(size, size);
+    wordMenu = null;
   }
 
   function pickFooterScope(scope: "none" | "current" | "all") {
@@ -183,7 +343,7 @@
     return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString("id-ID");
   }
 
-  const visualDisabled = $derived(visualsLocked);
+  const visualDisabled = $derived(!docxEditing && visualsLocked);
 </script>
 
 <svelte:window
@@ -229,6 +389,584 @@
 
   <div class="w-px h-6 mx-1 bg-base-300 shrink-0"></div>
 
+  {#if docxEditing}
+    {#if signerEmail}
+      <div class="relative max-lg:static shrink-0 flex items-center">
+        {@render signerEmail()}
+      </div>
+      <div class="w-px h-6 mx-1 bg-base-300 shrink-0"></div>
+    {/if}
+
+    <div class="relative shrink-0">
+      <button
+        type="button"
+        class="btn btn-sm btn-ghost gap-1 px-1.5"
+        aria-label="Visualisasi"
+        aria-haspopup="menu"
+        aria-expanded={visualMenuOpen}
+        disabled={visualDisabled}
+        onclick={(e) => {
+          e.stopPropagation();
+          footerMenuOpen = false;
+          statusMenuOpen = false;
+          wordMenu = null;
+          visualMenuOpen = !visualMenuOpen;
+        }}
+      >
+        <iconify-icon icon="bx:image-add"></iconify-icon>
+        <iconify-icon icon="bx:chevron-down" class="text-xs"></iconify-icon>
+      </button>
+      {#if visualMenuOpen}
+        <div
+          class="absolute top-full left-0 mt-1 p-1 bg-base-100 border border-base-300 rounded-lg shadow-xl z-50 flex items-center"
+          role="menu"
+          aria-label="Visualisasi"
+        >
+          <button
+            type="button"
+            class="btn btn-sm btn-ghost btn-square"
+            title="Tambah Gambar"
+            aria-label="Tambah Gambar"
+            role="menuitem"
+            onclick={() => {
+              closeMenus();
+              onAddVisual?.("image");
+            }}
+          >
+            <iconify-icon icon="bx:image"></iconify-icon>
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-ghost btn-square"
+            title="Tambah QR"
+            aria-label="Tambah QR"
+            role="menuitem"
+            onclick={() => {
+              closeMenus();
+              onAddVisual?.("qr");
+            }}
+          >
+            <iconify-icon icon="bx:qr"></iconify-icon>
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-ghost btn-square"
+            title="Tambah Kotak"
+            aria-label="Tambah Kotak"
+            role="menuitem"
+            onclick={() => {
+              closeMenus();
+              onAddVisual?.("box");
+            }}
+          >
+            <iconify-icon icon="bx:box"></iconify-icon>
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-ghost btn-square"
+            title="Gambar Tanda Tangan"
+            aria-label="Tanda Tangan"
+            role="menuitem"
+            onclick={() => {
+              closeMenus();
+              onAddVisual?.("draw");
+            }}
+          >
+            <iconify-icon icon="bx:pencil"></iconify-icon>
+          </button>
+        </div>
+      {/if}
+    </div>
+
+    <div class="w-px h-6 mx-1 bg-base-300 shrink-0"></div>
+
+    <div class="relative shrink-0">
+      <button
+        type="button"
+        class="btn btn-sm btn-ghost gap-1 px-2 normal-case"
+        aria-label="Gaya paragraf"
+        aria-haspopup="listbox"
+        aria-expanded={wordMenu === "style"}
+        onclick={(e) => toggleWordMenu("style", e)}
+      >
+        <span class="text-xs max-w-24 truncate">{wordStyle}</span>
+        <iconify-icon icon="bx:chevron-down" class="text-xs"></iconify-icon>
+      </button>
+      {#if wordMenu === "style"}
+        <ul
+          class="absolute top-full left-0 mt-1 min-w-[160px] max-h-64 overflow-y-auto p-1 bg-base-100 border border-base-300 rounded-lg shadow-xl z-50"
+          role="listbox"
+          aria-label="Gaya paragraf"
+        >
+          {#each wordStyles as style (style)}
+            <li>
+              <button
+                type="button"
+                class="flex w-full items-center px-2.5 py-1.5 text-left text-[13px] rounded hover:bg-base-200 {style ===
+                wordStyle
+                  ? 'bg-primary/10 text-primary'
+                  : ''}"
+                role="option"
+                aria-selected={style === wordStyle}
+                onclick={() => pickStyle(style)}
+              >
+                {style}
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </div>
+
+    <div class="relative shrink-0">
+      <button
+        type="button"
+        class="btn btn-sm btn-ghost gap-1 px-2 normal-case"
+        aria-label="Jenis huruf"
+        aria-haspopup="listbox"
+        aria-expanded={wordMenu === "font"}
+        onclick={(e) => toggleWordMenu("font", e)}
+      >
+        <span class="text-xs max-w-28 truncate">{wordFont}</span>
+        <iconify-icon icon="bx:chevron-down" class="text-xs"></iconify-icon>
+      </button>
+      {#if wordMenu === "font"}
+        <ul
+          class="absolute top-full left-0 mt-1 min-w-[180px] max-h-64 overflow-y-auto p-1 bg-base-100 border border-base-300 rounded-lg shadow-xl z-50"
+          role="listbox"
+          aria-label="Jenis huruf"
+        >
+          {#each wordFonts as font (font)}
+            <li>
+              <button
+                type="button"
+                class="flex w-full items-center px-2.5 py-1.5 text-left text-[13px] rounded hover:bg-base-200 {font ===
+                wordFont
+                  ? 'bg-primary/10 text-primary'
+                  : ''}"
+                role="option"
+                aria-selected={font === wordFont}
+                onclick={() => pickFont(font)}
+              >
+                {font}
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </div>
+
+    <div
+      class="flex items-center gap-px shrink-0 h-[30px] px-1 border border-base-300 rounded-md"
+    >
+      <button
+        type="button"
+        class="btn btn-xs btn-ghost btn-square"
+        aria-label="Perkecil ukuran huruf"
+        onclick={() => applyFontSize(wordFontSize - 1)}
+      >
+        −
+      </button>
+      <input
+        type="number"
+        class="w-9 bg-transparent text-center text-xs outline-none"
+        aria-label="Ukuran huruf"
+        min="1"
+        max="1638"
+        bind:value={wordFontSize}
+        onchange={() => applyFontSize(Number(wordFontSize))}
+      />
+      <button
+        type="button"
+        class="btn btn-xs btn-ghost btn-square"
+        aria-label="Perbesar ukuran huruf"
+        onclick={() => applyFontSize(wordFontSize + 1)}
+      >
+        +
+      </button>
+    </div>
+
+    <div class="w-px h-6 mx-1 bg-base-300 shrink-0"></div>
+
+    <div class="flex items-center gap-px shrink-0">
+      <div class="tooltip tooltip-bottom" data-tip="Tebal">
+        <button
+          type="button"
+          class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
+          aria-label="Tebal"
+          onclick={() => docxCommand("text.bold")}
+        >
+          <iconify-icon icon="bx:bold"></iconify-icon>
+        </button>
+      </div>
+      <div class="tooltip tooltip-bottom" data-tip="Miring">
+        <button
+          type="button"
+          class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
+          aria-label="Miring"
+          onclick={() => docxCommand("text.italic")}
+        >
+          <iconify-icon icon="bx:italic"></iconify-icon>
+        </button>
+      </div>
+      <div class="tooltip tooltip-bottom" data-tip="Garis bawah">
+        <button
+          type="button"
+          class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
+          aria-label="Garis bawah"
+          onclick={() => docxCommand("text.underline")}
+        >
+          <iconify-icon icon="bx:underline"></iconify-icon>
+        </button>
+      </div>
+      <div class="tooltip tooltip-bottom" data-tip="Coret">
+        <button
+          type="button"
+          class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
+          aria-label="Coret"
+          onclick={() => docxCommand("text.strike")}
+        >
+          <iconify-icon icon="bx:strikethrough"></iconify-icon>
+        </button>
+      </div>
+    </div>
+
+    <div class="w-px h-6 mx-1 bg-base-300 shrink-0"></div>
+
+    <div class="flex items-center gap-px shrink-0">
+      <button
+        type="button"
+        class="btn btn-sm btn-ghost hover:bg-base-300 btn-square text-xs"
+        aria-label="Pangkat atas"
+        onclick={() => docxCommand("script.super")}
+      >
+        x²
+      </button>
+      <button
+        type="button"
+        class="btn btn-sm btn-ghost hover:bg-base-300 btn-square text-xs"
+        aria-label="Pangkat bawah"
+        onclick={() => docxCommand("script.sub")}
+      >
+        x₂
+      </button>
+    </div>
+
+    <div class="w-px h-6 mx-1 bg-base-300 shrink-0"></div>
+
+    <div class="flex items-center gap-px shrink-0">
+      <div class="relative flex items-center">
+        <button
+          type="button"
+          class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
+          aria-label="Warna huruf"
+          onclick={() => docxCommand("text.color", wordColor)}
+        >
+          <iconify-icon icon="bx:font-color"></iconify-icon>
+          <span
+            class="absolute bottom-1 left-1.5 right-4 h-0.5 rounded-full"
+            style:background-color={wordColorCss}
+            aria-hidden="true"
+          ></span>
+        </button>
+        <button
+          type="button"
+          class="btn btn-xs btn-ghost btn-square"
+          aria-label="Pilih warna huruf"
+          aria-haspopup="menu"
+          aria-expanded={wordMenu === "color"}
+          onclick={(e) => toggleWordMenu("color", e)}
+        >
+          <iconify-icon icon="bx:chevron-down" class="text-xs"></iconify-icon>
+        </button>
+        {#if wordMenu === "color"}
+          <div
+            class="absolute top-full left-0 mt-1 p-2 bg-base-100 border border-base-300 rounded-lg shadow-xl z-50"
+          >
+            <div class="grid grid-cols-8 gap-1">
+              {#each wordColors as color (color.value)}
+                <button
+                  type="button"
+                  class="h-5 w-5 rounded border border-base-300"
+                  style:background-color={color.css}
+                  aria-label={`Warna ${color.value}`}
+                  onclick={() => pickColor(color.value)}
+                ></button>
+              {/each}
+            </div>
+            <button
+              type="button"
+              class="mt-2 w-full rounded px-2 py-1 text-left text-xs hover:bg-base-200"
+              onclick={() => pickColor("auto")}
+            >
+              Otomatis
+            </button>
+          </div>
+        {/if}
+      </div>
+
+      <div class="relative flex items-center">
+        <button
+          type="button"
+          class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
+          aria-label="Sorotan teks"
+          onclick={() => docxCommand("text.highlight", wordHighlight)}
+        >
+          <iconify-icon icon="bx:highlight"></iconify-icon>
+          <span
+            class="absolute bottom-1 left-1.5 right-4 h-0.5 rounded-full"
+            style:background-color={wordHighlightCss}
+            aria-hidden="true"
+          ></span>
+        </button>
+        <button
+          type="button"
+          class="btn btn-xs btn-ghost btn-square"
+          aria-label="Pilih sorotan teks"
+          aria-haspopup="menu"
+          aria-expanded={wordMenu === "highlight"}
+          onclick={(e) => toggleWordMenu("highlight", e)}
+        >
+          <iconify-icon icon="bx:chevron-down" class="text-xs"></iconify-icon>
+        </button>
+        {#if wordMenu === "highlight"}
+          <div
+            class="absolute top-full left-0 mt-1 p-2 bg-base-100 border border-base-300 rounded-lg shadow-xl z-50"
+          >
+            <div class="grid grid-cols-8 gap-1">
+              {#each wordHighlights as color (color.value)}
+                <button
+                  type="button"
+                  class="h-5 w-5 rounded border border-base-300"
+                  style:background-color={color.css}
+                  aria-label={`Sorotan ${color.value}`}
+                  onclick={() => pickHighlight(color.value)}
+                ></button>
+              {/each}
+            </div>
+            <button
+              type="button"
+              class="mt-2 w-full rounded px-2 py-1 text-left text-xs hover:bg-base-200"
+              onclick={() => pickHighlight("none")}
+            >
+              Tanpa warna
+            </button>
+          </div>
+        {/if}
+      </div>
+    </div>
+
+    <div class="w-px h-6 mx-1 bg-base-300 shrink-0"></div>
+
+    <div class="relative shrink-0">
+      <button
+        type="button"
+        class="btn btn-sm btn-ghost gap-1 px-1.5"
+        aria-label={wordAlignments.find((item) => item.value === wordAlign)?.label}
+        aria-haspopup="menu"
+        aria-expanded={wordMenu === "alignment"}
+        onclick={(e) => toggleWordMenu("alignment", e)}
+      >
+        <iconify-icon
+          icon={wordAlignments.find((item) => item.value === wordAlign)?.icon}
+        ></iconify-icon>
+        <iconify-icon icon="bx:chevron-down" class="text-xs"></iconify-icon>
+      </button>
+      {#if wordMenu === "alignment"}
+        <div
+          class="absolute top-full left-0 mt-1 p-1 bg-base-100 border border-base-300 rounded-lg shadow-xl z-50 flex items-center"
+          role="menu"
+        >
+          {#each wordAlignments as item (item.value)}
+            <button
+              type="button"
+              class="btn btn-sm btn-ghost btn-square {item.value === wordAlign
+                ? 'bg-primary/10 text-primary'
+                : ''}"
+              aria-label={item.label}
+              aria-pressed={item.value === wordAlign}
+              role="menuitemradio"
+              onclick={() => pickAlignment(item.value)}
+            >
+              <iconify-icon icon={item.icon}></iconify-icon>
+            </button>
+          {/each}
+        </div>
+      {/if}
+    </div>
+
+    <div class="flex items-center gap-px shrink-0">
+      <div class="tooltip tooltip-bottom" data-tip="Daftar butir">
+        <button
+          type="button"
+          class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
+          aria-label="Daftar butir"
+          onclick={() => docxCommand("list.bullet")}
+        >
+          <iconify-icon icon="bx:list-ul"></iconify-icon>
+        </button>
+      </div>
+      <div class="tooltip tooltip-bottom" data-tip="Daftar bernomor">
+        <button
+          type="button"
+          class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
+          aria-label="Daftar bernomor"
+          onclick={() => docxCommand("list.numbered")}
+        >
+          <iconify-icon icon="bx:list-ol"></iconify-icon>
+        </button>
+      </div>
+      <div class="tooltip tooltip-bottom" data-tip="Kurangi indentasi">
+        <button
+          type="button"
+          class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
+          aria-label="Kurangi indentasi"
+          onclick={() => docxCommand("list.outdent")}
+        >
+          <iconify-icon icon="bx:left-indent"></iconify-icon>
+        </button>
+      </div>
+      <div class="tooltip tooltip-bottom" data-tip="Tambah indentasi">
+        <button
+          type="button"
+          class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
+          aria-label="Tambah indentasi"
+          onclick={() => docxCommand("list.indent")}
+        >
+          <iconify-icon icon="bx:right-indent"></iconify-icon>
+        </button>
+      </div>
+      <div class="relative">
+        <button
+          type="button"
+          class="btn btn-sm btn-ghost gap-1 px-1.5"
+          aria-label="Spasi baris"
+          aria-haspopup="menu"
+          aria-expanded={wordMenu === "spacing"}
+          onclick={(e) => toggleWordMenu("spacing", e)}
+        >
+          <iconify-icon icon="bx:vertical-center"></iconify-icon>
+          <iconify-icon icon="bx:chevron-down" class="text-xs"></iconify-icon>
+        </button>
+        {#if wordMenu === "spacing"}
+          <div
+            class="absolute top-full left-0 mt-1 min-w-[120px] p-1 bg-base-100 border border-base-300 rounded-lg shadow-xl z-50"
+            role="menu"
+          >
+            {#each wordLineSpacings as spacing (spacing)}
+              <button
+                type="button"
+                class="flex w-full rounded px-2.5 py-1.5 text-left text-xs hover:bg-base-200"
+                role="menuitemradio"
+                aria-checked={false}
+                onclick={() => docxCommand("list.lineSpacing", spacing)}
+              >
+                {spacing.toFixed(spacing % 1 === 0 ? 1 : 2)}
+              </button>
+            {/each}
+            <div class="my-1 h-px bg-base-300"></div>
+            <button
+              type="button"
+              class="flex w-full rounded px-2.5 py-1.5 text-left text-xs hover:bg-base-200"
+              onclick={() => docxCommand("paragraph.dialog")}
+            >
+              Opsi spasi baris…
+            </button>
+          </div>
+        {/if}
+      </div>
+    </div>
+
+    <div class="w-px h-6 mx-1 bg-base-300 shrink-0"></div>
+
+    <div class="flex items-center gap-px shrink-0">
+      <div class="tooltip tooltip-bottom" data-tip="Format Painter">
+        <button
+          type="button"
+          class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
+          aria-label="Format Painter"
+          onclick={() => docxCommand("format.painter")}
+        >
+          <iconify-icon icon="bx:brush"></iconify-icon>
+        </button>
+      </div>
+      <div class="tooltip tooltip-bottom" data-tip="Hapus format">
+        <button
+          type="button"
+          class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
+          aria-label="Hapus format"
+          onclick={() => docxCommand("format.clear")}
+        >
+          <iconify-icon icon="bx:eraser"></iconify-icon>
+        </button>
+      </div>
+      <div class="tooltip tooltip-bottom" data-tip="Paragraf">
+        <button
+          type="button"
+          class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
+          aria-label="Paragraf"
+          onclick={() => docxCommand("paragraph.dialog")}
+        >
+          <iconify-icon icon="bx:paragraph"></iconify-icon>
+        </button>
+      </div>
+    </div>
+
+    <div class="w-px h-6 mx-1 bg-base-300 shrink-0"></div>
+
+    <div class="flex items-center gap-px shrink-0">
+      <div class="relative">
+        <button
+          type="button"
+          class="btn btn-sm btn-ghost btn-square"
+          aria-label="Sisipkan tabel"
+          aria-haspopup="menu"
+          aria-expanded={wordMenu === "table"}
+          onclick={(e) => toggleWordMenu("table", e)}
+        >
+          <iconify-icon icon="bx:table"></iconify-icon>
+        </button>
+        {#if wordMenu === "table"}
+          <div
+            class="absolute top-full right-0 mt-1 min-w-[110px] p-1 bg-base-100 border border-base-300 rounded-lg shadow-xl z-50"
+            role="menu"
+          >
+            {#each wordTableSizes as size (size)}
+              <button
+                type="button"
+                class="flex w-full rounded px-2.5 py-1.5 text-left text-xs hover:bg-base-200"
+                onclick={() => insertWordTable(size)}
+              >
+                {size} × {size}
+              </button>
+            {/each}
+          </div>
+        {/if}
+      </div>
+      <div class="tooltip tooltip-bottom" data-tip="Sisipkan gambar">
+        <button
+          type="button"
+          class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
+          aria-label="Sisipkan gambar"
+          onclick={() => onAddVisual?.("image")}
+        >
+          <iconify-icon icon="bx:image"></iconify-icon>
+        </button>
+      </div>
+      <div class="tooltip tooltip-bottom" data-tip="Pemisah halaman">
+        <button
+          type="button"
+          class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
+          aria-label="Pemisah halaman"
+          onclick={() => docxCommand("insert.pageBreak")}
+        >
+          <iconify-icon icon="bx:file-blank"></iconify-icon>
+        </button>
+      </div>
+    </div>
+
+    <div class="ml-auto"></div>
+  {:else}
   {#if signerEmail}
     <div class="relative max-lg:static shrink-0 flex items-center">
       {@render signerEmail()}
@@ -805,4 +1543,5 @@
       {/if}
     </div>
   </div>
+  {/if}
 </div>

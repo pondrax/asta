@@ -390,6 +390,7 @@ function variantHex(themeHex: string, variant: ThemeVariant): string {
 
 export interface DocxEditorSetupOptions {
   onDirtyChange: (dirty: boolean) => void;
+  onHistoryChange?: (state: { canUndo: boolean; canRedo: boolean }) => void;
   onError: (msg: string | null) => void;
   showToast: (type: "success" | "error" | "warning", msg: string) => void;
   getTheme: () => string;
@@ -438,6 +439,10 @@ export interface DocxEditorSetupHandle {
    * is hidden), so it needs a way to trigger the same handlers.
    */
   runMenu: (item: { slot?: string; action?: string }) => void;
+  /** Runs a toolbar command by its `data-slot`, e.g. `text.bold`. */
+  runCommand: (slot: string, value?: string | number) => void;
+  /** Inserts an image file into the document body. */
+  insertImage: (file: File) => Promise<void>;
   /**
    * The text the chat assistant should work on: the current selection, or the
    * whole document when nothing is selected.
@@ -471,6 +476,8 @@ export interface DocxEditorSetupHandle {
   loadFile: (file: File) => Promise<void>;
   saveAsDocxFile: () => Promise<File>;
   saveAsPdfFile: () => Promise<File>;
+  undo: () => void;
+  redo: () => void;
   destroy: () => void;
 }
 
@@ -840,6 +847,15 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
     if (dirty === value) return;
     dirty = value;
     opts.onDirtyChange(dirty);
+  }
+
+  function notifyHistoryChange() {
+    const surfaceState = editor?.surface?.state();
+    const snapshot = editor?.snapshot();
+    opts.onHistoryChange?.({
+      canUndo: surfaceState?.canUndo ?? snapshot?.canUndo ?? false,
+      canRedo: surfaceState?.canRedo ?? snapshot?.canRedo ?? false,
+    });
   }
 
   function showLoading(label: string) {
@@ -3253,6 +3269,7 @@ function getSuccessMessage(tables: number, insertedInstead: boolean): string {
     if (!editor) return;
     unsubscribeChange = editor.on("change", (change) => {
       if (!suppressDirty && change.source !== "load") setDirty(true);
+      notifyHistoryChange();
       refreshEditorChrome();
     });
     unsubscribeSelectionChange = editor.on("selectionChange", () => {
@@ -4177,6 +4194,7 @@ function getSuccessMessage(tables: number, insertedInstead: boolean): string {
       }
       if (filenameInput) filenameInput.value = "Untitled";
       setDirty(false);
+      notifyHistoryChange();
       hideError();
       setupEventListeners();
       updateAll();
@@ -4228,6 +4246,57 @@ function getSuccessMessage(tables: number, insertedInstead: boolean): string {
         showError(error instanceof Error ? error.message : String(error));
       }
     },
+    runCommand: (slot: string, value?: string | number) => {
+      try {
+        const instance = editor;
+        if (instance && value !== undefined) {
+          if (slot === "font.size") {
+            runToolbarCommand(instance, "font.size", Number(value));
+          } else if (slot === "font.family") {
+            runToolbarCommand(instance, "font.family", String(value));
+          } else if (slot === "styles.style") {
+            runToolbarCommand(instance, "styles.style", String(value));
+          } else if (slot === "text.color") {
+            runToolbarCommand(instance, "text.color", String(value));
+          } else if (slot === "text.highlight") {
+            runToolbarCommand(instance, "text.highlight", String(value));
+          } else if (slot === "list.lineSpacing") {
+            runToolbarCommand(instance, "list.lineSpacing", Number(value));
+          }
+          updateAll();
+          return;
+        }
+        handleSlot(slot, null);
+      } catch (error) {
+        showError(error instanceof Error ? error.message : String(error));
+      }
+    },
+    insertImage: async (file: File) => {
+      const instance = editor;
+      if (!instance) throw new Error("The document editor is not ready.");
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const mime = (file.type || "image/png") as SupportedImageMime;
+      const widthPoints = 300;
+      let heightPoints = 200;
+      try {
+        const bitmap = await createImageBitmap(file);
+        if (bitmap.width > 0) {
+          heightPoints = (widthPoints * bitmap.height) / bitmap.width;
+        }
+        bitmap.close();
+      } catch {
+        heightPoints = 200;
+      }
+      await executeImageCommand(instance, {
+        type: "insertImage",
+        data: bytes,
+        mime,
+        widthPoints,
+        heightPoints,
+      });
+      updateAll();
+      notifyHistoryChange();
+    },
     // Exposed for the global chatbot, which lives in the root layout and has
     // no handle on this engine. It reads the current selection and asks for
     // text to be written back; both are routed through the same `paste` lane
@@ -4251,6 +4320,7 @@ function getSuccessMessage(tables: number, insertedInstead: boolean): string {
         if (documentViewport) documentViewport.scrollTo({ top: 0, left: 0 });
         hideError();
         updateAll();
+        notifyHistoryChange();
       } catch (error) {
         showError(error instanceof Error ? error.message : String(error));
         throw error;
@@ -4268,6 +4338,14 @@ function getSuccessMessage(tables: number, insertedInstead: boolean): string {
       });
     },
     saveAsPdfFile: () => createPdfFile(),
+    undo: () => {
+      editor?.surface?.undo();
+      notifyHistoryChange();
+    },
+    redo: () => {
+      editor?.surface?.redo();
+      notifyHistoryChange();
+    },
     destroy: () => {
       resizeObserver?.disconnect();
       editorResizeObserver?.disconnect();

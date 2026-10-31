@@ -226,12 +226,19 @@
   /** Snapshot-based undo/redo over the placement list. */
   let undoStack: string[] = $state([]);
   let redoStack: string[] = $state([]);
+  /** History of the DOCX editor, kept separate from the placement stack. */
+  let docxCanUndo = $state(false);
+  let docxCanRedo = $state(false);
 
   const armed = $derived(
     activeTool !== "select" && activeTool !== "signature",
   );
-  const canUndo = $derived(undoStack.length > 0);
-  const canRedo = $derived(redoStack.length > 0);
+  const canUndo = $derived(
+    isEditingDocx ? docxCanUndo : undoStack.length > 0,
+  );
+  const canRedo = $derived(
+    isEditingDocx ? docxCanRedo : redoStack.length > 0,
+  );
 
   $effect(() => {
     document.body.classList.toggle("dark", app.theme === "dark");
@@ -611,6 +618,10 @@
   }
 
   function undo() {
+    if (isEditingDocx) {
+      docxEditorCtl?.undo();
+      return;
+    }
     if (!undoStack.length) return;
     redoStack.push(JSON.stringify(placements));
     placements = JSON.parse(undoStack.pop()!);
@@ -618,6 +629,10 @@
   }
 
   function redo() {
+    if (isEditingDocx) {
+      docxEditorCtl?.redo();
+      return;
+    }
     if (!redoStack.length) return;
     undoStack.push(JSON.stringify(placements));
     placements = JSON.parse(redoStack.pop()!);
@@ -1443,6 +1458,8 @@
         isEditingDocx = false;
         editingDocIndex = null;
         docxEditFile = null;
+        docxCanUndo = false;
+        docxCanRedo = false;
       }
       return;
     }
@@ -1476,6 +1493,8 @@
       isEditingDocx = false;
       editingDocIndex = null;
       docxEditFile = null;
+      docxCanUndo = false;
+      docxCanRedo = false;
       if (handoffZoom) {
         zoomHandoff = editorZoom;
         await tick();
@@ -1547,6 +1566,10 @@
     width: number;
     height: number;
   }) {
+    if (isEditingDocx) {
+      void insertDocxImageBase64(payload.imageBase64, `${payload.visual}.png`);
+      return;
+    }
     const cfg = payload.visual === "qr" ? { width: 100 } : { width: 200 };
     const height = (cfg.width / payload.width) * payload.height;
     const margin = 48;
@@ -1636,11 +1659,16 @@
 
   async function addVisualDirect(visual: "qr" | "box") {
     const canvas = await renderVisualImage(visual);
+    const imageBase64 = canvas
+      .toDataURL("image/png")
+      .replace("data:image/png;base64,", "");
+    if (isEditingDocx) {
+      await insertDocxImageBase64(imageBase64, `${visual}.png`);
+      return;
+    }
     placePreviewVisual({
       visual,
-      imageBase64: canvas
-        .toDataURL("image/png")
-        .replace("data:image/png;base64,", ""),
+      imageBase64,
       width: canvas.width,
       height: canvas.height,
     });
@@ -1666,12 +1694,37 @@
     }
   }
 
+  /** Insert a visual image straight into the Word document being edited. */
+  async function insertDocxImage(file: File) {
+    try {
+      if (!docxEditorCtl) throw new Error("Editor belum siap");
+      await docxEditorCtl.insertImage(file);
+    } catch (error) {
+      app.showToast(
+        "error",
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+
+  async function insertDocxImageBase64(imageBase64: string, name = "visual.png") {
+    const binary = atob(imageBase64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    await insertDocxImage(new File([bytes], name, { type: "image/png" }));
+  }
+
   /** Place an uploaded image file as a visualisation on the current page. */
   async function handleImageFile(e: Event) {
     const input = e.currentTarget as HTMLInputElement;
     const file = input.files?.[0];
     input.value = "";
     if (!file) return;
+
+    if (isEditingDocx) {
+      await insertDocxImage(file);
+      return;
+    }
 
     const dataUrl = await new Promise<string>((resolve) => {
       const reader = new FileReader();
@@ -2220,6 +2273,10 @@
         selectedId = null;
       }}
       onDownload={downloadActive}
+      docxEditing={isEditingDocx}
+      onDocxCommand={(slot, value) => docxEditorCtl?.runCommand(slot, value)}
+      onDocxInsertTable={(rows, cols) =>
+        docxEditorCtl?.handle?.insertTable(rows, cols)}
     />
   </div>
 
@@ -2273,6 +2330,8 @@
                 zoomHandoff = previewState.zoom;
                 editingDocIndex = activeIndex;
                 docxEditFile = activeDocxFile;
+                docxCanUndo = false;
+                docxCanRedo = false;
                 isEditingDocx = true;
                 await tick();
                 zoomHandoff = 1;
@@ -2555,6 +2614,10 @@
               file={docxEditFile}
               initialZoom={zoomHandoff}
               bind:controller={docxEditorCtl}
+              onHistoryChange={(state) => {
+                docxCanUndo = state.canUndo;
+                docxCanRedo = state.canRedo;
+              }}
             />
           {:else}
           <div class="absolute inset-0 pt-[28px] pl-[28px]">
@@ -2755,7 +2818,11 @@
         <Signature
           {form}
           setSignature={(p) => {
-            setSignature(p);
+            if (isEditingDocx) {
+              void insertDocxImageBase64(p.imageBase64, "signature.png");
+            } else {
+              setSignature(p);
+            }
             visualDialog?.close();
           }}
           {hasSignature}

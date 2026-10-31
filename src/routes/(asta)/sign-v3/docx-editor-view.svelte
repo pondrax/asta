@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy } from "svelte";
+  import { onMount, onDestroy, untrack } from "svelte";
   import { app } from "$lib/app/index.svelte";
   import { setupDocxEditor, type DocxEditorSetupHandle } from "../editor/editor-logic";
   import "../editor/editor.css";
@@ -7,6 +7,10 @@
   export type DocxEditorViewHandle = {
     saveAsPdfFile: () => Promise<File>;
     saveAsDocxFile: () => Promise<File>;
+    undo: () => void;
+    redo: () => void;
+    runCommand: (slot: string, value?: string | number) => void;
+    insertImage: (file: File) => Promise<void>;
     handle?: DocxEditorSetupHandle | null;
   };
 
@@ -14,16 +18,18 @@
     file,
     initialZoom = 1,
     controller = $bindable(),
+    onHistoryChange,
   }: {
     file: File;
     /** Zoom to restore after the document finishes loading. */
     initialZoom?: number;
     controller?: DocxEditorViewHandle | null;
+    onHistoryChange?: (state: { canUndo: boolean; canRedo: boolean }) => void;
   } = $props();
 
   // Snapshot on mount: the prop is only a hand-off for this editor instance,
   // so a later owner-side change must not retroactively affect the load.
-  const startupZoom = initialZoom;
+  const startupZoom = untrack(() => initialZoom);
 
   let rootEl: HTMLDivElement | null = $state(null);
   let handle: DocxEditorSetupHandle | null = $state(null);
@@ -37,6 +43,13 @@
       saveAsDocxFile: async () => {
         if (!handle) throw new Error("Editor belum siap");
         return await handle.saveAsDocxFile();
+      },
+      undo: () => handle?.undo(),
+      redo: () => handle?.redo(),
+      runCommand: (slot, value) => handle?.runCommand(slot, value),
+      insertImage: async (imageFile) => {
+        if (!handle) throw new Error("Editor belum siap");
+        await handle.insertImage(imageFile);
       },
       handle,
     };
@@ -55,6 +68,7 @@
       showToast: (type, msg) => {
         app.showToast(type, msg);
       },
+      onHistoryChange: (state) => onHistoryChange?.(state),
       getTheme: () => app.theme,
       setTheme: (t) => {
         app.theme = t;
