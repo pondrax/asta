@@ -23,7 +23,8 @@
     type PreviewState,
   } from "$lib/components/preview.svelte";
   import Upload from "./upload.svelte";
-  import DocxEditorView from "./docx-editor-view.svelte";
+  import DocxEditorView, { type DocxEditorViewHandle } from "./docx-editor-view.svelte";
+  import { AUTO_ZOOM_MODE, FIT_WIDTH_ZOOM_MODE } from "@docx-editor.dev/core/editor";
   import Visualizer from "./visualizer.svelte";
   import Signature from "./signature.svelte";
   import Template from "../templates/template.svelte";
@@ -68,7 +69,7 @@
   let documents: Record<string, File> = $state({});
   let docxFiles: Record<string, File> = $state({});
   let isEditingDocx = $state(false);
-  let docxEditorCtl: { saveAsPdfFile: () => Promise<File>; saveAsDocxFile: () => Promise<File> } | null = $state(null);
+  let docxEditorCtl: DocxEditorViewHandle | null = $state(null);
   let isSavingDocx = $state(false);
   let asTemplate = $state(false);
   let asDraft = $state(false);
@@ -119,6 +120,30 @@
   /** Zoom control floating at the bottom-right of the document. */
   let zoomMenuOpen = $state(false);
   const ZOOM_PRESETS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+
+  function applyZoom(preset: number) {
+    if (isEditingDocx && docxEditorCtl?.handle?.editor) {
+      docxEditorCtl.handle.editor.setZoom(preset);
+      previewState.zoom = preset;
+    } else {
+      previewCtl?.setZoom(preset);
+    }
+  }
+
+  function applyFitMode(mode: "width" | "height" | "content") {
+    if (isEditingDocx && docxEditorCtl?.handle?.editor) {
+      if (mode === "width") {
+        docxEditorCtl.handle.editor.setZoomMode(FIT_WIDTH_ZOOM_MODE);
+      } else {
+        docxEditorCtl.handle.editor.setZoomMode(AUTO_ZOOM_MODE);
+      }
+      previewState.zoom = docxEditorCtl.handle.editor.snapshot().zoom;
+    } else {
+      if (mode === "width") previewCtl?.fitWidth();
+      else if (mode === "height") previewCtl?.fitHeight();
+      else previewCtl?.fitContent();
+    }
+  }
 
   /** Visualisation picker dialog (reuses `Signature`). */
   let visualDialog: HTMLDialogElement | undefined = $state();
@@ -188,6 +213,9 @@
     sizes: [],
     layout: { perRow: 1, boxes: [] },
   });
+
+  /** Zoom handed from the view being closed to the one replacing it. */
+  let zoomHandoff = $state(1);
 
   /** Snapshot-based undo/redo over the placement list. */
   let undoStack: string[] = $state([]);
@@ -2198,9 +2226,20 @@
                     isSavingDocx = false;
                   }
                 }
+                // Carry the editor's zoom into the PDF preview, then let the
+                // one-shot hand-off clear so later document changes are not
+                // pinned to it.
+                zoomHandoff =
+                  docxEditorCtl?.handle?.editor?.snapshot().zoom ??
+                  previewState.zoom;
                 isEditingDocx = false;
+                await tick();
+                zoomHandoff = 1;
               } else {
+                zoomHandoff = previewState.zoom;
                 isEditingDocx = true;
+                await tick();
+                zoomHandoff = 1;
               }
             }}
           >
@@ -2262,7 +2301,13 @@
             title="Perkecil"
             aria-label="Perkecil"
             disabled={previewState.zoom <= 0.25}
-            onclick={() => previewCtl?.zoomOut()}>−</button
+            onclick={() => {
+              if (isEditingDocx && docxEditorCtl?.handle?.editor) {
+                applyZoom(Math.max(0.25, previewState.zoom - 0.25));
+              } else {
+                previewCtl?.zoomOut();
+              }
+            }}>−</button
           >
           <button
             type="button"
@@ -2287,50 +2332,74 @@
             title="Perbesar"
             aria-label="Perbesar"
             disabled={previewState.zoom >= 4}
-            onclick={() => previewCtl?.zoomIn()}>+</button
+            onclick={() => {
+              if (isEditingDocx && docxEditorCtl?.handle?.editor) {
+                applyZoom(Math.min(4, previewState.zoom + 0.25));
+              } else {
+                previewCtl?.zoomIn();
+              }
+            }}>+</button
           >
 
           {#if zoomMenuOpen}
             <ul
-              class="absolute top-full left-0 mt-1.5 min-w-33 p-1 bg-base-100 border border-base-300 rounded-lg shadow-xl z-40"
+              class="absolute bottom-full left-0 mb-1.5 min-w-36 p-1 bg-base-100 border border-base-300 rounded-lg shadow-xl z-50 text-[13px]"
               role="menu"
             >
               <li>
                 <button
                   type="button"
-                  class="w-full flex items-center gap-2 px-2.5 py-1.75 bg-transparent border-0 rounded text-[13px] leading-4.5 text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200 {Math.abs(
-                    previewState.zoom - 1,
-                  ) < 0.001
-                    ? 'bg-primary/10 text-primary'
-                    : ''}"
+                  class="w-full flex items-center gap-2 px-2.5 py-1.5 bg-transparent border-0 rounded text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200"
                   onclick={() => {
-                    previewCtl?.setZoom(1);
+                    applyFitMode("width");
                     zoomMenuOpen = false;
                   }}
                 >
-                  Sesuai Jendela
-                  {#if Math.abs(previewState.zoom - 1) < 0.001}
-                    <span class="ml-auto text-xs pl-4">✓</span>
-                  {/if}
+                  Fit to Width
                 </button>
               </li>
-              {#each ZOOM_PRESETS as preset (preset)}
+              <li>
+                <button
+                  type="button"
+                  class="w-full flex items-center gap-2 px-2.5 py-1.5 bg-transparent border-0 rounded text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200"
+                  onclick={() => {
+                    applyFitMode("height");
+                    zoomMenuOpen = false;
+                  }}
+                >
+                  Fit Height
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  class="w-full flex items-center gap-2 px-2.5 py-1.5 bg-transparent border-0 rounded text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200"
+                  onclick={() => {
+                    applyFitMode("content");
+                    zoomMenuOpen = false;
+                  }}
+                >
+                  Fit Content
+                </button>
+              </li>
+              <li class="my-1 border-t border-base-200"></li>
+              {#each [0.5, 0.75, 1, 1.25, 1.5, 2] as preset (preset)}
                 <li>
                   <button
                     type="button"
-                    class="w-full flex items-center gap-2 px-2.5 py-1.75 bg-transparent border-0 rounded text-[13px] leading-4.5 text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200 {Math.abs(
+                    class="w-full flex items-center gap-2 px-2.5 py-1.5 bg-transparent border-0 rounded text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200 {Math.abs(
                       previewState.zoom - preset,
                     ) < 0.001
-                      ? 'bg-primary/10 text-primary'
+                      ? 'bg-primary/10 font-semibold text-primary'
                       : ''}"
                     onclick={() => {
-                      previewCtl?.setZoom(preset);
+                      applyZoom(preset);
                       zoomMenuOpen = false;
                     }}
                   >
                     {Math.round(preset * 100)}%
                     {#if Math.abs(previewState.zoom - preset) < 0.001}
-                      <span class="ml-auto text-xs pl-4">✓</span>
+                      <span class="ml-auto text-xs pl-2">✓</span>
                     {/if}
                   </button>
                 </li>
@@ -2448,24 +2517,27 @@
           {#if isEditingDocx && activeDocxFile}
             <DocxEditorView
               file={activeDocxFile}
+              initialZoom={zoomHandoff}
               bind:controller={docxEditorCtl}
             />
           {:else}
-          <Preview
-            file={previewFile}
-            {hasSignature}
-            bare
-            bind:controller={previewCtl}
-            onstate={(s) => {
-              previewState.zoom = s.zoom;
-              previewState.page = s.page;
-              previewState.pageCount = s.pageCount;
-              previewState.sizes = s.sizes;
-              previewState.layout = s.layout;
-            }}
-            controls={false}
-            onclose={closeDocument}
-          >
+          <div class="absolute inset-0 pt-[28px] pl-[28px]">
+            <Preview
+              file={previewFile}
+              {hasSignature}
+              bare
+              initialZoom={zoomHandoff}
+              bind:controller={previewCtl}
+              onstate={(s) => {
+                previewState.zoom = s.zoom;
+                previewState.page = s.page;
+                previewState.pageCount = s.pageCount;
+                previewState.sizes = s.sizes;
+                previewState.layout = s.layout;
+              }}
+              controls={false}
+              onclose={closeDocument}
+            >
             {#snippet children(_scale, _pageSizes, _gutter)}
               <!-- svelte-ignore a11y_click_events_have_key_events -->
               <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -2598,6 +2670,7 @@
               </div>
             {/snippet}
           </Preview>
+          </div>
           {/if}
         </div>
       {/if}
@@ -2663,7 +2736,7 @@
     </dialog>
 
     <aside
-      class="w-90 flex-none order-0 flex flex-col min-h-0 bg-base-100 border-r border-base-300 max-lg:absolute max-lg:inset-y-0 max-lg:left-0 max-lg:z-30 max-lg:w-[85vw] max-lg:max-w-[22.5rem] max-lg:shadow-xl {navOpen
+      class="w-90 flex-none order-0 flex flex-col min-h-0 bg-base-100 border-r border-base-300 max-lg:absolute max-lg:inset-y-0 max-lg:left-0 max-lg:z-30 max-lg:w-[85vw] max-lg:max-w-90 max-lg:shadow-xl {navOpen
         ? ''
         : 'hidden'}"
     >

@@ -9,6 +9,9 @@
     zoomOut: () => void;
     setZoom: (z: number) => void;
     resetZoom: () => void;
+    fitWidth: () => void;
+    fitHeight: () => void;
+    fitContent: () => void;
     goToPage: (p: number) => void;
     changePage: (delta: number) => void;
     /**
@@ -90,6 +93,7 @@
     ondownload = undefined,
     controller = $bindable(null),
     onstate = undefined,
+    initialZoom = 1,
     children = undefined,
   }: {
     file: File | null;
@@ -120,6 +124,12 @@
     controller?: PreviewController | null;
     /** Fires whenever zoom, current page or page count change. */
     onstate?: (state: PreviewState) => void;
+    /**
+     * Zoom to open the first document at. Read once on mount so an owner can
+     * carry the zoom across a view switch (e.g. DOCX editor ↔ PDF preview)
+     * without every later file change resetting it.
+     */
+    initialZoom?: number;
     children?: Snippet<
       [number, { width: number; height: number; ratio: number }[], number]
     >;
@@ -142,6 +152,13 @@
   const GAP = 4;
   const BUFFER = 3;
   const PADDING = 1; // 1rem = 16px (p-4)
+  /**
+   * Pixels per PDF point at 100% zoom. PDFs use 72 points per inch while CSS
+   * uses 96px per inch, so 100% has to apply the 96/72 factor to match the
+   * DOCX editor's "100%" (A4 = 210mm → ~793.7px). Without it the same page
+   * would render at 595px here and 793px in Word.
+   */
+  const PX_PER_POINT = 96 / 72;
   const DPI_SCALE = 1.5; // Increase for higher resolution (2x = ~150 DPI, 3x = ~225 DPI)
   // Zoomed pages get big fast (a 612pt page at 4x is ~3700px of canvas), so cap
   // the render scale independently of the on-screen scale.
@@ -150,7 +167,9 @@
   const ZOOM_MAX = 4;
   const ZOOM_STEP = 0.25;
 
-  let zoom = $state(1);
+  let zoom = $state(
+    Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, initialZoom)),
+  );
   let currentPage = $state(0);
   // Held separately from `currentPage` so a half-typed page number ("1" on the way
   // to "12") isn't stomped by the scroll-sync effect.
@@ -239,8 +258,9 @@
       // console.log("file", file, pdfjsLib, hasSignature);
       currentFile = file;
       passwordCancelled = false;
-      // A new document starts at fit-width, first page.
-      zoom = 1;
+      // Keep the current zoom: the parent preserves it when a document is
+      // re-filled or when switching between the DOCX editor and this preview.
+      // Only the page resets for a new document.
       currentPage = 0;
       pageDraft = "";
       resetPageHold();
@@ -256,6 +276,9 @@
       zoomOut,
       setZoom,
       resetZoom,
+      fitWidth,
+      fitHeight,
+      fitContent,
       goToPage,
       changePage,
       renderThumbnail,
@@ -408,45 +431,27 @@
   }
 
   /**
-   * The auto-fit scale for a page, multiplied by the user's zoom. Both the
-   * layout heights and the canvas render must go through this one helper,
+   * Pixels per PDF point at the current zoom. Mirrors the DOCX editor, where
+   * 100% means 96 CSS px per inch — not a fit-to-container scale. Both the
+   * layout geometry and the canvas render must go through this one helper,
    * otherwise the page grows without the pixels being drawn to match.
    */
-  function fitScale(
-    pageWidth: number,
-    pageHeight: number,
-    containerWidth: number,
-    containerHeight: number,
-  ) {
-    const fit = Math.min(
-      containerWidth / pageWidth,
-      containerHeight / pageHeight,
-    );
-    return fit * zoom;
+  function pageScale() {
+    return PX_PER_POINT * zoom;
   }
 
   // --- Layout calculation ---
   function recomputeLayout() {
     if (!containerEl || pageSizes.length === 0) return;
-    const containerWidth = containerEl.clientWidth - PADDING * 2;
-    const containerHeight = containerEl.clientHeight - PADDING * 2;
 
     const perRow = spread ? 2 : 1;
-    // Give extra breathing room on very wide viewports so two-up doesn't
-    // stretch to absurd widths; pages still fit their cell by height/width.
-    const maxCellWidth = 580;
-    cellWidth = Math.min(
-      (containerWidth - GAP * (perRow - 1)) / perRow,
-      perRow === 2 ? maxCellWidth : Number.POSITIVE_INFINITY,
-    );
-
-    // Fit each page once; the boxes and the rendered canvas must both use it,
-    // otherwise the placeholder geometry and the pixels disagree.
-    const scales = pageSizes.map((s) =>
-      fitScale(s.width, s.height, cellWidth, containerHeight),
-    );
-    pageWidths = pageSizes.map((s, i) => Math.round(s.width * scales[i]));
-    pageHeights = pageSizes.map((s, i) => Math.round(s.height * scales[i]));
+    // Fixed physical scale: pages keep their real size and overflow the pane
+    // (which can scroll) instead of shrinking to fit it.
+    const scale = pageScale();
+    pageWidths = pageSizes.map((s) => Math.round(s.width * scale));
+    pageHeights = pageSizes.map((s) => Math.round(s.height * scale));
+    // Cell width follows the widest page so mixed page sizes stay aligned.
+    cellWidth = pageWidths.length > 0 ? Math.max(...pageWidths) : 0;
 
     const boxes: PageBox[] = new Array(pageCount);
     offsets = new Array(pageCount);
@@ -466,7 +471,7 @@
           top: top + (rowH - pageHeights[j]) / 2,
           width: pageWidths[j],
           height: pageHeights[j],
-          scale: scales[j],
+          scale,
         };
         offsets[j] = top;
         rowHeights[j] = rowH;
@@ -533,6 +538,46 @@
 
   function resetZoom() {
     setZoom(1);
+  }
+
+  function fitWidth() {
+    if (!containerEl || pageSizes.length === 0) return;
+    const containerWidth = containerEl.clientWidth - PADDING * 2;
+    const perRow = spread ? 2 : 1;
+    const availableCellWidth = (containerWidth - GAP * (perRow - 1)) / perRow;
+    const pageIndex = currentPage > 0 ? currentPage - 1 : 0;
+    const curSize = pageSizes[pageIndex] ?? pageSizes[0];
+    if (curSize.width > 0) {
+      setZoom(availableCellWidth / (curSize.width * PX_PER_POINT));
+    }
+  }
+
+  function fitHeight() {
+    if (!containerEl || pageSizes.length === 0) return;
+    const containerHeight = containerEl.clientHeight - PADDING * 2;
+    const pageIndex = currentPage > 0 ? currentPage - 1 : 0;
+    const curSize = pageSizes[pageIndex] ?? pageSizes[0];
+    if (curSize.height > 0) {
+      setZoom(containerHeight / (curSize.height * PX_PER_POINT));
+    }
+  }
+
+  function fitContent() {
+    if (!containerEl || pageSizes.length === 0) return;
+    const containerWidth = containerEl.clientWidth - PADDING * 2;
+    const containerHeight = containerEl.clientHeight - PADDING * 2;
+    const perRow = spread ? 2 : 1;
+    const availableCellWidth = (containerWidth - GAP * (perRow - 1)) / perRow;
+    const pageIndex = currentPage > 0 ? currentPage - 1 : 0;
+    const curSize = pageSizes[pageIndex] ?? pageSizes[0];
+    if (curSize.width > 0 && curSize.height > 0) {
+      setZoom(
+        Math.min(
+          availableCellWidth / (curSize.width * PX_PER_POINT),
+          containerHeight / (curSize.height * PX_PER_POINT),
+        ),
+      );
+    }
   }
 
   /**
@@ -1141,7 +1186,7 @@
 
   <div
     bind:this={containerEl}
-    class="relative w-full min-h-0 grow overflow-y-auto overflow-x-hidden {bare
+    class="relative w-full min-h-0 grow overflow-auto {bare
       ? 'bg-transparent'
       : 'rounded-2xl bg-base-200'} p-4"
     onscroll={scheduleUpdate}

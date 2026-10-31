@@ -78,19 +78,14 @@
                 >
                   Internal_Err
                 </p> -->
-            {#if animationFailed}
-              <img src="/robot.gif" alt="robot" class="max-h-full object-contain" />
-            {:else}
               <div class="w-full flex-1 min-h-0">
                 <Lottie
                   url="/error.json"
                   loop
                   autoplay
                   monochrome={false}
-                  onerror={() => (animationFailed = true)}
                 />
               </div>
-            {/if}
             <!-- </div>
             </div> -->
             <div class="w-full flex justify-between items-center px-10 py-2">

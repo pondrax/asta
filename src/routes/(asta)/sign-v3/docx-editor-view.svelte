@@ -7,18 +7,26 @@
   export type DocxEditorViewHandle = {
     saveAsPdfFile: () => Promise<File>;
     saveAsDocxFile: () => Promise<File>;
+    handle?: DocxEditorSetupHandle | null;
   };
 
   let {
     file,
+    initialZoom = 1,
     controller = $bindable(),
   }: {
     file: File;
+    /** Zoom to restore after the document finishes loading. */
+    initialZoom?: number;
     controller?: DocxEditorViewHandle | null;
   } = $props();
 
+  // Snapshot on mount: the prop is only a hand-off for this editor instance,
+  // so a later owner-side change must not retroactively affect the load.
+  const startupZoom = initialZoom;
+
   let rootEl: HTMLDivElement | null = $state(null);
-  let handle: DocxEditorSetupHandle | null = null;
+  let handle: DocxEditorSetupHandle | null = $state(null);
 
   $effect(() => {
     controller = {
@@ -30,6 +38,7 @@
         if (!handle) throw new Error("Editor belum siap");
         return await handle.saveAsDocxFile();
       },
+      handle,
     };
     return () => {
       controller = null;
@@ -56,6 +65,7 @@
     if (file) {
       try {
         await handle.loadFile(file);
+        handle.editor?.setZoom(startupZoom);
       } catch (err) {
         console.error("Failed to load docx in editor:", err);
       }
