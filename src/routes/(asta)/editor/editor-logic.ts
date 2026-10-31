@@ -2662,9 +2662,7 @@ function getSuccessMessage(tables: number, insertedInstead: boolean): string {
   function updateRulers(): boolean {
     if (!editor || !horizontalRulerInner || !verticalRulerInner) return false;
     const geometry = editor.getPageGeometry();
-    console.debug('[ruler] geometry:', geometry?.length, geometry?.[0]?.box?.width, geometry?.[0]?.box?.height);
     const page = rulerPageBox(geometry);
-    console.debug('[ruler] page from rulerPageBox:', page);
     const zoom = editor.getZoom();
 
     // Fallback: if rulerPageBox fails but geometry exists, use first page's box
@@ -2687,15 +2685,12 @@ function getSuccessMessage(tables: number, insertedInstead: boolean): string {
 
     // Total document height across all pages - use box.height
     const heights = geometry.map(g => g.box?.height);
-    console.debug('[ruler] geom height values:', heights);
     const totalHeightPx = heights.reduce((sum, h) => sum + (typeof h === 'number' ? h : 0) * zoom, 0);
-    console.debug('[ruler] totalHeightPx:', totalHeightPx, 'zoom:', zoom);
 
     horizontalRulerInner.innerHTML = "";
     verticalRulerInner.innerHTML = "";
     horizontalRulerInner.style.width = `${widthPx}px`;
     verticalRulerInner.style.height = `${totalHeightPx}px`;
-    console.debug('[ruler] set verticalRulerInner.style.height to:', verticalRulerInner.style.height);
     renderRulerAxis(horizontalRulerInner, widthPx, offsetX, contentWidthPx, true, zoom);
     // Vertical ruler spans full document; zero at top of first page
     renderRulerAxis(verticalRulerInner, totalHeightPx, 0, totalHeightPx, false, zoom);
