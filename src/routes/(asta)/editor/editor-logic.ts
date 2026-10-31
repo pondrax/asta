@@ -2662,7 +2662,9 @@ function getSuccessMessage(tables: number, insertedInstead: boolean): string {
   function updateRulers(): boolean {
     if (!editor || !horizontalRulerInner || !verticalRulerInner) return false;
     const geometry = editor.getPageGeometry();
+    console.debug('[ruler] geometry:', geometry?.length, geometry?.[0]?.width, geometry?.[0]?.height);
     const page = rulerPageBox(geometry);
+    console.debug('[ruler] page from rulerPageBox:', page);
     const zoom = editor.getZoom();
 
     // Fallback: if rulerPageBox fails but geometry exists, use first page
