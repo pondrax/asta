@@ -2665,6 +2665,8 @@ function getSuccessMessage(tables: number, insertedInstead: boolean): string {
     const page = rulerPageBox(geometry);
     const zoom = editor.getZoom();
 
+    console.debug('[ruler] updateRulers called, geometry:', geometry?.length);
+
     // Fallback: if rulerPageBox fails but geometry exists, use first page's box
     const fallbackPage = page ?? geometry[0]?.box;
     if (!fallbackPage) {
@@ -2690,6 +2692,7 @@ function getSuccessMessage(tables: number, insertedInstead: boolean): string {
     renderRulerAxis(horizontalRulerInner, widthPx, offsetX, contentWidthPx, true, zoom);
     // Vertical ruler shows current page only, zero at top of current page
     const rulerPage = getCurrentRulerPage();
+    console.debug('[ruler] rulerPage:', rulerPage);
     if (rulerPage) {
       const topMarginPx = twipsToPixels(rulerPage.topMargin, zoom);
       const bottomMarginPx = twipsToPixels(rulerPage.bottomMargin, zoom);
