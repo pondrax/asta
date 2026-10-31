@@ -289,6 +289,84 @@ function parse(): Page[] {
     entry.date = groupDate || fromId;
   };
 
+  function handleCommentLine(
+    line: string,
+    lineNo: number,
+    flushComment: () => void,
+  ): void {
+    if (line.includes("-->")) {
+      comment += " " + line.slice(0, line.indexOf("-->"));
+      flushComment();
+    } else {
+      comment += " " + line;
+    }
+  }
+
+  function handleCommentOpen(
+    line: string,
+    open: number,
+    lineNo: number,
+    flushComment: () => void,
+  ): void {
+    inComment = true;
+    commentLine = lineNo;
+    const close = line.indexOf("-->", open);
+    if (close !== -1) {
+      comment = line.slice(open + 4, close);
+      flushComment();
+    } else {
+      comment = line.slice(open + 4);
+    }
+  }
+
+  function handleDateHeading(
+    line: string,
+    lineNo: number,
+    flushComment: () => void,
+  ): void {
+    flushComment();
+    const body = line.slice(3).trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(body)) {
+      fail(
+        `line ${lineNo}: heading must be a "## YYYY-MM-DD" date, got "${body}"`,
+      );
+      return;
+    }
+    if (prevGroupDate && body > prevGroupDate) {
+      fail(
+        `line ${lineNo}: date group "${body}" comes after "${prevGroupDate}". ` +
+          `Move it to the top so the newest group is first.`,
+      );
+    }
+    prevGroupDate = body;
+    groupDate = body;
+    entry = null;
+  }
+
+  function handleEntryTitle(
+    line: string,
+    lineNo: number,
+    groupDate: string,
+    flat: Entry[],
+  ): void {
+    flushComment();
+    if (!groupDate) {
+      fail(
+        `line ${lineNo}: "### Title" appears before any "## YYYY-MM-DD" heading`,
+      );
+      return;
+    }
+    entry = {
+      id: "",
+      date: "",
+      title: line.slice(4).trim(),
+      route: "",
+      label: "",
+      changes: [],
+    };
+    flat.push(entry);
+  }
+
   lines.forEach((rawLine, i) => {
     const lineNo = i + 1;
     const line = rawLine.trimEnd();
@@ -334,84 +412,6 @@ function parse(): Page[] {
   flushComment();
   validateEntries(flat);
   return groupEntriesIntoPages(flat);
-}
-
-function handleCommentLine(
-  line: string,
-  lineNo: number,
-  flushComment: () => void,
-): void {
-  if (line.includes("-->")) {
-    comment += " " + line.slice(0, line.indexOf("-->"));
-    flushComment();
-  } else {
-    comment += " " + line;
-  }
-}
-
-function handleCommentOpen(
-  line: string,
-  open: number,
-  lineNo: number,
-  flushComment: () => void,
-): void {
-  inComment = true;
-  commentLine = lineNo;
-  const close = line.indexOf("-->", open);
-  if (close !== -1) {
-    comment = line.slice(open + 4, close);
-    flushComment();
-  } else {
-    comment = line.slice(open + 4);
-  }
-}
-
-function handleDateHeading(
-  line: string,
-  lineNo: number,
-  flushComment: () => void,
-): void {
-  flushComment();
-  const body = line.slice(3).trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(body)) {
-    fail(
-      `line ${lineNo}: heading must be a "## YYYY-MM-DD" date, got "${body}"`,
-    );
-    return;
-  }
-  if (prevGroupDate && body > prevGroupDate) {
-    fail(
-      `line ${lineNo}: date group "${body}" comes after "${prevGroupDate}". ` +
-        `Move it to the top so the newest group is first.`,
-    );
-  }
-  prevGroupDate = body;
-  groupDate = body;
-  entry = null;
-}
-
-function handleEntryTitle(
-  line: string,
-  lineNo: number,
-  groupDate: string,
-  flat: Entry[],
-): void {
-  flushComment();
-  if (!groupDate) {
-    fail(
-      `line ${lineNo}: "### Title" appears before any "## YYYY-MM-DD" heading`,
-    );
-    return;
-  }
-  entry = {
-    id: "",
-    date: "",
-    title: line.slice(4).trim(),
-    route: "",
-    label: "",
-    changes: [],
-  };
-  flat.push(entry);
 }
 
 function handleChangeBullet(

@@ -127,4 +127,359 @@
   <div id="error" class="error hidden">
     <pre id="errorText"></pre>
   </div>
+
+  <div
+    class="contextmenu"
+    id="contextMenu"
+    role="menu"
+    aria-label="Context menu"
+    tabindex="-1"
+  >
+    <button class="contextmenu__item" data-cmd="cut" role="menuitem">
+      <span class="contextmenu__item-icon"
+        ><iconify-icon icon="bx:cut" width="18" height="18"
+        ></iconify-icon></span
+      >
+      <span class="contextmenu__item-label">Cut</span>
+      <span class="contextmenu__item-shortcut">Ctrl+X</span>
+    </button>
+    <button class="contextmenu__item" data-cmd="copy" role="menuitem">
+      <span class="contextmenu__item-icon"
+        ><iconify-icon icon="bx:copy" width="18" height="18"
+        ></iconify-icon></span
+      >
+      <span class="contextmenu__item-label">Copy</span>
+      <span class="contextmenu__item-shortcut">Ctrl+C</span>
+    </button>
+    <button class="contextmenu__item" data-cmd="paste" role="menuitem">
+      <span class="contextmenu__item-icon"
+        ><iconify-icon icon="bx:paste" width="18" height="18"
+        ></iconify-icon></span
+      >
+      <span class="contextmenu__item-label">Paste</span>
+      <span class="contextmenu__item-shortcut">Ctrl+V</span>
+    </button>
+    <button
+      class="contextmenu__item"
+      data-cmd="pasteWithoutFormatting"
+      role="menuitem"
+    >
+      <span class="contextmenu__item-icon"
+        ><iconify-icon icon="bx:paste" width="18" height="18"
+        ></iconify-icon></span
+      >
+      <span class="contextmenu__item-label">Paste without formatting</span>
+      <span class="contextmenu__item-shortcut">Ctrl+Shift+V</span>
+    </button>
+    <div class="contextmenu__separator" role="separator"></div>
+    <button class="contextmenu__item" data-cmd="deleteText" role="menuitem">
+      <span class="contextmenu__item-icon"
+        ><iconify-icon icon="bx:trash" width="18" height="18"
+        ></iconify-icon></span
+      >
+      <span class="contextmenu__item-label">Delete</span>
+      <span class="contextmenu__item-shortcut">Del</span>
+    </button>
+    <button class="contextmenu__item" data-cmd="selectAll" role="menuitem">
+      <span class="contextmenu__item-icon"
+        ><iconify-icon icon="bx:select-multiple" width="18" height="18"
+        ></iconify-icon></span
+      >
+      <span class="contextmenu__item-label">Select all</span>
+      <span class="contextmenu__item-shortcut">Ctrl+A</span>
+    </button>
+    <div class="contextmenu__separator" role="separator"></div>
+    <button class="contextmenu__item" data-slot="text.link" role="menuitem">
+      <span class="contextmenu__item-icon"
+        ><iconify-icon icon="bx:link" width="18" height="18"
+        ></iconify-icon></span
+      >
+      <span class="contextmenu__item-label">Insert link</span>
+    </button>
+    <button class="contextmenu__item" data-slot="format.clear" role="menuitem">
+      <span class="contextmenu__item-icon"
+        ><iconify-icon icon="bx:eraser" width="18" height="18"
+        ></iconify-icon></span
+      >
+      <span class="contextmenu__item-label">Clear formatting</span>
+    </button>
+    <button
+      class="contextmenu__item"
+      data-slot="paragraph.dialog"
+      role="menuitem"
+    >
+      <span class="contextmenu__item-icon"
+        ><iconify-icon icon="bx:paragraph" width="18" height="18"
+        ></iconify-icon></span
+      >
+      <span class="contextmenu__item-label">Paragraph…</span>
+    </button>
+    <div class="contextmenu__table-section" id="contextMenuTableSection" hidden>
+      <div class="contextmenu__separator" role="separator"></div>
+      <button
+        class="contextmenu__item"
+        data-table-cmd="insertRowAbove"
+        role="menuitem"
+      >
+        <span class="contextmenu__item-icon"
+          ><iconify-icon icon="bx:grid-horizontal" width="18" height="18"
+          ></iconify-icon></span
+        >
+        <span class="contextmenu__item-label">Insert row above</span>
+      </button>
+      <button
+        class="contextmenu__item"
+        data-table-cmd="insertRowBelow"
+        role="menuitem"
+      >
+        <span class="contextmenu__item-icon"
+          ><iconify-icon icon="bx:grid-horizontal" width="18" height="18"
+          ></iconify-icon></span
+        >
+        <span class="contextmenu__item-label">Insert row below</span>
+      </button>
+      <div class="contextmenu__separator" role="separator"></div>
+      <button
+        class="contextmenu__item"
+        data-table-cmd="insertColumnLeft"
+        role="menuitem"
+      >
+        <span class="contextmenu__item-icon"
+          ><iconify-icon icon="bx:grid-vertical" width="18" height="18"
+          ></iconify-icon></span
+        >
+        <span class="contextmenu__item-label">Insert column left</span>
+      </button>
+      <button
+        class="contextmenu__item"
+        data-table-cmd="insertColumnRight"
+        role="menuitem"
+      >
+        <span class="contextmenu__item-icon"
+          ><iconify-icon icon="bx:grid-vertical" width="18" height="18"
+          ></iconify-icon></span
+        >
+        <span class="contextmenu__item-label">Insert column right</span>
+      </button>
+      <div class="contextmenu__separator" role="separator"></div>
+      <button
+        class="contextmenu__item contextmenu__item--danger"
+        data-table-cmd="deleteRow"
+        role="menuitem"
+      >
+        <span class="contextmenu__item-icon"
+          ><iconify-icon icon="bx:trash" width="18" height="18"
+          ></iconify-icon></span
+        >
+        <span class="contextmenu__item-label">Delete row</span>
+      </button>
+      <button
+        class="contextmenu__item contextmenu__item--danger"
+        data-table-cmd="deleteColumn"
+        role="menuitem"
+      >
+        <span class="contextmenu__item-icon"
+          ><iconify-icon icon="bx:trash" width="18" height="18"
+          ></iconify-icon></span
+        >
+        <span class="contextmenu__item-label">Delete column</span>
+      </button>
+      <button
+        class="contextmenu__item contextmenu__item--danger"
+        data-table-cmd="deleteTable"
+        role="menuitem"
+      >
+        <span class="contextmenu__item-icon"
+          ><iconify-icon icon="bx:trash" width="18" height="18"
+          ></iconify-icon></span
+        >
+        <span class="contextmenu__item-label">Delete table</span>
+      </button>
+      <div class="contextmenu__separator" role="separator"></div>
+      <div class="contextmenu__table-align">
+        <span class="contextmenu__table-align-label"
+          >Cell vertical alignment</span
+        >
+        <div
+          class="contextmenu__table-align-buttons"
+          role="group"
+          aria-label="Cell vertical alignment"
+        >
+          <button class="contextmenu__align-btn" data-align="top" title="Top"
+            >Top</button
+          >
+          <button
+            class="contextmenu__align-btn"
+            data-align="center"
+            title="Center">Center</button
+          >
+          <button
+            class="contextmenu__align-btn"
+            data-align="bottom"
+            title="Bottom">Bottom</button
+          >
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="docx-dialog-overlay" id="paragraphDialogOverlay" hidden>
+    <div
+      class="docx-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Paragraph"
+      id="paragraphDialog"
+    >
+      <div class="docx-dialog__header">
+        <span class="docx-dialog__title">Paragraph</span>
+      </div>
+      <div class="docx-dialog__body">
+        <div class="docx-dialog__columns">
+          <div class="docx-dialog__column">
+            <div class="docx-dialog__section-label">General</div>
+            <div class="docx-dialog__row">
+              <label class="docx-dialog__label" for="pdAlignment"
+                >Alignment</label
+              >
+              <select class="docx-dialog__select" id="pdAlignment">
+                <option value="left">Left</option>
+                <option value="center">Center</option>
+                <option value="right">Right</option>
+                <option value="both">Justified</option>
+              </select>
+            </div>
+            <div class="docx-dialog__section-label">Indentation</div>
+            <div class="docx-dialog__row">
+              <label class="docx-dialog__label" for="pdIndentLeft"
+                >Before text</label
+              >
+              <input
+                type="number"
+                class="docx-dialog__input"
+                id="pdIndentLeft"
+                min="0"
+                step="0.1"
+                value="0"
+              />
+              <span class="docx-dialog__unit">mm</span>
+            </div>
+            <div class="docx-dialog__row">
+              <label class="docx-dialog__label" for="pdIndentRight"
+                >After text</label
+              >
+              <input
+                type="number"
+                class="docx-dialog__input"
+                id="pdIndentRight"
+                min="0"
+                step="0.1"
+                value="0"
+              />
+              <span class="docx-dialog__unit">mm</span>
+            </div>
+            <div class="docx-dialog__row">
+              <label class="docx-dialog__label" for="pdSpecial">Special</label>
+              <select class="docx-dialog__select" id="pdSpecial">
+                <option value="none">(none)</option>
+                <option value="firstLine">First line</option>
+                <option value="hanging">Hanging</option>
+              </select>
+            </div>
+            <div class="docx-dialog__row" id="pdSpecialByRow">
+              <label class="docx-dialog__label" for="pdSpecialBy">By</label>
+              <input
+                type="number"
+                class="docx-dialog__input"
+                id="pdSpecialBy"
+                min="0"
+                step="0.1"
+                value="0"
+              />
+              <span class="docx-dialog__unit">mm</span>
+            </div>
+          </div>
+          <div class="docx-dialog__column">
+            <div class="docx-dialog__section-label">Spacing</div>
+            <div class="docx-dialog__row">
+              <label class="docx-dialog__label" for="pdSpaceBefore"
+                >Before</label
+              >
+              <input
+                type="number"
+                class="docx-dialog__input"
+                id="pdSpaceBefore"
+                min="0"
+                step="1"
+                value="0"
+              />
+              <span class="docx-dialog__unit">pt</span>
+            </div>
+            <div class="docx-dialog__row">
+              <label class="docx-dialog__label" for="pdSpaceAfter">After</label>
+              <input
+                type="number"
+                class="docx-dialog__input"
+                id="pdSpaceAfter"
+                min="0"
+                step="1"
+                value="0"
+              />
+              <span class="docx-dialog__unit">pt</span>
+            </div>
+            <div class="docx-dialog__row">
+              <label class="docx-dialog__label" for="pdLineRule"
+                >Line spacing</label
+              >
+              <select class="docx-dialog__select" id="pdLineRule">
+                <option value="multiple">Multiple</option>
+                <option value="atLeast">At least</option>
+                <option value="exact">Exactly</option>
+              </select>
+            </div>
+            <div class="docx-dialog__row">
+              <label class="docx-dialog__label" for="pdLineValue">At</label>
+              <input
+                type="number"
+                class="docx-dialog__input"
+                id="pdLineValue"
+                min="0.01"
+                step="0.01"
+                value="1.08"
+              />
+              <span class="docx-dialog__unit" id="pdLineUnit"></span>
+            </div>
+            <label class="docx-dialog__checkbox-row">
+              <input type="checkbox" id="pdContextualSpacing" />Don't add space
+              between paragraphs of the same style
+            </label>
+            <div class="docx-dialog__section-label">Pagination</div>
+            <label class="docx-dialog__checkbox-row">
+              <input type="checkbox" id="pdKeepNext" />Keep with next
+            </label>
+            <label class="docx-dialog__checkbox-row">
+              <input type="checkbox" id="pdWidowControl" checked />Widow control
+            </label>
+            <label class="docx-dialog__checkbox-row">
+              <input type="checkbox" id="pdKeepLines" />Keep lines together
+            </label>
+            <label class="docx-dialog__checkbox-row">
+              <input type="checkbox" id="pdPageBreakBefore" />Page break before
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="docx-dialog__footer">
+        <span class="docx-dialog__error" id="pdError" role="alert"></span>
+        <button type="button" class="docx-dialog__button" id="pdCancel"
+          >Cancel</button
+        >
+        <button
+          type="button"
+          class="docx-dialog__button docx-dialog__button--primary"
+          id="pdOk">OK</button
+        >
+      </div>
+    </div>
+  </div>
 </div>

@@ -71,6 +71,8 @@
   let isEditingDocx = $state(false);
   let docxEditorCtl: DocxEditorViewHandle | null = $state(null);
   let isSavingDocx = $state(false);
+  let editingDocIndex = $state<string | null>(null);
+  let docxEditFile = $state<File | null>(null);
   let asTemplate = $state(false);
   let asDraft = $state(false);
   let isDraft = $state(false);
@@ -93,7 +95,11 @@
   let isEncrypted = $state(false);
   let previewFile = $state<File | null>(null);
   const activeDocxFile = $derived<File | null>(
-    (previewFile ? docxFiles[previewFile.name] : null) || null,
+    documents[activeIndex]
+      ? (docxFiles[documents[activeIndex].name] ?? null)
+      : previewFile
+        ? (docxFiles[previewFile.name] ?? null)
+        : null,
   );
   let startTime = $state(0);
   let timer = $state(0);
@@ -1429,6 +1435,55 @@
     }
   });
 
+  async function saveAndCloseDocx({ handoffZoom = false } = {}) {
+    const controller = docxEditorCtl;
+    const index = editingDocIndex;
+    if (!controller || !index || isSavingDocx) {
+      if (!isSavingDocx) {
+        isEditingDocx = false;
+        editingDocIndex = null;
+        docxEditFile = null;
+      }
+      return;
+    }
+
+    const editorZoom =
+      controller.handle?.editor?.snapshot().zoom ?? previewState.zoom;
+    const oldDocxName = docxEditFile?.name ?? null;
+    isSavingDocx = true;
+    try {
+      const [newPdf, updatedDocx] = await Promise.all([
+        controller.saveAsPdfFile(),
+        controller.saveAsDocxFile(),
+      ]);
+      if (documents[index]) {
+        documents[index] = newPdf;
+        docxFiles[newPdf.name] = updatedDocx;
+        if (oldDocxName && oldDocxName !== newPdf.name) {
+          docxFiles[oldDocxName] = updatedDocx;
+        }
+        if (index === activeIndex) previewFile = newPdf;
+      }
+    } catch (err) {
+      console.error("Gagal menyimpan Word ke PDF:", err);
+      app.showToast(
+        "error",
+        "Gagal menyimpan Word: " +
+          (err instanceof Error ? err.message : String(err)),
+      );
+    } finally {
+      isSavingDocx = false;
+      isEditingDocx = false;
+      editingDocIndex = null;
+      docxEditFile = null;
+      if (handoffZoom) {
+        zoomHandoff = editorZoom;
+        await tick();
+        zoomHandoff = 1;
+      }
+    }
+  }
+
   function closeDocument() {
     const closed = activeIndex;
     const keys = Object.keys(documents);
@@ -2016,6 +2071,12 @@
   }
 
   $effect(() => {
+    if (!isEditingDocx || !editingDocIndex) return;
+    if (activeIndex === editingDocIndex) return;
+    void saveAndCloseDocx();
+  });
+
+  $effect(() => {
     if (!documents[activeIndex]) return;
     getDocumentDetails(documents[activeIndex]);
     const file = documents[activeIndex];
@@ -2193,7 +2254,7 @@
         {/if}
       </button>
       <div class="absolute top-2 right-2 z-20 flex items-center gap-1.5">
-        {#if activeDocxFile}
+        {#if activeDocxFile || isEditingDocx}
           <button
             type="button"
             class="h-7.5 inline-flex items-center gap-1 px-2.5 border rounded-full shadow cursor-pointer text-xs transition-colors {isEditingDocx
@@ -2204,39 +2265,14 @@
             disabled={isSavingDocx}
             onclick={async () => {
               if (isEditingDocx) {
-                if (docxEditorCtl) {
-                  isSavingDocx = true;
-                  try {
-                    const [newPdf, updatedDocx] = await Promise.all([
-                      docxEditorCtl.saveAsPdfFile(),
-                      docxEditorCtl.saveAsDocxFile(),
-                    ]);
-                    if (activeIndex && documents[activeIndex]) {
-                      documents[activeIndex] = newPdf;
-                      previewFile = newPdf;
-                      docxFiles[newPdf.name] = updatedDocx;
-                      if (activeDocxFile && activeDocxFile.name !== newPdf.name) {
-                        docxFiles[activeDocxFile.name] = updatedDocx;
-                      }
-                    }
-                  } catch (err) {
-                    console.error("Gagal menyimpan Word ke PDF:", err);
-                    app.showToast("error", "Gagal menyimpan Word: " + (err instanceof Error ? err.message : String(err)));
-                  } finally {
-                    isSavingDocx = false;
-                  }
-                }
                 // Carry the editor's zoom into the PDF preview, then let the
                 // one-shot hand-off clear so later document changes are not
                 // pinned to it.
-                zoomHandoff =
-                  docxEditorCtl?.handle?.editor?.snapshot().zoom ??
-                  previewState.zoom;
-                isEditingDocx = false;
-                await tick();
-                zoomHandoff = 1;
+                await saveAndCloseDocx({ handoffZoom: true });
               } else {
                 zoomHandoff = previewState.zoom;
+                editingDocIndex = activeIndex;
+                docxEditFile = activeDocxFile;
                 isEditingDocx = true;
                 await tick();
                 zoomHandoff = 1;
@@ -2514,9 +2550,9 @@
 
       {#if hasDocuments}
         <div class="flex-1 min-h-0 relative {armed ? 'cursor-crosshair' : ''}">
-          {#if isEditingDocx && activeDocxFile}
+          {#if isEditingDocx && docxEditFile}
             <DocxEditorView
-              file={activeDocxFile}
+              file={docxEditFile}
               initialZoom={zoomHandoff}
               bind:controller={docxEditorCtl}
             />
