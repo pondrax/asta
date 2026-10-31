@@ -2688,8 +2688,6 @@ function getSuccessMessage(tables: number, insertedInstead: boolean): string {
     horizontalRulerInner.innerHTML = "";
     verticalRulerInner.innerHTML = "";
     horizontalRulerInner.style.width = `${widthPx}px`;
-    verticalRulerInner.style.height = `${heightPx}px`;
-    renderRulerAxis(horizontalRulerInner, widthPx, offsetX, contentWidthPx, true, zoom);
     // Vertical ruler shows current page only, zero at top of current page
     const rulerPage = getCurrentRulerPage();
     console.debug('[ruler] rulerPage:', rulerPage);
@@ -2698,9 +2696,11 @@ function getSuccessMessage(tables: number, insertedInstead: boolean): string {
       const bottomMarginPx = twipsToPixels(rulerPage.bottomMargin, zoom);
       const pageHeightPx = twipsToPixels(rulerPage.pageHeight, zoom);
       const contentAreaHeightPx = pageHeightPx - topMarginPx - bottomMarginPx;
+      verticalRulerInner.style.height = `${pageHeightPx}px`;
       renderRulerAxis(verticalRulerInner, pageHeightPx, topMarginPx, contentAreaHeightPx, false, zoom);
     } else {
       // Fallback to full page height if no ruler page info
+      verticalRulerInner.style.height = `${heightPx}px`;
       renderRulerAxis(verticalRulerInner, heightPx, offsetY, contentHeightPx, false, zoom);
     }
 
