@@ -115,9 +115,28 @@ export function audienceForRole(
  */
 export const PAGE_CHANGELOGS: PageChangelog[] = [
   {
-    route: "/sign-v3",
+    route: "/sign",
     page: "Tanda Tangan Dokumen",
     entries: [
+      {
+        id: "sign-workspace-move-2026-11-01",
+        date: "2026-11-01",
+        title: "Ruang kerja tanda tangan baru menjadi halaman utama",
+        changes: [
+          {
+            kind: "changed",
+            text: "Ruang kerja tanda tangan versi baru kini dilayani di /sign; halaman versi lama tetap dapat diakses di /sign-legacy.",
+          },
+          {
+            kind: "fixed",
+            text: "QR pada footer dokumen kini benar-benar tertanam di PDF, tidak lagi hanya teks footernya yang tampil.",
+          },
+          {
+            kind: "fixed",
+            text: "PDF hasil tanda tangan tidak lagi membawa padding byte kosong di akhir berkas yang membuat dokumen rusak saat disimpan.",
+          },
+        ],
+      },
       {
         id: "word-editor-navigation-document-list-2026-11-01",
         date: "2026-11-01",
@@ -141,12 +160,6 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
           },
         ],
       },
-    ],
-  },
-  {
-    route: "/sign",
-    page: "Tanda Tangan Dokumen",
-    entries: [
       {
         id: "resolve-more-sonar-issues-2-2026-10-28",
         date: "2026-10-28",

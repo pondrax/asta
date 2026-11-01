@@ -53,11 +53,15 @@ function open(bytes: Uint8Array | ArrayBuffer): Promise<PDF> {
  * therefore saved incrementally — that is what lets a signed document be
  * signed again.
  */
-function savePdf(pdf: PDF): Promise<Uint8Array> {
+async function savePdf(pdf: PDF): Promise<Uint8Array> {
   const signed =
     pdf.getForm()?.getSignatureFields().some((field) => field.isSigned()) ??
     false;
-  return pdf.save(signed ? { incremental: true } : undefined);
+  const bytes = await pdf.save(signed ? { incremental: true } : undefined);
+  // libpdf hands back a view into a larger, zero-padded buffer. Copy the
+  // visible bytes only: callers that keep `.buffer` would otherwise write a
+  // file padded with trailing NULs (and every later save would preserve them).
+  return bytes.slice();
 }
 
 /** Decodes a base64 payload into raw bytes. */
@@ -305,7 +309,16 @@ export async function drawFooter(
     });
 
     if (image) {
-      drawFooterImage(page, image, marginX, y - 5, layout.imgWidth, layout.imgHeight);
+      // `image` is the wrapper (it carries the aspect ratio used for layout);
+      // drawImage needs the embedded image itself.
+      drawFooterImage(
+        page,
+        image.image,
+        marginX,
+        y - 5,
+        layout.imgWidth,
+        layout.imgHeight
+      );
     }
 
     if (text) {
@@ -317,7 +330,7 @@ export async function drawFooter(
 }
 
 interface FooterImage {
-  image: import('@libpdf/core').PdfImage | null;
+  image: import('@libpdf/core').PDFImage;
   width: number;
   height: number;
 }

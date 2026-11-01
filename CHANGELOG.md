@@ -80,11 +80,22 @@
 
 ## 2026-11-01
 
+### Ruang kerja tanda tangan baru menjadi halaman utama
+
+<!-- id: sign-workspace-move-2026-11-01 -->
+
+Halaman: /sign - Tanda Tangan Dokumen
+Audiens: Tamu
+
+- **Diubah** - Ruang kerja tanda tangan versi baru kini dilayani di /sign; halaman versi lama tetap dapat diakses di /sign-legacy.
+- **Perbaikan** - QR pada footer dokumen kini benar-benar tertanam di PDF, tidak lagi hanya teks footernya yang tampil.
+- **Perbaikan** - PDF hasil tanda tangan tidak lagi membawa padding byte kosong di akhir berkas yang membuat dokumen rusak saat disimpan.
+
 ### Peningkatan editor Word, navigasi, dan daftar dokumen
 
 <!-- id: word-editor-navigation-document-list-2026-11-01 -->
 
-Halaman: /sign-v3 - Tanda Tangan Dokumen
+Halaman: /sign - Tanda Tangan Dokumen
 Audiens: Tamu
 
 - **Peningkatan** - Toolbar Word kini mengikuti format teks yang dipilih, termasuk tebal, miring, garis bawah, coret, pangkat, gaya paragraf, jenis dan ukuran huruf, perataan, serta spasi baris.

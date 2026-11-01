@@ -68,8 +68,7 @@
   const isWorkspace = $derived(
     page.url.pathname === "/sign" ||
       page.url.pathname.startsWith("/sign/") ||
-      page.url.pathname === "/sign-v3" ||
-      page.url.pathname.startsWith("/sign-v3/") ||
+      page.url.pathname === "/sign-legacy" ||
       page.url.pathname === "/editor" ||
       page.url.pathname.startsWith("/editor/"),
   );
@@ -156,7 +155,6 @@
                 <summary>Tanda Tangan</summary>
                 <ul>
                   <li><a href="/sign">Upload & Tanda Tangan</a></li>
-                  <li><a href="/sign-v3">Upload & Tanda Tangan (v3)</a></li>
                   <li>
                     <a href="/editor"
                       >Buat Dokumen
@@ -375,21 +373,21 @@
               href="/sign"
               class="rounded-lg text-xs font-medium transition-all"
               class:bg-primary={page.url.pathname === "/sign" ||
-                page.url.pathname === "/sign-v3" ||
+                page.url.pathname === "/sign-legacy" ||
                 page.url.pathname === "/editor"}
               class:text-primary-content={page.url.pathname === "/sign" ||
-                page.url.pathname === "/sign-v3" ||
+                page.url.pathname === "/sign-legacy" ||
                 page.url.pathname === "/editor"}
               class:shadow-sm={page.url.pathname === "/sign" ||
-                page.url.pathname === "/sign-v3" ||
+                page.url.pathname === "/sign-legacy" ||
                 page.url.pathname === "/editor"}
               class:bg-base-200={activeMenu === "sign" &&
                 page.url.pathname !== "/sign" &&
-                page.url.pathname !== "/sign-v3" &&
+                page.url.pathname !== "/sign-legacy" &&
                 page.url.pathname !== "/editor"}
               class:text-base-content={activeMenu === "sign" &&
                 page.url.pathname !== "/sign" &&
-                page.url.pathname !== "/sign-v3" &&
+                page.url.pathname !== "/sign-legacy" &&
                 page.url.pathname !== "/editor"}
             >
               Tanda Tangan
@@ -450,7 +448,7 @@
       </div>
 
       <div class="navbar-end gap-1">
-        {#if ["/sign", "/sign-v3", "/me", "/main", "/editor"].includes(page.url.pathname)}
+        {#if ["/sign", "/sign-legacy", "/me", "/main", "/editor"].includes(page.url.pathname)}
           <button
             class="btn btn-ghost btn-sm rounded-full gap-1 relative animate-pulse"
             onclick={() => (app.showTour = true)}
@@ -760,27 +758,6 @@
                           : 'opacity-40 group-hover:opacity-100'}"
                       ></iconify-icon>
                       <span>Upload & Tanda Tangan</span>
-                    </a>
-                  </li>
-                  <li>
-                    <a
-                      href="/sign-v3"
-                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
-                        .url.pathname === '/sign-v3'
-                        ? 'text-primary font-bold bg-primary/5'
-                        : 'text-base-content/75'}"
-                    >
-                      <iconify-icon
-                        icon="bx:chevron-right"
-                        class="text-xs transition-all {page.url.pathname ===
-                        '/sign-v3'
-                          ? 'text-primary opacity-100'
-                          : 'opacity-40 group-hover:opacity-100'}"
-                      ></iconify-icon>
-                      <div>
-                        Upload & Tanda Tangan (v3)
-                        <span class="badge badge-sm badge-primary">baru</span>
-                      </div>
                     </a>
                   </li>
                   <li>

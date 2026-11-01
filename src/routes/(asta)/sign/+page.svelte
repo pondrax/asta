@@ -23,6 +23,9 @@
     type PreviewState,
   } from "$lib/components/preview.svelte";
   import Upload from "./upload.svelte";
+  import DocxEditorView, { type DocxEditorViewHandle } from "./docx-editor-view.svelte";
+  import type { DocxSelectionFormatting } from "../editor/editor-logic";
+  import { AUTO_ZOOM_MODE, FIT_WIDTH_ZOOM_MODE } from "@docx-editor.dev/core/editor";
   import Visualizer from "./visualizer.svelte";
   import Signature from "./signature.svelte";
   import Template from "../templates/template.svelte";
@@ -65,6 +68,12 @@
   let signForm: HTMLFormElement | null = $state(null);
   let activeIndex = $state("");
   let documents: Record<string, File> = $state({});
+  let docxFiles: Record<string, File> = $state({});
+  let isEditingDocx = $state(false);
+  let docxEditorCtl: DocxEditorViewHandle | null = $state(null);
+  let isSavingDocx = $state(false);
+  let editingDocIndex = $state<string | null>(null);
+  let docxEditFile = $state<File | null>(null);
   let asTemplate = $state(false);
   let asDraft = $state(false);
   let isDraft = $state(false);
@@ -85,7 +94,14 @@
   let signatureInfos = $state<pdfLib.SignatureInfo[]>([]);
   let localVerifications = $state<pdfLib.SignatureVerification[]>([]);
   let isEncrypted = $state(false);
-  let previewFile: File | null = $state(null);
+  let previewFile = $state<File | null>(null);
+  const activeDocxFile = $derived<File | null>(
+    documents[activeIndex]
+      ? (docxFiles[documents[activeIndex].name] ?? null)
+      : previewFile
+        ? (docxFiles[previewFile.name] ?? null)
+        : null,
+  );
   let startTime = $state(0);
   let timer = $state(0);
   let elapsedTime = $state(0);
@@ -111,6 +127,30 @@
   /** Zoom control floating at the bottom-right of the document. */
   let zoomMenuOpen = $state(false);
   const ZOOM_PRESETS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+
+  function applyZoom(preset: number) {
+    if (isEditingDocx && docxEditorCtl?.handle?.editor) {
+      docxEditorCtl.handle.editor.setZoom(preset);
+      previewState.zoom = preset;
+    } else {
+      previewCtl?.setZoom(preset);
+    }
+  }
+
+  function applyFitMode(mode: "width" | "height" | "content") {
+    if (isEditingDocx && docxEditorCtl?.handle?.editor) {
+      if (mode === "width") {
+        docxEditorCtl.handle.editor.setZoomMode(FIT_WIDTH_ZOOM_MODE);
+      } else {
+        docxEditorCtl.handle.editor.setZoomMode(AUTO_ZOOM_MODE);
+      }
+      previewState.zoom = docxEditorCtl.handle.editor.snapshot().zoom;
+    } else {
+      if (mode === "width") previewCtl?.fitWidth();
+      else if (mode === "height") previewCtl?.fitHeight();
+      else previewCtl?.fitContent();
+    }
+  }
 
   /** Visualisation picker dialog (reuses `Signature`). */
   let visualDialog: HTMLDialogElement | undefined = $state();
@@ -181,15 +221,26 @@
     layout: { perRow: 1, boxes: [] },
   });
 
+  /** Zoom handed from the view being closed to the one replacing it. */
+  let zoomHandoff = $state(1);
+
   /** Snapshot-based undo/redo over the placement list. */
   let undoStack: string[] = $state([]);
   let redoStack: string[] = $state([]);
+  /** History of the DOCX editor, kept separate from the placement stack. */
+  let docxCanUndo = $state(false);
+  let docxCanRedo = $state(false);
+  let docxFormatting = $state<DocxSelectionFormatting | null>(null);
 
   const armed = $derived(
     activeTool !== "select" && activeTool !== "signature",
   );
-  const canUndo = $derived(undoStack.length > 0);
-  const canRedo = $derived(redoStack.length > 0);
+  const canUndo = $derived(
+    isEditingDocx ? docxCanUndo : undoStack.length > 0,
+  );
+  const canRedo = $derived(
+    isEditingDocx ? docxCanRedo : redoStack.length > 0,
+  );
 
   $effect(() => {
     document.body.classList.toggle("dark", app.theme === "dark");
@@ -569,6 +620,10 @@
   }
 
   function undo() {
+    if (isEditingDocx) {
+      docxEditorCtl?.undo();
+      return;
+    }
     if (!undoStack.length) return;
     redoStack.push(JSON.stringify(placements));
     placements = JSON.parse(undoStack.pop()!);
@@ -576,6 +631,10 @@
   }
 
   function redo() {
+    if (isEditingDocx) {
+      docxEditorCtl?.redo();
+      return;
+    }
     if (!redoStack.length) return;
     undoStack.push(JSON.stringify(placements));
     placements = JSON.parse(redoStack.pop()!);
@@ -845,6 +904,20 @@
   }
 
   const hasDocuments = $derived(Object.keys(documents).length > 0);
+
+  // Auto-fit zoom on mobile when a document becomes active
+  let mobileFitApplied = $state(false);
+  $effect(() => {
+    if (typeof window === 'undefined') return;
+    if (activeIndex && hasDocuments && !mobileFitApplied && window.innerWidth < 640) {
+      applyFitMode('content');
+      mobileFitApplied = true;
+    }
+    if (!activeIndex) {
+      mobileFitApplied = false;
+    }
+  });
+
   // Signing only requires an identity and a valid TTE signer; note/location are
   // optional (they default server-side). Self-signed signing just needs at least one
   // signature visualisation.
@@ -1162,7 +1235,7 @@
 
       buffer = (
         await pdfLib.drawFooter(buffer, {
-          imageBase64: saveDocument ? (base64QR as string) : "",
+          imageBase64: base64QR as string,
           page: footerScope === "current" ? previewState.page : undefined,
           text: bsre
             ? `Dokumen ini ditandatangani menggunakan sertifikat elektronik yang diterbitkan BSrE - BSSN\n${saveDocument ? "#" + id : ""}`
@@ -1393,6 +1466,61 @@
     }
   });
 
+  async function saveAndCloseDocx({ handoffZoom = false } = {}) {
+    const controller = docxEditorCtl;
+    const index = editingDocIndex;
+    if (!controller || !index || isSavingDocx) {
+      if (!isSavingDocx) {
+        isEditingDocx = false;
+        editingDocIndex = null;
+        docxEditFile = null;
+        docxCanUndo = false;
+        docxCanRedo = false;
+        docxFormatting = null;
+      }
+      return;
+    }
+
+    const editorZoom =
+      controller.handle?.editor?.snapshot().zoom ?? previewState.zoom;
+    const oldDocxName = docxEditFile?.name ?? null;
+    isSavingDocx = true;
+    try {
+      const [newPdf, updatedDocx] = await Promise.all([
+        controller.saveAsPdfFile(),
+        controller.saveAsDocxFile(),
+      ]);
+      if (documents[index]) {
+        documents[index] = newPdf;
+        docxFiles[newPdf.name] = updatedDocx;
+        if (oldDocxName && oldDocxName !== newPdf.name) {
+          docxFiles[oldDocxName] = updatedDocx;
+        }
+        if (index === activeIndex) previewFile = newPdf;
+      }
+    } catch (err) {
+      console.error("Gagal menyimpan Word ke PDF:", err);
+      app.showToast(
+        "error",
+        "Gagal menyimpan Word: " +
+          (err instanceof Error ? err.message : String(err)),
+      );
+    } finally {
+      isSavingDocx = false;
+      isEditingDocx = false;
+      editingDocIndex = null;
+      docxEditFile = null;
+      docxCanUndo = false;
+      docxCanRedo = false;
+      docxFormatting = null;
+      if (handoffZoom) {
+        zoomHandoff = editorZoom;
+        await tick();
+        zoomHandoff = 1;
+      }
+    }
+  }
+
   function closeDocument() {
     const closed = activeIndex;
     const keys = Object.keys(documents);
@@ -1426,6 +1554,15 @@
     activeIndex = next;
   }
 
+  function removeDocument(key: string) {
+    if (key === activeIndex) {
+      closeDocument();
+      return;
+    }
+    const { [key]: _removed, ...rest } = documents;
+    documents = rest;
+  }
+
   function downloadActive() {
     const f = documents[activeIndex];
     if (!f) return;
@@ -1456,6 +1593,10 @@
     width: number;
     height: number;
   }) {
+    if (isEditingDocx) {
+      void insertDocxImageBase64(payload.imageBase64, `${payload.visual}.png`);
+      return;
+    }
     const cfg = payload.visual === "qr" ? { width: 100 } : { width: 200 };
     const height = (cfg.width / payload.width) * payload.height;
     const margin = 48;
@@ -1545,11 +1686,16 @@
 
   async function addVisualDirect(visual: "qr" | "box") {
     const canvas = await renderVisualImage(visual);
+    const imageBase64 = canvas
+      .toDataURL("image/png")
+      .replace("data:image/png;base64,", "");
+    if (isEditingDocx) {
+      await insertDocxImageBase64(imageBase64, `${visual}.png`);
+      return;
+    }
     placePreviewVisual({
       visual,
-      imageBase64: canvas
-        .toDataURL("image/png")
-        .replace("data:image/png;base64,", ""),
+      imageBase64,
       width: canvas.width,
       height: canvas.height,
     });
@@ -1575,12 +1721,37 @@
     }
   }
 
+  /** Insert a visual image straight into the Word document being edited. */
+  async function insertDocxImage(file: File) {
+    try {
+      if (!docxEditorCtl) throw new Error("Editor belum siap");
+      await docxEditorCtl.insertImage(file);
+    } catch (error) {
+      app.showToast(
+        "error",
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+
+  async function insertDocxImageBase64(imageBase64: string, name = "visual.png") {
+    const binary = atob(imageBase64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    await insertDocxImage(new File([bytes], name, { type: "image/png" }));
+  }
+
   /** Place an uploaded image file as a visualisation on the current page. */
   async function handleImageFile(e: Event) {
     const input = e.currentTarget as HTMLInputElement;
     const file = input.files?.[0];
     input.value = "";
     if (!file) return;
+
+    if (isEditingDocx) {
+      await insertDocxImage(file);
+      return;
+    }
 
     const dataUrl = await new Promise<string>((resolve) => {
       const reader = new FileReader();
@@ -1980,6 +2151,12 @@
   }
 
   $effect(() => {
+    if (!isEditingDocx || !editingDocIndex) return;
+    if (activeIndex === editingDocIndex) return;
+    void saveAndCloseDocx();
+  });
+
+  $effect(() => {
     if (!documents[activeIndex]) return;
     getDocumentDetails(documents[activeIndex]);
     const file = documents[activeIndex];
@@ -2123,6 +2300,11 @@
         selectedId = null;
       }}
       onDownload={downloadActive}
+      docxEditing={isEditingDocx}
+      docxFormatting={docxFormatting}
+      onDocxCommand={(slot, value) => docxEditorCtl?.runCommand(slot, value)}
+      onDocxInsertTable={(rows, cols) =>
+        docxEditorCtl?.handle?.insertTable(rows, cols)}
     />
   </div>
 
@@ -2136,6 +2318,8 @@
       selected={placements.find((p) => p.id === selectedId) ?? null}
       onEdit={() => snapshot()}
       bind:tab={pageNavTab}
+      wordMode={isEditingDocx}
+      wordHandle={isEditingDocx ? docxEditorCtl?.handle ?? null : null}
     />
 
     <main
@@ -2156,22 +2340,66 @@
           <span class="badge badge-xs badge-primary absolute -top-1 -right-1 leading-none">{Object.keys(documents).length}</span>
         {/if}
       </button>
-      <button
-        type="button"
-        class="absolute top-2 right-2 z-20 w-7.5 h-7.5 inline-flex items-center justify-center border rounded-full shadow cursor-pointer {pageNavOpen
-          ? 'bg-primary border-primary text-primary-content'
-          : 'bg-base-100 border-base-300 text-base-content hover:bg-base-200'}"
-        title="Panel navigasi halaman"
-        aria-label="Panel navigasi halaman"
-        aria-pressed={pageNavOpen}
-        onclick={() => (pageNavOpen = !pageNavOpen)}
-      >
-        <iconify-icon icon="bx:dock-right"></iconify-icon>
-      </button>
+      <div class="absolute top-2 right-2 z-20 flex items-center gap-1.5">
+        {#if activeDocxFile || isEditingDocx}
+          <button
+            type="button"
+            class="h-7.5 inline-flex items-center gap-1 px-2.5 border rounded-full shadow cursor-pointer text-xs transition-colors {isEditingDocx
+              ? 'bg-primary border-primary text-primary-content hover:bg-primary-focus'
+              : 'bg-base-100 border-base-300 text-base-content hover:bg-base-200'}"
+            title={isEditingDocx ? "Tutup Editor & Simpan PDF" : "Edit Word (DOCX)"}
+            aria-label={isEditingDocx ? "Tutup Editor" : "Edit Word"}
+            disabled={isSavingDocx}
+            onclick={async () => {
+              if (isEditingDocx) {
+                // Carry the editor's zoom into the PDF preview, then let the
+                // one-shot hand-off clear so later document changes are not
+                // pinned to it.
+                await saveAndCloseDocx({ handoffZoom: true });
+              } else {
+                zoomHandoff = previewState.zoom;
+                editingDocIndex = activeIndex;
+                docxEditFile = activeDocxFile;
+                docxCanUndo = false;
+                docxCanRedo = false;
+                docxFormatting = null;
+                isEditingDocx = true;
+                await tick();
+                zoomHandoff = 1;
+              }
+            }}
+          >
+            {#if isSavingDocx}
+              <span class="loading loading-spinner loading-xs"></span>
+              <span>Menyimpan…</span>
+            {:else if isEditingDocx}
+              <iconify-icon icon="bx:x" class="text-sm"></iconify-icon>
+              <span>Tutup Editor</span>
+            {:else}
+              <iconify-icon icon="bx:edit" class="text-sm"></iconify-icon>
+              <span>Edit Word</span>
+            {/if}
+          </button>
+        {/if}
+        <button
+          type="button"
+          class="w-7.5 h-7.5 inline-flex items-center justify-center border rounded-full shadow cursor-pointer {pageNavOpen
+            ? 'bg-primary border-primary text-primary-content'
+            : 'bg-base-100 border-base-300 text-base-content hover:bg-base-200'}"
+          title={isEditingDocx ? "Panel navigasi Word" : "Panel navigasi halaman"}
+          aria-label={isEditingDocx ? "Panel navigasi Word" : "Panel navigasi halaman"}
+          aria-pressed={pageNavOpen}
+          onclick={() => (pageNavOpen = !pageNavOpen)}
+        >
+          <iconify-icon
+            icon={isEditingDocx ? "bx:list-ul" : "bx:dock-right"}
+          ></iconify-icon>
+        </button>
+      </div>
 
       {#if hasDocuments}
       <div
-        class="absolute top-2 right-12 z-10 rounded-md bg-neutral/85 px-3 py-1.5 text-xs leading-none text-neutral-content pointer-events-none select-none tabular-nums transition-opacity duration-300 {pageOverlayVisible
+        class="absolute top-11 right-2 z-10 rounded-md bg-neutral/85 px-3 py-1.5 text-xs leading-none text-neutral-content pointer-events-none select-none tabular-nums transition-opacity duration-300 {pageOverlayVisible
           ? 'opacity-100'
           : 'opacity-0'}"
       >
@@ -2201,7 +2429,13 @@
             title="Perkecil"
             aria-label="Perkecil"
             disabled={previewState.zoom <= 0.25}
-            onclick={() => previewCtl?.zoomOut()}>−</button
+            onclick={() => {
+              if (isEditingDocx && docxEditorCtl?.handle?.editor) {
+                applyZoom(Math.max(0.25, previewState.zoom - 0.25));
+              } else {
+                previewCtl?.zoomOut();
+              }
+            }}>−</button
           >
           <button
             type="button"
@@ -2226,50 +2460,74 @@
             title="Perbesar"
             aria-label="Perbesar"
             disabled={previewState.zoom >= 4}
-            onclick={() => previewCtl?.zoomIn()}>+</button
+            onclick={() => {
+              if (isEditingDocx && docxEditorCtl?.handle?.editor) {
+                applyZoom(Math.min(4, previewState.zoom + 0.25));
+              } else {
+                previewCtl?.zoomIn();
+              }
+            }}>+</button
           >
 
           {#if zoomMenuOpen}
             <ul
-              class="absolute top-full left-0 mt-1.5 min-w-33 p-1 bg-base-100 border border-base-300 rounded-lg shadow-xl z-40"
+              class="absolute bottom-full left-0 mb-1.5 min-w-36 p-1 bg-base-100 border border-base-300 rounded-lg shadow-xl z-50 text-[13px]"
               role="menu"
             >
               <li>
                 <button
                   type="button"
-                  class="w-full flex items-center gap-2 px-2.5 py-1.75 bg-transparent border-0 rounded text-[13px] leading-4.5 text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200 {Math.abs(
-                    previewState.zoom - 1,
-                  ) < 0.001
-                    ? 'bg-primary/10 text-primary'
-                    : ''}"
+                  class="w-full flex items-center gap-2 px-2.5 py-1.5 bg-transparent border-0 rounded text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200"
                   onclick={() => {
-                    previewCtl?.setZoom(1);
+                    applyFitMode("width");
                     zoomMenuOpen = false;
                   }}
                 >
-                  Sesuai Jendela
-                  {#if Math.abs(previewState.zoom - 1) < 0.001}
-                    <span class="ml-auto text-xs pl-4">✓</span>
-                  {/if}
+                  Fit to Width
                 </button>
               </li>
-              {#each ZOOM_PRESETS as preset (preset)}
+              <li>
+                <button
+                  type="button"
+                  class="w-full flex items-center gap-2 px-2.5 py-1.5 bg-transparent border-0 rounded text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200"
+                  onclick={() => {
+                    applyFitMode("height");
+                    zoomMenuOpen = false;
+                  }}
+                >
+                  Fit Height
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  class="w-full flex items-center gap-2 px-2.5 py-1.5 bg-transparent border-0 rounded text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200"
+                  onclick={() => {
+                    applyFitMode("content");
+                    zoomMenuOpen = false;
+                  }}
+                >
+                  Fit Content
+                </button>
+              </li>
+              <li class="my-1 border-t border-base-200"></li>
+              {#each [0.5, 0.75, 1, 1.25, 1.5, 2] as preset (preset)}
                 <li>
                   <button
                     type="button"
-                    class="w-full flex items-center gap-2 px-2.5 py-1.75 bg-transparent border-0 rounded text-[13px] leading-4.5 text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200 {Math.abs(
+                    class="w-full flex items-center gap-2 px-2.5 py-1.5 bg-transparent border-0 rounded text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200 {Math.abs(
                       previewState.zoom - preset,
                     ) < 0.001
-                      ? 'bg-primary/10 text-primary'
+                      ? 'bg-primary/10 font-semibold text-primary'
                       : ''}"
                     onclick={() => {
-                      previewCtl?.setZoom(preset);
+                      applyZoom(preset);
                       zoomMenuOpen = false;
                     }}
                   >
                     {Math.round(preset * 100)}%
                     {#if Math.abs(previewState.zoom - preset) < 0.001}
-                      <span class="ml-auto text-xs pl-4">✓</span>
+                      <span class="ml-auto text-xs pl-2">✓</span>
                     {/if}
                   </button>
                 </li>
@@ -2384,21 +2642,37 @@
 
       {#if hasDocuments}
         <div class="flex-1 min-h-0 relative {armed ? 'cursor-crosshair' : ''}">
-          <Preview
-            file={previewFile}
-            {hasSignature}
-            bare
-            bind:controller={previewCtl}
-            onstate={(s) => {
-              previewState.zoom = s.zoom;
-              previewState.page = s.page;
-              previewState.pageCount = s.pageCount;
-              previewState.sizes = s.sizes;
-              previewState.layout = s.layout;
-            }}
-            controls={false}
-            onclose={closeDocument}
-          >
+          {#if isEditingDocx && docxEditFile}
+            <DocxEditorView
+              file={docxEditFile}
+              initialZoom={zoomHandoff}
+              bind:controller={docxEditorCtl}
+              onHistoryChange={(state) => {
+                docxCanUndo = state.canUndo;
+                docxCanRedo = state.canRedo;
+              }}
+              onFormattingChange={(formatting) => {
+                docxFormatting = formatting;
+              }}
+            />
+          {:else}
+          <div class="absolute inset-0 pt-[28px] pl-[28px]">
+            <Preview
+              file={previewFile}
+              {hasSignature}
+              bare
+              initialZoom={zoomHandoff}
+              bind:controller={previewCtl}
+              onstate={(s) => {
+                previewState.zoom = s.zoom;
+                previewState.page = s.page;
+                previewState.pageCount = s.pageCount;
+                previewState.sizes = s.sizes;
+                previewState.layout = s.layout;
+              }}
+              controls={false}
+              onclose={closeDocument}
+            >
             {#snippet children(_scale, _pageSizes, _gutter)}
               <!-- svelte-ignore a11y_click_events_have_key_events -->
               <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -2531,6 +2805,8 @@
               </div>
             {/snippet}
           </Preview>
+          </div>
+          {/if}
         </div>
       {/if}
 
@@ -2538,6 +2814,7 @@
         <Upload
           bind:fileInput
           bind:files
+          bind:docxMap={docxFiles}
           allowDocx
           maxFiles={Number(env.PUBLIC_MAX_FILES) || 500}
           maxSizeMb={Number(env.PUBLIC_MAX_FILE_SIZE_MB) || 20}
@@ -2577,7 +2854,11 @@
         <Signature
           {form}
           setSignature={(p) => {
-            setSignature(p);
+            if (isEditingDocx) {
+              void insertDocxImageBase64(p.imageBase64, "signature.png");
+            } else {
+              setSignature(p);
+            }
             visualDialog?.close();
           }}
           {hasSignature}
@@ -2594,7 +2875,7 @@
     </dialog>
 
     <aside
-      class="w-90 flex-none order-0 flex flex-col min-h-0 bg-base-100 border-r border-base-300 max-lg:absolute max-lg:inset-y-0 max-lg:left-0 max-lg:z-30 max-lg:w-[85vw] max-lg:max-w-[22.5rem] max-lg:shadow-xl {navOpen
+      class="w-90 flex-none order-0 flex flex-col min-h-0 bg-base-100 border-r border-base-300 max-lg:absolute max-lg:inset-y-0 max-lg:left-0 max-lg:z-30 max-lg:w-[85vw] max-lg:max-w-90 max-lg:shadow-xl {navOpen
         ? ''
         : 'hidden'}"
     >
@@ -2630,7 +2911,13 @@
 
       <div class="max-lg:no-scrollbar flex-1 min-h-0 overflow-y-auto flex flex-col">
         {#if activeTab === "documents"}
-          <Documents bind:documents bind:activeIndex {fileInput} />
+          <Documents
+            bind:documents
+            bind:activeIndex
+            {fileInput}
+            {docxFiles}
+            onRemove={removeDocument}
+          />
         {:else}
           <Metadata
             {data}

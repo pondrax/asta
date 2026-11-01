@@ -5,14 +5,10 @@
     documents = $bindable({}),
     activeIndex = $bindable(""),
     fileInput,
-    docxFiles = {},
-    onRemove,
   }: {
     documents: Record<string, File>;
     activeIndex: string;
     fileInput: HTMLInputElement | null;
-    docxFiles?: Record<string, File>;
-    onRemove?: (key: string) => void;
   } = $props();
 
   const listDocuments = $derived(Object.entries(documents));
@@ -45,22 +41,6 @@
     for (const key of checkedKeys) delete documents[key];
     if (checkedKeys.includes(activeIndex)) activeIndex = "";
     checked = {};
-  }
-
-  function removeDocument(key: string) {
-    if (checked[key]) {
-      const next = { ...checked };
-      delete next[key];
-      checked = next;
-    }
-    if (onRemove) {
-      onRemove(key);
-      return;
-    }
-    delete documents[key];
-    if (activeIndex === key) {
-      activeIndex = Object.keys(documents)[0] ?? "";
-    }
   }
 </script>
 
@@ -117,7 +97,7 @@
   {:else}
     <ul class="flex-1 min-h-0 overflow-y-auto flex flex-col gap-0.5 p-1">
       {#each listDocuments as [key, doc], i (key)}
-        <li class="group">
+        <li>
           <div
             role="button"
             tabindex="0"
@@ -129,7 +109,7 @@
                 activeIndex = key;
               }
             }}
-            class="relative flex items-center gap-2 w-full ps-2 pe-9 group-hover:pe-20 py-1.5 rounded-lg cursor-pointer transition-colors {activeIndex ===
+            class="flex items-center gap-2 w-full px-2 py-1.5 rounded-lg cursor-pointer transition-colors {activeIndex ===
             key
               ? 'bg-primary/10 text-primary'
               : 'hover:bg-base-200'}"
@@ -142,36 +122,12 @@
               onclick={(e) => e.stopPropagation()}
               onchange={(e) => (checked[key] = e.currentTarget.checked)}
             />
-            <span class="min-w-0 flex-1 truncate text-sm" title={doc.name}
+            <span class="min-w-0 flex-1 truncate text-sm"
               >{i + 1}. {doc.name}</span
             >
-            <span
-              class="shrink-0 text-[11px] text-base-content/50 group-hover:hidden"
-            >
+            <span class="shrink-0 text-[11px] text-base-content/50">
               {formatFileSize(doc.size)}
             </span>
-            <div
-              class="absolute end-1 top-1/2 flex -translate-y-1/2 items-center gap-1 opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto"
-            >
-              {#if docxFiles[doc.name]}
-                <span class="badge badge-secondary badge-xs">Word</span>
-              {:else}
-                <span class="badge badge-primary badge-xs">PDF</span>
-              {/if}
-              <button
-                type="button"
-                class="btn btn-ghost btn-xs btn-circle text-error"
-                aria-label={`Hapus ${doc.name}`}
-                title={`Hapus ${doc.name}`}
-                onclick={(e) => {
-                  e.stopPropagation();
-                  removeDocument(key);
-                }}
-                onkeydown={(e) => e.stopPropagation()}
-              >
-                <iconify-icon icon="bx:trash"></iconify-icon>
-              </button>
-            </div>
           </div>
         </li>
       {/each}

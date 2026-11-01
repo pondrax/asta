@@ -7,7 +7,6 @@
     children,
     files = $bindable([]),
     fileInput = $bindable(null),
-    docxMap = $bindable({}),
     title = "Pilih File PDF",
     allowDocx = false,
     maxFiles = 500,
@@ -16,7 +15,6 @@
     children?: Snippet;
     files?: File[];
     fileInput: HTMLInputElement | null;
-    docxMap?: Record<string, File>;
     title?: string;
     /** Accept DOCX and convert it to PDF. Off by default: this dropper is shared,
      *  and only the sign page should offer the conversion. */
@@ -89,12 +87,9 @@
 
     if (toConvert.length > 0) converting = true;
     const converted: File[] = [];
-    const newDocxMap = { ...docxMap };
     for (const file of toConvert) {
       try {
-        const pdf = await convertDocxToPdf(file);
-        converted.push(pdf);
-        newDocxMap[pdf.name] = file;
+        converted.push(await convertDocxToPdf(file));
       } catch (err) {
         console.error("[docx] conversion failed", err);
         app.showToast(
@@ -106,7 +101,6 @@
       }
     }
     converting = false;
-    docxMap = newDocxMap;
 
     const next = [...keep, ...converted];
     if (next.length === 0) return;
