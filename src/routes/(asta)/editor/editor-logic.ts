@@ -2665,8 +2665,6 @@ function getSuccessMessage(tables: number, insertedInstead: boolean): string {
     const page = rulerPageBox(geometry);
     const zoom = editor.getZoom();
 
-    console.debug('[ruler] updateRulers called, geometry:', geometry?.length);
-
     // Fallback: if rulerPageBox fails but geometry exists, use first page's box
     const fallbackPage = page ?? geometry[0]?.box;
     if (!fallbackPage) {
@@ -2690,13 +2688,11 @@ function getSuccessMessage(tables: number, insertedInstead: boolean): string {
     horizontalRulerInner.style.width = `${widthPx}px`;
     // Vertical ruler shows current page only, zero at top of current page
     const rulerPage = getCurrentRulerPage();
-    console.debug('[ruler] rulerPage:', rulerPage, 'topMargin:', rulerPage?.topMargin, 'bottomMargin:', rulerPage?.bottomMargin, 'pageHeight:', rulerPage?.pageHeight);
     if (rulerPage) {
       const topMarginPx = twipsToPixels(rulerPage.topMargin, zoom);
       const bottomMarginPx = twipsToPixels(rulerPage.bottomMargin, zoom);
       const pageHeightPx = twipsToPixels(rulerPage.pageHeight, zoom);
       const contentAreaHeightPx = pageHeightPx - topMarginPx - bottomMarginPx;
-      console.debug('[ruler] pageHeightPx:', pageHeightPx, 'topMarginPx:', topMarginPx, 'contentAreaHeightPx:', contentAreaHeightPx);
       verticalRulerInner.style.height = `${pageHeightPx}px`;
       renderRulerAxis(verticalRulerInner, pageHeightPx, topMarginPx, contentAreaHeightPx, false, zoom);
     } else {
