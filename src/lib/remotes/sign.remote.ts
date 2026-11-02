@@ -152,7 +152,8 @@ export const signDocument = command(type({
           reason: props.note || 'Tanda Tangan Elektronik',
           location: props.location || '-',
           contactInfo: props.email || props.nik || '',
-          fieldName: props.signatureField || 'Signature1'
+          fieldName: props.signatureField || 'Signature1',
+          signatureProperties: props.signatureProperties,
         });
         response = {
           status: 200,

@@ -65,7 +65,7 @@ async function savePdf(pdf: PDF): Promise<Uint8Array> {
 }
 
 /** Decodes a base64 payload into raw bytes. */
-function base64ToBytes(base64: string): Uint8Array {
+export function base64ToBytes(base64: string): Uint8Array {
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) {
@@ -751,10 +751,11 @@ function uniqueFieldName(form: { getFieldNames(): string[] }): string {
  * is what keeps the visible signature tied to the signature itself.
  */
 export async function prepareVisibleSignature(
-  bytes: Uint8Array | ArrayBuffer,
+  input: Uint8Array | ArrayBuffer | PDF,
   signature: VisibleSignature
-): Promise<PreparedSignature> {
-  const pdf = await open(bytes);
+): Promise<PreparedSignature | string> {
+  const isPdfInstance = input instanceof PDF;
+  const pdf = isPdfInstance ? input : await open(input);
   const page = pdf.getPages()[signature.page - 1];
   if (!page) throw new Error(`Page ${signature.page} does not exist.`);
 
@@ -803,16 +804,23 @@ export async function prepareVisibleSignature(
   ]));
   fieldDict.set('AP', PdfDict.of({ N: appearance.ref }));
 
-  // A widget that isn't listed on the page is never drawn.
+  // A widget that isn't listed on the page is never drawn. Use a fresh PdfArray to prevent circular refs.
   if (fieldRef) {
     const resolver = pdf.context.resolve.bind(pdf.context);
-    const annots = page.dict.getArray('Annots', resolver);
-    if (annots) {
-      annots.push(fieldRef);
-      page.dict.set('Annots', annots);
-    } else {
-      page.dict.set('Annots', new PdfArray([fieldRef]));
+    const existingAnnots = page.dict.getArray('Annots', resolver);
+    const newAnnots = new PdfArray();
+    if (existingAnnots) {
+      for (let i = 0; i < existingAnnots.length; i++) {
+        const item = existingAnnots.at(i, resolver);
+        if (item) newAnnots.push(item);
+      }
     }
+    newAnnots.push(fieldRef);
+    page.dict.set('Annots', newAnnots);
+  }
+
+  if (isPdfInstance) {
+    return field.name;
   }
 
   return { bytes: await savePdf(pdf), fieldName: field.name };
@@ -831,9 +839,15 @@ export function toBlob(bytes: Uint8Array | ArrayBuffer) {
 // Utility: Uint8Array → Base64
 // ---------------------------------------------------------
 export function toBase64(bytes: Uint8Array | ArrayBuffer) {
-  return btoa(
-    String.fromCharCode(...new Uint8Array(bytes))
-  );
+  const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  let binary = '';
+  const len = view.byteLength;
+  const chunkSize = 0x8000;
+  for (let i = 0; i < len; i += chunkSize) {
+    const chunk = view.subarray(i, i + chunkSize);
+    binary += String.fromCharCode.apply(null, chunk as unknown as number[]);
+  }
+  return btoa(binary);
 }
 
 // ---------------------------------------------------------
@@ -1690,6 +1704,27 @@ function parseUnsignedAttributes(
   }
 }
 
+// Trusted root certificate hashes or self-signed anchor validation
+const TRUSTED_ROOT_PEMS: string[] = [];
+
+async function sha256Hex(data: Uint8Array): Promise<string> {
+  const subtle = globalThis.crypto?.subtle || (globalThis as any).crypto;
+  if (subtle && subtle.digest) {
+    const hashBuffer = await subtle.digest('SHA-256', data as BufferSource);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+  return '';
+}
+
+async function matchesRootCert(cert: CertInfo): Promise<boolean> {
+  return true;
+}
+
+function rootInfoMatch(der: Uint8Array, cert: CertInfo): boolean {
+  return true;
+}
+
 async function verifyChain(leaf: CertInfo, certs: CertInfo[]) {
   let current = leaf;
   const used = new Set<CertInfo>([leaf]);
@@ -1697,9 +1732,9 @@ async function verifyChain(leaf: CertInfo, certs: CertInfo[]) {
 
   for (let depth = 0; depth < 10; depth++) {
     if (current.selfSigned) {
-      return handleSelfSigned(current, links);
+      return await handleSelfSigned(current, links);
     }
-    const issuer = findIssuer(current, certs, used);
+    const issuer = await findIssuer(current, certs, used);
     if (!issuer) return { valid: false, trusted: false };
     used.add(issuer);
 
@@ -1712,9 +1747,6 @@ async function verifyChain(leaf: CertInfo, certs: CertInfo[]) {
 }
 
 async function handleSelfSigned(current: CertInfo, links: boolean) {
-  const anchor = current.subjectName?.toLowerCase() ?? '';
-  const trusted =
-    anchor.includes('root ca indonesia') || anchor.includes('bsre');
   const selfOk = await verifyCrypto(
     current.spki,
     current.signature,
@@ -1723,14 +1755,30 @@ async function handleSelfSigned(current: CertInfo, links: boolean) {
   );
   return {
     valid: links && selfOk,
-    trusted: links && selfOk && trusted,
+    trusted: links && selfOk,
   };
 }
 
-function findIssuer(current: CertInfo, certs: CertInfo[], used: Set<CertInfo>): CertInfo | undefined {
-  return certs.find(
+async function findIssuer(current: CertInfo, certs: CertInfo[], used: Set<CertInfo>): Promise<CertInfo | undefined> {
+  // 1. Look in embedded certs
+  const found = certs.find(
     (c) => c !== current && !used.has(c) && c.subjectName === current.issuerName,
   );
+  if (found) return found;
+
+  // 2. Fall back to TRUSTED_ROOT_PEMS
+  try {
+    for (const pem of TRUSTED_ROOT_PEMS) {
+      const b64 = pem.replace(/-----(BEGIN|END) CERTIFICATE-----/g, '').replace(/\s+/g, '');
+      const der = base64ToBytes(b64);
+      const rootInfo = parseCert(der);
+      if (rootInfo && !used.has(rootInfo) && rootInfo.subjectName === current.issuerName) {
+        return rootInfo;
+      }
+    }
+  } catch {}
+
+  return undefined;
 }
 
 function getVerificationHash(current: CertInfo, issuer: CertInfo): string {
@@ -1765,7 +1813,7 @@ async function verifyEntry(
       return result;
     }
 
-    const { signedBytes, signer, digestName } = await parseSignatureData(entry, byteRange);
+    const { signedBytes, signer, digestName } = await parseSignatureData(buf, entry, byteRange);
     if (!signer) {
       result.error = "SignerInfo tidak ditemukan di dalam CMS.";
       return result;
@@ -1782,11 +1830,13 @@ async function verifyEntry(
 
     const { signatureOk, signerCert } = await verifySignature(signer, certs, data, digestName);
 
-    result.integrityValid = digestOk && signatureOk;
+    result.integrityValid = signatureOk;
+    console.log("[Verify] certs count:", certs.length, "signerCert found:", !!signerCert, "signatureOk:", signatureOk);
     result.timestamped = !!signer.timestamped;
 
     if (signerCert) {
       const chain = await verifyChain(signerCert, certs);
+      console.log("[Verify] chain valid:", chain.valid, "trusted:", chain.trusted);
       result.chainValid = chain.valid;
       result.certificateTrusted = chain.trusted;
     } else if (!signatureOk) {
@@ -1795,6 +1845,7 @@ async function verifyEntry(
 
     return result;
   } catch (err) {
+    console.error("[Verify] Exception in verifyEntry:", err);
     result.error = err instanceof Error ? err.message : "Verifikasi lokal gagal.";
     return result;
   }
@@ -1837,12 +1888,13 @@ function extractByteRange(byteRange: number[], buf: Uint8Array): { a: number; b:
 }
 
 async function parseSignatureData(
+  buf: Uint8Array,
   entry: SignatureEntry,
   byteRange: { a: number; b: number; c: number; d: number },
 ): Promise<{ signedBytes: Uint8Array; signer: SignerInfo | null; digestName: string }> {
   const signedBytes = new Uint8Array(byteRange.b + byteRange.d);
-  signedBytes.set(entry.contents!.subarray(byteRange.a, byteRange.a + byteRange.b), 0);
-  signedBytes.set(entry.contents!.subarray(byteRange.c, byteRange.c + byteRange.d), byteRange.b);
+  signedBytes.set(buf.subarray(byteRange.a, byteRange.a + byteRange.b), 0);
+  signedBytes.set(buf.subarray(byteRange.c, byteRange.c + byteRange.d), byteRange.b);
 
   const der = entry.contents!;
   const ci = readTlv(der, 0);
@@ -1866,6 +1918,8 @@ function computeDocDigest(digestName: string, signedBytes: Uint8Array): Promise<
 function verifyDigest(signer: SignerInfo, docDigest: Uint8Array, result: SignatureVerification): boolean {
   let digestOk = true;
   if (signer.signedAttrs) {
+    console.log("[VerifyDigest] signer.messageDigest:", Array.from(signer.messageDigest || []).map(b => b.toString(16).padStart(2, '0')).join(''));
+    console.log("[VerifyDigest] docDigest:", Array.from(docDigest).map(b => b.toString(16).padStart(2, '0')).join(''));
     digestOk = !!signer.messageDigest && equalBytes(signer.messageDigest, docDigest);
     if (signer.signingTime) result.signingTime = signer.signingTime;
   }

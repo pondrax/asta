@@ -68,7 +68,7 @@
   let asTemplate = $state(false);
   let asDraft = $state(false);
   let isDraft = $state(false);
-  let status = $state("NOT_REGISTERED");
+  let status = $state(import.meta.env.DEV ? "ISSUE" : "NOT_REGISTERED");
   let emailLoading = $state(false);
   let emailOpen = $state(false);
   let bsre = $state(true);
@@ -850,7 +850,7 @@
   // signature visualisation.
   const hasMetadata = $derived(
     String(form.email).length > 0 &&
-      status === "ISSUE" &&
+      (bsre ? status === "ISSUE" : true) &&
       (bsre
         ? true
         : placements.some((p) => (p.kind ?? "signature") === "signature")),

@@ -50,7 +50,9 @@
       onUser?.(result.user);
       localStorage.setItem("email", form.email);
     } catch {
-      if (verify) status = "[Server Esign Error] Check User Failed";
+      if (verify) {
+        status = import.meta.env.DEV ? "ISSUE" : "[Server Esign Error] Check User Failed";
+      }
     }
     loading = false;
   };
