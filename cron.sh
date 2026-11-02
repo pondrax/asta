@@ -30,7 +30,7 @@ if ! mkdir "$LOCKDIR" 2>/dev/null; then
 fi
 
 # Remove lock on exit (even if error)
-trap 'rmdir "$LOCKDIR"' EXIT
+trap 'EXIT_CODE=$?; if [ $EXIT_CODE -ne 0 ]; then echo "$(date '\''+%Y-%m-%d %H:%M:%S'\'') - ❌ Deploy failed with exit code $EXIT_CODE" | tee -a "$LOG_FILE"; fi; rmdir "$LOCKDIR" 2>/dev/null || true' EXIT
 
 cd "$APP_DIR"
 
