@@ -24,35 +24,25 @@
 </script>
 
 <div
-  class="bg-base-100 flex flex-col text-sm"
+  class="bg-base-100 flex flex-col text-sm w-full"
   class:hidden={signatures.length === 0}
 >
-  <div class="max-h-40 overflow-auto">
-    <table
-      class="table table-xs table-pin-rows [&_th]:text-[10px] [&_td]:text-[10px]"
-    >
-      <thead>
-        <tr class="text-center">
-          <th>Item</th>
-          <th>P</th>
-          <th>x</th>
-          <th>y</th>
-          <th>w</th>
-          <th>h</th>
-          <th>#</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each signatures as pl (pl.id)}
-          {@const kind = kindOf(pl)}
-          <tr
-            class="[&>td]:p-0 {selectedId === pl.id ? 'bg-primary/15' : ''}"
-          >
-            <td>
+  <div class="max-h-72 overflow-auto flex flex-col gap-2 p-1.5">
+    {#each signatures as pl, idx (pl.id)}
+      {@const kind = kindOf(pl)}
+      <div
+        class="group flex flex-col gap-1.5 p-2 rounded-lg border border-base-300 bg-base-100 hover:bg-base-200/50 transition-colors {selectedId ===
+        pl.id
+          ? 'border-primary bg-primary/10 shadow-sm'
+          : ''}"
+      >
+        <!-- Line 1: Thumbnail with top-right sign icon, Title/Type, Hal, and Delete Button (on hover) -->
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2 min-w-0">
+            <div class="relative inline-flex flex-none">
               <button
                 type="button"
-                class="join-item btn btn-sm p-0.5 w-20 h-8 bg-center bg-no-repeat bg-contain bg-white tooltip tooltip-right"
-                aria-label="Fokuskan item"
+                class="btn btn-xs p-0 w-10 h-6 bg-center bg-no-repeat bg-contain bg-white rounded border border-base-300 tooltip"
                 data-tip={kind}
                 style={kind === "signature"
                   ? `background-image: url("data:image/png;base64,${(pl as any).imageBase64}")`
@@ -66,63 +56,78 @@
                       : kind === "checkbox"
                         ? "bx:checkbox"
                         : "bx:pencil"}
+                    class="text-xs"
                   ></iconify-icon>
                 {/if}
               </button>
-            </td>
-            <td>
+            </div>
+            <span class="text-[11px] font-medium truncate capitalize">
+              {kind === "signature" ? `#${idx + 1}` : kind}
+            </span>
+          </div>
+
+          <div class="flex items-center gap-1.5">
+            <div class="flex bg-base-200/60 rounded border border-base-300 overflow-hidden items-center px-1">
+              <span class="text-[9px] text-base-content/60 px-1">Hal</span>
               <input
                 type="number"
                 bind:value={pl.page}
                 min="1"
-                class="join-item input input-sm input-ghost pl-0 w-5"
+                class="input input-xs input-ghost w-8 text-center tabular-nums p-0 h-5 min-h-0 text-[11px] !border-0 !outline-none focus:ring-0 focus:bg-transparent"
               />
-            </td>
-            <td>
-              <input
-                type="number"
-                bind:value={pl.originX}
-                class="join-item input input-sm input-ghost pl-0 w-10"
-              />
-            </td>
-            <td>
-              <input
-                type="number"
-                bind:value={pl.originY}
-                class="join-item input input-sm input-ghost pl-0 w-10"
-              />
-            </td>
-            <td>
-              <input
-                type="number"
-                bind:value={pl.width}
-                class="join-item input input-sm input-ghost pl-0 w-10"
-              />
-            </td>
-            <td>
-              <input
-                type="number"
-                bind:value={pl.height}
-                step="1"
-                class="join-item input input-sm input-ghost pl-0 w-10"
-              />
-            </td>
-            <td>
-              <button
-                type="button"
-                class="btn btn-xs btn-error btn-square"
-                aria-label="Hapus item"
-                onclick={() => {
-                  if (onDelete) onDelete(pl.id);
-                  else signatures = signatures.filter((s) => s.id !== pl.id);
-                }}
-              >
-                <iconify-icon icon="bx:x"></iconify-icon>
-              </button>
-            </td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
+            </div>
+
+            <button
+              type="button"
+              class="btn btn-xs btn-error btn-square opacity-0 group-hover:opacity-100 transition-opacity"
+              aria-label="Hapus item"
+              onclick={() => {
+                if (onDelete) onDelete(pl.id);
+                else signatures = signatures.filter((s) => s.id !== pl.id);
+              }}
+            >
+              <iconify-icon icon="bx:x" class="text-sm"></iconify-icon>
+            </button>
+          </div>
+        </div>
+
+        <!-- Line 2: Flex Inputs for X, Y, Width, Height -->
+        <div class="flex w-full bg-base-200/50 rounded border border-base-300 overflow-hidden text-[10px]">
+          <div class="flex flex-col items-center flex-1 px-1 py-0.5 border-r border-base-300">
+            <span class="text-[8px] text-base-content/50 uppercase">X</span>
+            <input
+              type="number"
+              bind:value={pl.originX}
+              class="input input-xs input-ghost w-full text-center p-0 h-4 min-h-0 text-[10px] tabular-nums !border-0 !outline-none focus:ring-0 focus:bg-transparent"
+            />
+          </div>
+          <div class="flex flex-col items-center flex-1 px-1 py-0.5 border-r border-base-300">
+            <span class="text-[8px] text-base-content/50 uppercase">Y</span>
+            <input
+              type="number"
+              bind:value={pl.originY}
+              class="input input-xs input-ghost w-full text-center p-0 h-4 min-h-0 text-[10px] tabular-nums !border-0 !outline-none focus:ring-0 focus:bg-transparent"
+            />
+          </div>
+          <div class="flex flex-col items-center flex-1 px-1 py-0.5 border-r border-base-300">
+            <span class="text-[8px] text-base-content/50 uppercase">W</span>
+            <input
+              type="number"
+              bind:value={pl.width}
+              class="input input-xs input-ghost w-full text-center p-0 h-4 min-h-0 text-[10px] tabular-nums !border-0 !outline-none focus:ring-0 focus:bg-transparent"
+            />
+          </div>
+          <div class="flex flex-col items-center flex-1 px-1 py-0.5">
+            <span class="text-[8px] text-base-content/50 uppercase">H</span>
+            <input
+              type="number"
+              bind:value={pl.height}
+              step="1"
+              class="input input-xs input-ghost w-full text-center p-0 h-4 min-h-0 text-[10px] tabular-nums !border-0 !outline-none focus:ring-0 focus:bg-transparent"
+            />
+          </div>
+        </div>
+      </div>
+    {/each}
   </div>
 </div>

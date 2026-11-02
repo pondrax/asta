@@ -52,7 +52,7 @@ export class Esign {
     location?: string,
     note?: string
   }) {
-    const { id, ...signature } = signatureProperties?.[0] || {};
+    const { id, kind, ...signature } = signatureProperties?.[0] || {};
     const props = [
       signatureProperties[0]
         ? { ...signature, location, reason: note }
@@ -68,18 +68,19 @@ export class Esign {
         }
     ];
 
-    console.log()
+    const body = {
+      email,
+      nik,
+      passphrase,
+      signatureProperties: props,
+      file: [fileBase64]
+    };
+
     return this.makeRequest(
       `${env.ESIGN_URL}/api/v2/sign/pdf`,
       {
         method: "POST",
-        body: JSON.stringify({
-          email,
-          nik,
-          passphrase,
-          signatureProperties: props,
-          file: [fileBase64]
-        }),
+        body: JSON.stringify(body),
         redirect: "follow"
       },
       env.ESIGN_API_KEY

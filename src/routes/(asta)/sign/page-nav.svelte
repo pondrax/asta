@@ -7,14 +7,18 @@
   } from "$lib/components/preview.svelte";
   import type { DocxEditorSetupHandle } from "../editor/editor-logic";
   import type { PlacementType } from "./types";
+  import Visualizer from "./visualizer.svelte";
 
   let {
     controller = null,
     preview,
     open = $bindable(false),
     selected = null,
-    placements = [],
+    selectedId = null,
+    placements = $bindable([]),
     onEdit,
+    onSelect,
+    onDelete,
     tab = $bindable("halaman"),
     wordMode = false,
     wordHandle = null,
@@ -23,10 +27,13 @@
     preview: { page: number; pageCount: number; sizes: unknown[] };
     open?: boolean;
     selected?: PlacementType | null;
+    selectedId?: string | null;
     placements?: PlacementType[];
     /** Called once before a property field is committed, so the owner can
      *  push an undo snapshot of the pre-edit placement. */
     onEdit?: () => void;
+    onSelect?: (id: string) => void;
+    onDelete?: (id: string) => void;
     tab?: "halaman" | "properti";
     /** While the Word editor is open, replace page thumbnails with its outline
      *  and in-document search. */
@@ -290,7 +297,7 @@
 </script>
 
 <aside
-  class="w-60 flex-none order-2 flex flex-col min-h-0 bg-base-100 border-l border-base-300 max-lg:absolute max-lg:inset-y-0 max-lg:right-0 max-lg:z-30 max-lg:w-[85vw] max-lg:max-w-[16rem] max-lg:shadow-xl {open
+  class="w-80 flex-none order-2 flex flex-col min-h-0 bg-base-100 border-l border-base-300 max-lg:absolute max-lg:inset-y-0 max-lg:right-0 max-lg:z-30 max-lg:w-[85vw] max-lg:max-w-[20rem] max-lg:shadow-xl {open
     ? ''
     : 'hidden'}"
   aria-label={wordMode ? "Panel navigasi Word" : "Panel kanan"}
@@ -550,175 +557,186 @@
             aria-label="Cari di dokumen"
             bind:value={query}
           />
-        {#if searching}
-          <span
-            class="loading loading-spinner loading-xs shrink-0"
-            aria-label="Mencari"
-          ></span>
-        {/if}
-        {#if query}
-          <button
-            type="button"
-            class="shrink-0 text-base-content/50 hover:text-base-content"
-            aria-label="Bersihkan pencarian"
-            onclick={() => (query = "")}
-          >
-            <iconify-icon icon="bx:x" class="text-base"></iconify-icon>
-          </button>
-        {/if}
-      </label>
-    </div>
-  {/if}
-
-  {#if tab === "halaman"}
-    {#if preview.pageCount > 0 && pages.length === 0 && searching}
-      <div
-        class="flex-1 flex flex-col items-center justify-center gap-1.5 p-3 text-center text-base-content/60 text-[11px]"
-      >
-        <span class="loading loading-spinner loading-sm"></span>
-        <span>Mencari di dokumen…</span>
-      </div>
-    {:else if preview.pageCount > 0 && pages.length === 0}
-      <div
-        class="flex-1 flex flex-col items-center justify-center gap-1.5 p-3 text-center text-base-content/60 text-[11px]"
-      >
-        <iconify-icon icon="bx:search" class="text-[22px]"></iconify-icon>
-        <span>Tidak ada hasil untuk "{query}"</span>
-      </div>
-    {:else if preview.pageCount > 0}
-      <ol
-        class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden flex flex-col gap-2 m-0 p-2.5 list-none"
-        bind:this={listEl}
-      >
-        {#each pages as p (p)}
-          {@const hit = hitByPage.get(p)}
-          <li>
+          {#if searching}
+            <span
+              class="loading loading-spinner loading-xs shrink-0"
+              aria-label="Mencari"
+            ></span>
+          {/if}
+          {#if query}
             <button
               type="button"
-              class="relative block w-full p-0 border-0 bg-transparent cursor-pointer"
-              aria-label={`Ke halaman ${p}`}
-              aria-current={preview.page === p ? "page" : undefined}
-              onclick={() => controller?.goToPage(p)}
+              class="shrink-0 text-base-content/50 hover:text-base-content"
+              aria-label="Bersihkan pencarian"
+              onclick={() => (query = "")}
             >
-              <canvas
-                data-thumb
-                class="block w-full h-auto bg-base-100 border rounded shadow-sm transition-[border-color,box-shadow] duration-150 mx-auto {preview.page ===
-                p
-                  ? 'border-primary ring-2 ring-primary'
-                  : 'border-base-300'}"
-              ></canvas>
-              {#if placementsOn(p).length > 0}
-                <span
-                  class="absolute left-1 bottom-1 inline-flex items-center gap-0.5 px-1.5 rounded-full text-[10px] leading-4 bg-secondary text-secondary-content"
-                  title={`${placementsOn(p).length} visual di halaman ${p}`}
-                >
-                  <iconify-icon icon="bx:pen"></iconify-icon>
-                  {placementsOn(p).length}
-                </span>
-              {/if}
-              <span
-                class="absolute bottom-1 left-1/2 -translate-x-1/2 px-1.5 rounded-full text-[10px] leading-4 tabular-nums whitespace-nowrap {preview.page ===
-                p
-                  ? 'bg-primary text-primary-content'
-                  : 'bg-neutral/70 text-neutral-content'}">{p}</span
-              >
+              <iconify-icon icon="bx:x" class="text-base"></iconify-icon>
             </button>
-            {#if hit}
-              <p
-                class="mt-1 text-[10px] leading-snug text-base-content/60 break-words"
+          {/if}
+        </label>
+      </div>
+
+      {#if preview.pageCount > 0 && pages.length === 0 && searching}
+        <div
+          class="flex-1 flex flex-col items-center justify-center gap-1.5 p-3 text-center text-base-content/60 text-[11px]"
+        >
+          <span class="loading loading-spinner loading-sm"></span>
+          <span>Mencari di dokumen…</span>
+        </div>
+      {:else if preview.pageCount > 0 && pages.length === 0}
+        <div
+          class="flex-1 flex flex-col items-center justify-center gap-1.5 p-3 text-center text-base-content/60 text-[11px]"
+        >
+          <iconify-icon icon="bx:search" class="text-[22px]"></iconify-icon>
+          <span>Tidak ada hasil untuk "{query}"</span>
+        </div>
+      {:else if preview.pageCount > 0}
+        <ol
+          class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden flex flex-col gap-2 m-0 p-2.5 list-none"
+          bind:this={listEl}
+        >
+          {#each pages as p (p)}
+            {@const hit = hitByPage.get(p)}
+            <li>
+              <button
+                type="button"
+                class="relative flex flex-col items-center w-full p-0 border-0 bg-transparent cursor-pointer"
+                aria-label={`Ke halaman ${p}`}
+                aria-current={preview.page === p ? "page" : undefined}
+                onclick={() => controller?.goToPage(p)}
               >
-                {#if hit.pre}<span class="opacity-60">{hit.pre}</span>{/if}<mark
-                  class="bg-warning text-warning-content rounded-[2px] px-0.5"
-                  >{hit.match}</mark
-                >{#if hit.post}<span class="opacity-60">{hit.post}</span
-                  >{/if}
-              </p>
-              {#if hit.count > 1}
-                <span class="mt-0.5 block text-[9px] text-base-content/40"
-                  >{hit.count} hasil di halaman ini</span
+                <div class="relative inline-block mx-auto">
+                  <canvas
+                    data-thumb
+                    class="block w-[140px] h-auto bg-base-100 border rounded shadow-sm transition-[border-color,box-shadow] duration-150 {preview.page ===
+                    p
+                      ? 'border-primary ring-2 ring-primary'
+                      : 'border-base-300'}"
+                  ></canvas>
+                  {#if placementsOn(p).length > 0}
+                    <span
+                      class="absolute top-1.5 right-1.5 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] leading-3 bg-secondary text-secondary-content shadow-sm pointer-events-none"
+                      title={`${placementsOn(p).length} visual di halaman ${p}`}
+                    >
+                      <iconify-icon icon="bx:pen"></iconify-icon>
+                      {#if placementsOn(p).length > 1}
+                        {placementsOn(p).length}
+                      {/if}
+                    </span>
+                  {/if}
+                </div>
+                <span
+                  class="mt-1 inline-block px-1.5 rounded-full text-[10px] leading-4 tabular-nums whitespace-nowrap {preview.page ===
+                  p
+                    ? 'bg-primary text-primary-content'
+                    : 'bg-neutral/70 text-neutral-content'}">{p}</span
                 >
+              </button>
+              {#if hit}
+                <p
+                  class="mt-1 text-[10px] leading-snug text-base-content/60 break-words"
+                >
+                  {#if hit.pre}<span class="opacity-60">{hit.pre}</span>{/if}<mark
+                    class="bg-warning text-warning-content rounded-[2px] px-0.5"
+                    >{hit.match}</mark
+                  >{#if hit.post}<span class="opacity-60">{hit.post}</span
+                    >{/if}
+                </p>
+                {#if hit.count > 1}
+                  <span class="mt-0.5 block text-[9px] text-base-content/40"
+                    >{hit.count} hasil di halaman ini</span
+                  >
+                {/if}
               {/if}
-            {/if}
-          </li>
-        {/each}
-      </ol>
-    {:else}
-      <div
-        class="flex-1 flex flex-col items-center justify-center gap-1.5 p-3 text-center text-base-content/60 text-[11px]"
-      >
-        <iconify-icon icon="bx:file-blank" class="text-[22px]"></iconify-icon>
-        <span>Belum ada dokumen</span>
-      </div>
-    {/if}
-  {:else if selected}
-    <div class="flex-1 min-h-0 overflow-y-auto p-2.5">
-      <div class="text-[10px] font-bold tracking-[0.06em] uppercase text-base-content/60 mb-2">
-        {kindLabel(selected)}
-      </div>
-      <dl class="flex flex-col gap-0">
-        {#each rows as [label, field, value] (label)}
-          <div
-            class="flex items-start justify-between gap-2 py-1.5 border-b border-base-200 last:border-b-0"
-          >
-            <dt class="text-[11px] text-base-content/50 shrink-0">{label}</dt>
-            <dd class="text-[11px] text-right break-words tabular-nums w-full">
-              {#if field === "text"}
-                <input
-                  type="text"
-                  class="input input-xs w-full text-right"
-                  value={String((selected as any)?.[value as any] ?? "")}
-                  onchange={(e) => {
-                    if (!selected) return;
-                    const next = e.currentTarget.value;
-                    if (String((selected as any)[value as any] ?? "") === next)
-                      return;
-                    onEdit?.();
-                    (selected as any)[value as any] = next;
-                  }}
-                />
-              {:else if field === "number"}
-                <input
-                  type="number"
-                  class="input input-xs w-full text-right"
-                  value={Number((selected as any)?.[value as any]) || 0}
-                  onchange={(e) => {
-                    if (!selected) return;
-                    const next = parseFloat(e.currentTarget.value) || 0;
-                    if ((Number((selected as any)[value as any]) || 0) === next)
-                      return;
-                    onEdit?.();
-                    (selected as any)[value as any] = next;
-                  }}
-                />
-              {:else if field === "toggle"}
-                <label class="swap swap-flip justify-end w-full">
-                  <input
-                    type="checkbox"
-                    checked={!!(selected as any)?.[value as any]}
-                    onchange={(e) => {
-                      if (!selected) return;
-                      onEdit?.();
-                      (selected as any)[value as any] = e.currentTarget.checked;
-                    }}
-                  />
-                  <span class="swap-on text-[11px]">Ya</span>
-                  <span class="swap-off text-[11px]">Tidak</span>
-                </label>
-              {:else}
-                {value}
-              {/if}
-            </dd>
+            </li>
+          {/each}
+        </ol>
+      {:else}
+        <div
+          class="flex-1 flex flex-col items-center justify-center gap-1.5 p-3 text-center text-base-content/60 text-[11px]"
+        >
+          <iconify-icon icon="bx:file-blank" class="text-[22px]"></iconify-icon>
+          <span>Belum ada dokumen</span>
+        </div>
+      {/if}
+    {:else if tab === "properti"}
+      {#if selected}
+        <div class="flex-1 min-h-0 overflow-y-auto p-2.5 border-b border-base-300">
+          <div class="text-[10px] font-bold tracking-[0.06em] uppercase text-base-content/60 mb-2">
+            {kindLabel(selected)}
           </div>
-        {/each}
-      </dl>
-    </div>
-  {:else}
-    <div
-      class="flex-1 flex flex-col items-center justify-center gap-1.5 p-3 text-center text-base-content/60 text-[11px]"
-    >
-      <iconify-icon icon="bx:pointer" class="text-[22px]"></iconify-icon>
-      <span>Pilih tanda tangan untuk melihat propertinya</span>
-    </div>
+          <dl class="flex flex-col gap-0">
+            {#each rows as [label, field, value] (label)}
+              <div
+                class="flex items-start justify-between gap-2 py-1.5 border-b border-base-200 last:border-b-0"
+              >
+                <dt class="text-[11px] text-base-content/50 shrink-0">{label}</dt>
+                <dd class="text-[11px] text-right break-words tabular-nums w-full">
+                  {#if field === "text"}
+                    <input
+                      type="text"
+                      class="input input-xs input-ghost w-full text-right !border-0 !outline-none focus:ring-0 focus:bg-base-200/50"
+                      value={String((selected as any)?.[value as any] ?? "")}
+                      onchange={(e) => {
+                        if (!selected) return;
+                        const next = e.currentTarget.value;
+                        if (String((selected as any)[value as any] ?? "") === next)
+                          return;
+                        onEdit?.();
+                        (selected as any)[value as any] = next;
+                      }}
+                    />
+                  {:else if field === "number"}
+                    <input
+                      type="number"
+                      class="input input-xs input-ghost w-full text-right !border-0 !outline-none focus:ring-0 focus:bg-base-200/50"
+                      value={Number((selected as any)?.[value as any]) || 0}
+                      onchange={(e) => {
+                        if (!selected) return;
+                        const next = parseFloat(e.currentTarget.value) || 0;
+                        if ((Number((selected as any)[value as any]) || 0) === next)
+                          return;
+                        onEdit?.();
+                        (selected as any)[value as any] = next;
+                      }}
+                    />
+                  {:else if field === "toggle"}
+                    <label class="swap swap-flip justify-end w-full">
+                      <input
+                        type="checkbox"
+                        checked={!!(selected as any)?.[value as any]}
+                        onchange={(e) => {
+                          if (!selected) return;
+                          onEdit?.();
+                          (selected as any)[value as any] = e.currentTarget.checked;
+                        }}
+                      />
+                      <span class="swap-on text-[11px]">Ya</span>
+                      <span class="swap-off text-[11px]">Tidak</span>
+                    </label>
+                  {:else}
+                    {value}
+                  {/if}
+                </dd>
+              </div>
+            {/each}
+          </dl>
+        </div>
+
+        <div class="p-2 flex-1 flex flex-col min-h-0 bg-base-100">
+          <div class="text-[11px] font-semibold mb-1 px-1 text-base-content/70 flex-none">Semua Visualisasi</div>
+          <div class="flex-1 overflow-auto">
+            <Visualizer bind:signatures={placements} {selectedId} {onSelect} {onDelete} />
+          </div>
+        </div>
+      {:else}
+        <div
+          class="flex-1 flex flex-col items-center justify-center gap-1.5 p-4 text-center text-base-content/60 text-[11px]"
+        >
+          <iconify-icon icon="bx:pointer" class="text-[22px]"></iconify-icon>
+          <span>Pilih tanda tangan untuk melihat propertinya</span>
+        </div>
+      {/if}
     {/if}
   {/if}
 </aside>

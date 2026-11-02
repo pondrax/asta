@@ -1163,15 +1163,13 @@
       });
 
       try {
-        buffer = (
-          await pdfLib.drawFooter(filled, {
-            imageBase64: base64QR as string,
-            page: undefined,
-            text: bsre
-              ? `Dokumen ini ditandatangani menggunakan sertifikat elektronik yang diterbitkan BSrE - BSSN\n${saveDocument ? "#" + id : ""}`
-              : `Dokumen ini ditandatangani menggunakan Aplikasi Tapak Astà\n#${id}`,
-          })
-        ).buffer as ArrayBuffer;
+        buffer = await pdfLib.drawFooter(filled, {
+          imageBase64: base64QR as string,
+          page: undefined,
+          text: bsre
+            ? `Dokumen ini ditandatangani menggunakan sertifikat elektronik yang diterbitkan BSrE - BSSN\n${saveDocument ? "#" + id : ""}`
+            : `Dokumen ini ditandatangani menggunakan Aplikasi Tapak Astà\n#${id}`,
+        });
       } catch (e) {
         console.error("[sign] Footer draw failed, continuing without footer:", e);
         buffer = filled;
@@ -2837,22 +2835,18 @@
 
                 let fileBase64 = await fileToBase64(fileSign);
                 if (toDraw.length > 0) {
-                  const drawn = (
-                    await pdfLib.drawPlacements(
-                      await fileSign.arrayBuffer(),
-                      toDraw,
-                    )
-                  ).buffer as ArrayBuffer;
-
-                  fileBase64 = await fileToBase64(
-                    new Blob([drawn], { type: "application/pdf" }),
+                  const drawn = await pdfLib.drawPlacements(
+                    await fileSign.arrayBuffer(),
+                    toDraw,
                   );
+
+                  fileBase64 = pdfLib.toBase64(drawn);
                 }
 
                 let signatureField: string | undefined;
                 if (visibleSignature && !asDraft) {
                   const prepared = await pdfLib.prepareVisibleSignature(
-                    await base64ToBlob(fileBase64).arrayBuffer(),
+                    pdfLib.base64ToBytes(fileBase64),
                     {
                       page: visibleSignature.page,
                       originX: visibleSignature.originX,
@@ -2862,11 +2856,7 @@
                       imageBase64: visibleSignature.imageBase64,
                     },
                   );
-                  fileBase64 = await fileToBase64(
-                    new Blob([new Uint8Array(prepared.bytes)], {
-                      type: "application/pdf",
-                    }),
-                  );
+                  fileBase64 = pdfLib.toBase64(prepared.bytes);
                   signatureField = prepared.fieldName;
                 }
 
