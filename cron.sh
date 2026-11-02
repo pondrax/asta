@@ -20,6 +20,18 @@ fi
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
+# Locate bun
+BUN="$HOME/.bun/bin/bun"
+if [ ! -x "$BUN" ]; then
+  BUN="/root/.bun/bin/bun"
+fi
+if [ ! -x "$BUN" ]; then
+  BUN="/home/esign/.bun/bin/bun"
+fi
+if [ ! -x "$BUN" ]; then
+  BUN="$(which bun 2>/dev/null || echo "bun")"
+fi
+
 
 # ===== LOCK (no flock) =====
 LOCKDIR="/tmp/deploy-asta.lock"
@@ -65,17 +77,17 @@ if [ "$LOCAL_HASH" != "$REMOTE_HASH" ]; then
   git pull origin "$BRANCH" 2>&1 | tee -a "$LOG_FILE"
 
   log "📦 Installing dependencies..."
-  bun install --frozen-lockfile
+  "$BUN" install --frozen-lockfile
   
   log "🔨 Building..."
-  bun run build
-  bun run db:migrate
+  "$BUN" run build
+  "$BUN" run db:migrate
 
   log "🚀 Restarting app..."
   if pm2 describe asta > /dev/null 2>&1; then
     pm2 restart asta --update-env
   else
-    pm2 start bun --name asta -- run start
+    pm2 start "$BUN" --name asta -- run start
   fi 2>&1 | tee -a "$LOG_FILE"
 
 
