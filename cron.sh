@@ -9,7 +9,7 @@ BRANCH="main"
 # ===== ENV (cron-safe) =====
 export CI=true
 export GCP_BUILDPACKS=true
-export PATH="/usr/bin:/bin:/usr/local/bin:$HOME/.local/bin"
+export PATH="/usr/bin:/bin:/usr/local/bin:$HOME/.local/bin:$HOME/.bun/bin:/root/.bun/bin"
 
 # Ensure HOME exists
 if [ -z "$HOME" ]; then
