@@ -110,7 +110,7 @@ export const signDocument = command(type({
   jabatan: 'string?',
   pangkat: 'string?',
   instansi: 'string?',
-  passphrase: 'string',
+  passphrase: 'string?',
   signatureProperties: 'Array',
   /** Signature field the visible appearance belongs to (manual signing). */
   signatureField: 'string?',
