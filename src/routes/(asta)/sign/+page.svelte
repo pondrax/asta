@@ -62,7 +62,7 @@
   import "./sign.css";
 
   const { data } = $props();
-  let turnstileSuccess = $state(false);
+  let turnstileSuccess = $state(import.meta.env.DEV);
   let loading = $state(false);
   let signForm: HTMLFormElement | null = $state(null);
   let activeIndex = $state("");
@@ -3051,7 +3051,7 @@
       autocomplete="off"
       onsubmit={async (e) => {
         e.preventDefault();
-        if (!turnstileSuccess) {
+        if (!turnstileSuccess && !import.meta.env.DEV) {
           forms.sign!.__error = "Please verify the captcha";
           return;
         }
@@ -3537,7 +3537,7 @@
               id="tour-sign-submit"
               type="submit"
               class="btn join-item w-full {bsre ? 'btn-secondary' : 'btn-primary'}"
-              disabled={loading || !turnstileSuccess || (bsre && !item.passphrase)}
+              disabled={loading || (!turnstileSuccess && !import.meta.env.DEV) || (bsre && !item.passphrase)}
             >
               <iconify-icon icon="bx:pen" class="text-2xl"></iconify-icon>
               Tanda Tangan {bsre ? "BSrE" : "Self-Signed"}
