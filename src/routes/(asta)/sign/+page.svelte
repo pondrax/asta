@@ -917,15 +917,17 @@
     }
   });
 
+  const hasPlacedSignature = $derived(
+    placements.some((p) => (p.kind ?? "signature") === "signature"),
+  );
+
   // Signing only requires an identity and a valid TTE signer; note/location are
   // optional (they default server-side). Self-signed signing just needs at least one
   // signature visualisation.
   const hasMetadata = $derived(
     String(form.email).length > 0 &&
       status === "ISSUE" &&
-      (bsre
-        ? true
-        : placements.some((p) => (p.kind ?? "signature") === "signature")),
+      (bsre ? true : hasPlacedSignature),
   );
   const allowSigning = $derived(hasDocuments && hasMetadata && !isEncrypted);
 
@@ -2177,11 +2179,11 @@
   });
 
   $effect(() => {
-    if (hasSignature) form.footer = false;
-  });
-
-  $effect(() => {
-    if (!bsre) form.footer = true;
+    if (hasSignature) {
+      form.footer = false;
+    } else if (!bsre && !hasPlacedSignature) {
+      form.footer = true;
+    }
   });
 
   $effect(() => {
@@ -2264,12 +2266,12 @@
       onTool={(t) => (activeTool = t)}
       onAddSignature={requestAddSignature}
       onAddVisual={handleAddVisual}
-      {visualMode}
+      visualMode={visualMode}
+      selfSigned={!bsre}
       {hasDocuments}
       {hasSignature}
-      capSignature={placements.some(
-        (p) => (p.kind ?? "signature") === "signature",
-      )}
+      {hasPlacedSignature}
+      capSignature={hasPlacedSignature}
       {signatureInfos}
       localVerifications={localVerifications}
       bsreStatus={bsreResult}

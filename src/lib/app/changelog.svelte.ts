@@ -119,6 +119,25 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
     page: "Tanda Tangan Dokumen",
     entries: [
       {
+        id: "self-signed-toolbar-footer-lock-2026-11-02",
+        date: "2026-11-02",
+        title: "Penyesuaian toolbar self-signed, penguncian footer wajib, dan pembersihan sign-legacy",
+        changes: [
+          {
+            kind: "improved",
+            text: "Toolbar visualisasi tanda tangan kini hanya menampilkan coretan (draw) ketika mode Self-Signed aktif.",
+          },
+          {
+            kind: "improved",
+            text: "Footer dikunci otomatis saat mode Self-Signed aktif dan belum ada tanda tangan diletakkan di dokumen karena bersifat wajib.",
+          },
+          {
+            kind: "changed",
+            text: "Menghapus rute `/sign-legacy` beserta file komponen terkait.",
+          },
+        ],
+      },
+      {
         id: "sign-workspace-move-2026-11-01",
         date: "2026-11-01",
         title: "Ruang kerja tanda tangan baru menjadi halaman utama",

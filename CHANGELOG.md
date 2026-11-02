@@ -78,6 +78,19 @@
   Admin     admin only; `hooks.server.ts` 403s every other role on `/main*`
 -->
 
+## 2026-11-02
+
+### Penyesuaian toolbar self-signed, penguncian footer wajib, dan pembersihan sign-legacy
+
+<!-- id: self-signed-toolbar-footer-lock-2026-11-02 -->
+
+Halaman: /sign - Tanda Tangan Dokumen
+Audiens: Tamu
+
+- **Peningkatan** - Toolbar visualisasi tanda tangan kini hanya menampilkan coretan (draw) ketika mode Self-Signed aktif.
+- **Peningkatan** - Footer dikunci otomatis saat mode Self-Signed aktif dan belum ada tanda tangan diletakkan di dokumen karena bersifat wajib.
+- **Diubah** - Menghapus rute `/sign-legacy` beserta file komponen terkait.
+
 ## 2026-11-01
 
 ### Ruang kerja tanda tangan baru menjadi halaman utama

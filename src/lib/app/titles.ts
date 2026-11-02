@@ -7,7 +7,6 @@
 /** Static route → page name. */
 export const ROUTE_TITLES: Record<string, string> = {
   "/sign": "Tanda Tangan Dokumen",
-  "/sign-legacy": "Tanda Tangan Dokumen (Legacy)",
   "/editor": "Buat Dokumen",
   "/me": "Dashboard",
   "/me/documents": "Dokumen Saya",

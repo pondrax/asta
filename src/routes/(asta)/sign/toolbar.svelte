@@ -22,7 +22,9 @@
     onAddVisual,
     onUpload,
     visualMode = "all",
+    selfSigned = false,
     hasSignature = false,
+    hasPlacedSignature = false,
     capSignature = false,
     signatureInfos = [],
     localVerifications = [],
@@ -57,7 +59,10 @@
     onAddVisual?: (tab: "image" | "qr" | "box" | "draw") => void;
     onUpload?: () => void;
     visualMode?: "all" | "draw" | "none";
+    selfSigned?: boolean;
     hasSignature?: boolean;
+    /** Whether at least one signature visual has been placed on the document. */
+    hasPlacedSignature?: boolean;
     /** The signer is capped at one signature visual (BSrE / signed document),
      *  so adding another replaces the existing signature. */
     capSignature?: boolean;
@@ -424,6 +429,9 @@
   /** Visual tools stay usable; a signed document just warns that placing one
    *  replaces the existing signature. */
   const visualsLocked = $derived(visualMode === "none");
+  const isSelfSigned = $derived(selfSigned || visualMode === "draw");
+  const footerMandatory = $derived(isSelfSigned && !hasPlacedSignature);
+  const footerLocked = $derived(hasSignature || footerMandatory);
   const lockTip = $derived(
     capSignature ? "akan mengganti tanda tangan lama" : null,
   );
@@ -541,85 +549,99 @@
       <div class="w-px h-6 mx-1 bg-base-300 shrink-0"></div>
     {/if}
 
-    <div class="relative shrink-0">
-      <button
-        type="button"
-        class="btn btn-sm btn-ghost gap-1 px-1.5"
-        aria-label="Visualisasi"
-        aria-haspopup="menu"
-        aria-expanded={visualMenuOpen}
-        disabled={visualDisabled}
-        use:menuPress={() => {
-          footerMenuOpen = false;
-          statusMenuOpen = false;
-          wordMenu = null;
-          visualMenuOpen = !visualMenuOpen;
-        }}
-      >
-        <iconify-icon icon="bx:image-add"></iconify-icon>
-        <iconify-icon icon="bx:chevron-down" class="text-xs"></iconify-icon>
-      </button>
-      {#if visualMenuOpen}
-        <div
-          class="absolute top-full left-0 mt-1 p-1 bg-base-100 border border-base-300 rounded-lg shadow-xl z-50 flex items-center"
-          role="menu"
-          aria-label="Visualisasi"
+    {#if isSelfSigned}
+      <div class="tooltip tooltip-bottom" data-tip={visualTip("Gambar Tanda Tangan")}>
+        <button
+          type="button"
+          class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
+          aria-label="Tanda Tangan"
+          disabled={visualDisabled}
+          onclick={() => onAddVisual?.("draw")}
         >
-          <button
-            type="button"
-            class="btn btn-sm btn-ghost btn-square"
-            title="Tambah Gambar"
-            aria-label="Tambah Gambar"
-            role="menuitem"
-            onclick={() => {
-              closeMenus();
-              onAddVisual?.("image");
-            }}
+          <iconify-icon icon="bx:pencil"></iconify-icon>
+        </button>
+      </div>
+    {:else}
+      <div class="relative shrink-0">
+        <button
+          type="button"
+          class="btn btn-sm btn-ghost gap-1 px-1.5"
+          aria-label="Visualisasi"
+          aria-haspopup="menu"
+          aria-expanded={visualMenuOpen}
+          disabled={visualDisabled}
+          use:menuPress={() => {
+            footerMenuOpen = false;
+            statusMenuOpen = false;
+            wordMenu = null;
+            visualMenuOpen = !visualMenuOpen;
+          }}
+        >
+          <iconify-icon icon="bx:image-add"></iconify-icon>
+          <iconify-icon icon="bx:chevron-down" class="text-xs"></iconify-icon>
+        </button>
+        {#if visualMenuOpen}
+          <div
+            class="absolute top-full left-0 mt-1 p-1 bg-base-100 border border-base-300 rounded-lg shadow-xl z-50 flex items-center"
+            role="menu"
+            aria-label="Visualisasi"
           >
-            <iconify-icon icon="bx:image"></iconify-icon>
-          </button>
-          <button
-            type="button"
-            class="btn btn-sm btn-ghost btn-square"
-            title="Tambah QR"
-            aria-label="Tambah QR"
-            role="menuitem"
-            onclick={() => {
-              closeMenus();
-              onAddVisual?.("qr");
-            }}
-          >
-            <iconify-icon icon="bx:qr"></iconify-icon>
-          </button>
-          <button
-            type="button"
-            class="btn btn-sm btn-ghost btn-square"
-            title="Tambah Kotak"
-            aria-label="Tambah Kotak"
-            role="menuitem"
-            onclick={() => {
-              closeMenus();
-              onAddVisual?.("box");
-            }}
-          >
-            <iconify-icon icon="bx:box"></iconify-icon>
-          </button>
-          <button
-            type="button"
-            class="btn btn-sm btn-ghost btn-square"
-            title="Gambar Tanda Tangan"
-            aria-label="Tanda Tangan"
-            role="menuitem"
-            onclick={() => {
-              closeMenus();
-              onAddVisual?.("draw");
-            }}
-          >
-            <iconify-icon icon="bx:pencil"></iconify-icon>
-          </button>
-        </div>
-      {/if}
-    </div>
+            <button
+              type="button"
+              class="btn btn-sm btn-ghost btn-square"
+              title="Tambah Gambar"
+              aria-label="Tambah Gambar"
+              role="menuitem"
+              onclick={() => {
+                closeMenus();
+                onAddVisual?.("image");
+              }}
+            >
+              <iconify-icon icon="bx:image"></iconify-icon>
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm btn-ghost btn-square"
+              title="Tambah QR"
+              aria-label="Tambah QR"
+              role="menuitem"
+              onclick={() => {
+                closeMenus();
+                onAddVisual?.("qr");
+              }}
+            >
+              <iconify-icon icon="bx:qr"></iconify-icon>
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm btn-ghost btn-square"
+              title="Tambah Kotak"
+              aria-label="Tambah Kotak"
+              role="menuitem"
+              onclick={() => {
+                closeMenus();
+                onAddVisual?.("box");
+              }}
+            >
+              <iconify-icon icon="bx:box"></iconify-icon>
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm btn-ghost btn-square"
+              title="Gambar Tanda Tangan"
+              aria-label="Tanda Tangan"
+              role="menuitem"
+              onclick={() => {
+                closeMenus();
+                onAddVisual?.("draw");
+              }}
+            >
+              <iconify-icon icon="bx:pencil"></iconify-icon>
+            </button>
+          </div>
+        {/if}
+      </div>
+    {/if}
 
     <div class="w-px h-6 mx-1 bg-base-300 shrink-0"></div>
 
@@ -1205,50 +1227,52 @@
 
   <!-- visualisasi -->
   <div class="flex items-center gap-px shrink-0">
-    <div
-      class="tooltip tooltip-bottom hidden! lg:inline-flex!"
-      data-tip={visualTip("Tambah Gambar")}
-    >
-      <button
-        type="button"
-        class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
-        aria-label="Tambah Gambar"
-        disabled={visualDisabled}
-        onclick={() => onAddVisual?.("image")}
+    {#if !isSelfSigned}
+      <div
+        class="tooltip tooltip-bottom hidden! lg:inline-flex!"
+        data-tip={visualTip("Tambah Gambar")}
       >
-        <iconify-icon icon="bx:image"></iconify-icon>
-      </button>
-    </div>
-    <div
-      class="tooltip tooltip-bottom hidden! lg:inline-flex!"
-      data-tip={visualTip("Tambah QR")}
-    >
-      <button
-        type="button"
-        class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
-        aria-label="Tambah QR"
-        disabled={visualDisabled}
-        onclick={() => onAddVisual?.("qr")}
+        <button
+          type="button"
+          class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
+          aria-label="Tambah Gambar"
+          disabled={visualDisabled}
+          onclick={() => onAddVisual?.("image")}
+        >
+          <iconify-icon icon="bx:image"></iconify-icon>
+        </button>
+      </div>
+      <div
+        class="tooltip tooltip-bottom hidden! lg:inline-flex!"
+        data-tip={visualTip("Tambah QR")}
       >
-        <iconify-icon icon="bx:qr"></iconify-icon>
-      </button>
-    </div>
-    <div
-      class="tooltip tooltip-bottom hidden! lg:inline-flex!"
-      data-tip={visualTip("Tambah Kotak")}
-    >
-      <button
-        type="button"
-        class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
-        aria-label="Tambah Kotak"
-        disabled={visualDisabled}
-        onclick={() => onAddVisual?.("box")}
+        <button
+          type="button"
+          class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
+          aria-label="Tambah QR"
+          disabled={visualDisabled}
+          onclick={() => onAddVisual?.("qr")}
+        >
+          <iconify-icon icon="bx:qr"></iconify-icon>
+        </button>
+      </div>
+      <div
+        class="tooltip tooltip-bottom hidden! lg:inline-flex!"
+        data-tip={visualTip("Tambah Kotak")}
       >
-        <iconify-icon icon="bx:box"></iconify-icon>
-      </button>
-    </div>
+        <button
+          type="button"
+          class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
+          aria-label="Tambah Kotak"
+          disabled={visualDisabled}
+          onclick={() => onAddVisual?.("box")}
+        >
+          <iconify-icon icon="bx:box"></iconify-icon>
+        </button>
+      </div>
+    {/if}
     <div
-      class="tooltip tooltip-bottom hidden! lg:inline-flex!"
+      class="tooltip tooltip-bottom {isSelfSigned ? 'inline-flex' : 'hidden! lg:inline-flex!'}"
       data-tip={visualTip("Gambar Tanda Tangan")}
     >
       <button
@@ -1263,29 +1287,29 @@
     </div>
 
     <!-- small screens: one grouped dropdown -->
-    <div
-      class="relative inline-flex lg:hidden! tooltip tooltip-bottom"
-      data-tip={visualTip("Visualisasi")}
-    >
-      <button
-        type="button"
-        class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
-        aria-label="Visualisasi"
-        aria-haspopup="menu"
-        aria-expanded={visualMenuOpen}
-        disabled={visualDisabled}
-        use:menuPress={() => {
-          visualMenuOpen = !visualMenuOpen;
-        }}
+    {#if !isSelfSigned}
+      <div
+        class="relative inline-flex lg:hidden! tooltip tooltip-bottom"
+        data-tip={visualTip("Visualisasi")}
       >
-        <iconify-icon icon="bx:image-add"></iconify-icon>
-      </button>
-      {#if visualMenuOpen}
-        <ul
-          class="absolute top-full left-0 mt-1 min-w-[132px] p-1 bg-base-100 border border-base-300 rounded-lg shadow-xl z-40"
-          role="menu"
+        <button
+          type="button"
+          class="btn btn-sm btn-ghost hover:bg-base-300 btn-square"
+          aria-label="Visualisasi"
+          aria-haspopup="menu"
+          aria-expanded={visualMenuOpen}
+          disabled={visualDisabled}
+          use:menuPress={() => {
+            visualMenuOpen = !visualMenuOpen;
+          }}
         >
-          {#if visualMode === "all"}
+          <iconify-icon icon="bx:image-add"></iconify-icon>
+        </button>
+        {#if visualMenuOpen}
+          <ul
+            class="absolute top-full left-0 mt-1 min-w-[132px] p-1 bg-base-100 border border-base-300 rounded-lg shadow-xl z-40"
+            role="menu"
+          >
             <li>
               <button
                 type="button"
@@ -1325,29 +1349,33 @@
                 Kotak
               </button>
             </li>
-          {/if}
-          <li>
-            <button
-              type="button"
-              class="flex items-center gap-3 w-full px-2.5 py-1.5 text-left text-[13px] text-base-content rounded hover:bg-base-200"
-              onclick={() => {
-                closeMenus();
-                onAddVisual?.("draw");
-              }}
-            >
-              <iconify-icon icon="bx:pencil"></iconify-icon>
-              Tanda Tangan
-            </button>
-          </li>
-        </ul>
-      {/if}
-    </div>
+            <li>
+              <button
+                type="button"
+                class="flex items-center gap-3 w-full px-2.5 py-1.5 text-left text-[13px] text-base-content rounded hover:bg-base-200"
+                onclick={() => {
+                  closeMenus();
+                  onAddVisual?.("draw");
+                }}
+              >
+                <iconify-icon icon="bx:pencil"></iconify-icon>
+                Tanda Tangan
+              </button>
+            </li>
+          </ul>
+        {/if}
+      </div>
+    {/if}
 
     <div class="w-px h-6 mx-1 bg-base-300 shrink-0"></div>
 
     <div
       class="relative inline-flex tooltip tooltip-bottom"
-      data-tip={hasSignature ? "Footer (terkunci)" : "Footer"}
+      data-tip={footerMandatory
+        ? "Footer wajib untuk Self-Signed tanpa tanda tangan"
+        : hasSignature
+          ? "Footer (terkunci)"
+          : "Footer"}
     >
       <button
         type="button"
@@ -1355,7 +1383,7 @@
         aria-label="Footer"
         aria-haspopup="menu"
         aria-expanded={footerMenuOpen}
-        disabled={!hasDocuments || hasSignature}
+        disabled={!hasDocuments || footerLocked}
         use:menuPress={() => {
           footerMenuOpen = !footerMenuOpen;
         }}
@@ -1371,7 +1399,16 @@
           class="absolute top-full left-0 mt-1 min-w-[132px] p-1 bg-base-100 border border-base-300 rounded-lg shadow-xl z-40"
           role="menu"
         >
-          {#if hasSignature}
+          {#if footerMandatory}
+            <li>
+              <div
+                class="flex items-center gap-2 px-2.5 py-1.5 text-[13px] text-base-content/60"
+              >
+                <iconify-icon icon="bx:lock-alt"></iconify-icon>
+                Footer wajib untuk Self-Signed
+              </div>
+            </li>
+          {:else if hasSignature}
             <li>
               <div
                 class="flex items-center gap-2 px-2.5 py-1.5 text-[13px] text-base-content/60"

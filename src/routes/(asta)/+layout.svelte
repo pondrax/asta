@@ -68,7 +68,6 @@
   const isWorkspace = $derived(
     page.url.pathname === "/sign" ||
       page.url.pathname.startsWith("/sign/") ||
-      page.url.pathname === "/sign-legacy" ||
       page.url.pathname === "/editor" ||
       page.url.pathname.startsWith("/editor/"),
   );
@@ -373,21 +372,16 @@
               href="/sign"
               class="rounded-lg text-xs font-medium transition-all"
               class:bg-primary={page.url.pathname === "/sign" ||
-                page.url.pathname === "/sign-legacy" ||
                 page.url.pathname === "/editor"}
               class:text-primary-content={page.url.pathname === "/sign" ||
-                page.url.pathname === "/sign-legacy" ||
                 page.url.pathname === "/editor"}
               class:shadow-sm={page.url.pathname === "/sign" ||
-                page.url.pathname === "/sign-legacy" ||
                 page.url.pathname === "/editor"}
               class:bg-base-200={activeMenu === "sign" &&
                 page.url.pathname !== "/sign" &&
-                page.url.pathname !== "/sign-legacy" &&
                 page.url.pathname !== "/editor"}
               class:text-base-content={activeMenu === "sign" &&
                 page.url.pathname !== "/sign" &&
-                page.url.pathname !== "/sign-legacy" &&
                 page.url.pathname !== "/editor"}
             >
               Tanda Tangan
@@ -448,7 +442,7 @@
       </div>
 
       <div class="navbar-end gap-1">
-        {#if ["/sign", "/sign-legacy", "/me", "/main", "/editor"].includes(page.url.pathname)}
+        {#if ["/sign", "/me", "/main", "/editor"].includes(page.url.pathname)}
           <button
             class="btn btn-ghost btn-sm rounded-full gap-1 relative animate-pulse"
             onclick={() => (app.showTour = true)}
