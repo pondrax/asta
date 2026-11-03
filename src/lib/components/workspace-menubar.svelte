@@ -11,7 +11,7 @@
       <button
         type="button"
         tabindex="0"
-        id={menu.id === "mode" ? "tour-mode" : undefined}
+        id={menu.id === "tte" || menu.id === "mode" ? "tour-mode" : undefined}
         class={menu.variant === "primary"
           ? `btn btn-sm btn-soft btn-primary rounded-full justify-between gap-0.5 [--btn-p:0.375rem] ${menu.width ?? ""}`
           : `h-full px-3 rounded-full text-xs text-base-content cursor-pointer border-0 hover:bg-base-200 bg-transparent`}

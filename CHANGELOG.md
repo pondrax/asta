@@ -97,6 +97,7 @@ Audiens: Tamu
 - **Peningkatan** - Tombol visualisasi tanda tangan pada dokumen dapat di-toggle untuk menutup kembali pilihan.
 - **Diubah** - Menghapus rute `/editor` dan memindahkan modul komponen editor dokumen Word ke `$lib/docx-editor`.
 - **Perbaikan** - Memperbaiki penandatanganan ulang (re-sign) self-signed agar menggunakan field tanda tangan yang sudah ada dan tidak membuat field yatim tanpa CMS.
+- **Perbaikan** - Memperbaiki ID tour (`#tour-mode`) yang terlewat setelah perubahan menu TTE.
 
 ## 2026-11-02
 

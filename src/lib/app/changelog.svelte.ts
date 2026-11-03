@@ -163,6 +163,10 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
             kind: "fixed",
             text: "Memperbaiki penandatanganan ulang (re-sign) self-signed agar menggunakan field tanda tangan yang sudah ada dan tidak membuat field yatim tanpa CMS.",
           },
+          {
+            kind: "fixed",
+            text: "Memperbaiki ID tour (`#tour-mode`) yang terlewat setelah perubahan menu TTE.",
+          },
         ],
       },
       {
