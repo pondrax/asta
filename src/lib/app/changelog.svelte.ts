@@ -133,6 +133,10 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
           },
           {
             kind: "improved",
+            text: "Kontrol zoom pada pratinjau dokumen (termasuk modal verifikasi) kini menggunakan menu dropdown zoom yang sama dengan dokumen utama (Fit to Width, Fit Height, Fit Content, dan preset persentase dengan tanda centang aktif).",
+          },
+          {
+            kind: "improved",
             text: "Penambahan tombol unduh sertifikat Root CA (Root Mojokerto & Root Indonesia) langsung dari menu TTE dan toolbar verifikasi.",
           },
           {

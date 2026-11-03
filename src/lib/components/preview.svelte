@@ -175,6 +175,8 @@
   let zoom = $state(
     Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, initialZoom)),
   );
+  let zoomMenuOpen = $state(false);
+  let currentFitMode = $state<"width" | "height" | "content" | null>("content");
   let currentPage = $state(0);
   // Held separately from `currentPage` so a half-typed page number ("1" on the way
   // to "12") isn't stomped by the scroll-sync effect.
@@ -244,11 +246,12 @@
     pdfjsLib = window.pdfjsLib;
 
     resizeObserver = new ResizeObserver(() => {
-      if (fitOnLoad === "content") {
+      const mode = fitOnLoad ?? currentFitMode ?? "content";
+      if (mode === "content") {
         fitContent();
-      } else if (fitOnLoad === "width") {
+      } else if (mode === "width") {
         fitWidth();
-      } else if (fitOnLoad === "height") {
+      } else if (mode === "height") {
         fitHeight();
       } else {
         recomputeLayout();
@@ -527,6 +530,7 @@
   // --- Scroll + Virtualization ---
 
   function setZoom(next: number) {
+    currentFitMode = null;
     // Anchor on the page currently in view so zooming doesn't lose the user's
     // place: remember its viewport-relative offset before relayout.
     const anchor = currentPage > 0 ? currentPage - 1 : 0;
@@ -546,6 +550,13 @@
       containerEl.scrollTop = (offsets[anchor] ?? 0) - anchorScreen;
       scheduleUpdate();
     });
+  }
+
+  function applyFitMode(mode: "width" | "height" | "content") {
+    currentFitMode = mode;
+    if (mode === "width") fitWidth();
+    else if (mode === "height") fitHeight();
+    else if (mode === "content") fitContent();
   }
 
   function zoomIn() {
@@ -1121,25 +1132,34 @@
         </button>
       </div>
 
-      <div class="join">
+      <div class="relative join">
         <button
           type="button"
           class="btn btn-xs btn-ghost join-item"
           aria-label="Perkecil"
           title="Perkecil"
           disabled={zoom <= ZOOM_MIN}
-          onclick={zoomOut}
+          onclick={() => {
+            currentFitMode = null;
+            zoomOut();
+          }}
         >
           <iconify-icon icon="bx:minus" class="text-base"></iconify-icon>
         </button>
         <button
           type="button"
-          class="btn btn-xs btn-ghost join-item w-14 font-mono text-xs tabular-nums"
-          title="Reset zoom ke 100%"
-          aria-label="Reset zoom ke 100%"
-          onclick={resetZoom}
+          class="btn btn-xs btn-ghost join-item min-w-16 font-mono text-xs tabular-nums gap-0.5"
+          title="Zoom"
+          aria-label="Zoom"
+          aria-haspopup="menu"
+          aria-expanded={zoomMenuOpen}
+          onclick={(e) => {
+            e.stopPropagation();
+            zoomMenuOpen = !zoomMenuOpen;
+          }}
         >
           {Math.round(zoom * 100)}%
+          <span class="text-[10px] opacity-60">▾</span>
         </button>
         <button
           type="button"
@@ -1147,10 +1167,89 @@
           aria-label="Perbesar"
           title="Perbesar"
           disabled={zoom >= ZOOM_MAX}
-          onclick={zoomIn}
+          onclick={() => {
+            currentFitMode = null;
+            zoomIn();
+          }}
         >
           <iconify-icon icon="bx:plus" class="text-base"></iconify-icon>
         </button>
+
+        {#if zoomMenuOpen}
+          <ul
+            class="absolute bottom-full left-0 mb-1.5 min-w-36 p-1 bg-base-100 border border-base-300 rounded-lg shadow-xl z-50 text-[13px]"
+            role="menu"
+            tabindex="-1"
+          >
+            <li>
+              <button
+                type="button"
+                class="w-full flex items-center gap-2 px-2.5 py-1.5 bg-transparent border-0 rounded text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200 {currentFitMode === 'width' ? 'bg-primary/10 font-semibold text-primary' : ''}"
+                onclick={() => {
+                  applyFitMode("width");
+                  zoomMenuOpen = false;
+                }}
+              >
+                Fit to Width
+                {#if currentFitMode === "width"}
+                  <span class="ml-auto text-xs pl-2">✓</span>
+                {/if}
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                class="w-full flex items-center gap-2 px-2.5 py-1.5 bg-transparent border-0 rounded text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200 {currentFitMode === 'height' ? 'bg-primary/10 font-semibold text-primary' : ''}"
+                onclick={() => {
+                  applyFitMode("height");
+                  zoomMenuOpen = false;
+                }}
+              >
+                Fit Height
+                {#if currentFitMode === "height"}
+                  <span class="ml-auto text-xs pl-2">✓</span>
+                {/if}
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                class="w-full flex items-center gap-2 px-2.5 py-1.5 bg-transparent border-0 rounded text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200 {currentFitMode === 'content' ? 'bg-primary/10 font-semibold text-primary' : ''}"
+                onclick={() => {
+                  applyFitMode("content");
+                  zoomMenuOpen = false;
+                }}
+              >
+                Fit Content
+                {#if currentFitMode === "content"}
+                  <span class="ml-auto text-xs pl-2">✓</span>
+                {/if}
+              </button>
+            </li>
+            <li class="my-1 border-t border-base-200"></li>
+            {#each [0.5, 0.75, 1, 1.25, 1.5, 2] as preset (preset)}
+              <li>
+                <button
+                  type="button"
+                  class="w-full flex items-center gap-2 px-2.5 py-1.5 bg-transparent border-0 rounded text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200 {!currentFitMode && Math.abs(
+                    zoom - preset,
+                  ) < 0.001
+                    ? 'bg-primary/10 font-semibold text-primary'
+                    : ''}"
+                  onclick={() => {
+                    setZoom(preset);
+                    zoomMenuOpen = false;
+                  }}
+                >
+                  {Math.round(preset * 100)}%
+                  {#if !currentFitMode && Math.abs(zoom - preset) < 0.001}
+                    <span class="ml-auto text-xs pl-2">✓</span>
+                  {/if}
+                </button>
+              </li>
+            {/each}
+          </ul>
+        {/if}
       </div>
 
       <div class="join">
