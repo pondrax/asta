@@ -1204,27 +1204,27 @@
       </div>
       <span class="w-px h-4 bg-base-300" aria-hidden="true"></span>
 
-      <!-- 3. Page Navigation -->
-      <div class="join">
+      <!-- 2. Page Navigation -->
+      <div
+        class="relative inline-flex items-center flex-none h-6.5 bg-transparent"
+      >
         <button
           type="button"
-          class="btn btn-xs btn-ghost join-item"
-          aria-label="Halaman sebelumnya"
+          class="w-5 h-6 inline-flex items-center justify-center bg-transparent border-0 rounded text-[13px] leading-none p-0 cursor-pointer text-base-content hover:bg-base-200 disabled:opacity-35 disabled:cursor-default"
           title="Halaman sebelumnya"
+          aria-label="Halaman sebelumnya"
           disabled={currentPage <= 1}
           onclick={() => changePage(-1)}
         >
-          <iconify-icon icon="bx:chevron-left" class="text-base"></iconify-icon>
+          <iconify-icon icon="bx:chevron-left"></iconify-icon>
         </button>
-        <label
-          class="input input-xs join-item flex basis-20 items-center gap-1 px-1"
-          class:opacity-50={pageCount === 0}
+        <span
+          class="min-w-11 h-6 inline-flex items-center justify-center gap-0.5 px-1 bg-transparent border-0 rounded text-xs tabular-nums whitespace-nowrap text-base-content"
         >
-          <span class="sr-only">Nomor halaman</span>
           <input
+            class="w-5 p-0 bg-transparent border-0 text-inherit text-center tabular-nums focus:outline-none"
             type="text"
             inputmode="numeric"
-            class="w-full min-w-0 text-center text-xs"
             aria-label="Nomor halaman"
             bind:value={pageDraft}
             onfocus={() => (pageInputFocused = true)}
@@ -1240,18 +1240,19 @@
               }
             }}
           />
-          <span class="shrink-0 text-xs whitespace-nowrap">/ {pageCount}</span>
-        </label>
+          <span class="text-[10px] text-base-content/60"
+            >/ {pageCount}</span
+          >
+        </span>
         <button
           type="button"
-          class="btn btn-xs btn-ghost join-item"
-          aria-label="Halaman berikutnya"
+          class="w-5 h-6 inline-flex items-center justify-center bg-transparent border-0 rounded text-[13px] leading-none p-0 cursor-pointer text-base-content hover:bg-base-200 disabled:opacity-35 disabled:cursor-default"
           title="Halaman berikutnya"
+          aria-label="Halaman berikutnya"
           disabled={currentPage >= pageCount}
           onclick={() => changePage(1)}
         >
-          <iconify-icon icon="bx:chevron-right" class="text-base"
-          ></iconify-icon>
+          <iconify-icon icon="bx:chevron-right"></iconify-icon>
         </button>
       </div>
       <span class="w-px h-4 bg-base-300" aria-hidden="true"></span>
