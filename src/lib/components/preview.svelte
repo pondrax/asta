@@ -156,7 +156,7 @@
 
   const GAP = 4;
   const BUFFER = 3;
-  const PADDING = 1; // 1rem = 16px (p-4)
+  const PADDING = 16; // 1rem = 16px (p-4)
   /**
    * Pixels per PDF point at 100% zoom. PDFs use 72 points per inch while CSS
    * uses 96px per inch, so 100% has to apply the 96/72 factor to match the
@@ -244,7 +244,15 @@
     pdfjsLib = window.pdfjsLib;
 
     resizeObserver = new ResizeObserver(() => {
-      recomputeLayout();
+      if (fitOnLoad === "content") {
+        fitContent();
+      } else if (fitOnLoad === "width") {
+        fitWidth();
+      } else if (fitOnLoad === "height") {
+        fitHeight();
+      } else {
+        recomputeLayout();
+      }
       scheduleUpdate();
     });
     if (containerEl) resizeObserver.observe(containerEl);

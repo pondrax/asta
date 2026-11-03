@@ -89,6 +89,8 @@ Audiens: Tamu
 
 - **Peningkatan** - Tampilan preview dokumen PDF/Word pada perangkat mobile dan tablet (< 1024px) otomatis menyesuaikan ukuran layar (Fit Content) saat pertama kali dimuat.
 - **Peningkatan** - Dropdown zoom menampilkan tanda centang aktif untuk opsi Fit Content, Fit to Width, dan Fit Height.
+- **Peningkatan** - Penambahan tombol unduh sertifikat Root CA (Root Mojokerto & Root Indonesia) langsung dari menu TTE dan toolbar verifikasi.
+- **Peningkatan** - Dukungan drag-and-drop file PDF/DOCX langsung ke area pratinjau dokumen untuk mengunggah dokumen baru.
 - **Peningkatan** - Menubar navigasi atas menggunakan komponen dropdown daisyUI yang responsif dan dapat dibuka dengan satu ketukan di layar sentuh.
 - **Peningkatan** - Kontrol zoom di layar mobile/tablet dapat di-toggle melalui ikon di toolbar tanpa tooltip yang menghalangi dokumen.
 - **Peningkatan** - Pratinjau PDF kini tepat di tengah layar tanpa offset padding penggaris Word.

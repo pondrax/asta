@@ -115,12 +115,12 @@
     {@render children()}
   </div>
 {:else}
-  <div class="app-shell h-screen flex flex-col overflow-hidden">
+  <div class="app-shell h-screen flex flex-col overflow-visible">
   <!-- The docked chatbot panel is fixed to the right edge from the top of the
        viewport down, so the navbar's right-hand controls would end up beneath
        it. Shrinking the navbar by the panel's width keeps them reachable; the
        rule lives in app.css and only applies while the panel is docked. -->
-  <div class="relative chat-navbar {isWorkspace ? 'z-[110]' : 'z-10'}">
+  <div class="relative chat-navbar overflow-visible {isWorkspace ? 'z-[110]' : 'z-10'}">
     <div
       class="navbar bg-base-100 lg:px-5 py-0 shrink-0 h-12"
       style="min-height: 0; padding-block: 0"
@@ -341,7 +341,7 @@
           <Lottie url="/asta-themed.json" loop autoplay />
         </a>
         {#if isWorkspace}
-          <div class="hidden md:flex">
+          <div class="hidden lg:flex">
             <WorkspaceMenuBar />
           </div>
         {/if}

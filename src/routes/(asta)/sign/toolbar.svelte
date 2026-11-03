@@ -511,7 +511,7 @@
 
 <div
   id="tour-toolbar"
-  class="relative flex flex-nowrap items-center gap-0.5 h-10 min-h-10 mx-1.5 mb-1.5 px-1.5 bg-base-200 rounded-full overflow-visible select-none"
+  class="relative flex flex-nowrap items-center gap-0.5 h-10 min-h-10 mx-1.5 mb-1.5 px-1.5 bg-base-200 rounded-full overflow-visible select-none [&_.btn]:font-normal"
   role="toolbar"
   aria-label="Alat tanda tangan"
 >
@@ -1817,6 +1817,33 @@
                 <iconify-icon icon="bx:list-ul"></iconify-icon>
                 Lihat lebih lengkap
               </button>
+            </li>
+            <li class="border-t border-base-200 mt-1 pt-1">
+              <div class="px-2.5 py-1 text-[11px] flex flex-col gap-1">
+                <span class="opacity-60 text-[10px] uppercase font-semibold tracking-wider">
+                  Unduh Sertifikat Root CA
+                </span>
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <a
+                    href="/rootmojokerto.crt"
+                    download="rootmojokerto.crt"
+                    class="btn btn-xs btn-outline btn-primary gap-1"
+                    onclick={(e) => e.stopPropagation()}
+                  >
+                    <iconify-icon icon="bx:download"></iconify-icon>
+                    Root CA Pemkot
+                  </a>
+                  <a
+                    href="/rootid.crt"
+                    download="rootid.crt"
+                    class="btn btn-xs btn-ghost border border-base-300 gap-1 opacity-80 hover:opacity-100"
+                    onclick={(e) => e.stopPropagation()}
+                  >
+                    <iconify-icon icon="bx:download"></iconify-icon>
+                    Root CA Indonesia
+                  </a>
+                </div>
+              </div>
             </li>
           {/if}
         </ul>

@@ -133,6 +133,14 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
           },
           {
             kind: "improved",
+            text: "Penambahan tombol unduh sertifikat Root CA (Root Mojokerto & Root Indonesia) langsung dari menu TTE dan toolbar verifikasi.",
+          },
+          {
+            kind: "improved",
+            text: "Dukungan drag-and-drop file PDF/DOCX langsung ke area pratinjau dokumen untuk mengunggah dokumen baru.",
+          },
+          {
+            kind: "improved",
             text: "Menubar navigasi atas menggunakan komponen dropdown daisyUI yang responsif dan dapat dibuka dengan satu ketukan di layar sentuh.",
           },
           {

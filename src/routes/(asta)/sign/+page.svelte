@@ -614,6 +614,8 @@
   let bsreResult = $state<SignatureVerificationResponse | null>(null);
   let verifyBusy = $state(false);
   let files: File[] = $state([]);
+  let ingestUploadFiles: ((list: FileList | File[]) => Promise<void>) | undefined = $state();
+  let isDraggingFile = $state(false);
 
   let placements: PlacementType[] = $state([]);
 
@@ -846,8 +848,16 @@
   }
 
   /** Drop a visual dragged from the metadata panel onto the document, centred
-   *  on the cursor. */
+   *  on the cursor, or ingest PDF/DOCX files dragged onto the open document. */
   function handleOverlayDrop(e: DragEvent) {
+    if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+      e.preventDefault();
+      isDraggingFile = false;
+      if (ingestUploadFiles) {
+        void ingestUploadFiles(e.dataTransfer.files);
+      }
+      return;
+    }
     const raw = e.dataTransfer?.getData("application/x-asta-visual");
     if (!raw || !overlayEl) return;
     e.preventDefault();
@@ -1001,11 +1011,12 @@
     const hasSel = !!selectedId;
     workspace.menus = [
       {
-        id: "mode",
+        id: "tte",
         label: bsre ? "TTE BSrE" : "Self-Signed",
         variant: "primary",
         width: "w-[6.5rem]",
         items: [
+          { label: "Mode Tanda Tangan" },
           {
             icon: bsre ? "bx:radio-circle-marked" : "bx:radio-circle",
             label: "TTE BSrE",
@@ -1013,8 +1024,40 @@
           },
           {
             icon: !bsre ? "bx:radio-circle-marked" : "bx:radio-circle",
-            label: "Self-Signed Pemkot",
+            label: "Self-Signed",
             action: () => (bsre = false),
+          },
+          "sep",
+          { label: "Mode Verifikasi" },
+          {
+            icon: "bx:upload",
+            label: "Upload",
+            action: () => openVerify([], false),
+          },
+          {
+            icon: "bx:qr-scan",
+            label: "Scan QR",
+            action: () => (forms.verifyScan = true),
+          },
+          {
+            icon: "bx:id-card",
+            label: "Input ID",
+            action: () => {
+              verifyIdDraft = "";
+              forms.verifyId = true;
+            },
+          },
+          "sep",
+          { label: "Sertifikat CA" },
+          {
+            icon: "bx:download",
+            label: "Root Mojokerto",
+            action: () => downloadCertificate("/rootmojokerto.crt", "rootmojokerto.crt"),
+          },
+          {
+            icon: "bx:download",
+            label: "Root Indonesia",
+            action: () => downloadCertificate("/rootid.crt", "rootid.crt"),
           },
         ],
       },
@@ -1023,61 +1066,86 @@
         label: "File",
         items: [
           {
-            icon: "bx:upload",
-            label: "Unggah PDF/DOCX…",
+            icon: "bx:folder-open",
+            label: "Buka PDF / DOCX…",
             action: () => fileInput?.click(),
           },
           {
-            icon: "bx:file",
-            label: "Daftar Dokumen",
+            icon: "bx:file-blank",
+            label: isEditingDocx ? "Dokumen Word Baru" : "Buat Dokumen Word",
+            action: () => {
+              activeTab = "documents";
+              navOpen = true;
+            },
+          },
+          {
+            icon: "bx:book",
+            label: "Template PDF…",
+            action: () => {
+              forms.template = "open";
+            },
+          },
+          {
+            icon: "bx:list-ul",
+            label: "Daftar Dokumen Terbuka",
             action: () => {
               activeTab = "documents";
               navOpen = true;
             },
           },
           "sep",
-          {
-            icon: "bx:download",
-            label: "Unduh Dokumen",
-            disabled: !hasDocs,
-            action: () => downloadActive(),
-          },
-          {
-            icon: "bx:x",
-            label: "Tutup Dokumen",
-            disabled: !hasDocs,
-            action: () => closeDocument(),
-          },
-        ],
-      },
-      {
-        id: "verify",
-        label: "Verifikasi",
-        items: [
-          {
-            icon: "bx:check-shield",
-            label: "Verifikasi Dokumen",
-            disabled: !hasDocs,
-            action: () => openVerify(Object.values(documents), false),
-          },
-          {
-            icon: "bx:upload",
-            label: "Verifikasi via Unggah",
-            action: () => verifyInput?.click(),
-          },
+          ...(isEditingDocx
+            ? [
+                {
+                  icon: "bx:save",
+                  label: "Simpan & Konversi ke PDF",
+                  action: () => void saveAndCloseDocx({ handoffZoom: true }),
+                },
+                {
+                  icon: "bx:download",
+                  label: "Unduh Berkas Word (.docx)",
+                  disabled: !activeDocxFile,
+                  action: () => downloadDocx(),
+                },
+              ]
+            : [
+                {
+                  icon: "bx:download",
+                  label: "Ekspor / Unduh PDF",
+                  disabled: !hasDocs,
+                  action: () => downloadActive(),
+                },
+                ...(activeDocxFile
+                  ? [
+                      {
+                        icon: "bx:download",
+                        label: "Unduh Berkas Word (.docx)",
+                        action: () => downloadDocx(),
+                      },
+                    ]
+                  : []),
+                ...(signedCount > 1
+                  ? [
+                      {
+                        icon: "bx:archive",
+                        label: `Unduh Semua Ditandatangani (${signedCount} ZIP)`,
+                        action: () => void downloadAllSigned(),
+                      },
+                    ]
+                  : []),
+              ]),
           "sep",
           {
-            icon: "bx:id-card",
-            label: "Verifikasi via ID",
+            icon: "bx:x",
+            label: isEditingDocx ? "Tutup Editor Word" : "Tutup Dokumen",
+            disabled: !hasDocs,
             action: () => {
-              verifyIdDraft = "";
-              forms.verifyId = true;
+              if (isEditingDocx) {
+                void saveAndCloseDocx();
+              } else {
+                closeDocument();
+              }
             },
-          },
-          {
-            icon: "bx:qr-scan",
-            label: "Pindai QR",
-            action: () => (forms.verifyScan = true),
           },
         ],
       },
@@ -1088,7 +1156,6 @@
           {
             icon: "bx:undo",
             label: "Undo",
-            shortcut: "—",
             disabled: !undoOk,
             action: () => undo(),
           },
@@ -1099,72 +1166,278 @@
             action: () => redo(),
           },
           "sep",
-          {
-            icon: "bx:trash",
-            label: "Hapus Item Terpilih",
-            disabled: !hasSel,
-            action: () => {
-              if (selectedId) removePlacement(selectedId);
-            },
-          },
-          {
-            icon: "bx:eraser",
-            label: "Hapus Semua Item",
-            action: () => {
-              snapshot();
-              placements = [];
-              selectedId = null;
-            },
-          },
-          "sep",
-          {
-            icon: "bx:pointer",
-            label: "Pilih / Geser",
-            action: () => {
-              activeTool = "select";
-            },
-          },
+          ...(isEditingDocx
+            ? [
+                {
+                  icon: "bx:cut",
+                  label: "Potong (Cut)",
+                  shortcut: "Ctrl+X",
+                  action: () => docxEditorCtl?.runCommand("clipboard.cut"),
+                },
+                {
+                  icon: "bx:copy",
+                  label: "Salin (Copy)",
+                  shortcut: "Ctrl+C",
+                  action: () => docxEditorCtl?.runCommand("clipboard.copy"),
+                },
+                {
+                  icon: "bx:paste",
+                  label: "Tempel (Paste)",
+                  shortcut: "Ctrl+V",
+                  action: () => docxEditorCtl?.runCommand("clipboard.paste"),
+                },
+                "sep",
+                {
+                  icon: "bx:select-multiple",
+                  label: "Pilih Semua (Select All)",
+                  shortcut: "Ctrl+A",
+                  action: () => docxEditorCtl?.runCommand("select.all"),
+                },
+                {
+                  icon: "bx:search",
+                  label: "Cari & Temukan…",
+                  action: () => {
+                    pageNavTab = "halaman";
+                    pageNavOpen = true;
+                  },
+                },
+              ]
+            : [
+                {
+                  icon: "bx:pointer",
+                  label: "Pilih / Geser Visual",
+                  action: () => {
+                    activeTool = "select";
+                  },
+                },
+                {
+                  icon: "bx:trash",
+                  label: "Hapus Item Terpilih",
+                  disabled: !hasSel,
+                  action: () => {
+                    if (selectedId) removePlacement(selectedId);
+                  },
+                },
+                {
+                  icon: "bx:eraser",
+                  label: "Hapus Semua Item Tanda Tangan",
+                  action: () => {
+                    snapshot();
+                    placements = [];
+                    selectedId = null;
+                  },
+                },
+              ]),
         ],
       },
       {
-        id: "data",
-        label: "Data",
+        id: "insert",
+        label: "Sisipkan",
+        items: isEditingDocx
+          ? [
+              {
+                icon: "bx:image",
+                label: "Gambar…",
+                action: () => imageInput?.click(),
+              },
+              {
+                icon: "bx:table",
+                label: "Tabel (3x3)",
+                action: () => docxEditorCtl?.handle?.insertTable(3, 3),
+              },
+              "sep",
+              {
+                icon: "bx:file",
+                label: "Pemisah Halaman (Page Break)",
+                action: () => docxEditorCtl?.runCommand("insert.pageBreak"),
+              },
+            ]
+          : [
+              {
+                icon: "bx:pen",
+                label: "Visual TTE (Coretan)",
+                action: () => handleAddVisual("draw"),
+              },
+              ...(bsre
+                ? [
+                    {
+                      icon: "bx:qr",
+                      label: "Visual QR Code",
+                      action: () => handleAddVisual("qr"),
+                    },
+                    {
+                      icon: "bx:square",
+                      label: "Visual Kotak",
+                      action: () => handleAddVisual("box"),
+                    },
+                    {
+                      icon: "bx:image",
+                      label: "Visual Gambar…",
+                      action: () => handleAddVisual("image"),
+                    },
+                  ]
+                : []),
+              "sep",
+              {
+                icon: "bx:dock-bottom",
+                label: "Footer TTE Dokumen",
+                action: () => {
+                  activeTab = "metadata";
+                  navOpen = true;
+                },
+              },
+            ],
+      },
+      {
+        id: "format",
+        label: "Format",
+        items: isEditingDocx
+          ? [
+              {
+                icon: "bx:bold",
+                label: "Tebal (Bold)",
+                shortcut: "Ctrl+B",
+                action: () => docxEditorCtl?.runCommand("font.bold"),
+              },
+              {
+                icon: "bx:italic",
+                label: "Miring (Italic)",
+                shortcut: "Ctrl+I",
+                action: () => docxEditorCtl?.runCommand("font.italic"),
+              },
+              {
+                icon: "bx:underline",
+                label: "Garis Bawah (Underline)",
+                shortcut: "Ctrl+U",
+                action: () => docxEditorCtl?.runCommand("font.underline"),
+              },
+              {
+                icon: "bx:strikethrough",
+                label: "Coret (Strikethrough)",
+                action: () => docxEditorCtl?.runCommand("font.strikethrough"),
+              },
+              "sep",
+              {
+                icon: "bx:align-left",
+                label: "Rata Kiri",
+                action: () => docxEditorCtl?.runCommand("paragraph.alignLeft"),
+              },
+              {
+                icon: "bx:align-middle",
+                label: "Rata Tengah",
+                action: () => docxEditorCtl?.runCommand("paragraph.alignCenter"),
+              },
+              {
+                icon: "bx:align-right",
+                label: "Rata Kanan",
+                action: () => docxEditorCtl?.runCommand("paragraph.alignRight"),
+              },
+              {
+                icon: "bx:align-justify",
+                label: "Rata Kiri-Kanan (Justify)",
+                action: () => docxEditorCtl?.runCommand("paragraph.alignJustify"),
+              },
+              "sep",
+              {
+                icon: "bx:list-ul",
+                label: "Daftar Bullet",
+                action: () => docxEditorCtl?.runCommand("list.bullet"),
+              },
+              {
+                icon: "bx:list-ol",
+                label: "Daftar Nomor",
+                action: () => docxEditorCtl?.runCommand("list.number"),
+              },
+            ]
+          : [
+              {
+                icon: "bx:slider",
+                label: "Properti Visual Terpilih",
+                disabled: !hasSel,
+                action: () => {
+                  if (selectedId) selectForProps(selectedId);
+                },
+              },
+              {
+                icon: "bx:info-circle",
+                label: "Informasi & Profil Penandatangan",
+                action: () => {
+                  activeTab = "metadata";
+                  navOpen = true;
+                },
+              },
+            ],
+      },
+      {
+        id: "view",
+        label: "Tampilan",
         items: [
           {
-            icon: "bx:list-ul",
-            label: "Buka Panel Metadata",
-            action: () => {
-              activeTab = "metadata";
-              navOpen = true;
-            },
+            icon: "bx:fullscreen",
+            label: "Fit Content (Pas Layar)",
+            action: () => applyFitMode("content"),
+          },
+          {
+            icon: "bx:transfer-alt",
+            label: "Fit to Width (Lebar Pas)",
+            action: () => applyFitMode("width"),
+          },
+          {
+            icon: "bx:vertical-center",
+            label: "Fit Height (Tinggi Pas)",
+            action: () => applyFitMode("height"),
           },
           "sep",
           {
-            icon: "bx:book",
-            label: "Template PDF",
-            action: () => {
-              forms.template = "open";
-            },
+            icon: "bx:zoom-in",
+            label: "Perbesar (Zoom In)",
+            action: () => applyZoom(Math.min(4, previewState.zoom + 0.25)),
           },
-          { icon: "bx:folder", label: "Kelola Template", href: "/templates" },
-          "sep",
           {
-            icon: "bx:file",
-            label: "Daftar Dokumen",
-            action: () => {
-              activeTab = "documents";
-              navOpen = true;
-            },
+            icon: "bx:zoom-out",
+            label: "Perkecil (Zoom Out)",
+            action: () => applyZoom(Math.max(0.25, previewState.zoom - 0.25)),
+          },
+          {
+            icon: "bx:reset",
+            label: "Ukuran Asli (100%)",
+            action: () => applyZoom(1),
+          },
+          "sep",
+          ...(isEditingDocx
+            ? [
+                {
+                  icon: "bx:dock-left",
+                  label: "Panel Navigasi Word",
+                  action: () => (pageNavOpen = !pageNavOpen),
+                },
+              ]
+            : [
+                {
+                  icon: previewCtl?.isSpread?.() ? "bx:grid-horizontal" : "bx:grid-vertical",
+                  label: previewCtl?.isSpread?.() ? "Tampilan 1 Halaman" : "Tampilan 2 Halaman (2-Up)",
+                  action: () => previewCtl?.toggleSpread(),
+                },
+                {
+                  icon: "bx:dock-left",
+                  label: "Panel Thumbnail Halaman",
+                  action: () => (pageNavOpen = !pageNavOpen),
+                },
+              ]),
+          {
+            icon: "bx:dock-right",
+            label: "Panel Dokumen & Metadata",
+            action: () => (navOpen = !navOpen),
           },
         ],
       },
       {
         id: "ai",
-        label: "AI",
+        label: "AI & Bantuan",
         items: [
           {
             icon: "bx:bot",
-            label: "Buka Asisten AI",
+            label: "Asisten AI (Chat)",
             action: () => chat.openChat(),
           },
           "sep",
@@ -1176,15 +1449,28 @@
           },
           {
             icon: "bx:check-shield",
-            label: "Periksa Dokumen",
+            label: "Periksa Keabsahan Dokumen",
             disabled: !hasDocs,
             action: () => askAboutDocument("review"),
           },
           {
             icon: "bx:edit",
-            label: "Saran Keterangan",
+            label: "Saran Keterangan TTE",
             disabled: !hasDocs,
             action: () => askAboutDocument("note"),
+          },
+          "sep",
+          {
+            icon: "bx:compass",
+            label: "Panduan Tur Ruang Kerja",
+            action: () => {
+              app.showTour = true;
+            },
+          },
+          {
+            icon: "bx:folder",
+            label: "Kelola Template Dokumen",
+            href: "/templates",
           },
         ],
       },
@@ -1611,6 +1897,24 @@
     a.download = f.name;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  function downloadDocx() {
+    const f = activeDocxFile;
+    if (!f) return;
+    const url = URL.createObjectURL(f);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = f.name;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadCertificate(url: string, name: string) {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    a.click();
   }
 
   let imageInput: HTMLInputElement | null = $state(null);
@@ -2265,10 +2569,10 @@
 >
   <!-- ============ TOPBAR ============ -->
   <div
-    class="flex-none relative z-100 bg-base-100 border-b border-base-300 select-none [&_iconify-icon]:text-[17px] [&_iconify-icon]:pointer-events-none [&_.btn]:font-normal"
+    class="flex-none relative z-100 bg-base-100 border-b border-base-300 select-none overflow-visible [&_iconify-icon]:text-[17px] [&_iconify-icon]:pointer-events-none"
   >
-    <!-- On mobile screens (below tablet, <768px) the navbar can't host the menubar, so keep it here. -->
-    <div class="md:hidden px-2 pt-1">
+    <!-- On screens below desktop (<1024px) keep menubar in the topbar row. -->
+    <div class="lg:hidden px-2 pt-1 relative z-[9999]">
       <WorkspaceMenuBar />
     </div>
 
@@ -2725,7 +3029,7 @@
               {hasSignature}
               bare
               initialZoom={zoomHandoff}
-              fitOnLoad={typeof window !== "undefined" && window.innerWidth < 1024 ? "content" : undefined}
+              fitOnLoad={currentFitMode ?? (typeof window !== "undefined" && window.innerWidth < 1024 ? "content" : undefined)}
               bind:controller={previewCtl}
               onstate={(s) => {
                 previewState.zoom = s.zoom;
@@ -2745,15 +3049,30 @@
                 class="absolute inset-0"
                 onclick={(e) => handleOverlayClick(e)}
                 ondragover={(e) => {
-                  if (
-                    !e.dataTransfer?.types.includes("application/x-asta-visual")
-                  )
+                  const types = e.dataTransfer?.types;
+                  if (types?.includes("Files")) {
+                    e.preventDefault();
+                    isDraggingFile = true;
                     return;
+                  }
+                  if (!types?.includes("application/x-asta-visual")) return;
                   e.preventDefault();
                   updateDragPreview(e);
                 }}
+                ondragleave={(e) => {
+                  if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                  isDraggingFile = false;
+                }}
                 ondrop={(e) => handleOverlayDrop(e)}
               >
+                {#if isDraggingFile}
+                  <div
+                    class="pointer-events-none absolute inset-0 z-50 flex flex-col items-center justify-center gap-2 bg-primary/10 border-2 border-dashed border-primary backdrop-blur-xs rounded-xl"
+                  >
+                    <iconify-icon icon="bx:cloud-upload" class="text-5xl text-primary animate-bounce"></iconify-icon>
+                    <span class="text-sm font-semibold text-primary">Lepas berkas untuk menambah dokumen</span>
+                  </div>
+                {/if}
                 {#if dragPreview}
                   <img
                     src={dragPreview.src}
@@ -2894,6 +3213,7 @@
           bind:fileInput
           bind:files
           bind:docxMap={docxFiles}
+          bind:ingestFiles={ingestUploadFiles}
           allowDocx
           maxFiles={Number(env.PUBLIC_MAX_FILES) || 500}
           maxSizeMb={Number(env.PUBLIC_MAX_FILE_SIZE_MB) || 20}

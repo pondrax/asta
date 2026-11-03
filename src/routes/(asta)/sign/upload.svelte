@@ -12,6 +12,7 @@
     allowDocx = false,
     maxFiles = 500,
     maxSizeMb = 20,
+    ingestFiles = $bindable(),
   }: {
     children?: Snippet;
     files?: File[];
@@ -25,7 +26,13 @@
     maxFiles?: number;
     /** Per-file size cap in megabytes. */
     maxSizeMb?: number;
+    /** Programmatic ingestion callback for external drag/drop handlers. */
+    ingestFiles?: (list: FileList | File[]) => Promise<void>;
   } = $props();
+
+  $effect(() => {
+    ingestFiles = ingest;
+  });
   // let fileInput: HTMLInputElement | null = null;
   let dragging = $state(false);
   let converting = $state(false);

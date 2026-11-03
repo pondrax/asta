@@ -16,7 +16,11 @@ export type WorkspaceMenuItem = {
   badge?: string;
 };
 
-export type WorkspaceMenuEntry = WorkspaceMenuItem | "sep";
+export type WorkspaceMenuHeader = {
+  label: string;
+};
+
+export type WorkspaceMenuEntry = WorkspaceMenuItem | WorkspaceMenuHeader | "sep";
 
 export type WorkspaceMenu = {
   id: string;
