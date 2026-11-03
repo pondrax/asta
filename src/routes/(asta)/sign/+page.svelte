@@ -1074,8 +1074,11 @@
             icon: "bx:file-blank",
             label: isEditingDocx ? "Dokumen Word Baru" : "Buat Dokumen Word",
             action: () => {
-              activeTab = "documents";
-              navOpen = true;
+              if (isEditingDocx && docxEditorCtl?.handle) {
+                docxEditorCtl.handle.newDocument();
+              } else {
+                void createNewWordDocument();
+              }
             },
           },
           {
@@ -1908,6 +1911,20 @@
     a.download = f.name;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function createNewWordDocument() {
+    const blankBlob = new Blob([], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+    const blankFile = new File([blankBlob], "Dokumen Baru.docx", { type: blankBlob.type });
+
+    docxEditFile = blankFile;
+    editingDocIndex = "";
+    docxCanUndo = false;
+    docxCanRedo = false;
+    docxFormatting = null;
+    isEditingDocx = true;
+    await tick();
+    docxEditorCtl?.handle?.newDocument();
   }
 
   function downloadCertificate(url: string, name: string) {
