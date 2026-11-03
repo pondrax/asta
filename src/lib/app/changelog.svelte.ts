@@ -119,6 +119,45 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
     page: "Tanda Tangan Dokumen",
     entries: [
       {
+        id: "sign-workspace-mobile-and-editor-cleanup-2026-11-03",
+        date: "2026-11-03",
+        title: "Peningkatan ruang kerja tanda tangan mobile/tablet, pembersihan rute editor, dan perbaikan tanda tangan",
+        changes: [
+          {
+            kind: "improved",
+            text: "Tampilan preview dokumen PDF/Word pada perangkat mobile dan tablet (< 1024px) otomatis menyesuaikan ukuran layar (Fit Content) saat pertama kali dimuat.",
+          },
+          {
+            kind: "improved",
+            text: "Dropdown zoom menampilkan tanda centang aktif untuk opsi Fit Content, Fit to Width, dan Fit Height.",
+          },
+          {
+            kind: "improved",
+            text: "Menubar navigasi atas menggunakan komponen dropdown daisyUI yang responsif dan dapat dibuka dengan satu ketukan di layar sentuh.",
+          },
+          {
+            kind: "improved",
+            text: "Kontrol zoom di layar mobile/tablet dapat di-toggle melalui ikon di toolbar tanpa tooltip yang menghalangi dokumen.",
+          },
+          {
+            kind: "improved",
+            text: "Pratinjau PDF kini tepat di tengah layar tanpa offset padding penggaris Word.",
+          },
+          {
+            kind: "improved",
+            text: "Tombol visualisasi tanda tangan pada dokumen dapat di-toggle untuk menutup kembali pilihan.",
+          },
+          {
+            kind: "changed",
+            text: "Menghapus rute `/editor` dan memindahkan modul komponen editor dokumen Word ke `$lib/docx-editor`.",
+          },
+          {
+            kind: "fixed",
+            text: "Memperbaiki penandatanganan ulang (re-sign) self-signed agar menggunakan field tanda tangan yang sudah ada dan tidak membuat field yatim tanpa CMS.",
+          },
+        ],
+      },
+      {
         id: "self-signed-toolbar-footer-lock-2026-11-02",
         date: "2026-11-02",
         title: "Penyesuaian toolbar self-signed, penguncian footer wajib, dan pembersihan sign-legacy",

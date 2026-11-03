@@ -116,12 +116,66 @@
     blank.width = 1;
     blank.height = 1;
     e.dataTransfer.setDragImage(blank, 0, 0);
+    const p = payload();
     setVisualDrag({
       visual,
+      imageBase64: p.imageBase64,
       width: canvas.width,
       height: canvas.height,
       src: canvas.toDataURL("image/png"),
     });
+  };
+
+  /** Pointer/touch-based drag initiation for mobile devices */
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchMoved = false;
+
+  const onTouchStart = (e: TouchEvent) => {
+    if (disabled || !canvas || e.touches.length !== 1) return;
+    const t = e.touches[0];
+    touchStartX = t.clientX;
+    touchStartY = t.clientY;
+    touchMoved = false;
+    const p = payload();
+    setVisualDrag({
+      visual,
+      imageBase64: p.imageBase64,
+      width: canvas.width,
+      height: canvas.height,
+      src: canvas.toDataURL("image/png"),
+    });
+  };
+
+  const onTouchMove = (e: TouchEvent) => {
+    const drag = getVisualDrag();
+    if (!drag || e.touches.length !== 1) return;
+    const t = e.touches[0];
+    const dist = Math.hypot(t.clientX - touchStartX, t.clientY - touchStartY);
+    if (dist > 10) {
+      touchMoved = true;
+      // Broadcast touch drag location
+      window.dispatchEvent(
+        new CustomEvent("visual-touch-move", {
+          detail: { clientX: t.clientX, clientY: t.clientY },
+        }),
+      );
+    }
+  };
+
+  const onTouchEnd = (e: TouchEvent) => {
+    const drag = getVisualDrag();
+    if (!drag) return;
+    if (touchMoved) {
+      const t = e.changedTouches[0];
+      window.dispatchEvent(
+        new CustomEvent("visual-touch-drop", {
+          detail: { clientX: t.clientX, clientY: t.clientY },
+        }),
+      );
+    }
+    setVisualDrag(null);
+    touchMoved = false;
   };
 
   $effect(() => {
@@ -149,14 +203,27 @@
     draggable={!disabled}
     ondragstart={startDrag}
     ondragend={() => setVisualDrag(null)}
+    ontouchstart={onTouchStart}
+    ontouchmove={onTouchMove}
+    ontouchend={onTouchEnd}
+    ontouchcancel={onTouchEnd}
   >
     <div class="text-center text-xs font-medium text-base-content/60">
       {title}
     </div>
     <div
+      role="button"
+      tabindex="0"
       class={visual === "qr"
-        ? "flex w-full items-center justify-center rounded-md py-1"
-        : "flex aspect-[32/9] w-full items-center justify-center rounded-md"}
+        ? "flex w-full items-center justify-center rounded-md py-1 cursor-pointer"
+        : "flex aspect-[32/9] w-full items-center justify-center rounded-md cursor-pointer"}
+      onclick={add}
+      onkeydown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          add();
+        }
+      }}
     >
       <canvas
         bind:this={canvas}

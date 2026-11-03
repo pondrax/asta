@@ -299,12 +299,27 @@
           <span class="font-mono font-semibold">{data.ticketNumber}</span>
         </p>
       </div>
-      <span
-        class={`badge ${statusBadge[data.status ?? ""] ?? "badge-ghost"} badge-lg`}
-      >
-        {STATUS_LABELS[data.status as keyof typeof STATUS_LABELS] ??
-          data.status}
-      </span>
+      <div class="flex flex-wrap items-center gap-2">
+        {#if !isClosed}
+          <a
+            href={`/helpdesk?edit=${encodeURIComponent(id)}${
+              verifiedPhone || data.requesterPhone
+                ? `&phone=${encodeURIComponent(verifiedPhone || data.requesterPhone || "")}`
+                : ""
+            }`}
+            class="btn btn-sm btn-outline gap-1"
+          >
+            <iconify-icon icon="bx:edit-alt"></iconify-icon>
+            Ubah Pengajuan
+          </a>
+        {/if}
+        <span
+          class={`badge ${statusBadge[data.status ?? ""] ?? "badge-ghost"} badge-lg`}
+        >
+          {STATUS_LABELS[data.status as keyof typeof STATUS_LABELS] ??
+            data.status}
+        </span>
+      </div>
     </div>
 
     <!-- Progress stepper -->

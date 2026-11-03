@@ -94,6 +94,7 @@
     controller = $bindable(null),
     onstate = undefined,
     initialZoom = 1,
+    fitOnLoad = undefined,
     children = undefined,
   }: {
     file: File | null;
@@ -130,6 +131,10 @@
      * without every later file change resetting it.
      */
     initialZoom?: number;
+    /**
+     * Automatically apply fit mode ("content" | "width" | "height") when document finishes loading.
+     */
+    fitOnLoad?: "content" | "width" | "height";
     children?: Snippet<
       [number, { width: number; height: number; ratio: number }[], number]
     >;
@@ -376,6 +381,13 @@
     }
 
     recomputeLayout();
+    if (fitOnLoad === "content") {
+      fitContent();
+    } else if (fitOnLoad === "width") {
+      fitWidth();
+    } else if (fitOnLoad === "height") {
+      fitHeight();
+    }
     scheduleUpdate();
   }
 
@@ -1049,7 +1061,7 @@
   -->
   {#if controls && pageCount > 0 && !loadError && !passwordCancelled}
     <div
-      class="absolute top-2 inset-x-0 mx-auto z-10 flex w-fit max-w-full flex-wrap items-center justify-center gap-1 rounded-full bg-base-100 px-2 py-1.5 border border-base-300 shadow-lg opacity-0 pointer-events-none transition-opacity [--radius-field:9999px] group-hover/preview:opacity-100 group-hover/preview:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto"
+      class="absolute top-2 inset-x-0 mx-auto z-10 flex w-fit max-w-full flex-wrap items-center justify-center gap-1 rounded-full bg-base-100 px-2 py-1.5 border border-base-300 shadow-lg max-lg:opacity-100 max-lg:pointer-events-auto opacity-0 pointer-events-none transition-opacity [--radius-field:9999px] group-hover/preview:opacity-100 group-hover/preview:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto"
     >
       <div class="join">
         <button

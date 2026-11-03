@@ -5,8 +5,8 @@
     setupDocxEditor,
     type DocxEditorSetupHandle,
     type DocxSelectionFormatting,
-  } from "../editor/editor-logic";
-  import "../editor/editor.css";
+  } from "$lib/docx-editor/editor-logic";
+  import "$lib/docx-editor/editor.css";
 
   export type DocxEditorViewHandle = {
     saveAsPdfFile: () => Promise<File>;
@@ -93,44 +93,13 @@
       }
     }
 
-    // Sync vertical ruler scroll with document viewport
-    await tick();
-    const verticalRuler = rootEl.querySelector('#verticalRuler');
-    const documentViewport = rootEl.querySelector('#documentViewport');
-    if (verticalRuler && documentViewport) {
-      const sync = () => {
-        verticalRuler.scrollTop = documentViewport.scrollTop;
-      };
-      documentViewport.addEventListener('scroll', sync);
-      // Initial sync
-      sync();
-      // Store cleanup on window for onDestroy
-      (window as any).__verticalRulerSync = () => {
-        documentViewport.removeEventListener('scroll', sync);
-      };
-    }
   });
 
   onDestroy(() => {
     handle?.destroy();
     handle = null;
-    const cleanup = (window as any).__verticalRulerSync;
-    if (cleanup) {
-      cleanup();
-      (window as any).__verticalRulerSync = null;
-    }
   });
 </script>
-
-<style>
-  .vertical-ruler {
-    overflow-y: auto;
-    scrollbar-width: none;
-  }
-  .vertical-ruler::-webkit-scrollbar {
-    display: none;
-  }
-</style>
 
 <div class="docx-editor-page absolute inset-0 w-full h-full flex flex-col bg-base-200 overflow-hidden" bind:this={rootEl}>
   <!-- Topbar placeholders required by setupDocxEditor -->

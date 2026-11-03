@@ -24,7 +24,7 @@
   } from "$lib/components/preview.svelte";
   import Upload from "./upload.svelte";
   import DocxEditorView, { type DocxEditorViewHandle } from "./docx-editor-view.svelte";
-  import type { DocxSelectionFormatting } from "../editor/editor-logic";
+  import type { DocxSelectionFormatting } from "$lib/docx-editor/editor-logic";
   import { AUTO_ZOOM_MODE, FIT_WIDTH_ZOOM_MODE } from "@docx-editor.dev/core/editor";
   import Signature from "./signature.svelte";
   import Template from "../templates/template.svelte";
@@ -76,6 +76,9 @@
   let asTemplate = $state(false);
   let asDraft = $state(false);
   let isDraft = $state(false);
+  // Rendered inside an iframe by another page (e.g. helpdesk inline signing):
+  // hide the redirect link and notify the parent when signing finishes.
+  const embedded = $derived(page.url.searchParams.get("embed") === "1");
   let status = $state("NOT_REGISTERED");
   let emailLoading = $state(false);
   let emailOpen = $state(false);
@@ -84,9 +87,9 @@
   // svelte-ignore state_referenced_locally
   let useEmail = $state(true);
   // Small screens hide the email field behind the envelope toggle. Keep it
-  // open while it still needs attention: unverified, or empty in manual mode.
+  // open while it still needs attention: unverified in BSrE mode, or empty in self-signed mode.
   let emailAlwaysVisible = $derived(
-    status !== "ISSUE" || (!bsre && !form.email),
+    bsre ? status !== "ISSUE" : !form.email,
   );
   let fields: Record<string, any> = $state({});
   let hasSignature = $state(true);
@@ -125,9 +128,14 @@
 
   /** Zoom control floating at the bottom-right of the document. */
   let zoomMenuOpen = $state(false);
+  let mobileZoomOpen = $state(false);
+  let currentFitMode = $state<"width" | "height" | "content" | null>(
+    typeof window !== "undefined" && window.innerWidth < 1024 ? "content" : null,
+  );
   const ZOOM_PRESETS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
   function applyZoom(preset: number) {
+    currentFitMode = null;
     if (isEditingDocx && docxEditorCtl?.handle?.editor) {
       docxEditorCtl.handle.editor.setZoom(preset);
       previewState.zoom = preset;
@@ -137,6 +145,7 @@
   }
 
   function applyFitMode(mode: "width" | "height" | "content") {
+    currentFitMode = mode;
     if (isEditingDocx && docxEditorCtl?.handle?.editor) {
       if (mode === "width") {
         docxEditorCtl.handle.editor.setZoomMode(FIT_WIDTH_ZOOM_MODE);
@@ -662,7 +671,7 @@
     } else {
       placements = [...placements, sign];
     }
-    selectForProps(sign.id);
+    selectedId = sign.id;
   };
 
   function initialsText() {
@@ -756,6 +765,14 @@
     selectedId = id;
     pageNavTab = "properti";
     pageNavOpen = true;
+  }
+
+  function toggleProps(id: string) {
+    if (selectedId === id && pageNavOpen && pageNavTab === "properti") {
+      pageNavOpen = false;
+    } else {
+      selectForProps(id);
+    }
   }
 
   /**
@@ -869,10 +886,10 @@
 
   /** Position the live ghost at the cursor while a visual is dragged over the
    *  document. */
-  function updateDragPreview(e: DragEvent) {
+  function updateDragPreview(coords: { clientX: number; clientY: number }) {
     const drag = getVisualDrag();
     if (!drag || !overlayEl) return;
-    const hit = resolveOverlayPoint(e.clientX, e.clientY);
+    const hit = resolveOverlayPoint(coords.clientX, coords.clientY);
     if (!hit) return;
     const width = drag.visual === "qr" ? 100 : 200;
     const height = (width / drag.width) * drag.height;
@@ -891,6 +908,34 @@
     };
   }
 
+  function handleTouchDrop(coords: { clientX: number; clientY: number }) {
+    const drag = getVisualDrag();
+    if (!drag || !overlayEl || !drag.imageBase64) return;
+    const hit = resolveOverlayPoint(coords.clientX, coords.clientY);
+    if (!hit) return;
+
+    const width = drag.visual === "qr" ? 100 : 200;
+    const height = (width / drag.width) * drag.height;
+    snapshot();
+    setSignature({
+      id: createId(6),
+      kind: "signature",
+      imageBase64: drag.imageBase64,
+      page: hit.page,
+      tampilan: "VISIBLE",
+      originX: Math.max(0, hit.x - width / 2),
+      originY: Math.max(0, hit.y - height / 2),
+      width,
+      height,
+      location: "",
+      reason: "",
+    });
+    dragPreview = null;
+    if (typeof window !== "undefined" && window.innerWidth < 1024) {
+      navOpen = false;
+    }
+  }
+
   function isEditableTarget(t: EventTarget | null) {
     const el = t as HTMLElement | null;
     if (!el) return false;
@@ -904,13 +949,15 @@
 
   const hasDocuments = $derived(Object.keys(documents).length > 0);
 
-  // Auto-fit zoom on mobile when a document becomes active
+  // Auto-fit zoom on mobile / small screen when a document becomes active
   let mobileFitApplied = $state(false);
   $effect(() => {
-    if (typeof window === 'undefined') return;
-    if (activeIndex && hasDocuments && !mobileFitApplied && window.innerWidth < 640) {
-      applyFitMode('content');
-      mobileFitApplied = true;
+    if (typeof window === "undefined") return;
+    if (activeIndex && hasDocuments) {
+      if (!mobileFitApplied && window.innerWidth < 1024) {
+        applyFitMode("content");
+        mobileFitApplied = true;
+      }
     }
     if (!activeIndex) {
       mobileFitApplied = false;
@@ -987,13 +1034,6 @@
               activeTab = "documents";
               navOpen = true;
             },
-          },
-          "sep",
-          {
-            icon: "bx:plus",
-            label: "Buat Dokumen",
-            href: "/editor",
-            badge: "Baru",
           },
           "sep",
           {
@@ -1338,7 +1378,7 @@
 
     const lastShown = localStorage.getItem("tour-sign-last-shown");
     const now = Date.now();
-    if (!lastShown || now - Number(lastShown) > 86400000) {
+    if (!embedded && (!lastShown || now - Number(lastShown) > 86400000)) {
       setTimeout(() => (app.showTour = true), 1000);
     }
   });
@@ -1616,6 +1656,10 @@
       location: "",
       reason: "",
     });
+    // On small screens, close the metadata drawer so the user sees the placed visual
+    if (typeof window !== "undefined" && window.innerWidth < 1024) {
+      navOpen = false;
+    }
   }
 
   /** The signer identity needed to render a QR/box straight from the toolbar. */
@@ -2210,17 +2254,21 @@
       removePlacement(selectedId);
     }
   }}
+  on:visual-touch-move={(e: any) => updateDragPreview(e.detail)}
+  on:visual-touch-drop={(e: any) => handleTouchDrop(e.detail)}
 />
 
 <div
-  class="sign-page h-[calc(100dvh-3rem)] flex flex-col overflow-hidden"
+  class="sign-page {embedded
+    ? 'h-dvh'
+    : 'h-[calc(100dvh-3rem)]'} flex flex-col overflow-hidden"
 >
   <!-- ============ TOPBAR ============ -->
   <div
     class="flex-none relative z-100 bg-base-100 border-b border-base-300 select-none [&_iconify-icon]:text-[17px] [&_iconify-icon]:pointer-events-none [&_.btn]:font-normal"
   >
-    <!-- On small screens the navbar can't host the menubar, so keep it here. -->
-    <div class="lg:hidden px-2 pt-1">
+    <!-- On mobile screens (below tablet, <768px) the navbar can't host the menubar, so keep it here. -->
+    <div class="md:hidden px-2 pt-1">
       <WorkspaceMenuBar />
     </div>
 
@@ -2299,6 +2347,8 @@
         selectedId = null;
       }}
       onDownload={downloadActive}
+      {mobileZoomOpen}
+      onToggleMobileZoom={() => (mobileZoomOpen = !mobileZoomOpen)}
       docxEditing={isEditingDocx}
       docxFormatting={docxFormatting}
       onDocxCommand={(slot, value) => docxEditorCtl?.runCommand(slot, value)}
@@ -2408,7 +2458,9 @@
         Page {previewState.page} of {previewState.pageCount}
       </div>
       <div
-        class="absolute left-1/2 top-2 lg:top-auto lg:bottom-4 -translate-x-1/2 z-20 flex items-center gap-0.5 h-8 px-2 bg-base-100 border border-base-300 rounded-full shadow-lg"
+        class="absolute left-1/2 -translate-x-1/2 z-20 flex items-center gap-0.5 h-8 px-2 bg-base-100 border border-base-300 rounded-full shadow-lg transition-all
+          max-lg:{mobileZoomOpen ? 'top-9 opacity-100 pointer-events-auto' : '-top-20 opacity-0 pointer-events-none'}
+          lg:bottom-4 lg:top-auto lg:opacity-100 lg:pointer-events-auto"
       >
         <input
           class="w-48 h-6 px-2.5 border-0 rounded-full bg-transparent text-xs text-center text-base-content hover:bg-base-200 focus:outline-none focus:bg-base-200 max-lg:hidden"
@@ -2473,43 +2525,52 @@
 
           {#if zoomMenuOpen}
             <ul
-              class="absolute bottom-full left-0 mb-1.5 min-w-36 p-1 bg-base-100 border border-base-300 rounded-lg shadow-xl z-50 text-[13px]"
+              class="absolute max-lg:top-full max-lg:bottom-auto max-lg:mt-1.5 lg:bottom-full lg:top-auto lg:mb-1.5 left-0 min-w-36 p-1 bg-base-100 border border-base-300 rounded-lg shadow-xl z-50 text-[13px]"
               role="menu"
             >
               <li>
                 <button
                   type="button"
-                  class="w-full flex items-center gap-2 px-2.5 py-1.5 bg-transparent border-0 rounded text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200"
+                  class="w-full flex items-center gap-2 px-2.5 py-1.5 bg-transparent border-0 rounded text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200 {currentFitMode === 'width' ? 'bg-primary/10 font-semibold text-primary' : ''}"
                   onclick={() => {
                     applyFitMode("width");
                     zoomMenuOpen = false;
                   }}
                 >
                   Fit to Width
+                  {#if currentFitMode === "width"}
+                    <span class="ml-auto text-xs pl-2">✓</span>
+                  {/if}
                 </button>
               </li>
               <li>
                 <button
                   type="button"
-                  class="w-full flex items-center gap-2 px-2.5 py-1.5 bg-transparent border-0 rounded text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200"
+                  class="w-full flex items-center gap-2 px-2.5 py-1.5 bg-transparent border-0 rounded text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200 {currentFitMode === 'height' ? 'bg-primary/10 font-semibold text-primary' : ''}"
                   onclick={() => {
                     applyFitMode("height");
                     zoomMenuOpen = false;
                   }}
                 >
                   Fit Height
+                  {#if currentFitMode === "height"}
+                    <span class="ml-auto text-xs pl-2">✓</span>
+                  {/if}
                 </button>
               </li>
               <li>
                 <button
                   type="button"
-                  class="w-full flex items-center gap-2 px-2.5 py-1.5 bg-transparent border-0 rounded text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200"
+                  class="w-full flex items-center gap-2 px-2.5 py-1.5 bg-transparent border-0 rounded text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200 {currentFitMode === 'content' ? 'bg-primary/10 font-semibold text-primary' : ''}"
                   onclick={() => {
                     applyFitMode("content");
                     zoomMenuOpen = false;
                   }}
                 >
                   Fit Content
+                  {#if currentFitMode === "content"}
+                    <span class="ml-auto text-xs pl-2">✓</span>
+                  {/if}
                 </button>
               </li>
               <li class="my-1 border-t border-base-200"></li>
@@ -2517,7 +2578,7 @@
                 <li>
                   <button
                     type="button"
-                    class="w-full flex items-center gap-2 px-2.5 py-1.5 bg-transparent border-0 rounded text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200 {Math.abs(
+                    class="w-full flex items-center gap-2 px-2.5 py-1.5 bg-transparent border-0 rounded text-left whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200 {!currentFitMode && Math.abs(
                       previewState.zoom - preset,
                     ) < 0.001
                       ? 'bg-primary/10 font-semibold text-primary'
@@ -2528,7 +2589,7 @@
                     }}
                   >
                     {Math.round(preset * 100)}%
-                    {#if Math.abs(previewState.zoom - preset) < 0.001}
+                    {#if !currentFitMode && Math.abs(previewState.zoom - preset) < 0.001}
                       <span class="ml-auto text-xs pl-2">✓</span>
                     {/if}
                   </button>
@@ -2658,12 +2719,13 @@
               }}
             />
           {:else}
-          <div class="absolute inset-0 pt-[28px] pl-[28px]">
+          <div class="absolute inset-0">
             <Preview
               file={previewFile}
               {hasSignature}
               bare
               initialZoom={zoomHandoff}
+              fitOnLoad={typeof window !== "undefined" && window.innerWidth < 1024 ? "content" : undefined}
               bind:controller={previewCtl}
               onstate={(s) => {
                 previewState.zoom = s.zoom;
@@ -2715,7 +2777,7 @@
                       selected={selectedId === pl.id}
                       resizable={(pl.kind ?? "signature") !== "checkbox"}
                       onselect={() => {
-                        selectForProps(pl.id);
+                        selectedId = pl.id;
                         snapshot();
                       }}
                       onchange={(e) => {
@@ -2761,11 +2823,26 @@
                     >
                     <button
                       type="button"
-                      class="absolute -top-4.5 left-1/2 -translate-x-1/2 w-4.5 h-4.5 inline-flex items-center justify-center border-0 rounded-full bg-error text-error-content text-[11px] leading-none z-2 cursor-pointer [&_iconify-icon]:text-[12px]"
+                      class="absolute -top-5 left-1/2 -translate-x-1/2 w-5 h-5 inline-flex items-center justify-center border-0 rounded-full bg-error text-error-content text-[11px] leading-none z-2 cursor-pointer shadow [&_iconify-icon]:text-[12px]"
                       aria-label="Hapus item"
-                      onclick={() => removePlacement(pl.id)}
+                      onclick={(e) => {
+                        e.stopPropagation();
+                        removePlacement(pl.id);
+                      }}
                     >
                       <iconify-icon icon="bx:x"></iconify-icon>
+                    </button>
+                    <button
+                      type="button"
+                      class="absolute -top-3 -right-3 w-5 h-5 inline-flex items-center justify-center border-0 rounded-full bg-primary text-primary-content text-[11px] leading-none z-2 cursor-pointer shadow hover:scale-110 transition-transform [&_iconify-icon]:text-[12px]"
+                      title={pageNavOpen && pageNavTab === "properti" && selectedId === pl.id ? "Tutup Properti" : "Buka Properti"}
+                      aria-label="Toggle Properti"
+                      onclick={(e) => {
+                        e.stopPropagation();
+                        toggleProps(pl.id);
+                      }}
+                    >
+                      <iconify-icon icon={pageNavOpen && pageNavTab === "properti" && selectedId === pl.id ? "bx:x" : "bx:slider"}></iconify-icon>
                     </button>
 
                     {#if (pl.kind ?? "signature") === "signature"}
@@ -2954,11 +3031,6 @@
       <span class="btn btn-circle btn-lg btn-error">✕</span>
     </div>
 
-    <a href="/editor" class="btn btn-lg rounded-xl" aria-label="Buat Dokumen">
-      <iconify-icon icon="bx:file" class="text-2xl"></iconify-icon>
-      Buat Dokumen
-      <span class="badge badge-sm badge-secondary">Baru</span>
-    </a>
     <button
       type="button"
       class="btn btn-lg rounded-xl"
@@ -3231,6 +3303,24 @@
           turnstileSuccess = false;
         }
 
+        // Inline (iframe) signing: tell the parent page which documents were
+        // signed so it can attach them without leaving the wizard.
+        if (
+          embedded &&
+          !asDraft &&
+          signResults.length > 0 &&
+          item.completed.length === docsx.length
+        ) {
+          window.parent?.postMessage(
+            {
+              type: "asta:sign:complete",
+              documentId: item.completed.join(","),
+              ids: [...item.completed],
+            },
+            window.location.origin,
+          );
+        }
+
         if (signResults.length > 0) {
           const notifyList = signResults
             .map((r, i) => `${i + 1}. *${r?.fileName}*`)
@@ -3359,7 +3449,7 @@
               </div>
             </div>
             <div class="flex flex-wrap gap-2 justify-end">
-              {#if page.url.searchParams.get("redirect")}
+              {#if !embedded && page.url.searchParams.get("redirect")}
                 <a
                   href={`${page.url.searchParams.get("redirect")}?documentId=${item.completed.join(",")}`}
                   class="btn btn-sm btn-primary"

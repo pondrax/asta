@@ -762,6 +762,190 @@ export const createTicket = command(createTicketSchema, async (props) => {
   };
 });
 
+const updateTicketSchema = type({
+  ticketId: "string",
+  // Phone for unauthenticated requester verification.
+  phone: "string|undefined",
+  service: "'email'|'certificate'",
+  serviceType: "'email_new'|'email_password_reset'|'certificate_registration'|'certificate_renewal'|'certificate_revocation'|'certificate_passphrase_reset'",
+  subject: "string>0",
+  description: "string>0",
+  requesterName: "string>0",
+  requesterNip: "string|undefined",
+  requesterNik: "string|undefined",
+  requesterPhone: "string>0",
+  requesterEmail: "string|undefined",
+  organizationId: "string|undefined",
+  requesterPosition: "string|undefined",
+  requesterRank: "string|undefined",
+  documentId: "string|undefined",
+  requesters: "string[]|undefined",
+  signerName: "string|undefined",
+});
+
+/**
+ * Let the requester correct a ticket they already submitted. Access is the
+ * same as reading the ticket (verified phone, matching account email, or
+ * admin). Closed tickets are locked.
+ */
+export const updateTicket = command(updateTicketSchema, async (props) => {
+  const event = getRequestEvent();
+  const user = event.locals.user;
+  const ticket = await assertTicketAccess(props.ticketId, props.phone);
+
+  if (["completed", "cancelled", "rejected"].includes(ticket.status ?? "")) {
+    throw error(
+      409,
+      "Tiket yang sudah selesai, dibatalkan, atau ditolak tidak dapat diubah.",
+    );
+  }
+
+  const {
+    ticketId,
+    phone,
+    documentId,
+    requesters,
+    signerName,
+    ...updates
+  } = props;
+
+  // The client's org Select can briefly hold an organization name rather than
+  // its id — resolve it the same way createTicket does.
+  const orgInput = updates.organizationId?.trim();
+  updates.organizationId = orgInput
+    ? ((
+        await db
+          .select({ id: organizations.id })
+          .from(organizations)
+          .where(
+            or(
+              eq(organizations.id, orgInput),
+              sql`lower(${organizations.name}) like lower(${orgInput + '%'})`,
+            ),
+          )
+          .limit(1)
+      )[0]?.id ?? undefined)
+    : undefined;
+
+  const list = (requesters ?? [])
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map(parseRequesterLine);
+
+  // Keep unrelated metadata (signature, email accounts, BSrE results, …) and
+  // only replace the fields this form owns.
+  const metadata: Record<string, unknown> = {
+    ...((ticket.metadata as Record<string, unknown> | null) ?? {}),
+  };
+  if (list.length > 0) {
+    metadata.requesters = list;
+    metadata.requesterCount = list.length;
+  } else {
+    delete metadata.requesters;
+    delete metadata.requesterCount;
+  }
+  if (signerName?.trim()) {
+    metadata.signerName = signerName.trim();
+  } else {
+    delete metadata.signerName;
+  }
+  if (updates.requesterPosition?.trim()) {
+    metadata.requesterPosition = updates.requesterPosition.trim();
+  } else {
+    delete metadata.requesterPosition;
+  }
+  if (updates.requesterRank?.trim()) {
+    metadata.requesterRank = updates.requesterRank.trim();
+  } else {
+    delete metadata.requesterRank;
+  }
+  delete (updates as any).requesterPosition;
+  delete (updates as any).requesterRank;
+
+  // Re-run the batch BSrE snapshot when the kumulatif list changed.
+  if (list.length > 0 && props.service === "certificate") {
+    const identities = list
+      .map((r) => r.nip || r.nik)
+      .filter(Boolean) as string[];
+    if (identities.length > 0) {
+      const bsreResults: Record<string, any> = {};
+      for (const raw of identities) {
+        const id = raw.replace(/\D/g, "");
+        if (id.length !== 16 && id.length !== 18) continue;
+        try {
+          const row = await lookupBsreByIdentity(id);
+          if (!row) {
+            bsreResults[id] = { found: false, determination: "not_found" };
+          } else {
+            bsreResults[id] = {
+              found: true,
+              determination: determineAction(row),
+              nama: row.nama,
+              status: row.status,
+              aktif: row.aktif,
+            };
+          }
+        } catch {
+          bsreResults[id] = { found: false, determination: "error" };
+        }
+      }
+      metadata.bsreChecks = bsreResults;
+    }
+  }
+
+  const [updatedTicket] = await db
+    .update(helpdesk)
+    .set({ ...updates, metadata })
+    .where(eq(helpdesk.id, ticketId))
+    .returning();
+
+  if (!updatedTicket) throw error(404, "Tiket tidak ditemukan");
+
+  if (documentId) {
+    const doc = await db.query.documents.findFirst({
+      where: { id: documentId },
+    });
+    if (doc) {
+      const currentTo = doc.to || [];
+      if (!currentTo.includes(ticketId)) {
+        await db
+          .update(documents)
+          .set({ to: [...currentTo, ticketId] })
+          .where(eq(documents.id, documentId));
+      }
+    }
+  }
+
+  const ticketNo = toTicketNumber(ticketId);
+  await logEvent(
+    ticketId,
+    "ticket_updated",
+    user ? "user" : "system",
+    user?.id,
+    { ticketNumber: ticketNo, serviceType: props.serviceType },
+  );
+
+  notifyTicket({
+    helpdeskId: ticketId,
+    type: "ticket_updated_admin",
+    message:
+      `✏️ *Tiket Helpdesk Diubah*\n` +
+      `No: *${ticketNo}*\n` +
+      `\n` +
+      `Layanan: ${SERVICE_TYPE_LABELS[props.serviceType]}\n` +
+      `Pemohon: ${props.requesterName}${list.length > 1 ? ` (+${list.length - 1} lainnya)` : ""}\n` +
+      `Subjek: ${props.subject}\n` +
+      `\n` +
+      `🔗 ${await ticketLink(ticketId, props.requesterPhone)}`,
+  }).catch(() => {});
+
+  return {
+    success: true as const,
+    id: ticketId,
+    ticketNumber: ticketNo,
+  };
+});
+
 export const addComment = command(
   type({
     ticketId: "string",

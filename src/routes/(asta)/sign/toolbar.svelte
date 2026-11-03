@@ -5,7 +5,7 @@
     VerifyDate,
   } from "$lib/types/verify";
   import type { SignatureVerification } from "$lib/utils/pdf";
-  import type { DocxSelectionFormatting } from "../editor/editor-logic";
+  import type { DocxSelectionFormatting } from "$lib/docx-editor/editor-logic";
 
   export type SignTool =
     | "select"
@@ -47,6 +47,8 @@
     onDeleteSelected,
     onClearAll,
     onDownload,
+    mobileZoomOpen = false,
+    onToggleMobileZoom,
     signerEmail,
     docxEditing = false,
     docxFormatting = null,
@@ -109,6 +111,8 @@
     onDeleteSelected?: () => void;
     onClearAll?: () => void;
     onDownload?: () => void;
+    mobileZoomOpen?: boolean;
+    onToggleMobileZoom?: () => void;
     signerEmail?: Snippet;
     /** Swap the signing tools for Word formatting controls. */
     docxEditing?: boolean;
@@ -537,6 +541,19 @@
         <iconify-icon icon="bx:redo"></iconify-icon>
       </button>
     </div>
+
+    <!-- mobile zoom toggle (<lg) -->
+    {#if hasDocuments}
+      <button
+        type="button"
+        class="btn btn-sm btn-ghost hover:bg-base-300 btn-square inline-flex lg:hidden! {mobileZoomOpen ? 'bg-primary/20 text-primary' : ''}"
+        aria-label="Toggle zoom bar"
+        aria-pressed={mobileZoomOpen}
+        onclick={() => onToggleMobileZoom?.()}
+      >
+        <iconify-icon icon="bx:search-alt"></iconify-icon>
+      </button>
+    {/if}
   </div>
 
   <div class="w-px h-6 mx-1 bg-base-300 shrink-0"></div>

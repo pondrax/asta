@@ -78,6 +78,24 @@
   Admin     admin only; `hooks.server.ts` 403s every other role on `/main*`
 -->
 
+## 2026-11-03
+
+### Peningkatan ruang kerja tanda tangan mobile/tablet, pembersihan rute editor, dan perbaikan tanda tangan
+
+<!-- id: sign-workspace-mobile-and-editor-cleanup-2026-11-03 -->
+
+Halaman: /sign - Tanda Tangan Dokumen
+Audiens: Tamu
+
+- **Peningkatan** - Tampilan preview dokumen PDF/Word pada perangkat mobile dan tablet (< 1024px) otomatis menyesuaikan ukuran layar (Fit Content) saat pertama kali dimuat.
+- **Peningkatan** - Dropdown zoom menampilkan tanda centang aktif untuk opsi Fit Content, Fit to Width, dan Fit Height.
+- **Peningkatan** - Menubar navigasi atas menggunakan komponen dropdown daisyUI yang responsif dan dapat dibuka dengan satu ketukan di layar sentuh.
+- **Peningkatan** - Kontrol zoom di layar mobile/tablet dapat di-toggle melalui ikon di toolbar tanpa tooltip yang menghalangi dokumen.
+- **Peningkatan** - Pratinjau PDF kini tepat di tengah layar tanpa offset padding penggaris Word.
+- **Peningkatan** - Tombol visualisasi tanda tangan pada dokumen dapat di-toggle untuk menutup kembali pilihan.
+- **Diubah** - Menghapus rute `/editor` dan memindahkan modul komponen editor dokumen Word ke `$lib/docx-editor`.
+- **Perbaikan** - Memperbaiki penandatanganan ulang (re-sign) self-signed agar menggunakan field tanda tangan yang sudah ada dan tidak membuat field yatim tanpa CMS.
+
 ## 2026-11-02
 
 ### Penyesuaian toolbar self-signed, penguncian footer wajib, dan pembersihan sign-legacy

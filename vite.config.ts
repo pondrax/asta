@@ -43,7 +43,7 @@ export default defineConfig({
 		})
 	],
 	server: {
-		allowedHosts: ['asta-dev.dra.my.id']
+		allowedHosts: ['asta-dev.dra.my.id', 'asta.dra.my.id']
 	},
 	optimizeDeps: {
 		exclude: [

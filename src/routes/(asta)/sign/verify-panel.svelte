@@ -865,7 +865,7 @@
         class="order-1 lg:order-2 lg:sticky lg:top-0 h-[32vh] lg:h-[60vh] rounded-xl border border-base-300 overflow-hidden bg-base-200 min-w-0"
       >
         {#if activeFile}
-          <Preview file={activeFile} controls={false} bare />
+          <Preview file={activeFile} controls={true} bare />
         {:else}
           <div class="h-full flex items-center justify-center text-xs opacity-60">
             Pilih dokumen untuk melihat pratinjau.

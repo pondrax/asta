@@ -2686,9 +2686,16 @@ function getSuccessMessage(tables: number, insertedInstead: boolean): string {
     horizontalRulerInner.innerHTML = "";
     verticalRulerInner.innerHTML = "";
     horizontalRulerInner.style.width = `${widthPx}px`;
-    // Vertical ruler shows current page only, zero at top of current page
+
+    // Horizontal ruler renders page width and left/right content margins
     const rulerPage = getCurrentRulerPage();
     if (rulerPage) {
+      const leftMarginPx = twipsToPixels(rulerPage.leftMargin, zoom);
+      const rightMarginPx = twipsToPixels(rulerPage.rightMargin, zoom);
+      const pageWidthPx = twipsToPixels(rulerPage.pageWidth, zoom);
+      const contentAreaWidthPx = pageWidthPx - leftMarginPx - rightMarginPx;
+      renderRulerAxis(horizontalRulerInner, pageWidthPx, leftMarginPx, contentAreaWidthPx, true, zoom);
+
       const topMarginPx = twipsToPixels(rulerPage.topMargin, zoom);
       const bottomMarginPx = twipsToPixels(rulerPage.bottomMargin, zoom);
       const pageHeightPx = twipsToPixels(rulerPage.pageHeight, zoom);
@@ -2696,7 +2703,7 @@ function getSuccessMessage(tables: number, insertedInstead: boolean): string {
       verticalRulerInner.style.height = `${pageHeightPx}px`;
       renderRulerAxis(verticalRulerInner, pageHeightPx, topMarginPx, contentAreaHeightPx, false, zoom);
     } else {
-      // Fallback to full page height if no ruler page info
+      renderRulerAxis(horizontalRulerInner, widthPx, offsetX, contentWidthPx, true, zoom);
       verticalRulerInner.style.height = `${heightPx}px`;
       renderRulerAxis(verticalRulerInner, heightPx, offsetY, contentHeightPx, false, zoom);
     }
@@ -2724,9 +2731,32 @@ function getSuccessMessage(tables: number, insertedInstead: boolean): string {
     });
   }
 
+  function getActivePageElement(): HTMLElement | null {
+    const pages = editorContainer?.querySelectorAll<HTMLElement>(".docx-page");
+    if (!pages?.length) return null;
+
+    // First preference: page containing current text cursor/selection
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      const node = selection.anchorNode;
+      if (node) {
+        const el = node instanceof HTMLElement ? node : node.parentElement;
+        const pageEl = el?.closest<HTMLElement>(".docx-page");
+        if (pageEl && editorContainer?.contains(pageEl)) return pageEl;
+      }
+    }
+
+    // Fallback: active visible page in viewport
+    if (!documentViewport) return pages[0];
+    const viewportRect = documentViewport.getBoundingClientRect();
+    const probeY = viewportRect.top + 1;
+    const best = findBestPage(pages, probeY);
+    return best?.element ?? pages[0];
+  }
+
   function syncRulers() {
     if (!documentViewport) return;
-    const pageElement = editorContainer?.querySelector<HTMLElement>(".docx-page");
+    const pageElement = getActivePageElement();
     if (!pageElement) return;
     const viewportRect = documentViewport.getBoundingClientRect();
     const pageRect = pageElement.getBoundingClientRect();
@@ -2743,7 +2773,7 @@ function getSuccessMessage(tables: number, insertedInstead: boolean): string {
     if (!editor || !documentViewport) return;
     const page = getCurrentRulerPage();
     const indent = getCurrentIndent();
-    const pageElement = editorContainer?.querySelector<HTMLElement>(".docx-page");
+    const pageElement = getActivePageElement();
     if (!page || !pageElement) return;
 
     const zoom = editor.getZoom();
@@ -2839,7 +2869,7 @@ function getSuccessMessage(tables: number, insertedInstead: boolean): string {
   function moveMarginDrag(state: RulerDragState, side: RulerMarginSide, event: PointerEvent) {
     if (!editor || state.marker !== side) return;
     const setup = state.startSetup;
-    const pageElement = editorContainer?.querySelector<HTMLElement>(".docx-page");
+    const pageElement = getActivePageElement();
     if (!setup || !pageElement || !documentViewport) return;
 
     const zoom = editor.getZoom();
@@ -2934,7 +2964,7 @@ function getSuccessMessage(tables: number, insertedInstead: boolean): string {
     if (!editor || hDrag.marker !== handle) return;
     const indent = hDrag.startIndent;
     const page = hDrag.startPage;
-    const pageElement = editorContainer?.querySelector<HTMLElement>(".docx-page");
+    const pageElement = getActivePageElement();
     if (!indent || !page || !pageElement || !documentViewport) return;
 
     const zoom = editor.getZoom();

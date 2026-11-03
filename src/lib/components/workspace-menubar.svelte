@@ -10,18 +10,18 @@
     openId = null;
   }
 
-  /**
-   * On small screens the bar is a horizontal scroller, which would clip an
-   * absolutely-positioned dropdown. Pin it to the viewport instead, right under
-   * the trigger that opened it.
-   */
-  function anchor(event: MouseEvent) {
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    pos = { top: rect.bottom + 4 };
+  function toggle(menuId: string, el: HTMLElement) {
+    if (openId === menuId) {
+      openId = null;
+    } else {
+      openId = menuId;
+      const rect = el.getBoundingClientRect();
+      pos = { top: rect.bottom + 4 };
+    }
   }
 
   onMount(() => {
-    const mq = window.matchMedia("(max-width: 1023.98px)");
+    const mq = window.matchMedia("(max-width: 767.98px)");
     const update = () => (small = mq.matches);
     update();
     mq.addEventListener("change", update);
@@ -30,27 +30,35 @@
 </script>
 
 <svelte:window
-  onclick={close}
+  onclick={(e) => {
+    const target = e.target as HTMLElement | null;
+    if (!target?.closest?.(".dropdown")) close();
+  }}
   onkeydown={(e) => {
     if (e.key === "Escape") close();
   }}
 />
 
 <div
-  class="no-scrollbar flex items-center h-8 shrink-0 ml-0 md:ml-5 max-lg:mb-1 max-lg:overflow-x-auto max-lg:overflow-y-hidden"
+  class="no-scrollbar flex items-center h-8 shrink-0 ml-0 md:ml-5 max-md:mb-1 max-md:overflow-x-auto max-md:overflow-y-hidden"
 >
   {#each workspace.menus as menu (menu.id)}
     <div
-      class="relative h-full shrink-0"
-      role="none"
+      class="dropdown h-full shrink-0 {openId === menu.id ? 'dropdown-open' : ''}"
       onmouseenter={(e) => {
+        if (small) return;
         openId = menu.id;
-        anchor(e);
+        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+        pos = { top: rect.bottom + 4 };
       }}
-      onmouseleave={close}
+      onmouseleave={() => {
+        if (small) return;
+        close();
+      }}
     >
       <button
         type="button"
+        tabindex="0"
         id={menu.id === "mode" ? "tour-mode" : undefined}
         class={menu.variant === "primary"
           ? `btn btn-sm btn-soft btn-primary rounded-full justify-between gap-0.5 [--btn-p:0.375rem] ${menu.width ?? ""}`
@@ -59,12 +67,7 @@
         aria-expanded={openId === menu.id}
         onclick={(e) => {
           e.stopPropagation();
-          if (openId === menu.id) {
-            openId = null;
-          } else {
-            openId = menu.id;
-            anchor(e);
-          }
+          toggle(menu.id, e.currentTarget as HTMLElement);
         }}
       >
         {#if menu.variant === "primary"}
@@ -79,12 +82,13 @@
           {menu.label}
         {/if}
       </button>
-      <!-- Pseudo-element bridges the 4px gap so hover carries into the popup. -->
-      <div
-        class="min-w-60 py-1 bg-base-100 border border-base-300 rounded-lg shadow-xl z-[70]
+
+      <!-- dropdown-content menu using daisyUI semantics -->
+      <ul
+        class="dropdown-content menu menu-sm p-1 bg-base-100 border border-base-300 rounded-lg shadow-xl z-[70]
           before:content-[''] before:absolute before:-top-1 before:left-0 before:right-0 before:h-1
-          max-lg:min-w-0 max-lg:w-[calc(100vw-1rem)] max-lg:max-h-[70vh] max-lg:overflow-y-auto
-          {small ? 'fixed left-2' : 'absolute left-0 top-[calc(100%+4px)]'}
+          max-md:min-w-0 max-md:w-[calc(100vw-1rem)] max-md:max-h-[70vh] max-md:overflow-y-auto
+          {small ? 'fixed left-2' : 'absolute left-0 top-[calc(100%+4px)] min-w-60'}
           {openId === menu.id ? 'block' : 'hidden'}"
         style={small ? `top:${pos.top}px;` : ""}
         role="menu"
@@ -92,49 +96,55 @@
       >
         {#each menu.items as item, i (i)}
           {#if item === "sep"}
-            <div class="h-px my-1 bg-base-300"></div>
+            <li class="menu-separator h-px my-1 bg-base-300"></li>
           {:else if item.href}
-            <a
-              class="flex items-center gap-2.5 w-full min-h-8 px-3 text-[13px] text-base-content no-underline cursor-pointer hover:bg-base-200"
-              role="menuitem"
-              href={item.href}
-            >
-              <span
-                class="flex size-4 shrink-0 items-center justify-center text-[16px] leading-none opacity-70"
+            <li>
+              <a
+                class="flex items-center gap-2.5 w-full min-h-8 px-3 text-[13px] text-base-content no-underline cursor-pointer hover:bg-base-200"
+                role="menuitem"
+                href={item.href}
+                onclick={() => close()}
               >
-                <iconify-icon icon={item.icon}></iconify-icon>
-              </span>
-              <span class="text-[13px] leading-none">{item.label}</span>
-              {#if item.badge}
                 <span
-                  class="ml-auto text-[10px] px-1.5 py-px rounded-full bg-primary text-primary-content"
-                  >{item.badge}</span
+                  class="flex size-4 shrink-0 items-center justify-center text-[16px] leading-none opacity-70"
                 >
-              {/if}
-            </a>
+                  <iconify-icon icon={item.icon}></iconify-icon>
+                </span>
+                <span class="text-[13px] leading-none">{item.label}</span>
+                {#if item.badge}
+                  <span
+                    class="badge badge-sm badge-primary ml-auto text-[10px]"
+                    >{item.badge}</span
+                  >
+                {/if}
+              </a>
+            </li>
           {:else}
-            <button
-              class="flex items-center gap-2.5 w-full min-h-8 px-3 text-left text-[13px] text-base-content border-0 bg-transparent cursor-pointer hover:bg-base-200 disabled:opacity-40 disabled:cursor-default"
-              role="menuitem"
-              disabled={item.disabled}
-              onclick={() => {
-                close();
-                item.action?.();
-              }}
-            >
-              <span
-                class="flex size-4 shrink-0 items-center justify-center text-[16px] leading-none opacity-70"
+            <li>
+              <button
+                type="button"
+                class="flex items-center gap-2.5 w-full min-h-8 px-3 text-left text-[13px] text-base-content cursor-pointer hover:bg-base-200 disabled:opacity-40 disabled:cursor-default"
+                role="menuitem"
+                disabled={item.disabled}
+                onclick={() => {
+                  close();
+                  item.action?.();
+                }}
               >
-                <iconify-icon icon={item.icon}></iconify-icon>
-              </span>
-              <span class="text-[13px] leading-none">{item.label}</span>
-              {#if item.shortcut}
-                <span class="ml-auto text-[11px] opacity-50">{item.shortcut}</span>
-              {/if}
-            </button>
+                <span
+                  class="flex size-4 shrink-0 items-center justify-center text-[16px] leading-none opacity-70"
+                >
+                  <iconify-icon icon={item.icon}></iconify-icon>
+                </span>
+                <span class="text-[13px] leading-none">{item.label}</span>
+                {#if item.shortcut}
+                  <span class="ml-auto text-[11px] opacity-50">{item.shortcut}</span>
+                {/if}
+              </button>
+            </li>
           {/if}
         {/each}
-      </div>
+      </ul>
     </div>
   {/each}
 </div>

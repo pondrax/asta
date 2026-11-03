@@ -5,7 +5,7 @@
     PreviewController,
     SearchHit,
   } from "$lib/components/preview.svelte";
-  import type { DocxEditorSetupHandle } from "../editor/editor-logic";
+  import type { DocxEditorSetupHandle } from "$lib/docx-editor/editor-logic";
   import type { PlacementType } from "./types";
   import Visualizer from "./visualizer.svelte";
 

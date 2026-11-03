@@ -122,21 +122,28 @@ export async function signPdfManually(fileBase64: string, options: {
   const pdfBytes = Buffer.from(fileBase64, 'base64');
   const pdf = await PDF.load(new Uint8Array(pdfBytes));
 
-  const sigProp = options.signatureProperties?.find((p: any) => (p.kind ?? 'signature') === 'signature');
-  let fieldName = options.fieldName || 'Signature1';
-
   const existingSigFields = pdf.getForm()?.getSignatureFields() || [];
-  if (sigProp && sigProp.imageBase64 && existingSigFields.length === 0) {
-    fieldName = (await prepareVisibleSignature(pdf, {
-      page: sigProp.page || 1,
-      originX: sigProp.originX || 0,
-      originY: sigProp.originY || 0,
-      width: sigProp.width || 200,
-      height: sigProp.height || 100,
-      imageBase64: sigProp.imageBase64,
-    })) as string;
-  } else if (existingSigFields.length > 0) {
-    fieldName = existingSigFields[0].name;
+  const unsignedField = existingSigFields.find((f) => !f.isSigned());
+
+  let fieldName = options.fieldName;
+  if (!fieldName) {
+    if (unsignedField) {
+      fieldName = unsignedField.name;
+    } else {
+      const sigProp = options.signatureProperties?.find((p: any) => (p.kind ?? 'signature') === 'signature');
+      if (sigProp && sigProp.imageBase64 && existingSigFields.length === 0) {
+        fieldName = (await prepareVisibleSignature(pdf, {
+          page: sigProp.page || 1,
+          originX: sigProp.originX || 0,
+          originY: sigProp.originY || 0,
+          width: sigProp.width || 200,
+          height: sigProp.height || 100,
+          imageBase64: sigProp.imageBase64,
+        })) as string;
+      } else {
+        fieldName = 'Signature1';
+      }
+    }
   }
 
   const email = options.contactInfo || 'signer@mojokertokota.go.id';

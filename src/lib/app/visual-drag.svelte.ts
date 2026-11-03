@@ -6,6 +6,7 @@
  */
 export type VisualDrag = {
   visual: "qr" | "box";
+  imageBase64?: string;
   width: number;
   height: number;
   /** Full data URL of the visual, for the live preview. */

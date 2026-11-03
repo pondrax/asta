@@ -63,14 +63,16 @@
     verifyActive && verifyMode !== "id" && verifyMode !== "scan",
   );
 
-  // The signing workspace and the DOCX editor keep their own menubar, so the
+  // The signing workspace keeps its own menubar, so the
   // site navigation is collapsed into a single grouped dropdown in the navbar.
   const isWorkspace = $derived(
     page.url.pathname === "/sign" ||
-      page.url.pathname.startsWith("/sign/") ||
-      page.url.pathname === "/editor" ||
-      page.url.pathname.startsWith("/editor/"),
+      page.url.pathname.startsWith("/sign/"),
   );
+
+  // When a page is embedded in an iframe (e.g. inline signing inside the
+  // helpdesk wizard) render it without the site chrome.
+  const isEmbedded = $derived(page.url.searchParams.get("embed") === "1");
 
   // Per-scope document counts for nav badges
   const status = $derived(user ? getStatus({}) : undefined);
@@ -108,7 +110,12 @@
   ></script>
 </svelte:head>
 
-<div class="app-shell h-screen flex flex-col overflow-hidden">
+{#if isEmbedded}
+  <div class="h-screen overflow-y-auto bg-base-100">
+    {@render children()}
+  </div>
+{:else}
+  <div class="app-shell h-screen flex flex-col overflow-hidden">
   <!-- The docked chatbot panel is fixed to the right edge from the top of the
        viewport down, so the navbar's right-hand controls would end up beneath
        it. Shrinking the navbar by the panel's width keeps them reachable; the
@@ -154,12 +161,6 @@
                 <summary>Tanda Tangan</summary>
                 <ul>
                   <li><a href="/sign">Upload & Tanda Tangan</a></li>
-                  <li>
-                    <a href="/editor"
-                      >Buat Dokumen
-                      <span class="badge badge-xs ml-auto">baru</span>
-                    </a>
-                  </li>
                   <li><a href="/templates">Template Dokumen</a></li>
                   <li>
                     <a href="/helpdesk">Helpdesk Layanan</a>
@@ -340,7 +341,7 @@
           <Lottie url="/asta-themed.json" loop autoplay />
         </a>
         {#if isWorkspace}
-          <div class="hidden lg:flex">
+          <div class="hidden md:flex">
             <WorkspaceMenuBar />
           </div>
         {/if}
@@ -371,18 +372,13 @@
             <a
               href="/sign"
               class="rounded-lg text-xs font-medium transition-all"
-              class:bg-primary={page.url.pathname === "/sign" ||
-                page.url.pathname === "/editor"}
-              class:text-primary-content={page.url.pathname === "/sign" ||
-                page.url.pathname === "/editor"}
-              class:shadow-sm={page.url.pathname === "/sign" ||
-                page.url.pathname === "/editor"}
+              class:bg-primary={page.url.pathname === "/sign"}
+              class:text-primary-content={page.url.pathname === "/sign"}
+              class:shadow-sm={page.url.pathname === "/sign"}
               class:bg-base-200={activeMenu === "sign" &&
-                page.url.pathname !== "/sign" &&
-                page.url.pathname !== "/editor"}
+                page.url.pathname !== "/sign"}
               class:text-base-content={activeMenu === "sign" &&
-                page.url.pathname !== "/sign" &&
-                page.url.pathname !== "/editor"}
+                page.url.pathname !== "/sign"}
             >
               Tanda Tangan
             </a>
@@ -442,7 +438,7 @@
       </div>
 
       <div class="navbar-end gap-1">
-        {#if ["/sign", "/me", "/main", "/editor"].includes(page.url.pathname)}
+        {#if ["/sign", "/me", "/main"].includes(page.url.pathname)}
           <button
             class="btn btn-ghost btn-sm rounded-full gap-1 relative animate-pulse"
             onclick={() => (app.showTour = true)}
@@ -770,27 +766,6 @@
                           : 'opacity-40 group-hover:opacity-100'}"
                       ></iconify-icon>
                       <span>Template Dokumen</span>
-                    </a>
-                  </li>
-                  <li>
-                    <a
-                      href="/editor"
-                      class="group link link-hover text-xs flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all hover:text-primary hover:bg-primary/5 hover:translate-x-1 {page
-                        .url.pathname === '/editor'
-                        ? 'text-primary font-bold bg-primary/5'
-                        : 'text-base-content/75'}"
-                    >
-                      <iconify-icon
-                        icon="bx:chevron-right"
-                        class="text-xs transition-all {page.url.pathname ===
-                        '/editor'
-                          ? 'text-primary opacity-100'
-                          : 'opacity-40 group-hover:opacity-100'}"
-                      ></iconify-icon>
-                      <div>
-                        Buat Dokumen
-                        <span class="badge badge-sm badge-primary">baru</span>
-                      </div>
                     </a>
                   </li>
                 </ul>
@@ -1417,6 +1392,7 @@
     role={user?.role?.name ?? null}
     bind:open={showChangelog}
   />
-</div>
+  </div>
+{/if}
 
 <!-- <div class="cf-turnstile" data-sitekey={env.PUBLIC_TURNSTILE_KEY}></div> -->
