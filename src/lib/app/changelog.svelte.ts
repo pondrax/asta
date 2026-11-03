@@ -156,6 +156,10 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
             text: "Tombol visualisasi tanda tangan pada dokumen dapat di-toggle untuk menutup kembali pilihan.",
           },
           {
+            kind: "improved",
+            text: "Mengurangi padding modal verifikasi dokumen pada layar kecil dan mengatur default preview verifikasi ke mode Fit Content.",
+          },
+          {
             kind: "changed",
             text: "Menghapus rute `/editor` dan memindahkan modul komponen editor dokumen Word ke `$lib/docx-editor`.",
           },

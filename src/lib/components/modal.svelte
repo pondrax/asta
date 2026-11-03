@@ -63,7 +63,7 @@
 {#if data}
   <dialog bind:this={el} class="modal modal-open">
     <div
-      class="modal-box relative w-11/12 flex flex-col overflow-visible"
+      class="modal-box relative w-11/12 flex flex-col overflow-visible max-sm:p-3 sm:p-6"
       class:max-w-md={size == "sm"}
       class:max-w-xl={size == "md"}
       class:max-w-2xl={size == "lg"}

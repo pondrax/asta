@@ -95,6 +95,7 @@ Audiens: Tamu
 - **Peningkatan** - Kontrol zoom di layar mobile/tablet dapat di-toggle melalui ikon di toolbar tanpa tooltip yang menghalangi dokumen.
 - **Peningkatan** - Pratinjau PDF kini tepat di tengah layar tanpa offset padding penggaris Word.
 - **Peningkatan** - Tombol visualisasi tanda tangan pada dokumen dapat di-toggle untuk menutup kembali pilihan.
+- **Peningkatan** - Mengurangi padding modal verifikasi dokumen pada layar kecil dan mengatur default preview verifikasi ke mode Fit Content.
 - **Diubah** - Menghapus rute `/editor` dan memindahkan modul komponen editor dokumen Word ke `$lib/docx-editor`.
 - **Perbaikan** - Memperbaiki penandatanganan ulang (re-sign) self-signed agar menggunakan field tanda tangan yang sudah ada dan tidak membuat field yatim tanpa CMS.
 - **Perbaikan** - Memperbaiki ID tour (`#tour-mode`) yang terlewat setelah perubahan menu TTE.
