@@ -862,7 +862,7 @@
 
       <div
         id="tour-verify-preview"
-        class="order-1 lg:order-2 lg:sticky lg:top-0 h-[32vh] lg:h-[60vh] rounded-xl border border-base-300 overflow-hidden bg-base-200 min-w-0"
+        class="order-1 lg:order-2 lg:sticky lg:top-0 h-[45vh] min-h-[400px] lg:h-[60vh] rounded-xl border border-base-300 overflow-hidden bg-base-200 min-w-0"
       >
         {#if activeFile}
           <Preview file={activeFile} controls={true} fitOnLoad="content" bare />

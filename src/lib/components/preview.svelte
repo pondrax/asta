@@ -1260,7 +1260,9 @@
       <!-- 4. Spread (1-up / 2-up) -->
       <button
         type="button"
-        class="btn btn-xs btn-ghost {spread ? 'btn-active' : ''}"
+        class="h-6 inline-flex items-center gap-1 px-2 flex-none border-0 rounded bg-transparent text-[13px] text-base-content cursor-pointer hover:bg-base-200 {spread
+          ? 'bg-primary/10 text-primary'
+          : ''}"
         title={spread ? "Tampilkan satu halaman" : "Tampilkan dua halaman berdampingan"}
         aria-label="Tampilan berdampingan"
         aria-pressed={spread}
@@ -1269,7 +1271,7 @@
         <iconify-icon
           icon={spread ? "bx:grid-vertical" : "bx:grid-horizontal"}
         ></iconify-icon>
-        {spread ? "2-up" : "1-up"}
+        <span>{spread ? "2-up" : "1-up"}</span>
       </button>
       <span class="w-px h-4 bg-base-300" aria-hidden="true"></span>
 
