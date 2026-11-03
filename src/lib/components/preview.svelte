@@ -1063,24 +1063,72 @@
     the bar lives here rather than in each caller: it stays correct for both the
     signing preview (with draggable signature boxes) and the read-only verify
     preview, and callers just opt in with `controls`.
-
-    The bar floats over the document instead of sitting in flow, so it no longer
-    eats scroll height — only the scroller below grows, and the bar overlays the
-    top of the pages. It is revealed on hover of the whole preview (so the
-    pointer only has to reach the scroller, not the bar itself, to summon it) and
-    on `focus-within`, which keeps it reachable by keyboard; both also restore
-    pointer events, since a hidden bar must not swallow clicks meant for the page.
-
-    The bar is a single centred pill, not a full-width strip. Bumping
-    `--radius-field` on it rounds every control inside: DaisyUI's `.btn`/`.input`
-    take their radius from that variable and it inherits, so the children pick up
-    the pill shape with no per-child overrides. Within the bar, goto and zoom are
-    each a `join` group — they fuse into one control, which is what `join` is
-    for, and each group still picks up the bar's rounding.
   -->
+  <div
+    bind:this={containerEl}
+    class="relative w-full min-h-0 grow overflow-auto {bare
+      ? 'bg-transparent'
+      : 'rounded-2xl bg-base-200'} p-4"
+    onscroll={scheduleUpdate}
+  >
+    {#if passwordCancelled}
+      <div
+        class="absolute inset-0 flex flex-col items-center justify-center gap-4 p-8"
+      >
+        <iconify-icon icon="bx:lock-alt" class="text-6xl text-error/60"
+        ></iconify-icon>
+        <h3 class="text-xl font-bold">Dokumen Diproteksi</h3>
+        <p class="text-base-content/70 text-center max-w-sm">
+          Dokumen tidak dapat dimuat karena dilindungi kata sandi.
+        </p>
+        <button
+          type="button"
+          class="btn btn-primary"
+          onclick={() => {
+            passwordCancelled = false;
+            if (currentFile) openFile(currentFile);
+          }}
+        >
+          <iconify-icon icon="bx:key"></iconify-icon>
+          Masukkan Kata Sandi
+        </button>
+      </div>
+    {:else if loadError}
+      <div
+        class="absolute inset-0 flex flex-col items-center justify-center gap-4 p-8"
+      >
+        <iconify-icon icon="bx:error-circle" class="text-6xl text-error/60"
+        ></iconify-icon>
+        <h3 class="text-xl font-bold">Gagal Memuat Dokumen</h3>
+        <p class="text-base-content/70 text-center max-w-sm">{loadError}</p>
+        <button
+          type="button"
+          class="btn btn-primary"
+          onclick={() => currentFile && openFile(currentFile)}
+        >
+          <iconify-icon icon="bx:refresh"></iconify-icon>
+          Coba Lagi
+        </button>
+      </div>
+    {:else}
+      <div class="relative mx-auto" style="height: {totalHeight}px; width: {cellWidth * Math.max(1, spread?2:1) + GAP * Math.max(0, Math.max(1, spread?2:1) - 1)}px">
+        <div class="pdf-layer absolute top-0 left-0 right-0 bottom-0"></div>
+        <!--
+          Spans the whole content box, not just a column as wide as one page:
+          the side-by-side layout has a second column to reach, so the children
+          resolve their coordinates against `layout.boxes` (via onstate) rather
+          than assuming this element's left edge is the left edge of a page.
+        -->
+        <div class="absolute inset-0 z-1 overflow-clip">
+          {@render children?.(displayScale, pageSizes, GAP)}
+        </div>
+      </div>
+    {/if}
+  </div>
+
   {#if controls && pageCount > 0 && !loadError && !passwordCancelled}
     <div
-      class="absolute bottom-4 inset-x-0 mx-auto z-10 flex w-fit max-w-full flex-wrap items-center justify-center gap-1.5 rounded-full bg-base-100 px-3 py-1.5 border border-base-300 shadow-lg font-normal [&_.btn]:font-normal max-lg:opacity-100 max-lg:pointer-events-auto opacity-0 pointer-events-none transition-opacity group-hover/preview:opacity-100 group-hover/preview:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto"
+      class="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-0.5 h-8 px-2 bg-base-100 border border-base-300 rounded-full shadow-lg font-normal transition-opacity max-lg:opacity-100 max-lg:pointer-events-auto opacity-0 pointer-events-none group-hover/preview:opacity-100 group-hover/preview:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto"
     >
       <!-- 1. Zoom Controls -->
       <div
@@ -1202,7 +1250,7 @@
           </ul>
         {/if}
       </div>
-      <span class="w-px h-4 bg-base-300" aria-hidden="true"></span>
+      <span class="w-px h-4 flex-none bg-base-300" aria-hidden="true"></span>
 
       <!-- 2. Page Navigation -->
       <div
@@ -1255,9 +1303,9 @@
           <iconify-icon icon="bx:chevron-right"></iconify-icon>
         </button>
       </div>
-      <span class="w-px h-4 bg-base-300" aria-hidden="true"></span>
+      <span class="w-px h-4 flex-none bg-base-300" aria-hidden="true"></span>
 
-      <!-- 4. Spread (1-up / 2-up) -->
+      <!-- 3. Spread (1-up / 2-up) -->
       <button
         type="button"
         class="h-6 inline-flex items-center gap-1 px-2 flex-none border-0 rounded bg-transparent text-[13px] text-base-content cursor-pointer hover:bg-base-200 {spread
@@ -1273,9 +1321,9 @@
         ></iconify-icon>
         <span>{spread ? "2-up" : "1-up"}</span>
       </button>
-      <span class="w-px h-4 bg-base-300" aria-hidden="true"></span>
+      <span class="w-px h-4 flex-none bg-base-300" aria-hidden="true"></span>
 
-      <!-- 5. Download -->
+      <!-- 4. Download -->
       <button
         type="button"
         class="h-6 inline-flex items-center gap-1 px-2 flex-none border-0 rounded bg-transparent text-[13px] text-base-content cursor-pointer hover:bg-base-200"
@@ -1299,68 +1347,6 @@
       </button>
     </div>
   {/if}
-
-  <div
-    bind:this={containerEl}
-    class="relative w-full min-h-0 grow overflow-auto {bare
-      ? 'bg-transparent'
-      : 'rounded-2xl bg-base-200'} p-4"
-    onscroll={scheduleUpdate}
-  >
-    {#if passwordCancelled}
-      <div
-        class="absolute inset-0 flex flex-col items-center justify-center gap-4 p-8"
-      >
-        <iconify-icon icon="bx:lock-alt" class="text-6xl text-error/60"
-        ></iconify-icon>
-        <h3 class="text-xl font-bold">Dokumen Diproteksi</h3>
-        <p class="text-base-content/70 text-center max-w-sm">
-          Dokumen tidak dapat dimuat karena dilindungi kata sandi.
-        </p>
-        <button
-          type="button"
-          class="btn btn-primary"
-          onclick={() => {
-            passwordCancelled = false;
-            if (currentFile) openFile(currentFile);
-          }}
-        >
-          <iconify-icon icon="bx:key"></iconify-icon>
-          Masukkan Kata Sandi
-        </button>
-      </div>
-    {:else if loadError}
-      <div
-        class="absolute inset-0 flex flex-col items-center justify-center gap-4 p-8"
-      >
-        <iconify-icon icon="bx:error-circle" class="text-6xl text-error/60"
-        ></iconify-icon>
-        <h3 class="text-xl font-bold">Gagal Memuat Dokumen</h3>
-        <p class="text-base-content/70 text-center max-w-sm">{loadError}</p>
-        <button
-          type="button"
-          class="btn btn-primary"
-          onclick={() => currentFile && openFile(currentFile)}
-        >
-          <iconify-icon icon="bx:refresh"></iconify-icon>
-          Coba Lagi
-        </button>
-      </div>
-    {:else}
-      <div class="relative mx-auto" style="height: {totalHeight}px; width: {cellWidth * Math.max(1, spread?2:1) + GAP * Math.max(0, Math.max(1, spread?2:1) - 1)}px">
-        <div class="pdf-layer absolute top-0 left-0 right-0 bottom-0"></div>
-        <!--
-          Spans the whole content box, not just a column as wide as one page:
-          the side-by-side layout has a second column to reach, so the children
-          resolve their coordinates against `layout.boxes` (via onstate) rather
-          than assuming this element's left edge is the left edge of a page.
-        -->
-        <div class="absolute inset-0 z-1 overflow-clip">
-          {@render children?.(displayScale, pageSizes, GAP)}
-        </div>
-      </div>
-    {/if}
-  </div>
 </div>
 
 <!-- Password Modal -->
