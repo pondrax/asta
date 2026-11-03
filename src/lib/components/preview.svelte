@@ -1080,7 +1080,7 @@
   -->
   {#if controls && pageCount > 0 && !loadError && !passwordCancelled}
     <div
-      class="absolute top-2 inset-x-0 mx-auto z-10 flex w-fit max-w-full flex-wrap items-center justify-center gap-1.5 rounded-full bg-base-100 px-3 py-1.5 border border-base-300 shadow-lg font-normal [&_.btn]:font-normal max-lg:opacity-100 max-lg:pointer-events-auto opacity-0 pointer-events-none transition-opacity group-hover/preview:opacity-100 group-hover/preview:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto"
+      class="absolute bottom-4 inset-x-0 mx-auto z-10 flex w-fit max-w-full flex-wrap items-center justify-center gap-1.5 rounded-full bg-base-100 px-3 py-1.5 border border-base-300 shadow-lg font-normal [&_.btn]:font-normal max-lg:opacity-100 max-lg:pointer-events-auto opacity-0 pointer-events-none transition-opacity group-hover/preview:opacity-100 group-hover/preview:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto"
     >
       <!-- 1. Zoom Controls -->
       <div
