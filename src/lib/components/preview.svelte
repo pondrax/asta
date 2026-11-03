@@ -1082,13 +1082,7 @@
     <div
       class="absolute top-2 inset-x-0 mx-auto z-10 flex w-fit max-w-full flex-wrap items-center justify-center gap-1.5 rounded-full bg-base-100 px-3 py-1.5 border border-base-300 shadow-lg font-normal [&_.btn]:font-normal max-lg:opacity-100 max-lg:pointer-events-auto opacity-0 pointer-events-none transition-opacity group-hover/preview:opacity-100 group-hover/preview:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto"
     >
-      <!-- 1. Filename -->
-      <span class="text-xs font-medium px-2 max-w-40 truncate" title={currentFile?.name ?? ""}>
-        {currentFile?.name ?? "Dokumen"}
-      </span>
-      <span class="w-px h-4 bg-base-300" aria-hidden="true"></span>
-
-      <!-- 2. Zoom Controls -->
+      <!-- 1. Zoom Controls -->
       <div
         class="relative inline-flex items-center flex-none h-6.5 bg-transparent"
       >
@@ -1281,7 +1275,7 @@
       <!-- 5. Download -->
       <button
         type="button"
-        class="btn btn-xs btn-ghost"
+        class="h-6 inline-flex items-center gap-1 px-2 flex-none border-0 rounded bg-transparent text-[13px] text-base-content cursor-pointer hover:bg-base-200"
         title="Unduh PDF"
         aria-label="Unduh PDF"
         onclick={() => {
@@ -1297,21 +1291,8 @@
           URL.revokeObjectURL(url);
         }}
       >
-        <iconify-icon icon="bx:download" class="text-base"></iconify-icon>
-        Unduh
-      </button>
-      <span class="w-px h-4 bg-base-300" aria-hidden="true"></span>
-
-      <!-- 6. Close -->
-      <button
-        type="button"
-        class="btn btn-xs btn-ghost"
-        title="Tutup dokumen"
-        aria-label="Tutup dokumen"
-        onclick={closeDocument}
-      >
-        <iconify-icon icon="bx:x" class="text-base"></iconify-icon>
-        Tutup
+        <iconify-icon icon="bx:download"></iconify-icon>
+        <span>Unduh</span>
       </button>
     </div>
   {/if}
