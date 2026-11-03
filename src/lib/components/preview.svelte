@@ -1080,58 +1080,15 @@
   -->
   {#if controls && pageCount > 0 && !loadError && !passwordCancelled}
     <div
-      class="absolute top-2 inset-x-0 mx-auto z-10 flex w-fit max-w-full flex-wrap items-center justify-center gap-1 rounded-full bg-base-100 px-2 py-1.5 border border-base-300 shadow-lg max-lg:opacity-100 max-lg:pointer-events-auto opacity-0 pointer-events-none transition-opacity [--radius-field:9999px] group-hover/preview:opacity-100 group-hover/preview:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto"
+      class="absolute top-2 inset-x-0 mx-auto z-10 flex w-fit max-w-full flex-wrap items-center justify-center gap-1.5 rounded-full bg-base-100 px-3 py-1.5 border border-base-300 shadow-lg font-normal [&_.btn]:font-normal max-lg:opacity-100 max-lg:pointer-events-auto opacity-0 pointer-events-none transition-opacity group-hover/preview:opacity-100 group-hover/preview:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto"
     >
-      <div class="join">
-        <button
-          type="button"
-          class="btn btn-xs btn-ghost join-item"
-          aria-label="Halaman sebelumnya"
-          title="Halaman sebelumnya"
-          disabled={currentPage <= 1}
-          onclick={() => changePage(-1)}
-        >
-          <iconify-icon icon="bx:chevron-left" class="text-base"></iconify-icon>
-        </button>
-        <label
-          class="input input-xs join-item flex basis-24 items-center gap-1 px-1"
-          class:opacity-50={pageCount === 0}
-        >
-          <span class="sr-only">Nomor halaman</span>
-          <input
-            type="text"
-            inputmode="numeric"
-            class="w-full min-w-0 text-center text-xs"
-            aria-label="Nomor halaman"
-            bind:value={pageDraft}
-            onfocus={() => (pageInputFocused = true)}
-            onblur={() => {
-              pageInputFocused = false;
-              commitPageDraft();
-            }}
-            onkeydown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                commitPageDraft();
-                (e.currentTarget as HTMLInputElement).blur();
-              }
-            }}
-          />
-          <span class="shrink-0 text-xs whitespace-nowrap">/ {pageCount}</span>
-        </label>
-        <button
-          type="button"
-          class="btn btn-xs btn-ghost join-item"
-          aria-label="Halaman berikutnya"
-          title="Halaman berikutnya"
-          disabled={currentPage >= pageCount}
-          onclick={() => changePage(1)}
-        >
-          <iconify-icon icon="bx:chevron-right" class="text-base"
-          ></iconify-icon>
-        </button>
-      </div>
+      <!-- 1. Filename -->
+      <span class="text-xs font-medium px-2 max-w-40 truncate" title={currentFile?.name ?? ""}>
+        {currentFile?.name ?? "Dokumen"}
+      </span>
+      <span class="w-px h-4 bg-base-300" aria-hidden="true"></span>
 
+      <!-- 2. Zoom Controls -->
       <div
         class="relative inline-flex items-center flex-none h-6.5 bg-transparent"
       >
@@ -1251,30 +1208,83 @@
           </ul>
         {/if}
       </div>
+      <span class="w-px h-4 bg-base-300" aria-hidden="true"></span>
 
+      <!-- 3. Page Navigation -->
       <div class="join">
         <button
           type="button"
-          class="btn btn-xs btn-ghost join-item {spread ? 'btn-active' : ''}"
-          title={spread ? "Tampilkan satu halaman" : "Tampilkan dua halaman berdampingan"}
-          aria-label="Tampilan berdampingan"
-          aria-pressed={spread}
-          onclick={toggleSpread}
+          class="btn btn-xs btn-ghost join-item"
+          aria-label="Halaman sebelumnya"
+          title="Halaman sebelumnya"
+          disabled={currentPage <= 1}
+          onclick={() => changePage(-1)}
         >
-          <iconify-icon
-            icon={spread ? "bx:grid-vertical" : "bx:grid-horizontal"}
+          <iconify-icon icon="bx:chevron-left" class="text-base"></iconify-icon>
+        </button>
+        <label
+          class="input input-xs join-item flex basis-20 items-center gap-1 px-1"
+          class:opacity-50={pageCount === 0}
+        >
+          <span class="sr-only">Nomor halaman</span>
+          <input
+            type="text"
+            inputmode="numeric"
+            class="w-full min-w-0 text-center text-xs"
+            aria-label="Nomor halaman"
+            bind:value={pageDraft}
+            onfocus={() => (pageInputFocused = true)}
+            onblur={() => {
+              pageInputFocused = false;
+              commitPageDraft();
+            }}
+            onkeydown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                commitPageDraft();
+                (e.currentTarget as HTMLInputElement).blur();
+              }
+            }}
+          />
+          <span class="shrink-0 text-xs whitespace-nowrap">/ {pageCount}</span>
+        </label>
+        <button
+          type="button"
+          class="btn btn-xs btn-ghost join-item"
+          aria-label="Halaman berikutnya"
+          title="Halaman berikutnya"
+          disabled={currentPage >= pageCount}
+          onclick={() => changePage(1)}
+        >
+          <iconify-icon icon="bx:chevron-right" class="text-base"
           ></iconify-icon>
-          {spread ? "2-up" : "1-up"}
         </button>
       </div>
+      <span class="w-px h-4 bg-base-300" aria-hidden="true"></span>
 
+      <!-- 4. Spread (1-up / 2-up) -->
+      <button
+        type="button"
+        class="btn btn-xs btn-ghost {spread ? 'btn-active' : ''}"
+        title={spread ? "Tampilkan satu halaman" : "Tampilkan dua halaman berdampingan"}
+        aria-label="Tampilan berdampingan"
+        aria-pressed={spread}
+        onclick={toggleSpread}
+      >
+        <iconify-icon
+          icon={spread ? "bx:grid-vertical" : "bx:grid-horizontal"}
+        ></iconify-icon>
+        {spread ? "2-up" : "1-up"}
+      </button>
+      <span class="w-px h-4 bg-base-300" aria-hidden="true"></span>
+
+      <!-- 5. Download -->
       <button
         type="button"
         class="btn btn-xs btn-ghost"
         title="Unduh PDF"
         aria-label="Unduh PDF"
         onclick={() => {
-          // Hand off when asked to, otherwise save the File we rendered.
           if (ondownload) return ondownload(currentFile);
           if (!currentFile) return;
           const url = URL.createObjectURL(currentFile);
@@ -1290,6 +1300,9 @@
         <iconify-icon icon="bx:download" class="text-base"></iconify-icon>
         Unduh
       </button>
+      <span class="w-px h-4 bg-base-300" aria-hidden="true"></span>
+
+      <!-- 6. Close -->
       <button
         type="button"
         class="btn btn-xs btn-ghost"
