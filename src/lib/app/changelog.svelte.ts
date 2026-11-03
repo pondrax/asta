@@ -137,6 +137,10 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
           },
           {
             kind: "improved",
+            text: "Pembuatan dokumen Word baru (\"Buat Dokumen Word\") kini langsung membuka editor kosong dengan alur simpan/konversi dan modal peringatan (guard) dengan opsi nama berkas (\"Nama Berkas\") serta tombol unduh `.docx`.",
+          },
+          {
+            kind: "improved",
             text: "Penambahan tombol unduh sertifikat Root CA (Root Mojokerto & Root Indonesia) langsung dari menu TTE dan toolbar verifikasi.",
           },
           {
@@ -166,6 +170,10 @@ export const PAGE_CHANGELOGS: PageChangelog[] = [
           {
             kind: "changed",
             text: "Menghapus rute `/editor` dan memindahkan modul komponen editor dokumen Word ke `$lib/docx-editor`.",
+          },
+          {
+            kind: "fixed",
+            text: "Memperbaiki pembaruan nama dokumen secara otomatis di daftar dokumen saat disimpan/dikonversi.",
           },
           {
             kind: "fixed",

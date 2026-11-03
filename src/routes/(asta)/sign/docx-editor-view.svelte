@@ -19,15 +19,17 @@
   };
 
   let {
-    file,
+    file = null,
     initialZoom = 1,
+    isNew = false,
     controller = $bindable(),
     onHistoryChange,
     onFormattingChange,
   }: {
-    file: File;
+    file?: File | null;
     /** Zoom to restore after the document finishes loading. */
     initialZoom?: number;
+    isNew?: boolean;
     controller?: DocxEditorViewHandle | null;
     onHistoryChange?: (state: { canUndo: boolean; canRedo: boolean }) => void;
     onFormattingChange?: (formatting: DocxSelectionFormatting | null) => void;
@@ -83,7 +85,15 @@
       canUseAi: false,
     });
 
-    if (file) {
+    if (isNew) {
+      try {
+        handle.newDocument();
+        handle.editor?.setZoom(startupZoom);
+        onFormattingChange?.(handle.editor?.snapshot().formatting ?? null);
+      } catch (err) {
+        console.error("Failed to create new docx in editor:", err);
+      }
+    } else if (file) {
       try {
         await handle.loadFile(file);
         handle.editor?.setZoom(startupZoom);

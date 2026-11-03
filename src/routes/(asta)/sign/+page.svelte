@@ -73,6 +73,10 @@
   let isSavingDocx = $state(false);
   let editingDocIndex = $state<string | null>(null);
   let docxEditFile = $state<File | null>(null);
+  let isNewDocx = $state(false);
+  let showSaveDocxModal = $state(false);
+  let docxSaveName = $state("Dokumen Baru");
+  let saveDocxAction = $state<"close" | "new" | null>(null);
   let asTemplate = $state(false);
   let asDraft = $state(false);
   let isDraft = $state(false);
@@ -1102,13 +1106,13 @@
                 {
                   icon: "bx:save",
                   label: "Simpan & Konversi ke PDF",
-                  action: () => void saveAndCloseDocx({ handoffZoom: true }),
+                  action: () => openSaveDocxModal("close"),
                 },
                 {
                   icon: "bx:download",
                   label: "Unduh Berkas Word (.docx)",
-                  disabled: !activeDocxFile,
-                  action: () => downloadDocx(),
+                  disabled: !activeDocxFile && !docxEditorCtl,
+                  action: () => void downloadCurrentDocxFromModal(),
                 },
               ]
             : [
@@ -1141,10 +1145,10 @@
           {
             icon: "bx:x",
             label: isEditingDocx ? "Tutup Editor Word" : "Tutup Dokumen",
-            disabled: !hasDocs,
+            disabled: !hasDocs && !isEditingDocx,
             action: () => {
               if (isEditingDocx) {
-                void saveAndCloseDocx();
+                openSaveDocxModal("close");
               } else {
                 closeDocument();
               }
@@ -1797,9 +1801,10 @@
   async function saveAndCloseDocx({ handoffZoom = false } = {}) {
     const controller = docxEditorCtl;
     const index = editingDocIndex;
-    if (!controller || !index || isSavingDocx) {
+    if (!controller || isSavingDocx) {
       if (!isSavingDocx) {
         isEditingDocx = false;
+        isNewDocx = false;
         editingDocIndex = null;
         docxEditFile = null;
         docxCanUndo = false;
@@ -1814,18 +1819,31 @@
     const oldDocxName = docxEditFile?.name ?? null;
     isSavingDocx = true;
     try {
-      const [newPdf, updatedDocx] = await Promise.all([
+      const [rawPdf, updatedDocxRaw] = await Promise.all([
         controller.saveAsPdfFile(),
         controller.saveAsDocxFile(),
       ]);
-      if (documents[index]) {
-        documents[index] = newPdf;
-        docxFiles[newPdf.name] = updatedDocx;
-        if (oldDocxName && oldDocxName !== newPdf.name) {
-          docxFiles[oldDocxName] = updatedDocx;
-        }
-        if (index === activeIndex) previewFile = newPdf;
+
+      const desiredName = (docxSaveName || workspace.docName || rawPdf.name.replace(/\.pdf$/i, "") || "Dokumen").trim();
+      const pdfFileName = desiredName.endsWith(".pdf") ? desiredName : `${desiredName}.pdf`;
+      const docxFileName = desiredName.endsWith(".docx") ? desiredName : `${desiredName}.docx`;
+
+      const newPdf = new File([await rawPdf.arrayBuffer()], pdfFileName, { type: rawPdf.type });
+      const updatedDocx = new File([await updatedDocxRaw.arrayBuffer()], docxFileName, { type: updatedDocxRaw.type });
+
+      const oldKey = index || activeIndex;
+      if (oldKey && documents[oldKey] && oldKey !== pdfFileName) {
+        delete documents[oldKey];
       }
+      if (oldDocxName && docxFiles[oldDocxName] && oldDocxName !== docxFileName) {
+        delete docxFiles[oldDocxName];
+      }
+
+      documents[pdfFileName] = newPdf;
+      docxFiles[pdfFileName] = updatedDocx;
+      activeIndex = pdfFileName;
+      previewFile = newPdf;
+      workspace.docName = desiredName.replace(/\.pdf$/i, "");
     } catch (err) {
       console.error("Gagal menyimpan Word ke PDF:", err);
       app.showToast(
@@ -1836,6 +1854,7 @@
     } finally {
       isSavingDocx = false;
       isEditingDocx = false;
+      isNewDocx = false;
       editingDocIndex = null;
       docxEditFile = null;
       docxCanUndo = false;
@@ -1914,10 +1933,8 @@
   }
 
   async function createNewWordDocument() {
-    const blankBlob = new Blob([], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
-    const blankFile = new File([blankBlob], "Dokumen Baru.docx", { type: blankBlob.type });
-
-    docxEditFile = blankFile;
+    docxEditFile = null;
+    isNewDocx = true;
     editingDocIndex = "";
     docxCanUndo = false;
     docxCanRedo = false;
@@ -1925,6 +1942,61 @@
     isEditingDocx = true;
     await tick();
     docxEditorCtl?.handle?.newDocument();
+  }
+
+  function openSaveDocxModal(action: "close" | "new") {
+    docxSaveName = workspace.docName || activeDocxFile?.name?.replace(/\.docx$/i, "") || "Dokumen Baru";
+    saveDocxAction = action;
+    showSaveDocxModal = true;
+  }
+
+  async function downloadCurrentDocxFromModal() {
+    if (!docxEditorCtl?.handle) return;
+    try {
+      const f = await docxEditorCtl.handle.saveAsDocxFile();
+      const name = docxSaveName.trim() ? (docxSaveName.trim().endsWith(".docx") ? docxSaveName.trim() : `${docxSaveName.trim()}.docx`) : f.name;
+      const fileToDownload = new File([await f.arrayBuffer()], name, { type: f.type });
+      const url = URL.createObjectURL(fileToDownload);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileToDownload.name;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Gagal mengunduh docx:", err);
+    }
+  }
+
+  async function confirmSaveAndClose() {
+    if (docxSaveName.trim()) {
+      workspace.docName = docxSaveName.trim();
+      if (docxEditorCtl?.handle?.editor) {
+        const fnInput = docxEditorCtl.handle.editor.container?.querySelector("#filenameInput") as HTMLInputElement;
+        if (fnInput) fnInput.value = docxSaveName.trim();
+      }
+    }
+    showSaveDocxModal = false;
+    await saveAndCloseDocx({ handoffZoom: true });
+    if (saveDocxAction === "new") {
+      void createNewWordDocument();
+    }
+    saveDocxAction = null;
+  }
+
+  async function confirmDiscardDocx() {
+    showSaveDocxModal = false;
+    isEditingDocx = false;
+    isNewDocx = false;
+    editingDocIndex = null;
+    docxEditFile = null;
+    docxCanUndo = false;
+    docxCanRedo = false;
+    docxFormatting = null;
+    const action = saveDocxAction;
+    saveDocxAction = null;
+    if (action === "new") {
+      void createNewWordDocument();
+    }
   }
 
   function downloadCertificate(url: string, name: string) {
@@ -2725,10 +2797,7 @@
             disabled={isSavingDocx}
             onclick={async () => {
               if (isEditingDocx) {
-                // Carry the editor's zoom into the PDF preview, then let the
-                // one-shot hand-off clear so later document changes are not
-                // pinned to it.
-                await saveAndCloseDocx({ handoffZoom: true });
+                openSaveDocxModal("close");
               } else {
                 zoomHandoff = previewState.zoom;
                 editingDocIndex = activeIndex;
@@ -3024,22 +3093,24 @@
         </div>
       {/if}
 
-      {#if hasDocuments}
+      {#if isEditingDocx}
         <div class="flex-1 min-h-0 relative {armed ? 'cursor-crosshair' : ''}">
-          {#if isEditingDocx && docxEditFile}
-            <DocxEditorView
-              file={docxEditFile}
-              initialZoom={zoomHandoff}
-              bind:controller={docxEditorCtl}
-              onHistoryChange={(state) => {
-                docxCanUndo = state.canUndo;
-                docxCanRedo = state.canRedo;
-              }}
-              onFormattingChange={(formatting) => {
-                docxFormatting = formatting;
-              }}
-            />
-          {:else}
+          <DocxEditorView
+            file={docxEditFile}
+            isNew={isNewDocx}
+            initialZoom={zoomHandoff}
+            bind:controller={docxEditorCtl}
+            onHistoryChange={(state) => {
+              docxCanUndo = state.canUndo;
+              docxCanRedo = state.canRedo;
+            }}
+            onFormattingChange={(formatting) => {
+              docxFormatting = formatting;
+            }}
+          />
+        </div>
+      {:else if hasDocuments}
+        <div class="flex-1 min-h-0 relative {armed ? 'cursor-crosshair' : ''}">
           <div class="absolute inset-0">
             <Preview
               file={previewFile}
@@ -3221,11 +3292,10 @@
             {/snippet}
           </Preview>
           </div>
-          {/if}
         </div>
       {/if}
 
-      <div class="flex-1 min-h-0 relative p-2 {hasDocuments ? 'hidden' : ''}">
+      <div class="flex-1 min-h-0 relative p-2 {(hasDocuments || isEditingDocx) ? 'hidden' : ''}">
         <Upload
           bind:fileInput
           bind:files
@@ -4287,4 +4357,60 @@
       />
     {/key}
   {/snippet}
+</Modal>
+
+<Modal bind:data={showSaveDocxModal} title="Simpan Dokumen Word" size="sm">
+  <div class="flex flex-col gap-3 my-2">
+    <p class="text-sm opacity-70">
+      Beri nama berkas sebelum menyimpan atau pilih tindakan.
+    </p>
+    <label class="floating-label">
+      <span>Nama Berkas</span>
+      <input
+        type="text"
+        class="input input-bordered w-full"
+        placeholder="Nama dokumen"
+        bind:value={docxSaveName}
+      />
+    </label>
+  </div>
+  <div class="flex justify-between items-center mt-4 flex-wrap gap-2">
+    <div class="flex gap-2">
+      <button
+        type="button"
+        class="btn btn-sm btn-error btn-outline"
+        onclick={confirmDiscardDocx}
+      >
+        Buang & Tutup
+      </button>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline gap-1"
+        onclick={() => void downloadCurrentDocxFromModal()}
+      >
+        <iconify-icon icon="bx:download"></iconify-icon>
+        Unduh .docx
+      </button>
+    </div>
+    <div class="flex gap-2">
+      <button
+        type="button"
+        class="btn btn-sm btn-ghost"
+        onclick={() => (showSaveDocxModal = false)}
+      >
+        Batal
+      </button>
+      <button
+        type="button"
+        class="btn btn-sm btn-primary"
+        disabled={isSavingDocx}
+        onclick={confirmSaveAndClose}
+      >
+        {#if isSavingDocx}
+          <span class="loading loading-spinner loading-xs"></span>
+        {/if}
+        Simpan & Konversi
+      </button>
+    </div>
+  </div>
 </Modal>

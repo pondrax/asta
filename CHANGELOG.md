@@ -90,6 +90,7 @@ Audiens: Tamu
 - **Peningkatan** - Tampilan preview dokumen PDF/Word pada perangkat mobile dan tablet (< 1024px) otomatis menyesuaikan ukuran layar (Fit Content) saat pertama kali dimuat.
 - **Peningkatan** - Dropdown zoom menampilkan tanda centang aktif untuk opsi Fit Content, Fit to Width, dan Fit Height.
 - **Peningkatan** - Kontrol zoom pada pratinjau dokumen (termasuk modal verifikasi) kini menggunakan menu dropdown zoom yang sama dengan dokumen utama (Fit to Width, Fit Height, Fit Content, dan preset persentase dengan tanda centang aktif).
+- **Peningkatan** - Pembuatan dokumen Word baru ("Buat Dokumen Word") kini langsung membuka editor kosong dengan alur simpan/konversi dan modal peringatan (guard) dengan opsi nama berkas ("Nama Berkas") serta tombol unduh `.docx`.
 - **Peningkatan** - Penambahan tombol unduh sertifikat Root CA (Root Mojokerto & Root Indonesia) langsung dari menu TTE dan toolbar verifikasi.
 - **Peningkatan** - Dukungan drag-and-drop file PDF/DOCX langsung ke area pratinjau dokumen untuk mengunggah dokumen baru.
 - **Peningkatan** - Menubar navigasi atas menggunakan komponen dropdown daisyUI yang responsif dan dapat dibuka dengan satu ketukan di layar sentuh.
@@ -98,6 +99,7 @@ Audiens: Tamu
 - **Peningkatan** - Tombol visualisasi tanda tangan pada dokumen dapat di-toggle untuk menutup kembali pilihan.
 - **Peningkatan** - Mengurangi padding modal verifikasi dokumen pada layar kecil dan mengatur default preview verifikasi ke mode Fit Content.
 - **Diubah** - Menghapus rute `/editor` dan memindahkan modul komponen editor dokumen Word ke `$lib/docx-editor`.
+- **Perbaikan** - Memperbaiki pembaruan nama dokumen secara otomatis di daftar dokumen saat disimpan/dikonversi.
 - **Perbaikan** - Memperbaiki penandatanganan ulang (re-sign) self-signed agar menggunakan field tanda tangan yang sudah ada dan tidak membuat field yatim tanpa CMS.
 - **Perbaikan** - Memperbaiki ID tour (`#tour-mode`) yang terlewat setelah perubahan menu TTE.
 
