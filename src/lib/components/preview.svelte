@@ -1132,23 +1132,23 @@
         </button>
       </div>
 
-      <div class="relative join">
+      <div
+        class="relative inline-flex items-center flex-none h-6.5 bg-transparent"
+      >
         <button
           type="button"
-          class="btn btn-xs btn-ghost join-item"
-          aria-label="Perkecil"
+          class="w-5 h-6 inline-flex items-center justify-center bg-transparent border-0 rounded text-[13px] leading-none p-0 cursor-pointer text-base-content hover:bg-base-200 disabled:opacity-35 disabled:cursor-default"
           title="Perkecil"
+          aria-label="Perkecil"
           disabled={zoom <= ZOOM_MIN}
           onclick={() => {
             currentFitMode = null;
             zoomOut();
           }}
-        >
-          <iconify-icon icon="bx:minus" class="text-base"></iconify-icon>
-        </button>
+        >−</button>
         <button
           type="button"
-          class="btn btn-xs btn-ghost join-item min-w-16 font-mono text-xs tabular-nums gap-0.5"
+          class="min-w-11 h-6 inline-flex items-center justify-center gap-0.5 px-1 bg-transparent border-0 rounded text-xs tabular-nums whitespace-nowrap cursor-pointer text-base-content hover:bg-base-200"
           title="Zoom"
           aria-label="Zoom"
           aria-haspopup="menu"
@@ -1159,21 +1159,21 @@
           }}
         >
           {Math.round(zoom * 100)}%
-          <span class="text-[10px] opacity-60">▾</span>
+          <span class="text-[10px] text-base-content/60" aria-hidden="true"
+            >▾</span
+          >
         </button>
         <button
           type="button"
-          class="btn btn-xs btn-ghost join-item"
-          aria-label="Perbesar"
+          class="w-5 h-6 inline-flex items-center justify-center bg-transparent border-0 rounded text-[13px] leading-none p-0 cursor-pointer text-base-content hover:bg-base-200 disabled:opacity-35 disabled:cursor-default"
           title="Perbesar"
+          aria-label="Perbesar"
           disabled={zoom >= ZOOM_MAX}
           onclick={() => {
             currentFitMode = null;
             zoomIn();
           }}
-        >
-          <iconify-icon icon="bx:plus" class="text-base"></iconify-icon>
-        </button>
+        >+</button>
 
         {#if zoomMenuOpen}
           <ul
