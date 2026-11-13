@@ -977,6 +977,14 @@ console.log(data);`;
                       <span class="text-xs font-mono">Menghubungi endpoint BSrE API v2...</span>
                     </div>
                   {:else if responseData !== null}
+                    {#if !authUsername && !authPassword}
+                      <div class="alert alert-warning text-xs">
+                        <iconify-icon icon="solar:shield-warning-bold" class="text-lg"></iconify-icon>
+                        <div>
+                          <strong>Perhatian:</strong> Kredensial <strong>User</strong> dan <strong>Pass</strong> di baris atas belum diisi. Server BSrE mewajibkan HTTP Basic Auth.
+                        </div>
+                      </div>
+                    {/if}
                     {#if responseData.isBinary && responseData.contentType?.includes("pdf")}
                       <div class="space-y-3">
                         <div class="alert alert-info text-xs">
@@ -987,6 +995,20 @@ console.log(data);`;
                           src={responseData.data}
                           title="PDF Output"
                           class="w-full h-80 rounded-box border border-base-300"
+                        ></iframe>
+                      </div>
+                    {:else if responseData.isHtml && responseData.htmlPreview}
+                      <div class="space-y-2">
+                        <div class="alert alert-warning text-xs flex items-center justify-between">
+                          <div class="flex items-center gap-2">
+                            <iconify-icon icon="solar:danger-triangle-bold" class="text-base"></iconify-icon>
+                            <span>Server mengembalikan respon berformat HTML (bukan JSON API).</span>
+                          </div>
+                        </div>
+                        <iframe
+                          srcdoc={responseData.htmlPreview}
+                          title="HTML Response View"
+                          class="w-full h-72 rounded-box border border-base-300 bg-white"
                         ></iframe>
                       </div>
                     {:else}

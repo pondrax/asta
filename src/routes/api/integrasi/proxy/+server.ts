@@ -104,11 +104,15 @@ export const POST: RequestHandler = async ({ request }) => {
       parsedJson = JSON.parse(text);
     } catch {}
 
+    const isHtml = resContentType.includes('text/html') || /<html|<!doctype/i.test(text);
+
     return json({
       status: res.status,
       statusText: res.statusText,
       headers: resHeaders,
-      data: parsedJson ?? text,
+      isHtml,
+      htmlPreview: isHtml ? text : undefined,
+      data: parsedJson ?? (isHtml ? (res.status === 401 ? '401 Unauthorized: Kredensial User/Password belum diisi atau tidak valid' : text) : text),
     });
   } catch (err: any) {
     return json(
