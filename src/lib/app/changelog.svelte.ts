@@ -115,6 +115,43 @@ export function audienceForRole(
  */
 export const PAGE_CHANGELOGS: PageChangelog[] = [
   {
+    route: "/integrasi",
+    page: "Panduan Integrasi BSrE",
+    entries: [
+      {
+        id: "integrasi-dan-playground-bsre-2026-11-13",
+        date: "2026-11-13",
+        title: "Fitur Panduan & API Playground Integrasi BSrE",
+        changes: [
+          {
+            kind: "added",
+            text: "Menambahkan halaman `/integrasi` yang memuat panduan komprehensif integrasi sistem BSrE BSSN, daftar 6 aplikasi OPD yang telah terintegrasi, 11 kriteria wajib sistem, dan alur 6 tahapan integrasi beserta estimasi waktu.",
+          },
+          {
+            kind: "added",
+            text: "Menambahkan halaman `/integrasi/playground` untuk pengujian interaktif endpoint API v2 (Sign PDF, Sign E-Seal, User, Verify PDF).",
+          },
+          {
+            kind: "added",
+            text: "Fitur pemilihan server Dev Client, Prod Client, dan Manual URL dengan autentikasi Basic Auth.",
+          },
+          {
+            kind: "added",
+            text: "Generator cuplikan kode request untuk cURL, PHP, dan JavaScript Fetch.",
+          },
+          {
+            kind: "added",
+            text: "Modal Tool konversi file PDF / Gambar menjadi Base64 dan preview dokumen dari Base64.",
+          },
+          {
+            kind: "improved",
+            text: "Penyimpanan nilai placeholder variabel `{{...}}` saat berpindah endpoint API dalam satu sesi.",
+          },
+        ],
+      },
+    ],
+  },
+  {
     route: "/sign",
     page: "Tanda Tangan Dokumen",
     entries: [

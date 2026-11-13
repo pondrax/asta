@@ -151,6 +151,8 @@
                 <ul>
                   <li><a href="/">Beranda Utama</a></li>
                   <li><a href="/user-guide">Panduan Pengguna</a></li>
+                  <li><a href="/integrasi">Panduan Integrasi BSrE</a></li>
+                  <li><a href="/integrasi/playground">API Playground</a></li>
                   <li><a href="/user-guide#faq">Pertanyaan Umum (FAQ)</a></li>
                   <li><a href="/user-guide#legal">Legalitas Hukum TTE</a></li>
                 </ul>

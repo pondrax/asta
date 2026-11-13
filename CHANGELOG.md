@@ -78,6 +78,22 @@
   Admin     admin only; `hooks.server.ts` 403s every other role on `/main*`
 -->
 
+## 2026-11-13
+
+### Fitur Panduan & API Playground Integrasi BSrE
+
+<!-- id: integrasi-dan-playground-bsre-2026-11-13 -->
+
+Halaman: /integrasi - Panduan Integrasi BSrE
+Audiens: Tamu
+
+- **Baru** - Menambahkan halaman `/integrasi` yang memuat panduan komprehensif integrasi sistem BSrE BSSN, daftar 6 aplikasi OPD yang telah terintegrasi, 11 kriteria wajib sistem, dan alur 6 tahapan integrasi beserta estimasi waktu.
+- **Baru** - Menambahkan halaman `/integrasi/playground` untuk pengujian interaktif endpoint API v2 (Sign PDF, Sign E-Seal, User, Verify PDF).
+- **Baru** - Fitur pemilihan server Dev Client, Prod Client, dan Manual URL dengan autentikasi Basic Auth.
+- **Baru** - Generator cuplikan kode request untuk cURL, PHP, dan JavaScript Fetch.
+- **Baru** - Modal Tool konversi file PDF / Gambar menjadi Base64 dan preview dokumen dari Base64.
+- **Peningkatan** - Penyimpanan nilai placeholder variabel `{{...}}` saat berpindah endpoint API dalam satu sesi.
+
 ## 2026-11-03
 
 ### Peningkatan ruang kerja tanda tangan mobile/tablet, pembersihan rute editor, dan perbaikan tanda tangan

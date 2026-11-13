@@ -23,6 +23,8 @@ export const ROUTE_TITLES: Record<string, string> = {
   "/main/portal-bsre": "Portal BSrE",
   "/main/helpdesk": "Tiket Helpdesk",
   "/helpdesk": "Helpdesk Layanan",
+  "/integrasi": "Panduan Integrasi BSrE",
+  "/integrasi/playground": "API Playground BSrE",
 };
 
 /** Content pages served by /pages/[path]. */
