@@ -1,4 +1,4 @@
-import { env } from "$env/dynamic/private";
+import * as env from '$app/env/private';
 
 /**
  * The one place that talks to the model gateway.

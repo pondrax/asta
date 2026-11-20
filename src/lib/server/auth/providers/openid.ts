@@ -79,6 +79,10 @@ export default class OpenIDOAuth extends OAuthProvider {
       body: body
     });
 
+    if (!response.ok || !response.headers.get('content-type')?.includes('application/json')) {
+      throw new Error(`SSO token request failed (${response.status}): ${(await response.text()).slice(0, 200)}`);
+    }
+
     const data = await response.json();
     // console.log('Token response:', data);
     if (!data.access_token) throw new Error(JSON.stringify(data));

@@ -8,23 +8,23 @@
     getTicket,
     checkIdentity,
     batchCheckBsre,
-  } from "$lib/remotes/helpdesk.remote";
-  import { getData } from "$lib/remotes/api.remote";
+  } from "#lib/remotes/helpdesk.remote.ts";
+  import { getData } from "#lib/remotes/api.remote.ts";
   import {
     SERVICE_LABELS,
     SERVICE_TYPE_LABELS,
     DETERMINATION_LABELS,
     DETERMINATION_COLORS,
     ticketNumber as toTicketNumber,
-  } from "$lib/app/helpdesk";
-  import type { BsreDetermination } from "$lib/app/helpdesk";
+  } from "#lib/app/helpdesk.ts";
+  import type { BsreDetermination } from "#lib/app/helpdesk.ts";
   import type {
     HelpdeskService,
     HelpdeskServiceType,
-  } from "$lib/server/db/schema";
-  import Select from "$lib/components/select.svelte";
-  import Modal from "$lib/components/modal.svelte";
-  import { app } from "$lib/app/index.svelte";
+  } from "#lib/server/db/schema.ts";
+  import Select from "#lib/components/select.svelte";
+  import Modal from "#lib/components/modal.svelte";
+  import { app } from "#lib/app/index.svelte.ts";
   import { onMount, untrack } from "svelte";
   import { fly } from "svelte/transition";
 

@@ -1,4 +1,4 @@
-import { env } from "$env/dynamic/private";
+import * as env from '$app/env/private';
 
 export
   async function validateTurnstile(token: string, remoteip: string) {

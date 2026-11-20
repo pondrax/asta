@@ -1,4 +1,4 @@
-import { env } from "$env/dynamic/private";
+import * as env from '$app/env/private';
 
 export class Esign {
   private async makeRequest(url: string, options: RequestInit, apiKey: string) {

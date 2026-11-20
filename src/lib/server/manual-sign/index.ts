@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import forge from 'node-forge';
-import { prepareVisibleSignature } from '$lib/utils/pdf';
+import { prepareVisibleSignature } from '#lib/utils/pdf.ts';
 
 function ensureRootIdCert() {
   try {

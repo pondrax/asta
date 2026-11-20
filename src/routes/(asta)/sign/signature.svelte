@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { createId, generateQRCode } from "$lib/utils";
+  import { createId, generateQRCode } from "#lib/utils/index.ts";
   import { untrack } from "svelte";
-  import type { SignatureType } from "./types";
+  import type { SignaturePlacement } from "./types";
   type Visual = "image" | "qr" | "box" | "draw";
 
   let {
@@ -15,7 +15,7 @@
   }: {
     form: Record<string, string>;
     hasSignature?: boolean;
-    setSignature: (props: SignatureType) => void;
+    setSignature: (props: SignaturePlacement) => void;
     disabled?: boolean;
     availableVisual?: Visual[];
     visual?: Visual;

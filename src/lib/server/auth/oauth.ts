@@ -1,5 +1,5 @@
 // oauth.ts
-import { createId } from "$lib/utils";
+import { createId } from "#lib/utils/index.ts";
 import { type OAuthConfig, type UserInfo, OAuthProvider } from "./providers/base";
 import providersConfig from "./providers/config";
 import github from "./providers/github";

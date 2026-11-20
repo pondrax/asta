@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { getData, saveData } from "$lib/remotes/api.remote";
-  import { Select } from "$lib/components";
+  import { getData, saveData } from "#lib/remotes/api.remote.ts";
+  import { Select } from "#lib/components/index.ts";
 
   let { data } = $props();
 

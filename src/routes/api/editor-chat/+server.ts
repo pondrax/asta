@@ -6,9 +6,9 @@ import {
   readString,
   tidyModelOutput,
   TRUNCATION_NOTE,
-} from "$lib/server/plugins/ai-gateway";
-import { sanitizeModelText } from "$lib/utils/ai-output";
-import { PLAN_CHAT_APPENDIX, describePlan, parsePlan, type PlanStep } from "$lib/editor-ai-plan";
+} from "#lib/server/plugins/ai-gateway.ts";
+import { sanitizeModelText } from "#lib/utils/ai-output.ts";
+import { PLAN_CHAT_APPENDIX, describePlan, parsePlan, type PlanStep } from "#lib/editor-ai-plan.ts";
 
 /**
  * Free-form document chat for the editor.

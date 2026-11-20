@@ -1,22 +1,22 @@
 <script lang="ts">
   import { fly } from "svelte/transition";
   import { page } from "$app/state";
-  import { env } from "$env/dynamic/public";
-  import { app } from "$lib/app/index.svelte";
-  import { workspace } from "$lib/app/sign-workspace.svelte";
-  import WorkspaceMenuBar from "$lib/components/workspace-menubar.svelte";
-  import Lottie from "$lib/components/lottie.svelte";
-  import Chatbot from "$lib/components/chatbot.svelte";
-  import Changelog from "$lib/components/changelog.svelte";
-  import CookieConsent from "$lib/components/cookie-consent.svelte";
-  import { getPageTitle } from "$lib/app/titles";
+  import * as env from '$app/env/public';
+  import { app } from "#lib/app/index.svelte.ts";
+  import { workspace } from "#lib/app/sign-workspace.svelte.ts";
+  import WorkspaceMenuBar from "#lib/components/workspace-menubar.svelte";
+  import Lottie from "#lib/components/lottie.svelte";
+  import Chatbot from "#lib/components/chatbot.svelte";
+  import Changelog from "#lib/components/changelog.svelte";
+  import CookieConsent from "#lib/components/cookie-consent.svelte";
+  import { getPageTitle } from "#lib/app/titles.ts";
   import {
     changelogSeen,
     countUnseenFor,
     loadChangelogSeen,
-  } from "$lib/app/changelog.svelte";
-  import { getStatus, getAdminCounts } from "$lib/remotes/stats.remote";
-  import { stopImpersonation } from "$lib/remotes/user.remote";
+  } from "#lib/app/changelog.svelte.ts";
+  import { getStatus, getAdminCounts } from "#lib/remotes/stats.remote.ts";
+  import { stopImpersonation } from "#lib/remotes/user.remote.ts";
   let { children, data } = $props();
 
   const user = $derived(data.user);

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { workspace } from "$lib/app/sign-workspace.svelte";
+  import { workspace } from "#lib/app/sign-workspace.svelte.ts";
 </script>
 
 <div
@@ -41,7 +41,7 @@
         {#each menu.items as item, i (i)}
           {#if item === "sep"}
             <li class="menu-separator h-px my-1 bg-base-300"></li>
-          {:else if "label" in item && !item.icon && !item.action && !item.href}
+          {:else if !("icon" in item)}
             <li class="menu-title px-3 pt-2 pb-1 text-[10px] font-semibold tracking-wider uppercase opacity-60">
               {item.label}
             </li>

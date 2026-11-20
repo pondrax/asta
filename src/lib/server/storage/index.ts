@@ -1,8 +1,8 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import crypto from 'crypto';
-import { env } from '$env/dynamic/private';
-import { createId } from '$lib/utils';
+import * as env from '$app/env/private';
+import { createId } from '#lib/utils/index.ts';
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 12; // GCM recommended IV length

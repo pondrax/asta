@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { getData, type GetParams } from "$lib/remotes/api.remote";
-  import { d } from "$lib/utils";
+  import { getData, type GetParams } from "#lib/remotes/api.remote.ts";
+  import { d } from "#lib/utils/index.ts";
 
   let {
     onSelect,

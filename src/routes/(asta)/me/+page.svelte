@@ -1,9 +1,9 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
-  import { Chart, Tour } from "$lib/components";
-  import { app } from "$lib/app/index.svelte";
-  import { d } from "$lib/utils";
-  import { getDashboard } from "$lib/remotes/stats.remote";
+  import { Chart, Tour } from "#lib/components/index.ts";
+  import { app } from "#lib/app/index.svelte.ts";
+  import { d } from "#lib/utils/index.ts";
+  import { getDashboard } from "#lib/remotes/stats.remote.ts";
 
   const dashData = getDashboard({});
   const dash = $derived(dashData.current);

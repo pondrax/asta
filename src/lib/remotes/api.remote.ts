@@ -1,11 +1,11 @@
 import { form, getRequestEvent, query } from "$app/server";
-import { db } from "$lib/server/db";
-import { documents } from "$lib/server/db/schema";
+import { db } from "#lib/server/db/index.ts";
+import { documents } from "#lib/server/db/schema.ts";
 import { eq, inArray, sql, type BuildQueryResult, type DBQueryConfig, type SQL } from "drizzle-orm";
-import { FileStorage } from "$lib/server/storage";
+import { FileStorage } from "#lib/server/storage/index.ts";
 
 const storage = new FileStorage;
-import type { relations } from "$lib/server/db/relations";
+import type { relations } from "#lib/server/db/relations.ts";
 
 export type Tables = typeof db.query;
 export type TableName = keyof Tables;

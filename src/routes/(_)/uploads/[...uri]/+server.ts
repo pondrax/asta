@@ -1,4 +1,4 @@
-import { FileStorage } from '$lib/server/storage';
+import { FileStorage } from '#lib/server/storage/index.ts';
 import { json } from '@sveltejs/kit';
 
 export async function GET({ params }) {

@@ -1,16 +1,16 @@
 import { command, getRequestEvent, query } from "$app/server";
-import { db } from "$lib/server/db";
-import { Logger } from "$lib/server/log";
-import { FileStorage } from "$lib/server/storage";
-import { base64ToBlob, calculateFileChecksum, createId } from "$lib/utils";
+import { db } from "#lib/server/db/index.ts";
+import { Logger } from "#lib/server/log/index.ts";
+import { FileStorage } from "#lib/server/storage/index.ts";
+import { base64ToBlob, calculateFileChecksum, createId } from "#lib/utils/index.ts";
 import { type } from "arktype";
 import dayjs from "dayjs";
 import { sql } from "drizzle-orm";
 import { Esign } from "../server/plugins/esign";
-import { validateTurnstile } from "$lib/server/plugins/turnstile";
-import { hashPasscode, verifyPasscode } from "$lib/server/passcode";
-import type { StatisticMode } from "$lib/server/db/schema";
-import { signPdfManually } from "$lib/server/manual-sign";
+import { validateTurnstile } from "#lib/server/plugins/turnstile.ts";
+import { hashPasscode, verifyPasscode } from "#lib/server/passcode.ts";
+import type { StatisticMode } from "#lib/server/db/schema.ts";
+import { signPdfManually } from "#lib/server/manual-sign/index.ts";
 
 const storage = new FileStorage;
 const logger = new Logger;
@@ -171,7 +171,7 @@ export const signDocument = command(type({
         return { error: err?.message || 'Gagal menandatangani dokumen secara manual' }
       }
     } else {
-      response = await esign.signPDF(props);
+      response = await esign.signPDF({ ...props, passphrase: props.passphrase as string });
 
       if (response.status >= 500) {
         return {

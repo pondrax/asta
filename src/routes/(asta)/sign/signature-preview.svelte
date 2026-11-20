@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { generateQRCode } from "$lib/utils";
-  import { setVisualDrag } from "$lib/app/visual-drag.svelte";
+  import { generateQRCode } from "#lib/utils/index.ts";
+  import { getVisualDrag, setVisualDrag } from "#lib/app/visual-drag.svelte.ts";
 
   type Visual = "qr" | "box";
   type AddPayload = {

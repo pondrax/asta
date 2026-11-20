@@ -1,12 +1,12 @@
 <script lang="ts">
   import { onMount, onDestroy, untrack, tick } from "svelte";
-  import { app } from "$lib/app/index.svelte";
+  import { app } from "#lib/app/index.svelte.ts";
   import {
     setupDocxEditor,
     type DocxEditorSetupHandle,
     type DocxSelectionFormatting,
-  } from "$lib/docx-editor/editor-logic";
-  import "$lib/docx-editor/editor.css";
+  } from "#lib/docx-editor/editor-logic.ts";
+  import "#lib/docx-editor/editor.css";
 
   export type DocxEditorViewHandle = {
     saveAsPdfFile: () => Promise<File>;

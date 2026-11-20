@@ -1,17 +1,17 @@
 <script lang="ts">
-  import { debounce } from "$lib/utils";
+  import { debounce } from "#lib/utils/index.ts";
   import Signature from "./signature.svelte";
   import SignaturePreview from "./signature-preview.svelte";
   import { type } from "arktype";
-  import { getData } from "$lib/remotes/api.remote";
-  import { Select } from "$lib/components";
+  import { getData } from "#lib/remotes/api.remote.ts";
+  import { Select } from "#lib/components/index.ts";
   import {
     getBsreProfile,
     listProfiles,
     saveProfile,
     deleteProfile,
     type ProfileIdentity,
-  } from "$lib/remotes/profile.remote";
+  } from "#lib/remotes/profile.remote.ts";
 
   let {
     data,
@@ -29,6 +29,7 @@
     onSign,
     onAddVisual,
     useEmail = $bindable(true),
+    onIdentityResolved,
   } = $props();
 
   let visual = $state<"image" | "qr" | "box" | "draw">("box");

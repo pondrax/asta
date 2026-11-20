@@ -5,14 +5,14 @@
     addComment,
     verifyPhoneAccess,
     createEmailPrerequisite,
-  } from "$lib/remotes/helpdesk.remote";
+  } from "#lib/remotes/helpdesk.remote.ts";
   import {
     STATUS_LABELS,
     STAGE_LABELS,
     SERVICE_TYPE_LABELS,
     stageFlow,
-  } from "$lib/app/helpdesk";
-  import { Modal, Preview } from "$lib/components";
+  } from "#lib/app/helpdesk.ts";
+  import { Modal, Preview } from "#lib/components/index.ts";
   import { onMount } from "svelte";
 
   const id = page.params.id as string;

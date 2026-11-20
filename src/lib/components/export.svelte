@@ -6,8 +6,8 @@
     loading: boolean
   }"
 >
-  import { d } from "$lib/utils";
-  import { getData } from "$lib/remotes/api.remote";
+  import { d } from "#lib/utils/index.ts";
+  import { getData } from "#lib/remotes/api.remote.ts";
 
   type Item = NonNullable<T["current"]>["data"][number];
   type Props = {

@@ -8,7 +8,7 @@ import type {
   HelpdeskServiceType,
   HelpdeskStage,
   HelpdeskStatus,
-} from "$lib/server/db/schema";
+} from "#lib/server/db/schema.ts";
 
 export const SERVICE_LABELS: Record<HelpdeskService, string> = {
   email: "Email Pegawai",

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { SvelteSet } from "svelte/reactivity";
   import { page } from "$app/state";
-  import { Toolbar, Chart, Modal } from "$lib/components";
+  import { Toolbar, Chart, Modal } from "#lib/components/index.ts";
   import {
     closeBsre,
     fetchBsreUsers,
@@ -14,10 +14,10 @@
     getBsreUserCerts,
     resetCertPassphrase,
     requestEsignCert,
-  } from "$lib/remotes/bsre.remote";
-  import { getData, type GetParams } from "$lib/remotes/api.remote";
-  import { d } from "$lib/utils";
-  import { app } from "$lib/app/index.svelte";
+  } from "#lib/remotes/bsre.remote.ts";
+  import { getData, type GetParams } from "#lib/remotes/api.remote.ts";
+  import { d } from "#lib/utils/index.ts";
+  import { app } from "#lib/app/index.svelte.ts";
 
   const userId = $derived(page.data.user?.id ?? page.data.user?.email ?? "");
 

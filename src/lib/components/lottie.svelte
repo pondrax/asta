@@ -1,6 +1,6 @@
 <script lang="ts">
   import lottie from "lottie-web";
-  import { app } from "$lib/app/index.svelte";
+  import { app } from "#lib/app/index.svelte.ts";
 
   /**
    * `monochrome` recolours the animation to match the app theme, which is what

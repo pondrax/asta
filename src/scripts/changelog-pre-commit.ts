@@ -264,7 +264,7 @@ function main() {
     return;
   }
 
-  const commitInfo = parseCommitMessage();
+  const commitInfo = parseCommitMessage(staged);
   if (!commitInfo) return;
 
   const { subject, body, summary, kind, route } = commitInfo;
@@ -309,7 +309,7 @@ function hasUnstagedChangelogEdits(): boolean {
   return gitQuiet(["diff", "--name-only", "--", "CHANGELOG.md"]).trim() !== "";
 }
 
-function parseCommitMessage(): CommitInfo | null {
+function parseCommitMessage(staged: string[]): CommitInfo | null {
   const raw = pendingMessage();
   if (!raw) {
     console.log(

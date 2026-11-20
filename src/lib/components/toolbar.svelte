@@ -6,8 +6,8 @@
     loading: boolean
   }"
 >
-  import { d, getLeafValues } from "$lib/utils";
-  import { defForOp } from "$lib/utils/filters";
+  import { d, getLeafValues } from "#lib/utils/index.ts";
+  import { defForOp } from "#lib/utils/filters.ts";
   import Export from "./export.svelte";
   import Modal from "./modal.svelte";
 

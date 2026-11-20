@@ -1,4 +1,4 @@
-import { db } from "$lib/server/db";
+import { db } from "#lib/server/db/index.ts";
 import { json } from "@sveltejs/kit";
 
 export async function GET() {

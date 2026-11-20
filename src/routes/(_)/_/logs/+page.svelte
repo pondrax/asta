@@ -5,10 +5,10 @@
     deleteCollectionRows,
     getLogStats,
     type CollectionSchema,
-  } from "$lib/remotes/collections.remote";
-  import { type GetParams } from "$lib/remotes/api.remote";
-  import { Toolbar, Modal, Chart } from "$lib/components";
-  import { d } from "$lib/utils";
+  } from "#lib/remotes/collections.remote.ts";
+  import { type GetParams } from "#lib/remotes/api.remote.ts";
+  import { Toolbar, Modal, Chart } from "#lib/components/index.ts";
+  import { d } from "#lib/utils/index.ts";
 
   let query: GetParams<any> = $state({
     table: "__logs",

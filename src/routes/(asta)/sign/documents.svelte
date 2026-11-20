@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { formatFileSize } from "$lib/utils";
+  import { formatFileSize } from "#lib/utils/index.ts";
 
   let {
     documents = $bindable({}),

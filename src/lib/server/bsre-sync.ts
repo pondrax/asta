@@ -144,8 +144,16 @@ export async function acquireToken(userId: string): Promise<string | null> {
   }
   console.debug("[bsre] acquireToken — after settle, url:", session.page.url());
 
+  const currentUrl = new URL(session.page.url());
+  // A failed navigation leaves Chrome on chrome-error://, where localStorage is
+  // inaccessible — bail out instead of throwing a SecurityError below.
+  if (currentUrl.protocol !== "http:" && currentUrl.protocol !== "https:") {
+    console.error("[bsre] acquireToken — browser failed to load portal, url:", currentUrl.href);
+    return null;
+  }
+
   // Handle BEID login if needed
-  const isBeid = new URL(session.page.url()).hostname.includes(BEID_HOST);
+  const isBeid = currentUrl.hostname.includes(BEID_HOST);
   if (isBeid) {
     console.log("[bsre] acquireToken — on BEID, handling login");
     await handleBeIDLogin(session.page);

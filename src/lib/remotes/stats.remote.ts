@@ -1,12 +1,12 @@
 import { getRequestEvent, query } from "$app/server";
-import { db } from "$lib/server/db";
-import { __logs, bsreUsers, dailyStatistics, documents, surveyResponses, users } from "$lib/server/db/schema";
-import { FileStorage } from "$lib/server/storage";
+import { db } from "#lib/server/db/index.ts";
+import { __logs, bsreUsers, dailyStatistics, documents, surveyResponses, users } from "#lib/server/db/schema.ts";
+import { FileStorage } from "#lib/server/storage/index.ts";
 import dayjs from "dayjs";
 import isoWeek from "dayjs/plugin/isoWeek";
 import { promises as fs } from "fs";
 import path from "path";
-import { env } from "$env/dynamic/private";
+import * as env from '$app/env/private';
 import { sql } from "drizzle-orm";
 
 dayjs.extend(isoWeek);

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy, untrack } from "svelte";
   import type { ApexOptions } from "apexcharts";
-  import { browser } from "$app/environment";
+  import { browser } from "$app/env";
 
   let {
     data = [],

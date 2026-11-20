@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from "$app/state";
-  import { submitTicketSurvey } from "$lib/remotes/helpdesk.remote";
+  import { submitTicketSurvey } from "#lib/remotes/helpdesk.remote.ts";
 
   const id = page.params.id as string;
 

@@ -6,10 +6,10 @@
     deleteCollectionRows,
     getCollectionData,
     type CollectionSchema,
-  } from "$lib/remotes/collections.remote";
-  import { type GetParams } from "$lib/remotes/api.remote";
-  import { Toolbar, Modal } from "$lib/components";
-  import { d } from "$lib/utils";
+  } from "#lib/remotes/collections.remote.ts";
+  import { type GetParams } from "#lib/remotes/api.remote.ts";
+  import { Toolbar, Modal } from "#lib/components/index.ts";
+  import { d } from "#lib/utils/index.ts";
   import {
     OPERATORS,
     defaultOpFor,
@@ -20,8 +20,8 @@
     type FilterRow,
     type FilterOpId,
     type OperatorDef,
-  } from "$lib/utils/filters";
-  import { app } from "$lib/app/index.svelte";
+  } from "#lib/utils/filters.ts";
+  import { app } from "#lib/app/index.svelte.ts";
   import { untrack } from "svelte";
 
   const collections = $derived(getCollections({}));

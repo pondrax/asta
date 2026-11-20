@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
-  import { app } from "$lib/app/index.svelte";
-  import { DOCX_MIME, convertDocxToPdf, isDocx, isPdf } from "$lib/utils/docx";
+  import { app } from "#lib/app/index.svelte.ts";
+  import { DOCX_MIME, convertDocxToPdf, isDocx, isPdf } from "#lib/utils/docx.ts";
 
   let {
     children,

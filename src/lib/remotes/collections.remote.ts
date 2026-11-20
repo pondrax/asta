@@ -1,15 +1,15 @@
 import { query, form } from "$app/server";
-import { db } from '$lib/server/db';
-import { checkAdmin } from '$lib/utils/server';
+import { db } from '#lib/server/db/index.ts';
+import { checkAdmin } from '#lib/utils/server.ts';
 import {
   ALLOWED_OPERATORS,
   defForOp,
   filterKind,
   normalizeIncomingValue,
   normalizeValue,
-} from '$lib/utils/filters';
+} from '#lib/utils/filters.ts';
 import { eq, inArray, getColumns } from 'drizzle-orm';
-import * as schema from '$lib/server/db/schema';
+import * as schema from '#lib/server/db/schema.ts';
 
 export interface CollectionSchema {
   name: string;
@@ -50,7 +50,7 @@ export const getCollections = query('unchecked', async () => {
         isNullable: !col.notNull,
         // pg array columns are plain `PgText`/etc. with `dimensions > 0`;
         // `columnType.includes('Array')` never matches.
-        isArray: (col as { dimensions?: number }).dimensions != null && (col as { dimensions?: number }).dimensions > 0,
+        isArray: ((col as { dimensions?: number }).dimensions ?? 0) > 0,
         defaultValue: col.default,
       }))
 

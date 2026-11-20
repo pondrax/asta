@@ -1,6 +1,6 @@
 <script lang="ts">
-  import Lottie from "$lib/components/lottie.svelte";
-  import { getStats } from "$lib/remotes/stats.remote";
+  import Lottie from "#lib/components/lottie.svelte";
+  import { getStats } from "#lib/remotes/stats.remote.ts";
 
   let { children } = $props();
   const stats = getStats({});

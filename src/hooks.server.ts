@@ -1,13 +1,14 @@
-import { redirect, type Handle, type HandleValidationError } from '@sveltejs/kit';
-import { paraglideMiddleware } from '$lib/paraglide/server';
-import { verifyJWT } from '$lib/server/plugins/jwt';
+import { redirect } from '@sveltejs/kit';
+import type { Handle } from '@sveltejs/kit/hooks';
+import { paraglideMiddleware } from '#lib/paraglide/server.js';
+import { verifyJWT } from '#lib/server/plugins/jwt.ts';
 import { sequence } from '@sveltejs/kit/hooks';
-import { db } from '$lib/server/db';
-import { startCron } from '$lib/server/cron';
-import { migrateEncryption } from '$lib/../scripts/migrate-encryption';
+import { db } from '#lib/server/db/index.ts';
+import { startCron } from '#lib/server/cron.ts';
+import { migrateEncryption } from './scripts/migrate-encryption.ts';
 
 const handleParaglide: Handle = ({ event, resolve }) => paraglideMiddleware(event.request, ({ request, locale }) => {
-  event.request = request;
+  Object.assign(event, { request });
 
   return resolve(event, {
     transformPageChunk: ({ html }) => html.replace('%paraglide.lang%', locale)
@@ -104,10 +105,3 @@ if (cliArgs.includes('migrate')) {
 
 startCron();
 
-export const handleValidationError: HandleValidationError = ({ issues }) => {
-  return {
-    message: 'Validation Errors',
-    //@ts-ignore - the summary property exists at runtime but is not in the type definition
-    issues: issues?.summary || issues,
-  };
-};

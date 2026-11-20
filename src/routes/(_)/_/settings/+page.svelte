@@ -5,8 +5,8 @@
     upsertData,
     deleteCollectionRows,
     type CollectionSchema,
-  } from "$lib/remotes/collections.remote";
-  import { Toolbar, Modal } from "$lib/components";
+  } from "#lib/remotes/collections.remote.ts";
+  import { Toolbar, Modal } from "#lib/components/index.ts";
 
   let query = $state({
     table: "__setting",

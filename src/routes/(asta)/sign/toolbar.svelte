@@ -3,9 +3,9 @@
   import type {
     SignatureVerificationResponse,
     VerifyDate,
-  } from "$lib/types/verify";
-  import type { SignatureVerification } from "$lib/utils/pdf";
-  import type { DocxSelectionFormatting } from "$lib/docx-editor/editor-logic";
+  } from "#lib/types/verify.ts";
+  import type { SignatureVerification } from "#lib/utils/pdf.ts";
+  import type { DocxSelectionFormatting } from "#lib/docx-editor/editor-logic.ts";
 
   export type SignTool =
     | "select"

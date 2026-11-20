@@ -1,6 +1,6 @@
 import { form, query, getRequestEvent } from "$app/server";
 import { error } from "@sveltejs/kit";
-import { db } from "$lib/server/db";
+import { db } from "#lib/server/db/index.ts";
 import { getColumns } from "drizzle-orm";
 import fs from "fs/promises";
 import path from "path";

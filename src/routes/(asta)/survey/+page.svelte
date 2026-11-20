@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from "$app/state";
-  import { submitSurvey } from "$lib/remotes/survey.remote";
+  import { submitSurvey } from "#lib/remotes/survey.remote.ts";
 
   let rating = $state(0);
   let feedback = $state("");

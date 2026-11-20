@@ -6,14 +6,14 @@ import { customType, text, timestamp } from 'drizzle-orm/pg-core';
 /**
  * Bun-compatible access to private environment variables.
  *
- * Prefers SvelteKit's `$env/dynamic/private` (resolved by Vite); falls back to
+ * Prefers SvelteKit's `$app/env/private` (resolved by Vite); falls back to
  * `process.env` (loading `.env` from disk for Node processes, since Bun
  * auto-loads it).
  */
 export async function resolveEnv(): Promise<Record<string, string | undefined>> {
   try {
-    const { env } = await import(/* @vite-ignore */ '$env/dynamic/private');
-    return env;
+    const env = await import('$app/env/private');
+    return env as unknown as Record<string, string | undefined>;
   } catch {
     // Not running under Vite — load .env if needed (Node ≥20.12), then use process.env
     if (!process.env.DATABASE_URL) {

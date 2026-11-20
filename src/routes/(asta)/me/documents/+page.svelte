@@ -1,8 +1,8 @@
 <script lang="ts">
   import { page } from "$app/state";
-  import { delData, getData, type GetParams } from "$lib/remotes/api.remote";
-  import { Modal, Toolbar, Preview } from "$lib/components";
-  import { d } from "$lib/utils";
+  import { delData, getData, type GetParams } from "#lib/remotes/api.remote.ts";
+  import { Modal, Toolbar, Preview } from "#lib/components/index.ts";
+  import { d } from "#lib/utils/index.ts";
 
   const expand = {
     with: {

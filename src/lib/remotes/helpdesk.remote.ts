@@ -2,7 +2,7 @@ import { command, getRequestEvent, query } from "$app/server";
 import { error } from "@sveltejs/kit";
 import { type } from "arktype";
 import { and, count, eq, gte, or, sql } from "drizzle-orm";
-import { db } from "$lib/server/db";
+import { db } from "#lib/server/db/index.ts";
 import {
   documents,
   helpdesk,
@@ -15,18 +15,18 @@ import {
   type HelpdeskServiceType,
   type HelpdeskStage,
   type HelpdeskStatus,
-} from "$lib/server/db/schema";
+} from "#lib/server/db/schema.ts";
 import {
   SERVICE_TYPE_LABELS,
   STATUS_LABELS,
   ticketNumber as toTicketNumber,
-} from "$lib/app/helpdesk";
-import { FileStorage } from "$lib/server/storage";
-import { sendWhatsAppText } from "$lib/server/notify";
-import { resolveEnv } from "$lib/server/db/utils";
-import { createId } from "$lib/utils";
+} from "#lib/app/helpdesk.ts";
+import { FileStorage } from "#lib/server/storage/index.ts";
+import { sendWhatsAppText } from "#lib/server/notify.ts";
+import { resolveEnv } from "#lib/server/db/utils.ts";
+import { createId } from "#lib/utils/index.ts";
 import { checkNip } from "./bkpsdm.remote";
-import pppk from "$lib/server/db/data/pppk";
+import pppk from "#lib/server/db/data/pppk.ts";
 
 // Local PPPK registry → canonical e-mail per NIP. PPPK accounts are keyed by
 // e-mail, so a NIP that hits this list must be matched against bsre_users via
@@ -303,7 +303,7 @@ export const lookupTicket = command(
 
     const ticket = await db.query.helpdesk.findFirst({
       where: {
-        id: { contains: raw }
+        id: { ilike: `%${raw}%` }
       },
       columns: { id: true, requesterPhone: true },
     });

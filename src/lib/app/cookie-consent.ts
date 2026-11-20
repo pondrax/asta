@@ -1,4 +1,4 @@
-import { dev } from "$app/environment";
+import { dev } from "$app/env";
 
 /**
  * Cookie consent, shared by the server (read/write) and the client (render).

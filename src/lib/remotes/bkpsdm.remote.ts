@@ -1,6 +1,6 @@
 import { query } from "$app/server";
 import { type } from "arktype";
-import { env } from "$env/dynamic/private";
+import * as env from '$app/env/private';
 
 const BKPSDM_BASE = "https://bkpsdm.mojokertokota.go.id/pegawai/api";
 

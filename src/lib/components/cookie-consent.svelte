@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type { ConsentChoice } from "$lib/app/cookie-consent";
-  import { setCookieConsent } from "$lib/remotes/consent.remote";
+  import type { ConsentChoice } from "#lib/app/cookie-consent.ts";
+  import { setCookieConsent } from "#lib/remotes/consent.remote.ts";
 
   /**
    * The decision made during SSR, passed down from the root layout's `load`.

@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { getSchema, modifySchema } from "$lib/remotes/designer.remote";
-  import { Modal } from "$lib/components";
-  import { app } from "$lib/app/index.svelte";
+  import { getSchema, modifySchema } from "#lib/remotes/designer.remote.ts";
+  import { Modal } from "#lib/components/index.ts";
+  import { app } from "#lib/app/index.svelte.ts";
   import { untrack } from "svelte";
 
   // Data fetching - following the project's reactive pattern

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { debounce } from "$lib/utils";
-  import { checkUser } from "$lib/remotes/sign.remote";
+  import { debounce } from "#lib/utils/index.ts";
+  import { checkUser } from "#lib/remotes/sign.remote.ts";
 
   let {
     form = $bindable({}),

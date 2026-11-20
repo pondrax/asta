@@ -1,5 +1,5 @@
 import { command } from "$app/server";
-import { AI } from "$lib/server/plugins/ai";
+import { AI } from "#lib/server/plugins/ai.ts";
 
 const ai = new AI();
 

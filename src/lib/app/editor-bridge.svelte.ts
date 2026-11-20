@@ -12,7 +12,7 @@
  * toolbar can do, which is not what anyone wants from a chat box.
  */
 
-import type { PlanStep } from "$lib/editor-ai-plan";
+import type { PlanStep } from "#lib/editor-ai-plan.ts";
 
 export type ApplyMode = "replace" | "insert";
 

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from "$app/state";
-  import Lottie from "$lib/components/lottie.svelte";
+  import Lottie from "#lib/components/lottie.svelte";
 
   // The animation is the nicer robot, the image is the fallback for when it
   // cannot be loaded.

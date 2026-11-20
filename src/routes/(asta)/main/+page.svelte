@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { Chart, Tour } from "$lib/components";
-  import { app } from "$lib/app/index.svelte";
-  import { d } from "$lib/utils";
-  import { getAdminDashboard, getDiskUsage } from "$lib/remotes/stats.remote";
-  import { getBsreStats } from "$lib/remotes/bsre.remote";
+  import { Chart, Tour } from "#lib/components/index.ts";
+  import { app } from "#lib/app/index.svelte.ts";
+  import { d } from "#lib/utils/index.ts";
+  import { getAdminDashboard, getDiskUsage } from "#lib/remotes/stats.remote.ts";
+  import { getBsreStats } from "#lib/remotes/bsre.remote.ts";
 
   const dashData = getAdminDashboard({});
   const dash = $derived(dashData.current);

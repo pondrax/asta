@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { env } from "$env/dynamic/public";
-  import { app } from "$lib/app/index.svelte";
-  import { chat } from "$lib/app/chat.svelte";
-  import { workspace } from "$lib/app/sign-workspace.svelte";
-  import { getVisualDrag, setVisualDrag } from "$lib/app/visual-drag.svelte";
-  import WorkspaceMenuBar from "$lib/components/workspace-menubar.svelte";
+  import * as env from '$app/env/public';
+  import { app } from "#lib/app/index.svelte.ts";
+  import { chat } from "#lib/app/chat.svelte.ts";
+  import { workspace } from "#lib/app/sign-workspace.svelte.ts";
+  import { getVisualDrag, setVisualDrag } from "#lib/app/visual-drag.svelte.ts";
+  import WorkspaceMenuBar from "#lib/components/workspace-menubar.svelte";
   import {
     type PlacementType,
     type SignaturePlacement,
@@ -12,25 +12,25 @@
     type CheckboxPlacement,
     normalizePlacement,
   } from "./types";
-  import * as pdfLib from "$lib/utils/pdf";
-  import { Modal, Tour, type TourStep } from "$lib/components";
-  import { submitSurvey } from "$lib/remotes/survey.remote";
+  import * as pdfLib from "#lib/utils/pdf.ts";
+  import { Modal, Tour, type TourStep } from "#lib/components/index.ts";
+  import { submitSurvey } from "#lib/remotes/survey.remote.ts";
   import Documents from "./documents.svelte";
   import Metadata from "./metadata.svelte";
   import SignerEmail from "./signer-email.svelte";
   import Preview, {
     type PreviewController,
     type PreviewState,
-  } from "$lib/components/preview.svelte";
+  } from "#lib/components/preview.svelte";
   import Upload from "./upload.svelte";
   import DocxEditorView, { type DocxEditorViewHandle } from "./docx-editor-view.svelte";
-  import type { DocxSelectionFormatting } from "$lib/docx-editor/editor-logic";
+  import type { DocxSelectionFormatting } from "#lib/docx-editor/editor-logic.ts";
   import { AUTO_ZOOM_MODE, FIT_WIDTH_ZOOM_MODE } from "@docx-editor.dev/core/editor";
   import Signature from "./signature.svelte";
   import Template from "../templates/template.svelte";
   import Toolbar, { type SignTool } from "./toolbar.svelte";
   import VerifyPanel from "./verify-panel.svelte";
-  import type { SignatureVerificationResponse } from "$lib/types/verify";
+  import type { SignatureVerificationResponse } from "#lib/types/verify.ts";
   import VerifyScan from "./verify-scan.svelte";
   import PageNav from "./page-nav.svelte";
   import {
@@ -41,24 +41,24 @@
     generateQRCode,
     d,
     base64ToBlob,
-  } from "$lib/utils";
+  } from "#lib/utils/index.ts";
   import {
     checkPasscode,
     getDocument,
     signDocument,
     verifyDocument,
     verifyTurnstile,
-  } from "$lib/remotes/sign.remote";
-  import { getData } from "$lib/remotes/api.remote";
+  } from "#lib/remotes/sign.remote.ts";
+  import { getData } from "#lib/remotes/api.remote.ts";
 
   import { PDF } from "@libpdf/core";
   import { onMount, tick } from "svelte";
   import { page } from "$app/state";
-  import Dragresize from "$lib/components/dragresize.svelte";
-  import { sendMessage } from "$lib/remotes/whatsapp.remote";
-  import { takeSignFile } from "$lib/utils/sign-handoff";
-  import { vault } from "$lib/utils/vault";
-  import { createZip } from "$lib/utils/zip";
+  import Dragresize from "#lib/components/dragresize.svelte";
+  import { sendMessage } from "#lib/remotes/whatsapp.remote.ts";
+  import { takeSignFile } from "#lib/utils/sign-handoff.ts";
+  import { vault } from "#lib/utils/vault.ts";
+  import { createZip } from "#lib/utils/zip.ts";
   import "./sign.css";
 
   const { data } = $props();
@@ -950,6 +950,24 @@
     }
   }
 
+  // Touch drags are announced as custom window events by `SignaturePreview`.
+  $effect(() => {
+    const onMove = (e: Event) =>
+      updateDragPreview(
+        (e as CustomEvent<{ clientX: number; clientY: number }>).detail,
+      );
+    const onDrop = (e: Event) =>
+      handleTouchDrop(
+        (e as CustomEvent<{ clientX: number; clientY: number }>).detail,
+      );
+    window.addEventListener("visual-touch-move", onMove);
+    window.addEventListener("visual-touch-drop", onDrop);
+    return () => {
+      window.removeEventListener("visual-touch-move", onMove);
+      window.removeEventListener("visual-touch-drop", onDrop);
+    };
+  });
+
   function isEditableTarget(t: EventTarget | null) {
     const el = t as HTMLElement | null;
     if (!el) return false;
@@ -1193,7 +1211,7 @@
                   shortcut: "Ctrl+V",
                   action: () => docxEditorCtl?.runCommand("clipboard.paste"),
                 },
-                "sep",
+                "sep" as const,
                 {
                   icon: "bx:select-multiple",
                   label: "Pilih Semua (Select All)",
@@ -1547,7 +1565,7 @@
     id?: string,
     useFooter = form.footer,
   ) {
-    let buffer: ArrayBuffer = await file.arrayBuffer();
+    let buffer: Uint8Array | ArrayBuffer = await file.arrayBuffer();
 
     if (!id) id = activeIndex;
 
@@ -1971,7 +1989,7 @@
     if (docxSaveName.trim()) {
       workspace.docName = docxSaveName.trim();
       if (docxEditorCtl?.handle?.editor) {
-        const fnInput = docxEditorCtl.handle.editor.container?.querySelector("#filenameInput") as HTMLInputElement;
+        const fnInput = document.getElementById("filenameInput") as HTMLInputElement | null;
         if (fnInput) fnInput.value = docxSaveName.trim();
       }
     }
@@ -2647,8 +2665,6 @@
       removePlacement(selectedId);
     }
   }}
-  on:visual-touch-move={(e: any) => updateDragPreview(e.detail)}
-  on:visual-touch-drop={(e: any) => handleTouchDrop(e.detail)}
 />
 
 <div
@@ -3418,7 +3434,9 @@
             {setSignature}
             onAddVisual={placePreviewVisual}
             onSign={openSign}
-          />
+          >
+            {#snippet children()}{/snippet}
+          </Metadata>
         {/if}
       </div>
     </aside>
@@ -3621,8 +3639,12 @@
                       imageBase64: visibleSignature.imageBase64,
                     },
                   );
-                  fileBase64 = pdfLib.toBase64(prepared.bytes);
-                  signatureField = prepared.fieldName;
+                  if (typeof prepared === "string") {
+                    signatureField = prepared;
+                  } else {
+                    fileBase64 = pdfLib.toBase64(prepared.bytes);
+                    signatureField = prepared.fieldName;
+                  }
                 }
 
                 const fileName = asTemplate
@@ -3669,17 +3691,17 @@
                 };
                 const signing = await signDocument(props);
 
-                if (signing?.retry) {
+                if (signing && "retry" in signing && signing.retry) {
                   forms.sign!.__error = signing.message;
                   continue;
                 }
-                if (signing?.error) {
+                if (signing && "error" in signing && signing.error) {
                   forms.sign!.__error = signing.error;
                   abortSigning = true;
                   return null;
                 }
 
-                if (signing?.file?.at(0)) {
+                if (signing && "file" in signing && signing.file?.at(0)) {
                   forms.sign!.__error = "";
                   item.completed.push(id);
                   signResults.push({

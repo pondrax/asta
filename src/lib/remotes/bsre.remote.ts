@@ -1,9 +1,9 @@
 import { command, query } from "$app/server";
 import { type } from "arktype";
 import { and, eq } from "drizzle-orm";
-import { db } from "$lib/server/db";
-import { bsreUsers } from "$lib/server/db/schema";
-import type { BsreCertStatus, BsreUserStatus } from "$lib/server/db/schema";
+import { db } from "#lib/server/db/index.ts";
+import { bsreUsers } from "#lib/server/db/schema.ts";
+import type { BsreCertStatus, BsreUserStatus } from "#lib/server/db/schema.ts";
 import {
   cacheToken,
   closeSession,
@@ -12,7 +12,7 @@ import {
   sessionInfo,
   sessions,
   tokenStore,
-} from "$lib/server/browser";
+} from "#lib/server/browser.ts";
 import {
   acquireToken,
   BEID_HOST,
@@ -22,7 +22,7 @@ import {
   listUserCerts,
   requestEsignCertCore,
   resetCertPassphraseCore,
-} from "$lib/server/bsre-sync";
+} from "#lib/server/bsre-sync.ts";
 
 export const launchBsre = command(
   type({ userId: "string" }),

@@ -1,4 +1,4 @@
-import type { ApplyMode, PlanResult } from "$lib/app/editor-bridge.svelte";
+import type { ApplyMode, PlanResult } from "#lib/app/editor-bridge.svelte.ts";
 import {
   createDocxEditor,
   runToolbarCommand,
@@ -34,8 +34,8 @@ import type {
 // editor entry re-exports commands, not the selection shapes they consume.
 import type { EditorSelection } from "@docx-editor.dev/core/contracts/editor";
 import { packagedFonts } from "@docx-editor.dev/fonts";
-import { runPlan, readDocumentStructure, applyTextWithTables } from "$lib/editor-ai-executor";
-import type { PlanStep } from "$lib/editor-ai-plan";
+import { runPlan, readDocumentStructure, applyTextWithTables } from "#lib/editor-ai-executor.ts";
+import type { PlanStep } from "#lib/editor-ai-plan.ts";
 
 /** Selection formatting snapshot returned by `query({ type: "selectionFormatting" })`. */
 type RunFormatting = NonNullable<ReturnType<DocxEditorInstance["snapshot"]>["formatting"]>;
@@ -880,7 +880,7 @@ export function setupDocxEditor(root: HTMLElement, opts: DocxEditorSetupOptions)
     } else if (formatting.color?.kind === "theme") {
       const resolved = resolveThemeColorHex(
         formatting.color,
-        editor.getDocumentThemeColors(),
+        editor.getDocumentThemeColors() as Parameters<typeof resolveThemeColorHex>[1],
       );
       if (resolved.ok) colorHex = resolved.hex.replace(/^#/, "").toUpperCase();
     }
@@ -3037,6 +3037,7 @@ function getSuccessMessage(tables: number, insertedInstead: boolean): string {
   }
 
   function findCurrentPage(total: number): number | null {
+    if (!editor) return null;
     const pages = editorContainer?.querySelectorAll<HTMLElement>(".docx-page");
     if (pages?.length && documentViewport) {
       const viewportRect = documentViewport.getBoundingClientRect();
@@ -3068,6 +3069,7 @@ function getSuccessMessage(tables: number, insertedInstead: boolean): string {
   }
 
   function updatePageStatusUI(current: number, total: number): void {
+    if (!pageStatus) return;
     pageStatus.textContent = `Page ${current} of ${total}`;
     if (pageTotal) pageTotal.textContent = String(total);
     if (pageInput && document.activeElement !== pageInput) {

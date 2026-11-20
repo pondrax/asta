@@ -1,8 +1,8 @@
 <script lang="ts">
   import "iconify-icon";
   import "../app.css";
-  import { app } from "$lib/app/index.svelte";
-  import { dev } from "$app/environment";
+  import { app } from "#lib/app/index.svelte.ts";
+  import { dev } from "$app/env";
   import { updated } from "$app/state";
   import { onMount } from "svelte";
 

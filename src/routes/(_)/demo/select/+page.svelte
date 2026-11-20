@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { Select } from "$lib/components";
-  import type { TableRow } from "$lib/remotes/api.remote";
+  import { Select } from "#lib/components/index.ts";
+  import type { TableRow } from "#lib/remotes/api.remote.ts";
 
   const fruits = [
     { label: "Apple", value: "apple" },

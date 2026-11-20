@@ -2,19 +2,19 @@
   import { marked } from "marked";
   import { goto } from "$app/navigation";
   import Char from "./char.svelte";
-  import { app } from "$lib/app/index.svelte";
-  import { chat } from "$lib/app/chat.svelte";
+  import { app } from "#lib/app/index.svelte.ts";
+  import { chat } from "#lib/app/chat.svelte.ts";
   import {
     getEditorBridge,
     hasEditorBridge,
     type ApplyMode,
-  } from "$lib/app/editor-bridge.svelte";
+  } from "#lib/app/editor-bridge.svelte.ts";
   // Only for the type: the steps themselves come from the server, already
   // validated by the shared plan parser.
-  import type { PlanStep } from "$lib/editor-ai-plan";
-  import { ROUTE_TITLES } from "$lib/app/titles";
-  import { sanitizeModelText, stripForeignChars } from "$lib/utils/ai-output";
-  import { version } from "$app/environment";
+  import type { PlanStep } from "#lib/editor-ai-plan.ts";
+  import { ROUTE_TITLES } from "#lib/app/titles.ts";
+  import { sanitizeModelText, stripForeignChars } from "#lib/utils/ai-output.ts";
+  import { version } from "$app/env";
   import pkg from "../../../package.json";
 
   const appVersion = pkg.version;

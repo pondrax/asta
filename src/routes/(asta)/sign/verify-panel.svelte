@@ -5,19 +5,19 @@
     verifySignatures,
     type SignatureInfo,
     type SignatureVerification,
-  } from "$lib/utils/pdf";
-  import { createId, fileToBase64 } from "$lib/utils";
-  import { createZip } from "$lib/utils/zip";
-  import { createXlsx, type CellValue } from "$lib/utils/xlsx";
-  import Preview from "$lib/components/preview.svelte";
-  import { env } from "$env/dynamic/public";
-  import { app } from "$lib/app/index.svelte";
-  import { verifyDocument } from "$lib/remotes/sign.remote";
+  } from "#lib/utils/pdf.ts";
+  import { createId, fileToBase64 } from "#lib/utils/index.ts";
+  import { createZip } from "#lib/utils/zip.ts";
+  import { createXlsx, type CellValue } from "#lib/utils/xlsx.ts";
+  import Preview from "#lib/components/preview.svelte";
+  import * as env from '$app/env/public';
+  import { app } from "#lib/app/index.svelte.ts";
+  import { verifyDocument } from "#lib/remotes/sign.remote.ts";
   import type {
     SignatureInformation,
     SignatureVerificationResponse,
     VerifyDate,
-  } from "$lib/types/verify";
+  } from "#lib/types/verify.ts";
 
   let {
     seed = [],

@@ -344,7 +344,7 @@ async function runBeIDLogin(page: Page): Promise<void> {
         const token = await generateTOTP();
         console.log(`[browser] Attempt ${attempt}: no username field but OTP input found — submitting TOTP`);
         await otpInput.fill(token);
-        await page.click(submitBtn);
+        await page.click(submitBtn, { noWaitAfter: true });
         await page.waitForLoadState("load", { timeout: 10_000 }).catch(() => { });
         if (!new URL(page.url()).hostname.includes(BEID_HOST)) {
           console.log("[browser] Login complete via OTP —", page.url());
@@ -389,7 +389,7 @@ async function runBeIDLogin(page: Page): Promise<void> {
     // 3. Password + submit
     await page.waitForSelector(pwSelectors, { timeout: 5_000 });
     await page.fill(pwSelectors, password);
-    await page.click(submitBtn);
+    await page.click(submitBtn, { noWaitAfter: true });
     await page.waitForLoadState("load", { timeout: 10_000 }).catch(() => { });
 
     // If the page already left BEID, login succeeded without OTP — done
@@ -408,7 +408,7 @@ async function runBeIDLogin(page: Page): Promise<void> {
       const token = await generateTOTP();
       console.log("[browser] Submitting TOTP:", token);
       await otpInput.fill(token);
-      await page.click(submitBtn);
+      await page.click(submitBtn, { noWaitAfter: true });
       await page.waitForLoadState("load", { timeout: 10_000 }).catch(() => { });
       console.log("[browser] Login complete —", page.url());
       return;

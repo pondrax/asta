@@ -355,7 +355,7 @@ interface LayoutResult {
 
 function autoFitFontSize(params: {
   text: string;
-  font: import('@libpdf/core').StandardFont;
+  font: FontInput;
   baseSize: number;
   baseImageSize: number;
   image: FooterImage | null;
@@ -396,7 +396,7 @@ function autoFitFontSize(params: {
 
 function drawFooterImage(
   page: import('@libpdf/core').PDFPage,
-  image: import('@libpdf/core').PdfImage,
+  image: PDFImage,
   x: number,
   y: number,
   width: number,
@@ -408,7 +408,7 @@ function drawFooterImage(
 interface DrawFooterTextParams {
   page: import('@libpdf/core').PDFPage;
   text: string;
-  font: import('@libpdf/core').StandardFont;
+  font: FontInput;
   layout: LayoutResult;
   image: FooterImage | null;
   marginX: number;
@@ -604,7 +604,7 @@ function drawPlacement(
   placement: Placement,
   pageHeight: number,
   pdf: import('@libpdf/core').PDF,
-  font: import('@libpdf/core').StandardFont
+  font: FontInput
 ): void {
   const kind = placement.kind || 'signature';
   const { originX, originY, width, height } = placement;
@@ -643,7 +643,7 @@ function drawSignaturePlacement(
 function drawTextPlacement(
   page: import('@libpdf/core').PDFPage,
   placement: Placement,
-  font: import('@libpdf/core').StandardFont,
+  font: FontInput,
   pageHeight: number,
   originX: number,
   originY: number
@@ -1159,7 +1159,7 @@ function parseCertificate(der: Uint8Array, nameHint?: string) {
     }
     if (!leaf) leaf = chain.at(-1);
 
-    const { subject, issuer, validFrom, validTo } = leaf;
+    const { subject, issuer, validFrom, validTo } = leaf!;
     return {
       cn: subject[OID_CN],
       org: subject[OID_ORG],
@@ -1807,7 +1807,7 @@ async function verifyEntry(
   }
 
   try {
-    const byteRange = extractByteRange(entry.byteRange, buf);
+    const byteRange = extractByteRange(entry.byteRange!, buf);
     if (!byteRange) {
       result.error = "ByteRange melewati akhir berkas.";
       return result;
@@ -1825,7 +1825,7 @@ async function verifyEntry(
     const docDigest = await computeDocDigest(digestName, signedBytes);
 
     const digestOk = verifyDigest(signer, docDigest, result);
-    const certs = parseCertificates(entry.contents);
+    const certs = parseCertificates(entry.contents!);
     const data = signer.signedAttrs?.bytes ?? signedBytes;
 
     const { signatureOk, signerCert } = await verifySignature(signer, certs, data, digestName);
@@ -1911,8 +1911,9 @@ async function parseSignatureData(
   return { signedBytes, signer, digestName };
 }
 
-function computeDocDigest(digestName: string, signedBytes: Uint8Array): Promise<Uint8Array> {
-  return crypto.subtle.digest(digestName, signedBytes as BufferSource) as Promise<Uint8Array>;
+async function computeDocDigest(digestName: string, signedBytes: Uint8Array): Promise<Uint8Array> {
+  const digest = await crypto.subtle.digest(digestName, signedBytes as BufferSource);
+  return new Uint8Array(digest);
 }
 
 function verifyDigest(signer: SignerInfo, docDigest: Uint8Array, result: SignatureVerification): boolean {

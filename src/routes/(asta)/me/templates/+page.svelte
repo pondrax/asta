@@ -4,9 +4,9 @@
     getData,
     saveData,
     type GetParams,
-  } from "$lib/remotes/api.remote";
-  import { Modal, Toolbar, Select } from "$lib/components";
-  import { d } from "$lib/utils";
+  } from "#lib/remotes/api.remote.ts";
+  import { Modal, Toolbar, Select } from "#lib/components/index.ts";
+  import { d } from "#lib/utils/index.ts";
 
   let query: GetParams<"templates"> = $state({
     table: "templates",

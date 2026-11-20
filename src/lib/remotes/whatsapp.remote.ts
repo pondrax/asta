@@ -1,5 +1,5 @@
 import { command } from "$app/server"
-import { env } from "$env/dynamic/private"
+import * as env from '$app/env/private';
 import { type } from "arktype"
 
 // export async function sendMessage({ recipient, payload }: { recipient: string, payload: any }) {

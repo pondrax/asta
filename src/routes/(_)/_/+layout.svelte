@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from "$app/state";
-  import Changelog from "$lib/components/changelog.svelte";
-  import { countUnseenFor, loadChangelogSeen } from "$lib/app/changelog.svelte";
+  import Changelog from "#lib/components/changelog.svelte";
+  import { countUnseenFor, loadChangelogSeen } from "#lib/app/changelog.svelte.ts";
   let { children, data } = $props();
 
   const navs = [

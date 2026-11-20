@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { checkUser, verifyTurnstile } from "$lib/remotes/sign.remote";
-  import Lottie from "$lib/components/lottie.svelte";
+  import { checkUser, verifyTurnstile } from "#lib/remotes/sign.remote.ts";
+  import Lottie from "#lib/components/lottie.svelte";
   import { fade, slide } from "svelte/transition";
   import { onMount } from "svelte";
   import { page } from "$app/state";
-  import { env } from "$env/dynamic/public";
+  import * as env from '$app/env/public';
 
   let identifier = $state(page.url.searchParams.get("identity") || "");
   let checking = $state(false);

@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { Chart } from "$lib/components";
-  import { getSurveyResults } from "$lib/remotes/survey.remote";
-  import { d } from "$lib/utils";
+  import { Chart } from "#lib/components/index.ts";
+  import { getSurveyResults } from "#lib/remotes/survey.remote.ts";
+  import { d } from "#lib/utils/index.ts";
 
   const results = getSurveyResults({});
   const data = $derived(results.current);

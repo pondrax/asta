@@ -1,5 +1,5 @@
 import { command, getRequestEvent, query } from "$app/server";
-import { db } from "$lib/server/db";
+import { db } from "#lib/server/db/index.ts";
 
 export const submitSurvey = command("unchecked", async (props: { email: string; rating: number; feedback: string }) => {
   await db.query.surveyResponses.upsert({

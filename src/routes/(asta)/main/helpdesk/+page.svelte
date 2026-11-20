@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { Modal, Toolbar } from "$lib/components";
-  import { d } from "$lib/utils";
-  import { getData, type GetParams } from "$lib/remotes/api.remote";
+  import { Modal, Toolbar } from "#lib/components/index.ts";
+  import { d } from "#lib/utils/index.ts";
+  import { getData, type GetParams } from "#lib/remotes/api.remote.ts";
   import {
     addComment,
     getAdminStats,
@@ -11,7 +11,7 @@
     completeEmailPrerequisite,
     markSignatureDone,
     sendAccountNotification,
-  } from "$lib/remotes/helpdesk.remote";
+  } from "#lib/remotes/helpdesk.remote.ts";
   import {
     STATUS_LABELS,
     STAGE_LABELS,
@@ -19,8 +19,8 @@
     SERVICE_LABELS,
     stageFlow,
     ticketNumber as toTicketNumber,
-  } from "$lib/app/helpdesk";
-  import type { HelpdeskStage, HelpdeskStatus } from "$lib/server/db/schema";
+  } from "#lib/app/helpdesk.ts";
+  import type { HelpdeskStage, HelpdeskStatus } from "#lib/server/db/schema.ts";
 
   const stats = getAdminStats({});
 

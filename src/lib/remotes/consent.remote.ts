@@ -4,14 +4,14 @@ import {
   CONSENT_COOKIE_OPTIONS,
   parseConsent,
   type ConsentChoice,
-} from "$lib/app/cookie-consent";
+} from "#lib/app/cookie-consent.ts";
 
 /**
  * Record the visitor's decision in a cookie.
  *
  * A cookie rather than `localStorage` so the choice survives a host/port
  * change and applies to every subdomain — see the note in
- * `$lib/app/cookie-consent`. The server writes it so it is available to the
+ * `#lib/app/cookie-consent.ts`. The server writes it so it is available to the
  * next request's `load`, which means the banner never has to flash in after
  * hydration.
  */

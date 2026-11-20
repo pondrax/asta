@@ -1,6 +1,6 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
-import { callGateway } from "$lib/server/plugins/ai-gateway";
+import { callGateway } from "#lib/server/plugins/ai-gateway.ts";
 
 const systemContent = `Anda adalah asisten AI untuk platform Tapak Astà.
 

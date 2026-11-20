@@ -1,5 +1,5 @@
-import { env } from '$env/dynamic/private';
-import { parseConsent, CONSENT_COOKIE } from '$lib/app/cookie-consent';
+import * as env from '$app/env/private';
+import { parseConsent, CONSENT_COOKIE } from '#lib/app/cookie-consent.ts';
 
 export async function load({ locals, url, cookies }) {
   if (!locals.user) {

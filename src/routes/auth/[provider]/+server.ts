@@ -1,4 +1,4 @@
-import { OAuth, type Providers } from '$lib/server/auth/oauth.js';
+import { OAuth, type Providers } from '#lib/server/auth/oauth.ts';
 import { redirect } from '@sveltejs/kit';
 export async function GET({ params }) {
   const provider = params.provider as keyof Providers;
@@ -6,5 +6,5 @@ export async function GET({ params }) {
   const oauth = new OAuth(provider);
   const { url } = oauth.getAuthUrl();
 
-  return redirect(302, url);
+  return redirect(302, url, { external: true });
 }

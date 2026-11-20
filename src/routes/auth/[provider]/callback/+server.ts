@@ -1,6 +1,6 @@
-import { OAuth, type Providers } from "$lib/server/auth/oauth";
-import { db } from "$lib/server/db/index.js";
-import { createJWT } from "$lib/server/plugins/jwt.js";
+import { OAuth, type Providers } from "#lib/server/auth/oauth.ts";
+import { db } from "#lib/server/db/index.ts";
+import { createJWT } from "#lib/server/plugins/jwt.ts";
 import { redirect } from "@sveltejs/kit";
 
 export async function GET({ params, url, cookies }) {

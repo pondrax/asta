@@ -1,7 +1,7 @@
 import { command, query } from "$app/server";
-import { db } from "$lib/server/db";
-import { signerProfiles } from "$lib/server/db/schema";
-import { createId } from "$lib/utils";
+import { db } from "#lib/server/db/index.ts";
+import { signerProfiles } from "#lib/server/db/schema.ts";
+import { createId } from "#lib/utils/index.ts";
 import { type } from "arktype";
 import { eq } from "drizzle-orm";
 

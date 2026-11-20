@@ -1,6 +1,6 @@
 import { command, getRequestEvent } from "$app/server";
-import { db } from "$lib/server/db";
-import { createJWT } from "$lib/server/plugins/jwt";
+import { db } from "#lib/server/db/index.ts";
+import { createJWT } from "#lib/server/plugins/jwt.ts";
 
 export const impersonate = command("unchecked", async (email: string) => {
   const user = await db.query.users.findFirst({

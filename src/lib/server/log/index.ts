@@ -1,5 +1,5 @@
-import { db } from '$lib/server/db';
-import { createId } from '$lib/utils';
+import { db } from '#lib/server/db/index.ts';
+import { createId } from '#lib/utils/index.ts';
 
 export class Logger {
   async log(level: 'info' | 'error' | 'warn', message: string, metadata?: Record<string, any>) {

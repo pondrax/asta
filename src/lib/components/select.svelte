@@ -9,7 +9,7 @@
     type TableName,
     type TableRow,
     type Tables,
-  } from "$lib/remotes/api.remote";
+  } from "#lib/remotes/api.remote.ts";
 
   // Strict inference for the item structure
   type Item = Table extends TableName ? NonNullable<TableRow<Table>> : T;

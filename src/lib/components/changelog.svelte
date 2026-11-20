@@ -18,8 +18,8 @@
     loadChangelogSeen,
     markChangelogSeen,
     markChangelogSeenMany,
-  } from "$lib/app/changelog.svelte";
-  import { d } from "$lib/utils";
+  } from "#lib/app/changelog.svelte.ts";
+  import { d } from "#lib/utils/index.ts";
 
   let {
     pathname = "/",

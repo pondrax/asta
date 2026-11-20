@@ -1,8 +1,11 @@
 import { paraglideVitePlugin } from '@inlang/paraglide-js';
+import adapter from '@sveltejs/adapter-auto';
+import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import devtoolsJson from 'vite-plugin-devtools-json';
 import tailwindcss from '@tailwindcss/vite';
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { defineConfig } from 'vitest/config';
 import { sveltekit } from '@sveltejs/kit/vite';
 import type { Plugin } from 'vite';
@@ -34,7 +37,18 @@ function pdfWorkerRaw(): Plugin {
 export default defineConfig({
 	plugins: [
 		tailwindcss(),
-		sveltekit(),
+		sveltekit({
+			preprocess: vitePreprocess(),
+			adapter: adapter(),
+			experimental: { remoteFunctions: true },
+			compilerOptions: { experimental: { async: true } },
+			csrf: { trustedOrigins: ['*'] },
+			version: {
+				name: execFileSync('git', ['rev-parse', 'HEAD'], { env: { ...process.env, PATH: '/usr/bin:/bin' } }).toString().trim(),
+				pollInterval: 60_000
+			},
+			inspector: { toggleKeyCombo: 'alt-x' }
+		}),
 		pdfWorkerRaw(),
 		devtoolsJson(),
 		paraglideVitePlugin({
