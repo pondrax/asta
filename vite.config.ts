@@ -1,5 +1,6 @@
 import { paraglideVitePlugin } from '@inlang/paraglide-js';
-import adapter from '@sveltejs/adapter-auto';
+import autoAdapter from '@sveltejs/adapter-auto';
+import bunAdapter from '@sveltejs/adapter-bun';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import devtoolsJson from 'vite-plugin-devtools-json';
 import tailwindcss from '@tailwindcss/vite';
@@ -39,7 +40,8 @@ export default defineConfig({
 		tailwindcss(),
 		sveltekit({
 			preprocess: vitePreprocess(),
-			adapter: adapter(),
+			// adapter-auto has no Bun detection; local Bun builds must ask for it explicitly.
+			adapter: process.versions.bun && !process.env.VERCEL ? bunAdapter() : autoAdapter(),
 			experimental: { remoteFunctions: true },
 			compilerOptions: { experimental: { async: true } },
 			csrf: { trustedOrigins: ['*'] },

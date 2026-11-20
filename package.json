@@ -1,17 +1,17 @@
 {
   "name": "asta",
   "private": true,
-  "version": "2.1.96",
+  "version": "2.1.97",
   "type": "module",
   "imports": {
     "#lib": "./src/lib/index.ts",
     "#lib/*": "./src/lib/*"
   },
   "scripts": {
-    "start": "bun ./build/index.js",
+    "start": "bun ./build",
     "serve": "pm2 delete asta || true && pm2 start bun --name asta -- run start",
     "dev": "NODE_TLS_REJECT_UNAUTHORIZED=0 vite dev",
-    "build": "bun run changelog:build && vite build && ./fix.sh",
+    "build": "bun run changelog:build && bun --bun vite build && ./fix.sh",
     "postinstall": "node src/scripts/patch-playwright.mjs || echo 'playwright patch skipped'",
     "preview": "vite preview",
     "prepare": "svelte-kit sync || echo ''; bun src/scripts/install-git-hooks.ts || echo ''",
@@ -34,13 +34,13 @@
   },
   "devDependencies": {
     "@inlang/paraglide-js": "^2.23.2",
-    "@types/node": "^26.6.6",
     "@paralleldrive/cuid2": "^3.3.0",
     "@sveltejs/adapter-auto": "^8.0.1",
-    "@sveltejs/adapter-node": "^5.5.7",
+    "@sveltejs/adapter-bun": "^1.0.1",
     "@sveltejs/kit": "^3.4.0",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^26.6.6",
     "@types/node-cron": "^3.0.11",
     "daisyui": "^5.7.16",
     "drizzle-kit": "1.0.0-rc.4",
