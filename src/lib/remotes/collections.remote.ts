@@ -35,7 +35,6 @@ export const getCollections = query('unchecked', async () => {
     const table = (schema as any)[name];
     const columns = table ? getColumns(table) : {};
 
-    // console.log(table);
     return {
       name,
       columns: Object.entries(columns).map(([key, col]: [string, any]) => ({

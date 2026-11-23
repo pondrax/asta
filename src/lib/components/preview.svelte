@@ -82,7 +82,7 @@
 </script>
 
 <script lang="ts">
-  import { onMount, onDestroy, tick, type Snippet } from "svelte";
+  import { onMount, onDestroy, tick, untrack, type Snippet } from "svelte";
 
   let {
     file,
@@ -173,7 +173,7 @@
   const ZOOM_STEP = 0.25;
 
   let zoom = $state(
-    Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, initialZoom)),
+    untrack(() => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, initialZoom))),
   );
   let zoomMenuOpen = $state(false);
   let currentFitMode = $state<"width" | "height" | "content" | null>("content");
@@ -271,7 +271,6 @@
   // React when file changes
   $effect(() => {
     if (file) {
-      // console.log("file", file, pdfjsLib, hasSignature);
       currentFile = file;
       passwordCancelled = false;
       // Keep the current zoom: the parent preserves it when a document is
@@ -333,7 +332,6 @@
     cleanup();
     loadError = null;
 
-    console.log("hasSignature", hasSignature);
     const arrayBuffer = await f.arrayBuffer();
 
     // Try loading without password first
@@ -1029,7 +1027,6 @@
     ctx.imageSmoothingQuality = "high";
 
     wrap.appendChild(canvas);
-    // console.log("hasSignature", hasSignature);
     if (!hasSignature) {
       // DRAFT watermark
       const watermark = document.createElement("div");

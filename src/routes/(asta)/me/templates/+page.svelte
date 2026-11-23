@@ -66,10 +66,9 @@
   <form
     {...delData.enhance(async (form) => {
       try {
-        const data = await form.submit();
+        await form.submit();
         forms.del = false;
         selections = [];
-        console.log(data);
       } catch (e) {
         console.error(e);
       }
@@ -131,11 +130,10 @@
     <form
       {...saveData.enhance(async (form) => {
         try {
-          const data = await form.submit();
+          await form.submit();
           forms.edit = false;
           templateFile = null;
           records.refresh();
-          console.log(data);
         } catch (e) {
           console.error(e);
         }

@@ -9,12 +9,8 @@ export async function GET({ params, url, cookies }) {
   const code = url.searchParams.get('code');
   const oauth = new OAuth(provider);
 
-  // console.log('Code:', code);
   const token = await oauth.getAccessToken(code as string);
-  // console.log('Token:', token);
   const user = await oauth.getUser(token);
-  // console.log('User:', user);
-
 
   const jwt = await createJWT(user);
   cookies.set('auth-token', jwt, {
@@ -30,7 +26,4 @@ export async function GET({ params, url, cookies }) {
   })
 
   return redirect(302, '/');
-  // return json({
-  //   user
-  // })
 }

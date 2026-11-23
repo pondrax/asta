@@ -1049,7 +1049,7 @@
                 ? 'bg-primary/10 text-primary'
                 : ''}"
               aria-label={item.label}
-              aria-pressed={item.value === wordAlign}
+              aria-checked={item.value === wordAlign}
               role="menuitemradio"
               onclick={() => pickAlignment(item.value)}
             >

@@ -29,7 +29,6 @@
     onSign,
     onAddVisual,
     useEmail = $bindable(true),
-    onIdentityResolved,
   } = $props();
 
   let visual = $state<"image" | "qr" | "box" | "draw">("box");

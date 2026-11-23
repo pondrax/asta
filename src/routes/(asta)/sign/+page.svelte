@@ -23,9 +23,8 @@
     type PreviewState,
   } from "#lib/components/preview.svelte";
   import Upload from "./upload.svelte";
-  import DocxEditorView, { type DocxEditorViewHandle } from "./docx-editor-view.svelte";
+  import type { DocxEditorViewHandle } from "./docx-editor-view.svelte";
   import type { DocxSelectionFormatting } from "#lib/docx-editor/editor-logic.ts";
-  import { AUTO_ZOOM_MODE, FIT_WIDTH_ZOOM_MODE } from "@docx-editor.dev/core/editor";
   import Signature from "./signature.svelte";
   import Template from "../templates/template.svelte";
   import Toolbar, { type SignTool } from "./toolbar.svelte";
@@ -70,6 +69,28 @@
   let docxFiles: Record<string, File> = $state({});
   let isEditingDocx = $state(false);
   let docxEditorCtl: DocxEditorViewHandle | null = $state(null);
+
+  // The DOCX editor pulls in the whole editor core (and its AI executor). Load
+  // it on first use so /sign does not pay for it when only PDFs are handled.
+  type DocxZoom = Pick<
+    typeof import("@docx-editor.dev/core/editor"),
+    "AUTO_ZOOM_MODE" | "FIT_WIDTH_ZOOM_MODE"
+  >;
+  let DocxEditorView = $state<
+    typeof import("./docx-editor-view.svelte").default | null
+  >(null);
+  let docxZoom: DocxZoom | null = null;
+
+  async function ensureDocxEditor() {
+    if (DocxEditorView) return;
+    const [view, core] = await Promise.all([
+      import("./docx-editor-view.svelte"),
+      import("@docx-editor.dev/core/editor")
+    ]);
+    DocxEditorView = view.default;
+    docxZoom = core;
+  }
+
   let isSavingDocx = $state(false);
   let editingDocIndex = $state<string | null>(null);
   let docxEditFile = $state<File | null>(null);
@@ -152,9 +173,9 @@
     currentFitMode = mode;
     if (isEditingDocx && docxEditorCtl?.handle?.editor) {
       if (mode === "width") {
-        docxEditorCtl.handle.editor.setZoomMode(FIT_WIDTH_ZOOM_MODE);
+        docxEditorCtl.handle.editor.setZoomMode(docxZoom!.FIT_WIDTH_ZOOM_MODE);
       } else {
-        docxEditorCtl.handle.editor.setZoomMode(AUTO_ZOOM_MODE);
+        docxEditorCtl.handle.editor.setZoomMode(docxZoom!.AUTO_ZOOM_MODE);
       }
       previewState.zoom = docxEditorCtl.handle.editor.snapshot().zoom;
     } else {
@@ -1690,7 +1711,11 @@
     const lastShown = localStorage.getItem("tour-sign-last-shown");
     const now = Date.now();
     if (!embedded && (!lastShown || now - Number(lastShown) > 86400000)) {
-      setTimeout(() => (app.showTour = true), 1000);
+      setTimeout(() => {
+        // A skip may have happened while this was pending — don't re-open it.
+        const shown = Number(localStorage.getItem("tour-sign-last-shown") || 0);
+        if (Date.now() - shown > 86400000) app.showTour = true;
+      }, 1000);
     }
   });
 
@@ -1951,6 +1976,7 @@
   }
 
   async function createNewWordDocument() {
+    await ensureDocxEditor();
     docxEditFile = null;
     isNewDocx = true;
     editingDocIndex = "";
@@ -2577,6 +2603,16 @@
     ];
   }
 
+  /** Close the intro before any cleanup, so a cleanup failure can't revive it. */
+  function finishTour() {
+    app.showTour = false;
+    localStorage.setItem("tour-sign-last-shown", Date.now().toString());
+    forms.sign = undefined;
+    forms.verify = undefined;
+    signResults = [];
+    removeTourDemo();
+  }
+
   async function openSign() {
     signResults = [];
     timer = 0;
@@ -2815,6 +2851,7 @@
               if (isEditingDocx) {
                 openSaveDocxModal("close");
               } else {
+                await ensureDocxEditor();
                 zoomHandoff = previewState.zoom;
                 editingDocIndex = activeIndex;
                 docxEditFile = activeDocxFile;
@@ -3109,7 +3146,7 @@
         </div>
       {/if}
 
-      {#if isEditingDocx}
+      {#if isEditingDocx && DocxEditorView}
         <div class="flex-1 min-h-0 relative {armed ? 'cursor-crosshair' : ''}">
           <DocxEditorView
             file={docxEditFile}
@@ -3514,25 +3551,7 @@
 </div>
 
 {#if app.showTour}
-  <Tour
-    steps={tourSteps}
-    onComplete={() => {
-      forms.sign = undefined;
-      forms.verify = undefined;
-      signResults = [];
-      removeTourDemo();
-      app.showTour = false;
-      localStorage.setItem("tour-sign-last-shown", Date.now().toString());
-    }}
-    onSkip={() => {
-      forms.sign = undefined;
-      forms.verify = undefined;
-      signResults = [];
-      removeTourDemo();
-      app.showTour = false;
-      localStorage.setItem("tour-sign-last-shown", Date.now().toString());
-    }}
-  />
+  <Tour steps={tourSteps} onComplete={finishTour} onSkip={finishTour} />
 {/if}
 
 <Modal

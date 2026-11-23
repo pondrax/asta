@@ -19,14 +19,11 @@
   // Server selection: dev | prod | manual
   let serverTarget = $state<"dev" | "prod" | "manual">("dev");
   let manualServerUrl = $state("");
-  const devUrl = data?.defaultDevUrl || "https://dev-esign.mojokertokota.go.id";
-  const prodUrl = data?.defaultProdUrl || "https://esign.mojokertokota.go.id";
-
   const effectiveServerUrl = $derived(
     serverTarget === "dev"
-      ? devUrl
+      ? (data?.defaultDevUrl || "https://dev-esign.mojokertokota.go.id")
       : serverTarget === "prod"
-      ? prodUrl
+      ? (data?.defaultProdUrl || "https://esign.mojokertokota.go.id")
       : manualServerUrl || "https://"
   );
 
@@ -1099,10 +1096,11 @@ console.log(data);`;
       {#if convertMode === "encode"}
         <div class="space-y-3">
           <div class="space-y-1">
-            <label class="text-xs font-semibold text-base-content/70">
+            <label for="encode-file" class="text-xs font-semibold text-base-content/70">
               Pilih file dokumen PDF atau gambar (PNG/JPG spesimen TTD):
             </label>
             <input
+              id="encode-file"
               type="file"
               accept=".pdf,image/*"
               class="file-input file-input-bordered file-input-sm w-full font-mono text-xs"
@@ -1135,10 +1133,11 @@ console.log(data);`;
       {:else}
         <div class="space-y-3">
           <div class="space-y-1">
-            <label class="text-xs font-semibold text-base-content/70">
+            <label for="decode-base64" class="text-xs font-semibold text-base-content/70">
               Tempelkan string Base64 (PDF atau Gambar):
             </label>
             <textarea
+              id="decode-base64"
               class="textarea textarea-bordered font-mono text-[10px] w-full h-28 bg-base-100"
               placeholder="Tempel string base64 di sini..."
               bind:value={decodeInputBase64}

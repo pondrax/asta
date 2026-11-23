@@ -2,7 +2,6 @@ import { FileStorage } from '#lib/server/storage/index.ts';
 import { json } from '@sveltejs/kit';
 
 export async function GET({ params }) {
-  console.log(params.uri);
   try {
 
     // Get your buffer from storage
@@ -14,7 +13,7 @@ export async function GET({ params }) {
     const extension = originalName.split('.').pop()?.toLowerCase() || params.uri.split('.').shift()?.toLowerCase();
     const contentType = getContentType(extension);
 
-    const cleanName = params.uri.split('/').pop()?.replace(/\.[a-z0-9]{4}\.enc$/, '').replace(/\.enc$/, '') || 'document.pdf';
+    const cleanName = originalName || 'document.pdf';
 
     return new Response(arrayBuffer, {
       headers: {

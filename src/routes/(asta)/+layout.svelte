@@ -11,7 +11,6 @@
   import CookieConsent from "#lib/components/cookie-consent.svelte";
   import { getPageTitle } from "#lib/app/titles.ts";
   import {
-    changelogSeen,
     countUnseenFor,
     loadChangelogSeen,
   } from "#lib/app/changelog.svelte.ts";

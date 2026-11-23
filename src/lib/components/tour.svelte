@@ -285,7 +285,9 @@
   };
 
   const back = () => { if (currentStep > 0) currentStep--; };
-  const skip = () => { isVisible = false; onSkip(); };
+  // Notify the parent first: any cleanup it does must not be able to leave the
+  // tour mounted if something in there throws.
+  const skip = () => { onSkip(); isVisible = false; };
 
   const cardStyle = $derived.by(() => {
     if (cardPos.placement === "center") return "top: 50%; left: 50%; transform: translate(-50%, -50%);";
@@ -297,6 +299,12 @@
   const hw = $derived(rect.width + PAD * 2);
   const hh = $derived(rect.height + PAD * 2);
 </script>
+
+<svelte:window
+  onkeydown={(e) => {
+    if (e.key === "Escape") skip();
+  }}
+/>
 
 {#if isVisible && activeStep}
   <div
@@ -342,7 +350,7 @@
             <span class="badge badge-sm badge-outline opacity-50 whitespace-nowrap shrink-0">{currentStep + 1} / {steps.length}</span>
           </div>
           <p class="text-sm opacity-80 leading-relaxed">{activeStep.content}</p>
-          <div class="card-actions justify-between mt-6 items-center">
+          <div class="card-actions relative z-10 justify-between mt-6 items-center">
             <button
               type="button"
               class="btn btn-ghost btn-xs text-error pointer-events-auto"

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
   import {
     getSignatures,
     verifySignatures,
@@ -68,12 +68,13 @@
     };
   }
 
-  let items = $state<Item[]>(seed.map(toItem));
+  const initialItems = untrack(() => seed.map(toItem));
+  let items = $state<Item[]>(initialItems);
   let selected = $state<Record<string, boolean>>(
-    Object.fromEntries(items.map((item) => [item.id, true])),
+    Object.fromEntries(initialItems.map((item) => [item.id, true])),
   );
   let fileInput: HTMLInputElement | null = $state(null);
-  let activeId = $state(items[0]?.id ?? "");
+  let activeId = $state(initialItems[0]?.id ?? "");
 
   const activeFile = $derived(
     items.find((item) => item.id === activeId)?.file ?? null,
@@ -563,7 +564,15 @@
           class="card card-border bg-base-100 cursor-pointer {activeId === item.id
             ? 'ring-2 ring-primary'
             : ''}"
+          role="button"
+          tabindex="0"
           onclick={() => (activeId = item.id)}
+          onkeydown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              activeId = item.id;
+            }
+          }}
         >
           <div class="card-body p-2.5 gap-1.5">
             <div class="flex items-start justify-between gap-2">

@@ -168,9 +168,8 @@
   <form
     {...delData.enhance(async (form) => {
       try {
-        const data = await form.submit();
+        await form.submit();
         forms.del = false;
-        console.log(data);
       } catch (e) {
         console.error(e);
       }

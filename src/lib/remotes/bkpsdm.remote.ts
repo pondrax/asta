@@ -97,7 +97,6 @@ async function fetchAsnByNip(nip: string): Promise<BkpsdmAsn | null> {
     const body = await res.json();
     const data = body?.data ?? body;
     const first = Array.isArray(data) ? data[0] : data;
-    console.log(first);
     return first ?? null;
   } catch {
     return null;

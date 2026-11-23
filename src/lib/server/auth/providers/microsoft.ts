@@ -30,7 +30,6 @@ export default class MicrosoftOauth extends OAuthProvider {
       })
     });
     const data = await response.json();
-    // console.log(data)
     if (!data.access_token) throw new Error("No access token");
     return data.access_token;
   }
@@ -39,7 +38,6 @@ export default class MicrosoftOauth extends OAuthProvider {
     const user = await fetch("https://graph.microsoft.com/beta/me", {
       headers: { Authorization: `Bearer ${accessToken}` }
     }).then(res => res.json());
-    // console.log(user)
     return {
       username: user.displayName,
       email: user.mail || user.userPrincipalName,

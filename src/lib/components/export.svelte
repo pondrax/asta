@@ -44,8 +44,7 @@
     if (exportAll) {
       const { limit, offset, ...allQuery } = query;
       //@ts-ignore - getData accepts dynamic table query types
-      const allData = await getData(allQuery);
-      data = allData?.data ?? [];
+      data = (await getData(allQuery))?.data ?? [];
     }
 
     if (mapper?.export) {

@@ -10,7 +10,14 @@ import { execFileSync } from 'node:child_process';
 import { defineConfig } from 'vitest/config';
 import { sveltekit } from '@sveltejs/kit/vite';
 import type { Plugin } from 'vite';
-// import { searchForWorkspaceRoot } from 'vite';
+
+// Third-party build noise that is safe to ignore: docx-editor's Node-only dynamic
+// imports, lottie-web's eval, and the oversized docx chunk.
+const IGNORED_BUILD_WARNINGS = [
+	'has been externalized for browser compatibility',
+	'Use of direct `eval`',
+	'Some chunks are larger than'
+];
 
 // pdf.js serves its worker through an unqueryable URL and Vite transforms it.
 // pdf.worker.min.mjs contains a non-literal dynamic import, so import analysis
@@ -84,6 +91,12 @@ export default defineConfig({
 	},
 	build: {
 		assetsInlineLimit: 0,
-		chunkSizeWarningLimit: 1000 // in kB, e.g., 1000 kB
+		chunkSizeWarningLimit: 1000, // in kB, e.g., 1000 kB
+		rolldownOptions: {
+			onLog(level, log, defaultHandler) {
+				if (level === 'warn' && IGNORED_BUILD_WARNINGS.some((text) => log.message.includes(text))) return;
+				defaultHandler(level, log);
+			}
+		}
 	}
 });
