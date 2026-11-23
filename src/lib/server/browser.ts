@@ -148,6 +148,27 @@ async function getOrCreateBrowser(): Promise<{ browser: Browser; mode: string }>
       sharedBrowser = null;
     }
     try {
+      // Some CDP servers advertise 0.0.0.0 in webSocketDebuggerUrl. Playwright
+      // uses it verbatim, so rewrite the wildcard host to the configured one.
+      const endpoint = new URL(remoteUrl);
+      const versionRes = await fetch(new URL('/json/version', endpoint), {
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!versionRes.ok) {
+        throw new Error(`CDP /json/version returned ${versionRes.status}`);
+      }
+      const { webSocketDebuggerUrl } = await versionRes.json() as {
+        webSocketDebuggerUrl?: string;
+      };
+      if (!webSocketDebuggerUrl) {
+        throw new Error('CDP /json/version has no webSocketDebuggerUrl');
+      }
+      const wsUrl = new URL(webSocketDebuggerUrl);
+      if (wsUrl.hostname === '0.0.0.0' || wsUrl.hostname === '[::]' || wsUrl.hostname === '::') {
+        wsUrl.hostname = endpoint.hostname;
+        wsUrl.port = endpoint.port;
+      }
+
       // connectOverCDP can hang forever at the WS handshake stage (no effective
       // timeout) when the remote browser is unreachable or the network drops
       // packets. Wrap it in a hard deadline so the cron never stalls.
@@ -157,7 +178,7 @@ async function getOrCreateBrowser(): Promise<{ browser: Browser; mode: string }>
           15_000,
         );
         chromium
-          .connectOverCDP(remoteUrl, { timeout: 15_000 })
+          .connectOverCDP(wsUrl.toString(), { timeout: 15_000 })
           .then((b) => { clearTimeout(timer); resolve(b); })
           .catch((e) => { clearTimeout(timer); reject(e); });
       });

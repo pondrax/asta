@@ -2421,6 +2421,17 @@ export const GLOBAL_CHANGELOG: PageChangelog =
     page: "Tapak Astà",
     entries: [
       {
+        id: "rewrite-wildcard-cdp-websocket-host-2026-11-23",
+        date: "2026-11-23",
+        title: "Rewrite wildcard CDP websocket host",
+        changes: [
+          {
+            kind: "fixed",
+            text: "rewrite wildcard CDP websocket host",
+          },
+        ],
+      },
+      {
         id: "register-missing-private-env-vars-2026-11-23",
         date: "2026-11-23",
         title: "Register missing private env vars",

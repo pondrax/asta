@@ -80,6 +80,15 @@
 
 ## 2026-11-23
 
+### Rewrite wildcard CDP websocket host
+
+<!-- id: rewrite-wildcard-cdp-websocket-host-2026-11-23 -->
+
+Halaman: \* - Tapak Astà
+Audiens: Tamu
+
+- **Perbaikan** - rewrite wildcard CDP websocket host
+
 ### Register missing private env vars
 
 <!-- id: register-missing-private-env-vars-2026-11-23 -->
