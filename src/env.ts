@@ -22,6 +22,12 @@ export const variables = defineEnvVars({
 	BLOB_READ_WRITE_TOKEN: {
 		schema: (value) => value ?? ''
 	},
+	BROWSER_EXECUTABLE_PATH: {
+		schema: (value) => value ?? ''
+	},
+	BROWSER_REMOTE_DEBUG_URL: {
+		schema: (value) => value ?? ''
+	},
 	DATABASE_URL: {
 		schema: (value) => value ?? ''
 	},
@@ -73,6 +79,21 @@ export const variables = defineEnvVars({
 	OPENID_USERINFO_ENDPOINT: {
 		schema: (value) => value ?? ''
 	},
+	ORIGIN: {
+		schema: (value) => value ?? ''
+	},
+	PORTAL_BSRE_PASSWORD: {
+		schema: (value) => value ?? ''
+	},
+	PORTAL_BSRE_USERNAME: {
+		schema: (value) => value ?? ''
+	},
+	PORTAL_BSRE_USER_IP: {
+		schema: (value) => value ?? ''
+	},
+	PORTAL_OTP_AUTH: {
+		schema: (value) => value ?? ''
+	},
 	PUBLIC_MAX_CONCURRENT_REQUESTS: {
 		public: true,
 		schema: (value) => value ?? ''
@@ -118,6 +139,9 @@ export const variables = defineEnvVars({
 		schema: (value) => value ?? ''
 	},
 	TURNSTILE_SECRET_KEY: {
+		schema: (value) => value ?? ''
+	},
+	WHATSAPP_ADMIN: {
 		schema: (value) => value ?? ''
 	},
 	WHATSAPP_AUTH: {

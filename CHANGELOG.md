@@ -78,6 +78,17 @@
   Admin     admin only; `hooks.server.ts` 403s every other role on `/main*`
 -->
 
+## 2026-11-23
+
+### Register missing private env vars
+
+<!-- id: register-missing-private-env-vars-2026-11-23 -->
+
+Halaman: \* - Tapak Astà
+Audiens: Tamu
+
+- **Perbaikan** - register missing private env vars
+
 ## 2026-11-13
 
 ### Fitur Panduan & API Playground Integrasi BSrE

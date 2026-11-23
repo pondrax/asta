@@ -2421,6 +2421,17 @@ export const GLOBAL_CHANGELOG: PageChangelog =
     page: "Tapak Astà",
     entries: [
       {
+        id: "register-missing-private-env-vars-2026-11-23",
+        date: "2026-11-23",
+        title: "Register missing private env vars",
+        changes: [
+          {
+            kind: "fixed",
+            text: "register missing private env vars",
+          },
+        ],
+      },
+      {
         id: "resolve-sonar-issues-and-regex-backtracking-vulner-2026-10-27",
         date: "2026-10-27",
         title: "Resolve sonar issues and regex backtracking vulnerabilities",
